@@ -1,0 +1,66 @@
+<?php $title = $display ? __('display.edit_title') : __('display.create_title'); require __DIR__ . '/../layouts/admin_header.php'; ?>
+<h1><?= e($title) ?></h1>
+<?php if ($error): ?><div class="alert error"><?= e($error) ?></div><?php endif; ?>
+<div class="display-form-layout">
+    <div class="card">
+        <form method="post" action="<?= e($display ? url('/admin/displays/' . $display['id'] . '/edit') : url('/admin/displays/create')) ?>" class="form-grid">
+            <?= csrf_field() ?>
+            <label><?= e(__('common.name')) ?><input type="text" name="name" value="<?= e($display['name'] ?? '') ?>" required></label>
+            <label><?= e(__('display.human_url')) ?><input type="text" name="slug" value="<?= e($display['slug'] ?? '') ?>" required></label>
+            <label><?= e(__('channel.transition_effect')) ?>
+                <select name="transition_effect">
+                    <?php foreach (['fade','slide-left','slide-right','slide-up','slide-down','zoom','flip','blur','none'] as $fx): ?>
+                        <option value="<?= e($fx) ?>" <?= selected($display['transition_effect'] ?? 'fade', $fx) ?>><?= e(enum_label('effects', $fx, $fx)) ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </label>
+            <label><?= e(__('common.orientation')) ?>
+                <select name="orientation">
+                    <option value="landscape" <?= selected($display['orientation'] ?? 'landscape', 'landscape') ?>><?= e(enum_label('orientations', 'landscape')) ?></option>
+                    <option value="vertical" <?= selected($display['orientation'] ?? 'landscape', 'vertical') ?>><?= e(enum_label('orientations', 'vertical')) ?></option>
+                </select>
+            </label>
+            <label><?= e(__('display.default_slide_duration')) ?><input type="number" min="1" name="slide_duration_seconds" value="<?= e((string)($display['slide_duration_seconds'] ?? 8)) ?>" required></label>
+            <label><?= e(__('common.timezone')) ?><input type="text" name="timezone" value="<?= e($display['timezone'] ?? 'UTC') ?>" required></label>
+            <label><?= e(__('common.sort_order')) ?><input type="number" min="0" name="sort_order" value="<?= e((string)($display['sort_order'] ?? 0)) ?>"></label>
+            <label class="full-width"><?= e(__('common.description')) ?><textarea name="description" rows="4"><?= e($display['description'] ?? '') ?></textarea></label>
+            <label class="checkbox-row"><input type="checkbox" name="is_active" value="1" <?= checked($display['is_active'] ?? 1) ?>> <?= e(__('common.active')) ?></label>
+            <div class="form-actions"><button type="submit"><?= e(__('common.save')) ?></button><a class="button secondary" href="<?= e(url('/admin/displays')) ?>"><?= e(__('common.cancel')) ?></a></div>
+        </form>
+    </div>
+
+    <aside class="card heartbeat-sidebar">
+        <h2><?= e(__('display.heartbeat_title')) ?></h2>
+        <?php if (!$display): ?>
+            <p class="muted"><?= e(__('display.heartbeat_save_first')) ?></p>
+        <?php elseif (!$heartbeat): ?>
+            <p class="muted"><?= e(__('display.heartbeat_none')) ?></p>
+        <?php else: ?>
+            <?php $isOnline = ((strtotime((string)$heartbeat['last_seen_at']) ?: 0) >= (time() - 1800)); ?>
+            <dl class="meta-list">
+                <div><dt><?= e(__('common.status')) ?></dt><dd><span class="status-dot status-<?= e($isOnline ? 'online' : 'offline') ?>"></span> <?= e($isOnline ? __('common.online') : __('common.offline')) ?></dd></div>
+                <div><dt><?= e(__('display.current_channel')) ?></dt><dd><?= e($heartbeat['current_channel_name'] ?: __('common.unknown')) ?></dd></div>
+                <div><dt><?= e(__('display.last_seen')) ?></dt><dd><?= e($heartbeat['last_seen_at'] ?: __('common.never')) ?></dd></div>
+                <div><dt><?= e(__('common.client_ip')) ?></dt><dd><?= e($heartbeat['last_seen_ip'] ?: __('common.unknown')) ?></dd></div>
+                <div><dt><?= e(__('common.browser')) ?></dt><dd><?= e(trim(($heartbeat['browser_name'] ?: __('common.unknown')) . ' ' . ($heartbeat['browser_version'] ?: ''))) ?></dd></div>
+                <div><dt><?= e(__('common.operating_system')) ?></dt><dd><?= e(trim(($heartbeat['os_name'] ?: __('common.unknown')) . ' ' . ($heartbeat['os_version'] ?: ''))) ?></dd></div>
+                <div><dt><?= e(__('common.viewport')) ?></dt><dd><?= e(($heartbeat['viewport_width'] ?: '?') . ' × ' . ($heartbeat['viewport_height'] ?: '?')) ?></dd></div>
+                <div><dt><?= e(__('common.screen_resolution')) ?></dt><dd><?= e(($heartbeat['screen_width'] ?: '?') . ' × ' . ($heartbeat['screen_height'] ?: '?')) ?></dd></div>
+                <div><dt><?= e(__('display.available_screen')) ?></dt><dd><?= e(($heartbeat['avail_screen_width'] ?: '?') . ' × ' . ($heartbeat['avail_screen_height'] ?: '?')) ?></dd></div>
+                <div><dt><?= e(__('display.screen_orientation')) ?></dt><dd><?= e($heartbeat['screen_orientation'] ?: __('common.unknown')) ?></dd></div>
+                <div><dt><?= e(__('display.pixel_ratio')) ?></dt><dd><?= e($heartbeat['device_pixel_ratio'] !== null ? (string)$heartbeat['device_pixel_ratio'] : __('common.unknown')) ?></dd></div>
+                <div><dt><?= e(__('display.color_depth')) ?></dt><dd><?= e($heartbeat['color_depth'] !== null ? (string)$heartbeat['color_depth'] . ' bit' : __('common.unknown')) ?></dd></div>
+                <div><dt><?= e(__('common.platform')) ?></dt><dd><?= e($heartbeat['platform'] ?: __('common.unknown')) ?></dd></div>
+                <div><dt><?= e(__('common.language')) ?></dt><dd><?= e($heartbeat['language'] ?: __('common.unknown')) ?></dd></div>
+                <div><dt><?= e(__('display.client_timezone')) ?></dt><dd><?= e($heartbeat['client_timezone'] ?: __('common.unknown')) ?></dd></div>
+                <div><dt><?= e(__('display.cpu_threads')) ?></dt><dd><?= e($heartbeat['hardware_concurrency'] !== null ? (string)$heartbeat['hardware_concurrency'] : __('common.unknown')) ?></dd></div>
+                <div><dt><?= e(__('display.device_memory')) ?></dt><dd><?= e($heartbeat['device_memory_gb'] !== null ? (string)$heartbeat['device_memory_gb'] . ' GB' : __('common.unknown')) ?></dd></div>
+                <div><dt><?= e(__('display.touch_points')) ?></dt><dd><?= e($heartbeat['max_touch_points'] !== null ? (string)$heartbeat['max_touch_points'] : __('common.unknown')) ?></dd></div>
+                <div><dt><?= e(__('display.navigator_online')) ?></dt><dd><?= e($heartbeat['is_online'] === null ? __('common.unknown') : ($heartbeat['is_online'] ? __('common.yes') : __('common.no'))) ?></dd></div>
+                <div><dt><?= e(__('display.cookies_enabled')) ?></dt><dd><?= e($heartbeat['cookies_enabled'] === null ? __('common.unknown') : ($heartbeat['cookies_enabled'] ? __('common.yes') : __('common.no'))) ?></dd></div>
+                <div><dt><?= e(__('display.user_agent')) ?></dt><dd class="mono"><?= e($heartbeat['user_agent'] ?: __('common.unknown')) ?></dd></div>
+            </dl>
+        <?php endif; ?>
+    </aside>
+</div>
+<?php require __DIR__ . '/../layouts/admin_footer.php'; ?>

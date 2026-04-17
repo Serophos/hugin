@@ -1,0 +1,43 @@
+.plugin-screen-meta {
+    width: 100%;
+    height: 100%;
+    display: grid;
+    place-items: center;
+    background: radial-gradient(circle at top, rgba(37,99,235,0.35), rgba(15,23,42,0.96));
+    color: #fff;
+}
+.plugin-screen-meta__inner {
+    width: min(92vw, 1100px);
+    padding: 3rem;
+    border-radius: 24px;
+    background: rgba(15, 23, 42, 0.72);
+    box-shadow: 0 24px 70px rgba(0,0,0,0.35);
+}
+.plugin-screen-meta__inner h2 {
+    margin: 0 0 0.75rem;
+    font-size: clamp(2rem, 3vw, 3rem);
+}
+.plugin-screen-meta__note {
+    margin: 0 0 1.5rem;
+    color: rgba(255,255,255,0.8);
+}
+.plugin-screen-meta__inner dl {
+    margin: 0;
+    display: grid;
+    gap: 0.9rem;
+}
+.plugin-screen-meta__inner dl div {
+    display: grid;
+    grid-template-columns: minmax(180px, 280px) 1fr;
+    gap: 1rem;
+    padding: 0.85rem 0;
+    border-bottom: 1px solid rgba(255,255,255,0.12);
+}
+.plugin-screen-meta__inner dt {
+    font-weight: 700;
+    color: rgba(255,255,255,0.72);
+}
+.plugin-screen-meta__inner dd {
+    margin: 0;
+    font-size: clamp(1rem, 1.5vw, 1.35rem);
+}

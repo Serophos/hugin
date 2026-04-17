@@ -1,0 +1,10 @@
+{
+  "name": "screen-meta",
+  "display_name": "Screen Metadata",
+  "version": "1.0.0",
+  "description": "Renders the most recent heartbeat metadata collected from the display client.",
+  "slide_type": "screen-meta",
+  "api_version": 1,
+  "main": "Plugin.php",
+  "class": "Plugins\\ScreenMeta\\Plugin"
+}
