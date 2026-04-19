@@ -1,1 +1,9 @@
 config/config.php
+# Ignore everything inside plugins
+plugins/*
+
+# These plugin will ship with Hugin include them in the repository.
+!plugins/screen-meta/
+!plugins/weather/
+!plugins/screen-meta/**
+!plugins/weather/**
