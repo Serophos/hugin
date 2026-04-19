@@ -1,31 +1,13 @@
 <?php
-/**
- * Hugin - Digital Signage System
- * Copyright (C) 2026 Thees Winkler
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program. If not, see <https://www.gnu.org/licenses/>.
- *
- * Source code: https://github.com/Serophos/hugin
- */
-
 require_once __DIR__ . '/../app/bootstrap.php';
 
 use App\Controllers\AdminController;
 use App\Controllers\FrontendController;
+use App\Controllers\MonitoringController;
 
 $admin = new AdminController($db, $view, $auth, $request, $uploadManager, $pluginManager);
 $frontend = new FrontendController($db, $view, $pluginManager);
+$monitoring = new MonitoringController($db, $displayStatusService);
 
 $uri = $request->uri();
 $method = $request->method();
@@ -82,6 +64,11 @@ if ($uri === '/admin/users/create' && $method === 'POST') { $admin->saveUser(); 
 if (preg_match('#^/admin/users/(\d+)/edit$#', $uri, $m) && $method === 'GET') { $admin->userForm((int)$m[1]); exit; }
 if (preg_match('#^/admin/users/(\d+)/edit$#', $uri, $m) && $method === 'POST') { $admin->saveUser((int)$m[1]); exit; }
 if (preg_match('#^/admin/users/(\d+)/delete$#', $uri, $m) && $method === 'POST') { $admin->deleteUser((int)$m[1]); exit; }
+
+if ($uri === '/api/monitoring/health' && $method === 'GET') { $monitoring->health(); exit; }
+if ($uri === '/api/monitoring/summary' && $method === 'GET') { $monitoring->summary(); exit; }
+if ($uri === '/api/monitoring/displays' && $method === 'GET') { $monitoring->displays(); exit; }
+if (preg_match('#^/api/monitoring/displays/([a-zA-Z0-9\-_]+)$#', $uri, $m) && $method === 'GET') { $monitoring->display($m[1]); exit; }
 
 if (preg_match('#^/plugin-assets/([a-zA-Z0-9\-_]+)/(.+)$#', $uri, $m) && $method === 'GET') { $pluginManager->serveAsset($m[1], $m[2]); exit; }
 if (preg_match('#^/display/([a-zA-Z0-9\-_]+)$#', $uri, $m) && $method === 'GET') { $frontend->display($m[1]); exit; }

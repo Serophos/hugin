@@ -40,12 +40,6 @@ body {
     gap: 0.75rem;
 }
 
-.brand img {
-    width: 32px;
-    height: 32px;
-    object-fit: contain;
-}
-
 .user-pill {
     background: rgba(255,255,255,0.12);
     padding: 0.35rem 0.65rem;
@@ -410,14 +404,6 @@ th {
     border: 1px solid var(--border);
     border-radius: 12px;
     padding: 1rem;
-}
-
-.full-license{
-    max-height: 16em;
-    overflow: scroll;
-    font-family: 'Courier New', Courier, monospace;
-    white-space: pre;
-    border: 1px solid var(--border)
 }
 
 .repo-link {

@@ -111,3 +111,83 @@ html, body {
     text-align: center;
     font-size: clamp(1.25rem, 2vw, 2rem);
 }
+
+
+.text-slide {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    background: var(--text-slide-bg, #0f172a);
+    color: var(--text-slide-fg, #f8fafc);
+    overflow: hidden;
+}
+
+.text-slide-background {
+    position: absolute;
+    inset: 0;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: cover;
+    transform: scale(1.02);
+    filter: saturate(0.95);
+}
+
+.text-slide::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(0,0,0,0.16), rgba(0,0,0,0.28));
+}
+
+.text-slide-panel {
+    position: absolute;
+    inset: 6vh 6vw;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.text-slide-content {
+    width: min(76vw, 1280px);
+    max-height: 82vh;
+    overflow: hidden;
+    padding: 3.2rem 3.4rem;
+    border-radius: 2rem;
+    background: var(--text-slide-overlay, rgba(15, 23, 42, 0.68));
+    color: var(--text-slide-fg, #f8fafc);
+    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.28);
+    backdrop-filter: blur(4px);
+    text-wrap: pretty;
+}
+
+.text-slide-content h1,
+.text-slide-content h2,
+.text-slide-content h3 {
+    margin: 0 0 1rem;
+    line-height: 1.12;
+    font-weight: 700;
+}
+
+.text-slide-content h1 { font-size: clamp(2.2rem, 5vw, 5rem); }
+.text-slide-content h2 { font-size: clamp(1.8rem, 3.8vw, 3.5rem); }
+.text-slide-content h3 { font-size: clamp(1.5rem, 3vw, 2.6rem); }
+
+.text-slide-content p,
+.text-slide-content li {
+    font-size: clamp(1.2rem, 2vw, 2.15rem);
+    line-height: 1.45;
+}
+
+.text-slide-content p { margin: 0 0 1rem; }
+.text-slide-content ul,
+.text-slide-content ol { margin: 0 0 1rem 1.4em; padding: 0; }
+.text-slide-content li + li { margin-top: 0.35em; }
+.text-slide-content a { color: inherit; text-decoration-thickness: 0.12em; }
+.text-slide-content code {
+    font-family: Consolas, Monaco, monospace;
+    font-size: 0.9em;
+    padding: 0.14em 0.32em;
+    border-radius: 0.35em;
+    background: rgba(255,255,255,0.16);
+}

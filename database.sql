@@ -128,12 +128,16 @@ CREATE TABLE slides (
     source_mode ENUM('external', 'media') NOT NULL DEFAULT 'external',
     source_url TEXT NULL,
     media_asset_id INT UNSIGNED NULL,
+    background_media_asset_id INT UNSIGNED NULL,
+    text_markup LONGTEXT NULL,
+    background_color VARCHAR(20) NULL,
     duration_seconds INT UNSIGNED NULL,
     title_position ENUM('hide', 'top-left', 'top-right', 'bottom-left', 'bottom-right', 'center') NOT NULL DEFAULT 'bottom-left',
     is_active TINYINT(1) NOT NULL DEFAULT 1,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    CONSTRAINT fk_slides_media FOREIGN KEY (media_asset_id) REFERENCES media_assets(id) ON DELETE SET NULL
+    CONSTRAINT fk_slides_media FOREIGN KEY (media_asset_id) REFERENCES media_assets(id) ON DELETE SET NULL,
+    CONSTRAINT fk_slides_background_media FOREIGN KEY (background_media_asset_id) REFERENCES media_assets(id) ON DELETE SET NULL
 );
 
 CREATE TABLE channel_slide_assignments (

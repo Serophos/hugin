@@ -17,6 +17,7 @@
                 <option value="image" <?= selected($slide['slide_type'] ?? 'image', 'image') ?>><?= e(enum_label('slide_types', 'image')) ?></option>
                 <option value="video" <?= selected($slide['slide_type'] ?? '', 'video') ?>><?= e(enum_label('slide_types', 'video')) ?></option>
                 <option value="website" <?= selected($slide['slide_type'] ?? '', 'website') ?>><?= e(enum_label('slide_types', 'website')) ?></option>
+                <option value="text" <?= selected($slide['slide_type'] ?? '', 'text') ?>><?= e(enum_label('slide_types', 'text')) ?></option>
                 <?php foreach ($pluginDefinitions as $plugin): ?>
                     <option value="<?= e($plugin['slide_type']) ?>" <?= selected($slide['slide_type'] ?? '', $plugin['slide_type']) ?>><?= e($plugin['display_name']) ?></option>
                 <?php endforeach; ?>
@@ -56,6 +57,27 @@
             </label>
         </div>
 
+        <div id="text-slide-fields" class="form-grid full-width" style="display:none;">
+            <label class="full-width"><?= e(__('slide.text_markup')) ?>
+                <textarea name="text_markup" rows="12" placeholder="# Heading&#10;&#10;Use **bold** text, lists, and links."><?= e($slide['text_markup'] ?? '') ?></textarea>
+            </label>
+            <label><?= e(__('slide.background_color')) ?>
+                <input type="color" name="background_color" value="<?= e(normalize_hex_color((string)($slide['background_color'] ?? '#0f172a'), '#0f172a')) ?>">
+            </label>
+            <label><?= e(__('slide.background_image')) ?>
+                <select name="background_media_asset_id">
+                    <option value=""><?= e(__('common.none')) ?></option>
+                    <?php foreach (($imageMediaAssets ?? []) as $asset): ?>
+                        <option value="<?= e((string)$asset['id']) ?>" <?= selected($slide['background_media_asset_id'] ?? '', $asset['id']) ?>><?= e($asset['name']) ?> · <?= e($asset['original_name']) ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </label>
+            <label class="full-width"><?= e(__('slide.background_upload')) ?>
+                <input type="file" name="background_uploaded_file" accept="image/*">
+            </label>
+            <p class="field-note full-width"><?= e(__('slide.text_markup_help')) ?></p>
+        </div>
+
         <div class="full-width plugin-settings-wrapper">
             <?php foreach ($pluginDefinitions as $plugin): ?>
                 <section class="plugin-settings-section" data-plugin-slide-type="<?= e($plugin['slide_type']) ?>">
@@ -79,16 +101,19 @@ function updateSlideTypeUi() {
     const sourceUrlWrap = document.getElementById('source_url_wrap');
     const mediaWrap = document.getElementById('media_asset_wrap');
     const uploadWrap = document.getElementById('upload_wrap');
+    const textFields = document.getElementById('text-slide-fields');
 
     coreFields.style.display = isPlugin ? 'none' : 'block';
 
+    const isText = !isPlugin && slideType === 'text';
     const showWebsiteOnly = !isPlugin && slideType === 'website';
-    const useMedia = !isPlugin && !showWebsiteOnly && sourceMode.value === 'media';
+    const useMedia = !isPlugin && !showWebsiteOnly && !isText && sourceMode.value === 'media';
 
-    sourceMode.parentElement.style.display = showWebsiteOnly ? 'none' : 'grid';
-    sourceUrlWrap.style.display = showWebsiteOnly || (!isPlugin && !useMedia) ? 'grid' : 'none';
-    mediaWrap.style.display = !isPlugin && !showWebsiteOnly && useMedia ? 'grid' : 'none';
-    uploadWrap.style.display = !isPlugin && !showWebsiteOnly ? 'grid' : 'none';
+    sourceMode.parentElement.style.display = showWebsiteOnly || isText ? 'none' : 'grid';
+    sourceUrlWrap.style.display = showWebsiteOnly ? 'grid' : (!isPlugin && !useMedia && !isText ? 'grid' : 'none');
+    mediaWrap.style.display = !isPlugin && !showWebsiteOnly && !isText && useMedia ? 'grid' : 'none';
+    uploadWrap.style.display = !isPlugin && !showWebsiteOnly && !isText ? 'grid' : 'none';
+    textFields.style.display = isText ? 'grid' : 'none';
 
     document.querySelectorAll('.plugin-settings-section').forEach(section => {
         section.style.display = section.dataset.pluginSlideType === slideType ? 'block' : 'none';

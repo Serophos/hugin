@@ -1,24 +1,4 @@
 <?php
-/**
- * Hugin - Digital Signage System
- * Copyright (C) 2026 Thees Winkler
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program. If not, see <https://www.gnu.org/licenses/>.
- *
- * Source code: https://github.com/Serophos/hugin
- */
-
 namespace App\Controllers;
 
 use App\Core\Database;
@@ -206,10 +186,11 @@ class FrontendController
     private function loadChannelSlides(int $channelId): array
     {
         return $this->db->all(
-            'SELECT s.*, m.file_path AS media_file_path
+            'SELECT s.*, m.file_path AS media_file_path, bg.file_path AS background_media_file_path
              FROM channel_slide_assignments csa
              INNER JOIN slides s ON s.id = csa.slide_id
              LEFT JOIN media_assets m ON m.id = s.media_asset_id
+             LEFT JOIN media_assets bg ON bg.id = s.background_media_asset_id
              WHERE csa.channel_id = ? AND s.is_active = 1
              ORDER BY csa.sort_order ASC, s.id ASC',
             [$channelId]
@@ -229,6 +210,16 @@ class FrontendController
         foreach ($slides as $slide) {
             $slide['resolved_source_url'] = $slide['media_file_path'] ?: $slide['source_url'];
             $slide['resolved_duration'] = (int)($slide['duration_seconds'] ?: $duration);
+            $slide['text_rendered_html'] = null;
+            $slide['text_background_url'] = $slide['background_media_file_path'] ?? null;
+            $slide['resolved_background_color'] = normalize_hex_color((string)($slide['background_color'] ?? '#0f172a'), '#0f172a');
+            $slide['resolved_text_color'] = readable_text_color($slide['resolved_background_color']);
+            $slide['resolved_overlay_color'] = readable_overlay_rgba($slide['resolved_background_color']);
+
+            if (($slide['slide_type'] ?? '') === 'text') {
+                $slide['text_rendered_html'] = render_markup((string)($slide['text_markup'] ?? ''));
+                $slide['resolved_source_url'] = '';
+            }
             $slide['plugin_name'] = null;
             $slide['plugin_settings'] = [];
             $slide['plugin_rendered_html'] = null;
@@ -349,7 +340,7 @@ class FrontendController
 
     private function isBuiltInSlideType(string $slideType): bool
     {
-        return in_array($slideType, ['image', 'video', 'website'], true);
+        return in_array($slideType, ['image', 'video', 'website', 'text'], true);
     }
 
     private function normalizeJson(array $payload): ?string

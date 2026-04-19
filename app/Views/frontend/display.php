@@ -28,6 +28,15 @@
                 <img src="<?= e(url($slide['resolved_source_url'])) ?>" alt="<?= e($slide['name']) ?>">
             <?php elseif ($slide['slide_type'] === 'video'): ?>
                 <video src="<?= e(url($slide['resolved_source_url'])) ?>" autoplay muted playsinline preload="auto"></video>
+            <?php elseif ($slide['slide_type'] === 'text'): ?>
+                <div class="text-slide" style="--text-slide-bg: <?= e($slide['resolved_background_color'] ?? '#0f172a') ?>; --text-slide-fg: <?= e($slide['resolved_text_color'] ?? '#f8fafc') ?>; --text-slide-overlay: <?= e($slide['resolved_overlay_color'] ?? 'rgba(15,23,42,0.68)') ?>;">
+                    <?php if (!empty($slide['text_background_url'])): ?>
+                        <div class="text-slide-background" style="background-image: url('<?= e(url((string)$slide['text_background_url'])) ?>');"></div>
+                    <?php endif; ?>
+                    <div class="text-slide-panel">
+                        <div class="text-slide-content"><?= $slide['text_rendered_html'] ?: '<p>' . e(__('slide.text_empty_frontend')) . '</p>' ?></div>
+                    </div>
+                </div>
             <?php else: ?>
                 <iframe src="<?= e($slide['resolved_source_url']) ?>" loading="eager" referrerpolicy="no-referrer-when-downgrade"></iframe>
             <?php endif; ?>

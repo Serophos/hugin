@@ -1,24 +1,4 @@
 <?php
-/**
- * Hugin - Digital Signage System
- * Copyright (C) 2026 Thees Winkler
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program. If not, see <https://www.gnu.org/licenses/>.
- *
- * Source code: https://github.com/Serophos/hugin
- */
-
 function e(?string $value): string
 {
     return htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
@@ -195,6 +175,137 @@ function client_ip(): string
     }
 
     return __('common.unknown', [], 'unknown');
+}
+
+
+function normalize_hex_color(?string $value, string $default = '#111827'): string
+{
+    $value = trim((string)$value);
+    if ($value === '') {
+        return $default;
+    }
+
+    if (preg_match('/^#([0-9a-fA-F]{3})$/', $value, $m)) {
+        $chars = strtolower($m[1]);
+        return sprintf('#%1$s%1$s%2$s%2$s%3$s%3$s', $chars[0], $chars[1], $chars[2]);
+    }
+
+    if (preg_match('/^#([0-9a-fA-F]{6})$/', $value)) {
+        return strtolower($value);
+    }
+
+    return strtolower($default);
+}
+
+function hex_to_rgb(string $hex): array
+{
+    $hex = ltrim(normalize_hex_color($hex), '#');
+    return [
+        hexdec(substr($hex, 0, 2)),
+        hexdec(substr($hex, 2, 2)),
+        hexdec(substr($hex, 4, 2)),
+    ];
+}
+
+function color_luminance(string $hex): float
+{
+    [$r, $g, $b] = hex_to_rgb($hex);
+    $channels = [$r / 255, $g / 255, $b / 255];
+    $linear = array_map(static function (float $channel): float {
+        return $channel <= 0.03928 ? $channel / 12.92 : (($channel + 0.055) / 1.055) ** 2.4;
+    }, $channels);
+
+    return (0.2126 * $linear[0]) + (0.7152 * $linear[1]) + (0.0722 * $linear[2]);
+}
+
+function readable_text_color(string $backgroundHex): string
+{
+    return color_luminance($backgroundHex) > 0.42 ? '#111827' : '#f8fafc';
+}
+
+function readable_overlay_rgba(string $backgroundHex): string
+{
+    if (color_luminance($backgroundHex) > 0.42) {
+        return 'rgba(255, 255, 255, 0.78)';
+    }
+
+    return 'rgba(15, 23, 42, 0.68)';
+}
+
+function render_markup(string $input): string
+{
+    $text = trim(str_replace(["\r\n", "\r"], "\n", (string)$input));
+    if ($text === '') {
+        return '';
+    }
+
+    $blocks = preg_split("/\n{2,}/", $text) ?: [];
+    $html = [];
+
+    foreach ($blocks as $block) {
+        $block = trim($block);
+        if ($block === '') {
+            continue;
+        }
+
+        $lines = array_values(array_filter(array_map('trim', explode("\n", $block)), static fn($line) => $line !== ''));
+        if ($lines === []) {
+            continue;
+        }
+
+        $isUl = true;
+        $isOl = true;
+        foreach ($lines as $line) {
+            $isUl = $isUl && (bool)preg_match('/^[-*]\s+/', $line);
+            $isOl = $isOl && (bool)preg_match('/^\d+\.\s+/', $line);
+        }
+
+        if ($isUl) {
+            $items = array_map(static function (string $line): string {
+                $content = preg_replace('/^[-*]\s+/', '', $line) ?? $line;
+                return '<li>' . render_markup_inline($content) . '</li>';
+            }, $lines);
+            $html[] = '<ul>' . implode('', $items) . '</ul>';
+            continue;
+        }
+
+        if ($isOl) {
+            $items = array_map(static function (string $line): string {
+                $content = preg_replace('/^\d+\.\s+/', '', $line) ?? $line;
+                return '<li>' . render_markup_inline($content) . '</li>';
+            }, $lines);
+            $html[] = '<ol>' . implode('', $items) . '</ol>';
+            continue;
+        }
+
+        if (preg_match('/^#{1,3}\s+/', $lines[0])) {
+            $level = min(3, max(1, strspn($lines[0], '#')));
+            $content = trim(substr($lines[0], $level));
+            $html[] = sprintf('<h%d>%s</h%d>', $level, render_markup_inline($content), $level);
+            if (count($lines) > 1) {
+                $rest = implode("<br>\n", array_map('render_markup_inline', array_slice($lines, 1)));
+                $html[] = '<p>' . $rest . '</p>';
+            }
+            continue;
+        }
+
+        $paragraph = implode("<br>\n", array_map('render_markup_inline', $lines));
+        $html[] = '<p>' . $paragraph . '</p>';
+    }
+
+    return implode("\n", $html);
+}
+
+function render_markup_inline(string $text): string
+{
+    $escaped = e($text);
+    $escaped = preg_replace('/\[(.+?)\]\((https?:\/\/[^\s)]+)\)/', '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>', $escaped) ?? $escaped;
+    $escaped = preg_replace('/\*\*(.+?)\*\*/s', '<strong>$1</strong>', $escaped) ?? $escaped;
+    $escaped = preg_replace('/__(.+?)__/s', '<strong>$1</strong>', $escaped) ?? $escaped;
+    $escaped = preg_replace('/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/s', '<em>$1</em>', $escaped) ?? $escaped;
+    $escaped = preg_replace('/(?<!_)_(?!_)(.+?)(?<!_)_(?!_)/s', '<em>$1</em>', $escaped) ?? $escaped;
+    $escaped = preg_replace('/`(.+?)`/s', '<code>$1</code>', $escaped) ?? $escaped;
+    return $escaped;
 }
 
 function json_response(array $data, int $status = 200): void

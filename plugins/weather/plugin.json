@@ -1,0 +1,10 @@
+{
+  "name": "weather",
+  "display_name": "Weather",
+  "version": "1.0.0",
+  "description": "Displays current weather for a selected location using Open-Meteo current weather data.",
+  "slide_type": "weather",
+  "api_version": 1,
+  "main": "Plugin.php",
+  "class": "Plugins\\Weather\\Plugin"
+}

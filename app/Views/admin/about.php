@@ -9,6 +9,7 @@
     </section>
 
     <section class="card">
+        <h1><?= e(__('app.name', [], 'Hugin')) ?></h1>
         <h2><?= e(__('about.software_information')) ?></h2>
         <div class="about-meta">
             <div class="about-meta-row">

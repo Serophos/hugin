@@ -1,24 +1,4 @@
 <?php
-/**
- * Hugin - Digital Signage System
- * Copyright (C) 2026 Thees Winkler
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program. If not, see <https://www.gnu.org/licenses/>.
- *
- * Source code: https://github.com/Serophos/hugin
- */
-
 $configFile = __DIR__ . '/../config/config.php';
 if (!file_exists($configFile)) {
     $configFile = __DIR__ . '/../config/config.example.php';
@@ -48,8 +28,10 @@ require_once __DIR__ . '/Core/SlidePluginInterface.php';
 require_once __DIR__ . '/Core/AbstractSlidePlugin.php';
 require_once __DIR__ . '/Core/PluginApi.php';
 require_once __DIR__ . '/Core/PluginManager.php';
+require_once __DIR__ . '/Services/DisplayStatusService.php';
 require_once __DIR__ . '/Controllers/AdminController.php';
 require_once __DIR__ . '/Controllers/FrontendController.php';
+require_once __DIR__ . '/Controllers/MonitoringController.php';
 
 $locale = (string)($config['app']['locale'] ?? 'en');
 $fallbackLocale = (string)($config['app']['fallback_locale'] ?? $locale);
@@ -85,6 +67,7 @@ $request = new App\Core\Request();
 $auth = new App\Core\Auth($db);
 $uploadManager = new App\Core\UploadManager($db, $config);
 $pluginManager = new App\Core\PluginManager($db, __DIR__ . '/../plugins');
+$displayStatusService = new App\Services\DisplayStatusService($db);
 try {
     $pluginManager->syncRegistry();
 } catch (\Throwable $e) {

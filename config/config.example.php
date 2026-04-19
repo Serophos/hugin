@@ -19,4 +19,10 @@ return [
     'upload' => [
         'max_size_bytes' => 52428800, // 50 MB
     ],
+    'monitoring' => [
+        'enabled' => false,
+        'api_token' => 'put_a_secure_random_token_here',
+        'online_threshold_seconds' => 180,
+        'stale_threshold_seconds' => 1800,
+    ],    
 ];

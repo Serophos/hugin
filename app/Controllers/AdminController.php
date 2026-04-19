@@ -1,24 +1,4 @@
 <?php
-/**
- * Hugin - Digital Signage System
- * Copyright (C) 2026 Thees Winkler
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program. If not, see <https://www.gnu.org/licenses/>.
- *
- * Source code: https://github.com/Serophos/hugin
- */
-
 namespace App\Controllers;
 
 use App\Core\Auth;
@@ -72,7 +52,7 @@ class AdminController
 
         $this->view->render('admin/about', [
             'software' => [
-                'name' => __('app.name', [], 'Hugin | Open Source Digital Signage'),
+                'name' => __('app.name', [], 'Hugin'),
                 'type' => __('about.software_type'),
                 'stack' => __('about.software_stack'),
                 'features' => [
@@ -88,7 +68,7 @@ class AdminController
                 'name' => __('about.license_name'),
                 'short_name' => __('about.license_short_name'),
                 'summary' => __('about.license_summary'),
-                'source_url' => 'https://github.com/Serophos/hugin',
+                'source_url' => 'https://example.com/your-org/hugin',
             ],
         ]);
     }
@@ -472,6 +452,7 @@ class AdminController
         $slide = $id ? $this->db->one('SELECT * FROM slides WHERE id = ?', [$id]) : null;
         $channels = $this->db->all('SELECT id, name AS label FROM channels WHERE is_active = 1 ORDER BY name ASC');
         $mediaAssets = $this->db->all('SELECT * FROM media_assets ORDER BY created_at DESC, id DESC');
+        $imageMediaAssets = array_values(array_filter($mediaAssets, static fn(array $asset): bool => ($asset['media_kind'] ?? '') === 'image'));
         $assignedChannelIds = $id
             ? array_map(static fn(array $row): int => (int)$row['channel_id'], $this->db->all('SELECT channel_id FROM channel_slide_assignments WHERE slide_id = ?', [$id]))
             : [];
@@ -494,6 +475,7 @@ class AdminController
             'channels' => $channels,
             'assignedChannelIds' => $assignedChannelIds,
             'mediaAssets' => $mediaAssets,
+            'imageMediaAssets' => $imageMediaAssets,
             'pluginDefinitions' => $pluginDefinitions,
             'pluginForms' => $pluginForms,
             'pluginLabels' => $this->plugins->getPluginLabelMap(),
@@ -515,6 +497,9 @@ class AdminController
         $duration = $durationRaw === '' ? null : max(1, (int)$durationRaw);
         $titlePosition = $this->sanitizeTitlePosition((string)$this->request->input('title_position', 'bottom-left'));
         $isActive = $this->request->input('is_active') ? 1 : 0;
+        $textMarkup = trim((string)$this->request->input('text_markup', ''));
+        $backgroundColor = normalize_hex_color((string)$this->request->input('background_color', '#0f172a'), '#0f172a');
+        $backgroundMediaAssetId = $this->request->input('background_media_asset_id') ? (int)$this->request->input('background_media_asset_id') : null;
         $plugin = $this->plugins->getPluginBySlideType($slideType, true);
         $isPluginType = $plugin !== null;
 
@@ -539,7 +524,33 @@ class AdminController
                 }
                 $sourceMode = 'external';
                 $mediaAssetId = null;
+                $backgroundMediaAssetId = null;
+                $textMarkup = '';
+            } elseif ($slideType === 'text') {
+                $uploadedBackground = $this->request->file('background_uploaded_file');
+                if ($uploadedBackground && ($uploadedBackground['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
+                    $mediaAsset = $this->uploadManager->storeUploadedFile($uploadedBackground, (int)$this->auth->id(), $name . ' background');
+                    $backgroundMediaAssetId = (int)$mediaAsset['id'];
+                } elseif ($backgroundMediaAssetId) {
+                    $mediaAsset = $this->db->one('SELECT * FROM media_assets WHERE id = ?', [$backgroundMediaAssetId]);
+                    if (!$mediaAsset) {
+                        throw new RuntimeException(__('slide.selected_media_not_found'));
+                    }
+                }
+
+                if ($backgroundMediaAssetId) {
+                    $mediaAsset = $mediaAsset ?: $this->db->one('SELECT * FROM media_assets WHERE id = ?', [$backgroundMediaAssetId]);
+                    if (!$mediaAsset || $mediaAsset['media_kind'] !== 'image') {
+                        throw new RuntimeException(__('slide.background_image_type_mismatch'));
+                    }
+                }
+
+                $sourceMode = 'external';
+                $sourceUrl = '';
+                $mediaAssetId = null;
             } else {
+                $backgroundMediaAssetId = null;
+                $textMarkup = '';
                 $uploadedFile = $this->request->file('uploaded_file');
                 if ($uploadedFile && ($uploadedFile['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
                     $mediaAsset = $this->uploadManager->storeUploadedFile($uploadedFile, (int)$this->auth->id(), $name);
@@ -580,14 +591,14 @@ class AdminController
         try {
             if ($id) {
                 $this->db->execute(
-                    'UPDATE slides SET name = ?, slide_type = ?, source_mode = ?, source_url = ?, media_asset_id = ?, duration_seconds = ?, title_position = ?, is_active = ? WHERE id = ?',
-                    [$name, $slideType, $sourceMode, $sourceUrl, $mediaAssetId, $duration, $titlePosition, $isActive, $id]
+                    'UPDATE slides SET name = ?, slide_type = ?, source_mode = ?, source_url = ?, media_asset_id = ?, background_media_asset_id = ?, text_markup = ?, background_color = ?, duration_seconds = ?, title_position = ?, is_active = ? WHERE id = ?',
+                    [$name, $slideType, $sourceMode, $sourceUrl, $mediaAssetId, $backgroundMediaAssetId, $textMarkup !== '' ? $textMarkup : null, $backgroundColor, $duration, $titlePosition, $isActive, $id]
                 );
                 $slideId = $id;
             } else {
                 $this->db->execute(
-                    'INSERT INTO slides (name, slide_type, source_mode, source_url, media_asset_id, duration_seconds, title_position, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-                    [$name, $slideType, $sourceMode, $sourceUrl, $mediaAssetId, $duration, $titlePosition, $isActive]
+                    'INSERT INTO slides (name, slide_type, source_mode, source_url, media_asset_id, background_media_asset_id, text_markup, background_color, duration_seconds, title_position, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                    [$name, $slideType, $sourceMode, $sourceUrl, $mediaAssetId, $backgroundMediaAssetId, $textMarkup !== '' ? $textMarkup : null, $backgroundColor, $duration, $titlePosition, $isActive]
                 );
                 $slideId = (int)$this->db->lastInsertId();
             }
@@ -860,7 +871,7 @@ class AdminController
 
     private function isBuiltInSlideType(string $slideType): bool
     {
-        return in_array($slideType, ['image', 'video', 'website'], true);
+        return in_array($slideType, ['image', 'video', 'website', 'text'], true);
     }
 
     private function sanitizeOrientation(string $value): string
