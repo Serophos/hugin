@@ -369,21 +369,29 @@ class AdminController
                 $assignmentMap[$displayId] = (int)$this->db->lastInsertId();
             }
 
-            $displayScheduleIds = $this->normalizeIds($this->request->input('schedule_display_id', []));
+            $displayScheduleIds = (array)$this->request->input('schedule_display_id', []);
             $weekdays = (array)$this->request->input('schedule_weekday', []);
             $starts = (array)$this->request->input('schedule_start', []);
             $ends = (array)$this->request->input('schedule_end', []);
+            $rowCount = max(count($displayScheduleIds), count($weekdays), count($starts), count($ends));
 
-            foreach ($displayScheduleIds as $index => $displayId) {
-                $weekday = $weekdays[$index] ?? '';
-                $start = $starts[$index] ?? '';
-                $end = $ends[$index] ?? '';
-                if ($weekday === '' || $start === '' || $end === '' || !isset($assignmentMap[$displayId])) {
+            for ($index = 0; $index < $rowCount; $index++) {
+                $displayId = (int)($displayScheduleIds[$index] ?? 0);
+                $weekdayRaw = (string)($weekdays[$index] ?? '');
+                $start = (string)($starts[$index] ?? '');
+                $end = (string)($ends[$index] ?? '');
+
+                if ($displayId <= 0 || !isset($assignmentMap[$displayId])) {
                     continue;
                 }
+
+                if (!preg_match('/^[0-6]$/', $weekdayRaw) || !preg_match('/^\d{2}:\d{2}$/', $start) || !preg_match('/^\d{2}:\d{2}$/', $end)) {
+                    continue;
+                }
+
                 $this->db->execute(
                     'INSERT INTO display_channel_schedules (display_channel_assignment_id, weekday, start_time, end_time, is_enabled) VALUES (?, ?, ?, ?, 1)',
-                    [$assignmentMap[$displayId], (int)$weekday, $start . ':00', $end . ':00']
+                    [$assignmentMap[$displayId], (int)$weekdayRaw, $start . ':00', $end . ':00']
                 );
             }
 
