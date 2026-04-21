@@ -369,21 +369,29 @@ class AdminController
                 $assignmentMap[$displayId] = (int)$this->db->lastInsertId();
             }
 
-            $displayScheduleIds = $this->normalizeIds($this->request->input('schedule_display_id', []));
+            $displayScheduleIds = (array)$this->request->input('schedule_display_id', []);
             $weekdays = (array)$this->request->input('schedule_weekday', []);
             $starts = (array)$this->request->input('schedule_start', []);
             $ends = (array)$this->request->input('schedule_end', []);
+            $rowCount = max(count($displayScheduleIds), count($weekdays), count($starts), count($ends));
 
-            foreach ($displayScheduleIds as $index => $displayId) {
-                $weekday = $weekdays[$index] ?? '';
-                $start = $starts[$index] ?? '';
-                $end = $ends[$index] ?? '';
-                if ($weekday === '' || $start === '' || $end === '' || !isset($assignmentMap[$displayId])) {
+            for ($index = 0; $index < $rowCount; $index++) {
+                $displayId = (int)($displayScheduleIds[$index] ?? 0);
+                $weekdayRaw = (string)($weekdays[$index] ?? '');
+                $start = (string)($starts[$index] ?? '');
+                $end = (string)($ends[$index] ?? '');
+
+                if ($displayId <= 0 || !isset($assignmentMap[$displayId])) {
                     continue;
                 }
+
+                if (!preg_match('/^[0-6]$/', $weekdayRaw) || !preg_match('/^\d{2}:\d{2}$/', $start) || !preg_match('/^\d{2}:\d{2}$/', $end)) {
+                    continue;
+                }
+
                 $this->db->execute(
                     'INSERT INTO display_channel_schedules (display_channel_assignment_id, weekday, start_time, end_time, is_enabled) VALUES (?, ?, ?, ?, 1)',
-                    [$assignmentMap[$displayId], (int)$weekday, $start . ':00', $end . ':00']
+                    [$assignmentMap[$displayId], (int)$weekdayRaw, $start . ':00', $end . ':00']
                 );
             }
 
@@ -400,6 +408,21 @@ class AdminController
     public function deleteChannel(int $id): void
     {
         $this->auth->requireLogin();
+
+        $usage = $this->db->one(
+            'SELECT
+                (SELECT COUNT(*) FROM channel_slide_assignments WHERE channel_id = ?) AS slide_count,
+                (SELECT COUNT(*) FROM display_channel_assignments WHERE channel_id = ?) AS display_count',
+            [$id, $id]
+        ) ?: ['slide_count' => 0, 'display_count' => 0];
+
+        $slideCount = (int)($usage['slide_count'] ?? 0);
+        $displayCount = (int)($usage['display_count'] ?? 0);
+        if ($slideCount > 0 || $displayCount > 0) {
+            flash('error', __('channel.delete_blocked', ['slides' => (string)$slideCount, 'displays' => (string)$displayCount]));
+            redirect('/admin/channels');
+        }
+
         $this->db->execute('DELETE FROM channels WHERE id = ?', [$id]);
         flash('success', __('channel.deleted'));
         redirect('/admin/channels');
@@ -422,9 +445,9 @@ class AdminController
         $rows = $this->db->all(
             'SELECT c.id AS channel_id, c.name AS channel_name, s.id, s.name, s.slide_type, s.source_url, s.duration_seconds, s.is_active,
                     csa.sort_order, m.original_name AS media_name
-             FROM channel_slide_assignments csa
-             INNER JOIN channels c ON c.id = csa.channel_id
-             INNER JOIN slides s ON s.id = csa.slide_id
+             FROM channels c
+             LEFT JOIN channel_slide_assignments csa ON csa.channel_id = c.id
+             LEFT JOIN slides s ON s.id = csa.slide_id
              LEFT JOIN media_assets m ON m.id = s.media_asset_id
              ORDER BY c.name ASC, csa.sort_order ASC, s.name ASC'
         );
@@ -439,7 +462,9 @@ class AdminController
                     'slides' => [],
                 ];
             }
-            $groups[$key]['slides'][] = $row;
+            if ($row['id'] !== null) {
+                $groups[$key]['slides'][] = $row;
+            }
         }
 
         $this->view->render('admin/slides', ['groups' => $groups, 'flash' => flash('success'), 'pluginLabels' => $this->plugins->getPluginLabelMap()]);
