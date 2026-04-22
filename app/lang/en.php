@@ -196,6 +196,7 @@ return [
         'schedules_label' => 'Schedules',
         'slides_count' => 'Slides',
         'delete_confirm' => 'Delete channel?',
+        'delete_blocked' => 'Channel cannot be deleted while it is still assigned (slides: :slides, displays: :displays).',
     ],
     'slide' => [
         'singular' => 'Slide',
@@ -228,6 +229,7 @@ return [
         'open_source' => 'Open source',
         'remove_confirm' => 'Remove this slide from this channel?',
         'delete_confirm' => 'Delete slide?',
+        'no_slides_for_channel' => 'No slides assigned to this channel yet.',
         'text_markup' => 'Formatted text (Markdown)',
         'text_markup_help' => 'Supports headings, paragraphs, bold text, italic text, bullet lists, numbered lists, inline code, and links.',
         'background_color' => 'Background color',
