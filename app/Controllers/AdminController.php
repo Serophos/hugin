@@ -603,13 +603,7 @@ class AdminController
                 $slideId = (int)$this->db->lastInsertId();
             }
 
-            $this->db->execute('DELETE FROM channel_slide_assignments WHERE slide_id = ?', [$slideId]);
-            foreach ($channelIds as $index => $channelId) {
-                $this->db->execute(
-                    'INSERT INTO channel_slide_assignments (channel_id, slide_id, sort_order) VALUES (?, ?, ?)',
-                    [$channelId, $slideId, $index + 1]
-                );
-            }
+            $this->syncSlideChannelAssignments($slideId, $channelIds);
 
             $this->plugins->deleteSlideSettings($slideId);
             if ($isPluginType) {
@@ -658,17 +652,7 @@ class AdminController
             [$slideId, $channelId]
         );
 
-        $remaining = $this->db->all(
-            'SELECT slide_id FROM channel_slide_assignments WHERE channel_id = ? ORDER BY sort_order ASC, slide_id ASC',
-            [$channelId]
-        );
-
-        foreach ($remaining as $index => $row) {
-            $this->db->execute(
-                'UPDATE channel_slide_assignments SET sort_order = ? WHERE slide_id = ? AND channel_id = ?',
-                [$index + 1, (int)$row['slide_id'], $channelId]
-            );
-        }
+        $this->reindexChannelSlides($channelId);
 
         flash('success', __('slide.removed_from_channel', ['slide' => $assignment['slide_name'], 'channel' => $assignment['channel_name']]));
         redirect('/admin/slides');
@@ -893,6 +877,67 @@ class AdminController
             $allowed[] = 'inherit';
         }
         return in_array($effect, $allowed, true) ? $effect : ($allowInherit ? 'inherit' : 'fade');
+    }
+
+    private function syncSlideChannelAssignments(int $slideId, array $channelIds): void
+    {
+        $existingRows = $this->db->all(
+            'SELECT channel_id FROM channel_slide_assignments WHERE slide_id = ?',
+            [$slideId]
+        );
+        $existingChannelIds = [];
+        foreach ($existingRows as $row) {
+            $existingChannelIds[(int)$row['channel_id']] = true;
+        }
+
+        $selectedChannelIds = array_fill_keys($channelIds, true);
+        $removedChannelIds = [];
+        foreach (array_keys($existingChannelIds) as $channelId) {
+            if (isset($selectedChannelIds[$channelId])) {
+                continue;
+            }
+
+            $this->db->execute(
+                'DELETE FROM channel_slide_assignments WHERE slide_id = ? AND channel_id = ?',
+                [$slideId, $channelId]
+            );
+            $removedChannelIds[] = $channelId;
+        }
+
+        foreach ($channelIds as $channelId) {
+            if (isset($existingChannelIds[$channelId])) {
+                continue;
+            }
+
+            $nextSort = (int)($this->db->one(
+                'SELECT COALESCE(MAX(sort_order), 0) + 1 AS next_sort FROM channel_slide_assignments WHERE channel_id = ?',
+                [$channelId]
+            )['next_sort'] ?? 1);
+
+            $this->db->execute(
+                'INSERT INTO channel_slide_assignments (channel_id, slide_id, sort_order) VALUES (?, ?, ?)',
+                [$channelId, $slideId, $nextSort]
+            );
+        }
+
+        foreach (array_unique($removedChannelIds) as $channelId) {
+            $this->reindexChannelSlides($channelId);
+        }
+    }
+
+    private function reindexChannelSlides(int $channelId): void
+    {
+        $remaining = $this->db->all(
+            'SELECT slide_id FROM channel_slide_assignments WHERE channel_id = ? ORDER BY sort_order ASC, slide_id ASC',
+            [$channelId]
+        );
+
+        foreach ($remaining as $index => $row) {
+            $this->db->execute(
+                'UPDATE channel_slide_assignments SET sort_order = ? WHERE slide_id = ? AND channel_id = ?',
+                [$index + 1, (int)$row['slide_id'], $channelId]
+            );
+        }
     }
 
     private function normalizeIds(mixed $value): array
