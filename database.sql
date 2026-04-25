@@ -3,6 +3,7 @@ USE info_display;
 
 SET FOREIGN_KEY_CHECKS = 0;
 DROP TABLE IF EXISTS slide_plugin_data;
+DROP TABLE IF EXISTS plugin_global_settings;
 DROP TABLE IF EXISTS plugins;
 DROP TABLE IF EXISTS channel_slide_assignments;
 DROP TABLE IF EXISTS channel_display_schedule_assignments;
@@ -187,6 +188,13 @@ CREATE TABLE slide_plugin_data (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (slide_id, plugin_name),
     CONSTRAINT fk_spd_slide FOREIGN KEY (slide_id) REFERENCES slides(id) ON DELETE CASCADE
+);
+
+CREATE TABLE plugin_global_settings (
+    plugin_name VARCHAR(100) NOT NULL PRIMARY KEY,
+    settings_json LONGTEXT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
 INSERT INTO users (username, display_name, role, password_hash, is_active) VALUES

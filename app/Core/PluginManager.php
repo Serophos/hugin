@@ -25,7 +25,7 @@ class PluginManager
 {
     private ?array $instances = null;
 
-    public function __construct(private Database $db, private string $pluginsPath)
+    public function __construct(private Database $db, private string $pluginsPath, private ?UploadManager $uploadManager = null)
     {
     }
 
@@ -218,12 +218,38 @@ class PluginManager
         $this->db->execute('DELETE FROM slide_plugin_data WHERE slide_id = ? AND plugin_name = ?', [$slideId, $pluginName]);
     }
 
-    public function buildApi(?array $display = null, ?array $channel = null, ?array $heartbeat = null): PluginApi
+    public function loadGlobalSettings(string $pluginName): array
+    {
+        $row = $this->db->one('SELECT settings_json FROM plugin_global_settings WHERE plugin_name = ?', [$pluginName]);
+        if (!$row || !is_string($row['settings_json']) || trim($row['settings_json']) === '') {
+            return [];
+        }
+
+        $data = json_decode($row['settings_json'], true);
+        return is_array($data) ? $data : [];
+    }
+
+    public function saveGlobalSettings(string $pluginName, array $settings): void
+    {
+        $json = json_encode($settings, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        $this->db->execute(
+            'INSERT INTO plugin_global_settings (plugin_name, settings_json) VALUES (?, ?)
+             ON DUPLICATE KEY UPDATE settings_json = VALUES(settings_json)',
+            [$pluginName, $json]
+        );
+    }
+
+    public function deleteGlobalSettings(string $pluginName): void
+    {
+        $this->db->execute('DELETE FROM plugin_global_settings WHERE plugin_name = ?', [$pluginName]);
+    }
+
+    public function buildApi(?array $display = null, ?array $channel = null, ?array $heartbeat = null, ?int $currentUserId = null): PluginApi
     {
         return new PluginApi($this->db, $this, $display, $channel, $heartbeat, [
             'app_name' => (string)app_config('app.name', __('app.name', [], 'Hugin')),
-            'plugin_api_version' => 1,
-        ]);
+            'plugin_api_version' => 2,
+        ], $this->uploadManager, $currentUserId);
     }
 
     public function getPluginLabelMap(): array

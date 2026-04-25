@@ -39,6 +39,10 @@ return [
         'show_timezone' => 'Timezone',
         'note' => 'Optional note',
     ],
+    'global_config' => [
+        'title' => 'Global settings',
+        'hello' => 'Hello world',
+    ],
     'errors' => [
         'heading_required' => 'Screen Metadata plugin: heading is required.',
     ],

@@ -30,6 +30,8 @@ class PluginApi
         private ?array $channel = null,
         private ?array $heartbeat = null,
         private ?array $systemMeta = null,
+        private ?UploadManager $uploadManager = null,
+        private ?int $currentUserId = null,
     ) {
     }
 
@@ -46,6 +48,74 @@ class PluginApi
     public function deleteSlideSettings(int $slideId, string $pluginName): void
     {
         $this->plugins->deleteSlideSettings($slideId, $pluginName);
+    }
+
+    public function loadGlobalSettings(string $pluginName): array
+    {
+        return $this->plugins->loadGlobalSettings($pluginName);
+    }
+
+    public function saveGlobalSettings(string $pluginName, array $settings): void
+    {
+        $this->plugins->saveGlobalSettings($pluginName, $settings);
+    }
+
+    public function listMediaAssets(?string $kind = null): array
+    {
+        if ($kind !== null && !in_array($kind, ['image', 'video'], true)) {
+            throw new \RuntimeException(__('media.invalid_kind', [], 'Invalid media kind.'));
+        }
+
+        if ($kind === null) {
+            return $this->db->all('SELECT * FROM media_assets ORDER BY created_at DESC, id DESC');
+        }
+
+        return $this->db->all('SELECT * FROM media_assets WHERE media_kind = ? ORDER BY created_at DESC, id DESC', [$kind]);
+    }
+
+    public function getMediaAsset(int $id): ?array
+    {
+        return $this->db->one('SELECT * FROM media_assets WHERE id = ?', [$id]);
+    }
+
+    public function mediaAssetUrl(int|array|null $asset): ?string
+    {
+        if ($asset === null) {
+            return null;
+        }
+        if (is_int($asset)) {
+            $asset = $this->getMediaAsset($asset);
+        }
+        if (!is_array($asset) || empty($asset['file_path'])) {
+            return null;
+        }
+
+        return url((string)$asset['file_path']);
+    }
+
+    public function pluginUploadedFile(string $pluginName, string $field, string $root = 'plugin_settings'): ?array
+    {
+        $files = $_FILES[$root] ?? null;
+        if (!is_array($files) || !isset($files['name'][$pluginName][$field])) {
+            return null;
+        }
+
+        return [
+            'name' => $files['name'][$pluginName][$field] ?? '',
+            'type' => $files['type'][$pluginName][$field] ?? '',
+            'tmp_name' => $files['tmp_name'][$pluginName][$field] ?? '',
+            'error' => $files['error'][$pluginName][$field] ?? UPLOAD_ERR_NO_FILE,
+            'size' => $files['size'][$pluginName][$field] ?? 0,
+        ];
+    }
+
+    public function storeMediaAsset(?array $file, string $label = ''): ?array
+    {
+        if (!$this->uploadManager || !$this->currentUserId) {
+            throw new \RuntimeException(__('plugins.media_upload_unavailable', [], 'Media upload is not available in this plugin context.'));
+        }
+
+        return $this->uploadManager->storeUploadedFile($file, $this->currentUserId, $label);
     }
 
     public function getDisplay(): ?array
@@ -67,7 +137,7 @@ class PluginApi
     {
         return $this->systemMeta ?? [
             'app_name' => (string)app_config('app.name', 'Hugin'),
-            'plugin_api_version' => 1,
+            'plugin_api_version' => 2,
         ];
     }
 
@@ -79,5 +149,47 @@ class PluginApi
     public function pluginAssetUrl(string $pluginName, string $relativePath): string
     {
         return url('/plugin-assets/' . rawurlencode($pluginName) . '/' . ltrim($relativePath, '/'));
+    }
+
+    public function pluginStoragePath(string $pluginName, string $relativePath = ''): string
+    {
+        return $this->resolvePluginStoragePath('storage/plugins', $pluginName, $relativePath);
+    }
+
+    public function pluginCachePath(string $pluginName, string $relativePath = ''): string
+    {
+        return $this->resolvePluginStoragePath('storage/cache/plugins', $pluginName, $relativePath);
+    }
+
+    private function resolvePluginStoragePath(string $baseRelativePath, string $pluginName, string $relativePath): string
+    {
+        $safePluginName = preg_replace('/[^a-zA-Z0-9_-]/', '', $pluginName);
+        if ($safePluginName === '' || $safePluginName !== $pluginName) {
+            throw new \RuntimeException(__('plugins.invalid_plugin_name', [], 'Invalid plugin name.'));
+        }
+
+        $relativePath = str_replace('\\', '/', trim($relativePath));
+        $relativePath = trim($relativePath, '/');
+        if ($relativePath !== '' && preg_match('#(^|/)\.\.(/|$)#', $relativePath)) {
+            throw new \RuntimeException(__('plugins.invalid_storage_path', [], 'Invalid plugin storage path.'));
+        }
+
+        $root = (string)app_config('paths.root', dirname(__DIR__, 2));
+        $base = rtrim($root, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $baseRelativePath) . DIRECTORY_SEPARATOR . $safePluginName;
+        if (!is_dir($base) && !mkdir($base, 0775, true) && !is_dir($base)) {
+            throw new \RuntimeException(__('plugins.storage_directory_failed', [], 'Plugin storage directory could not be created.'));
+        }
+
+        if ($relativePath === '') {
+            return $base;
+        }
+
+        $path = $base . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relativePath);
+        $dir = dirname($path);
+        if (!is_dir($dir) && !mkdir($dir, 0775, true) && !is_dir($dir)) {
+            throw new \RuntimeException(__('plugins.storage_directory_failed', [], 'Plugin storage directory could not be created.'));
+        }
+
+        return $path;
     }
 }

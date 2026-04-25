@@ -32,6 +32,7 @@
                     <td><?= e($plugin['description']) ?></td>
                     <td><?= e($plugin['is_enabled'] ? __('common.enabled') : __('common.disabled')) ?></td>
                     <td class="actions">
+                        <a class="button secondary" href="<?= e(url('/admin/plugins/' . $plugin['plugin_name'] . '/settings')) ?>"><?= e(__('plugins.configure')) ?></a>
                         <form method="post" action="<?= e(url('/admin/plugins/' . $plugin['plugin_name'] . '/toggle')) ?>" class="inline-form">
                             <?= csrf_field() ?>
                             <input type="hidden" name="enable" value="<?= $plugin['is_enabled'] ? '0' : '1' ?>">

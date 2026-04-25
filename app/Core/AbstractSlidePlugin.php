@@ -57,6 +57,21 @@ abstract class AbstractSlidePlugin implements SlidePluginInterface
         return [];
     }
 
+    public function getDefaultGlobalSettings(): array
+    {
+        return [];
+    }
+
+    public function renderGlobalSettings(array $settings, PluginApi $api): string
+    {
+        return '';
+    }
+
+    public function normalizeGlobalSettings(array $input, array $existingSettings, PluginApi $api): array
+    {
+        return array_replace($this->getDefaultGlobalSettings(), $existingSettings, $input);
+    }
+
     public function getFrontendAssets(array $slide, array $settings, PluginApi $api): array
     {
         return ['css' => [], 'js' => []];

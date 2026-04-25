@@ -50,6 +50,14 @@ class Plugin extends AbstractSlidePlugin
         ]);
     }
 
+    public function renderGlobalSettings(array $settings, PluginApi $api): string
+    {
+        return $this->renderView('views/global_config.php', [
+            'settings' => array_replace($this->getDefaultGlobalSettings(), $settings),
+            'plugin' => $this,
+        ]);
+    }
+
     public function normalizeSettings(array $input, array $existingSettings, PluginApi $api): array
     {
         $defaults = $this->getDefaultSettings();

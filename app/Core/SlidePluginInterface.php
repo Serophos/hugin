@@ -35,6 +35,12 @@ interface SlidePluginInterface
 
     public function getDefaultSettings(): array;
 
+    public function getDefaultGlobalSettings(): array;
+
+    public function renderGlobalSettings(array $settings, PluginApi $api): string;
+
+    public function normalizeGlobalSettings(array $input, array $existingSettings, PluginApi $api): array;
+
     public function renderAdminSettings(array $slide, array $settings, PluginApi $api): string;
 
     public function normalizeSettings(array $input, array $existingSettings, PluginApi $api): array;

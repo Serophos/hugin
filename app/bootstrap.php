@@ -66,7 +66,7 @@ $view = new App\Core\View(__DIR__ . '/Views');
 $request = new App\Core\Request();
 $auth = new App\Core\Auth($db);
 $uploadManager = new App\Core\UploadManager($db, $config);
-$pluginManager = new App\Core\PluginManager($db, __DIR__ . '/../plugins');
+$pluginManager = new App\Core\PluginManager($db, __DIR__ . '/../plugins', $uploadManager);
 $displayStatusService = new App\Services\DisplayStatusService($db);
 try {
     $pluginManager->syncRegistry();

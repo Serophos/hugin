@@ -99,6 +99,59 @@ class AdminController
         redirect('/admin/plugins');
     }
 
+    public function pluginSettingsForm(string $pluginName): void
+    {
+        $this->auth->requireRole('admin');
+        $this->plugins->syncRegistry();
+
+        $plugin = $this->plugins->getPlugin($pluginName);
+        if (!$plugin) {
+            flash('error', __('plugins.not_found'));
+            redirect('/admin/plugins');
+        }
+
+        $settings = array_replace(
+            $plugin->getDefaultGlobalSettings(),
+            $this->plugins->loadGlobalSettings($pluginName)
+        );
+        $formHtml = $plugin->renderGlobalSettings($settings, $this->plugins->buildApi(null, null, null, $this->auth->id()));
+
+        $this->view->render('admin/plugin_settings', [
+            'plugin' => $plugin,
+            'settings' => $settings,
+            'formHtml' => $formHtml,
+            'error' => flash('error'),
+        ]);
+    }
+
+    public function savePluginSettings(string $pluginName): void
+    {
+        $this->auth->requireRole('admin');
+        $this->plugins->syncRegistry();
+
+        $plugin = $this->plugins->getPlugin($pluginName);
+        if (!$plugin) {
+            flash('error', __('plugins.not_found'));
+            redirect('/admin/plugins');
+        }
+
+        $existingSettings = array_replace(
+            $plugin->getDefaultGlobalSettings(),
+            $this->plugins->loadGlobalSettings($pluginName)
+        );
+        $input = (array)(($this->request->input('plugin_global_settings', [])[$pluginName] ?? []));
+        try {
+            $settings = $plugin->normalizeGlobalSettings($input, $existingSettings, $this->plugins->buildApi(null, null, null, $this->auth->id()));
+            $this->plugins->saveGlobalSettings($pluginName, $settings);
+        } catch (RuntimeException $e) {
+            flash('error', $e->getMessage());
+            redirect('/admin/plugins/' . $pluginName . '/settings');
+        }
+
+        flash('success', __('plugins.settings_saved', ['plugin' => $plugin->getDisplayName()]));
+        redirect('/admin/plugins');
+    }
+
     public function dashboard(): void
     {
         $this->auth->requireLogin();
@@ -609,7 +662,7 @@ class AdminController
                 'display_name' => $plugin->getDisplayName(),
                 'description' => (string)($plugin->getManifest()['description'] ?? ''),
             ];
-            $pluginForms[$plugin->getName()] = $plugin->renderAdminSettings($slide ?? [], $settings, $this->plugins->buildApi());
+            $pluginForms[$plugin->getName()] = $plugin->renderAdminSettings($slide ?? [], $settings, $this->plugins->buildApi(null, null, null, $this->auth->id()));
         }
 
         $this->view->render('admin/slide_form', [
@@ -656,7 +709,7 @@ class AdminController
             if ($isPluginType) {
                 $submittedPluginSettings = (array)(($this->request->input('plugin_settings', [])[$plugin->getName()] ?? []));
                 $existingPluginSettings = $id ? $this->plugins->loadSlideSettings($id, $plugin->getName()) : [];
-                $pluginSettings = $plugin->normalizeSettings($submittedPluginSettings, $existingPluginSettings, $this->plugins->buildApi());
+                $pluginSettings = $plugin->normalizeSettings($submittedPluginSettings, $existingPluginSettings, $this->plugins->buildApi(null, null, null, $this->auth->id()));
                 $sourceMode = 'external';
                 $sourceUrl = '';
                 $mediaAssetId = null;
