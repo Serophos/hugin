@@ -4,7 +4,6 @@
     <a class="button" href="<?= e(url('/admin/channels/create')) ?>"><?= e(__('channel.new')) ?></a>
 </div>
 <?php if ($flash): ?><div class="alert success"><?= e($flash) ?></div><?php endif; ?>
-<?php if ($error = flash('error')): ?><div class="alert error"><?= e($error) ?></div><?php endif; ?>
 <?php foreach ($groups as $group): ?>
 <div class="card">
     <div class="section-head"><div><h2><?= e($group['display']['name']) ?></h2><p class="muted"><a href="<?= e(url('/display/' . $group['display']['slug'])) ?>" target="_blank"><?= e('/display/' . $group['display']['slug']) ?></a></p></div></div>

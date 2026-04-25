@@ -214,7 +214,6 @@ return [
         'schedules_label' => 'Zeitpläne',
         'slides_count' => 'Slides',
         'delete_confirm' => 'Kanal löschen?',
-        'delete_blocked' => 'Der Kanal kann nicht gelöscht werden, solange er noch zugeordnet ist (Slides: :slides, Displays: :displays).',
     ],
     'slide' => [
         'singular' => 'Slide',
@@ -247,7 +246,6 @@ return [
         'open_source' => 'Quelle öffnen',
         'remove_confirm' => 'Diese Slide aus diesem Kanal entfernen?',
         'delete_confirm' => 'Slide löschen?',
-        'no_slides_for_channel' => 'Diesem Kanal sind noch keine Slides zugewiesen.',
     ],
     'media' => [
         'title' => 'Medienbibliothek',
