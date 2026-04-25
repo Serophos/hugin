@@ -8,14 +8,14 @@
 <div class="card">
     <div class="section-head"><div><h2><?= e($group['display']['name']) ?></h2><p class="muted"><a href="<?= e(url('/display/' . $group['display']['slug'])) ?>" target="_blank"><?= e('/display/' . $group['display']['slug']) ?></a></p></div></div>
     <table>
-        <thead><tr><th class="handle-col"></th><th><?= e(__('common.name')) ?></th><th><?= e(__('channel.default_label')) ?></th><th><?= e(__('channel.schedules_label')) ?></th><th><?= e(__('common.effect')) ?></th><th><?= e(__('channel.slides_count')) ?></th><th><?= e(__('common.status')) ?></th><th></th></tr></thead>
+        <thead><tr><th class="handle-col"></th><th><?= e(__('common.name')) ?></th><th><?= e(__('schedule.singular')) ?></th><th><?= e(__('channel.priority')) ?></th><th><?= e(__('common.effect')) ?></th><th><?= e(__('channel.slides_count')) ?></th><th><?= e(__('common.status')) ?></th><th></th></tr></thead>
         <tbody class="sortable-list" data-sort-endpoint="<?= e(url('/admin/sort/channels')) ?>" data-extra-name="display_id" data-extra-value="<?= e((string)$group['display']['id']) ?>">
         <?php foreach ($group['channels'] as $channel): ?>
-            <tr draggable="true" data-id="<?= e((string)$channel['channel_id']) ?>">
+            <tr draggable="true" data-id="<?= e((string)$channel['assignment_id']) ?>">
                 <td class="handle">↕</td>
                 <td><?= e($channel['channel_name']) ?></td>
-                <td><?= e($channel['is_default'] ? __('common.yes') : __('common.no')) ?></td>
-                <td><?= e((string)$channel['schedule_count']) ?></td>
+                <td><?= e($channel['schedule_name']) ?></td>
+                <td><?= e((string)$channel['priority']) ?></td>
                 <td><?= e(enum_label('effects', $channel['transition_effect'], $channel['transition_effect'])) ?></td>
                 <td><?= e((string)$channel['slide_count']) ?></td>
                 <td><?= e($channel['is_active'] ? __('common.active') : __('common.inactive')) ?></td>

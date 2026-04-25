@@ -154,7 +154,7 @@ class AdminController
 
         $displays = $this->db->all(
             'SELECT d.*,
-                    (SELECT COUNT(*) FROM display_channel_assignments dca WHERE dca.display_id = d.id) AS channel_count
+                    (SELECT COUNT(DISTINCT cdsa.channel_id) FROM channel_display_schedule_assignments cdsa WHERE cdsa.display_id = d.id) AS channel_count
              FROM displays d
              ORDER BY d.sort_order ASC, d.name ASC'
         );
@@ -256,13 +256,14 @@ class AdminController
         $rows = $this->db->all(
             'SELECT d.id AS display_id, d.name AS display_name, d.slug AS display_slug,
                     c.id AS channel_id, c.name AS channel_name, c.transition_effect, c.is_active,
-                    dca.is_default, dca.sort_order,
-                    (SELECT COUNT(*) FROM channel_slide_assignments csa WHERE csa.channel_id = c.id) AS slide_count,
-                    (SELECT COUNT(*) FROM display_channel_schedules dcs WHERE dcs.display_channel_assignment_id = dca.id AND dcs.is_enabled = 1) AS schedule_count
-             FROM display_channel_assignments dca
-             INNER JOIN displays d ON d.id = dca.display_id
-             INNER JOIN channels c ON c.id = dca.channel_id
-             ORDER BY d.sort_order ASC, dca.sort_order ASC, c.name ASC'
+                    cdsa.id AS assignment_id, cdsa.priority, cdsa.is_active AS assignment_is_active,
+                    s.name AS schedule_name, s.type AS schedule_type,
+                    (SELECT COUNT(*) FROM channel_slide_assignments csa WHERE csa.channel_id = c.id) AS slide_count
+             FROM channel_display_schedule_assignments cdsa
+             INNER JOIN displays d ON d.id = cdsa.display_id
+             INNER JOIN channels c ON c.id = cdsa.channel_id
+             INNER JOIN schedules s ON s.id = cdsa.schedule_id
+             ORDER BY d.sort_order ASC, cdsa.priority ASC, c.name ASC, s.name ASC'
         );
 
         $groups = [];
@@ -284,28 +285,20 @@ class AdminController
 
         $channel = $id ? $this->db->one('SELECT * FROM channels WHERE id = ?', [$id]) : null;
         $displays = $this->db->all('SELECT id, name FROM displays ORDER BY sort_order ASC, name ASC');
+        $schedules = $this->db->all(
+            'SELECT id, name, type, is_system, is_active FROM schedules ORDER BY is_system DESC, name ASC'
+        );
         $assignments = [];
-        $schedules = [];
 
         if ($id) {
-            $assignmentRows = $this->db->all(
-                'SELECT dca.id, dca.display_id, dca.is_default, dca.sort_order, d.name AS display_name
-                 FROM display_channel_assignments dca
-                 INNER JOIN displays d ON d.id = dca.display_id
-                 WHERE dca.channel_id = ?
-                 ORDER BY d.sort_order ASC, d.name ASC',
-                [$id]
-            );
-            foreach ($assignmentRows as $assignment) {
-                $assignments[$assignment['display_id']] = $assignment;
-            }
-
-            $schedules = $this->db->all(
-                'SELECT dcs.*, dca.display_id
-                 FROM display_channel_schedules dcs
-                 INNER JOIN display_channel_assignments dca ON dca.id = dcs.display_channel_assignment_id
-                 WHERE dca.channel_id = ?
-                 ORDER BY dca.display_id ASC, dcs.weekday ASC, dcs.start_time ASC',
+            $assignments = $this->db->all(
+                'SELECT cdsa.id, cdsa.display_id, cdsa.schedule_id, cdsa.priority,
+                        d.name AS display_name, s.name AS schedule_name, s.type AS schedule_type
+                 FROM channel_display_schedule_assignments cdsa
+                 INNER JOIN displays d ON d.id = cdsa.display_id
+                 INNER JOIN schedules s ON s.id = cdsa.schedule_id
+                 WHERE cdsa.channel_id = ?
+                 ORDER BY d.sort_order ASC, cdsa.priority ASC, s.name ASC',
                 [$id]
             );
         }
@@ -329,11 +322,24 @@ class AdminController
         $durationRaw = trim((string)$this->request->input('slide_duration_seconds', ''));
         $duration = $durationRaw === '' ? null : max(1, (int)$durationRaw);
         $isActive = $this->request->input('is_active') ? 1 : 0;
-        $displayIds = $this->normalizeIds($this->request->input('display_ids', []));
-        $defaultDisplayIds = $this->normalizeIds($this->request->input('default_display_ids', []));
 
-        if ($name === '' || !$displayIds) {
-            flash('error', __('channel.name_and_display_required'));
+        if ($name === '') {
+            flash('error', __('channel.name_required'));
+            redirect($id ? '/admin/channels/' . $id . '/edit' : '/admin/channels/create');
+        }
+
+        try {
+            $assignmentRows = $this->normalizeChannelAssignmentInput(
+                (array)$this->request->input('assignment_display_id', []),
+                (array)$this->request->input('assignment_schedule_id', []),
+                (array)$this->request->input('assignment_priority', [])
+            );
+        } catch (RuntimeException $e) {
+            flash('error', $e->getMessage());
+            redirect($id ? '/admin/channels/' . $id . '/edit' : '/admin/channels/create');
+        }
+        if (!$assignmentRows) {
+            flash('error', __('channel.assignment_required'));
             redirect($id ? '/admin/channels/' . $id . '/edit' : '/admin/channels/create');
         }
 
@@ -354,36 +360,23 @@ class AdminController
                 $channelId = (int)$this->db->lastInsertId();
             }
 
-            $this->db->execute('DELETE FROM display_channel_assignments WHERE channel_id = ?', [$channelId]);
-
-            $assignmentMap = [];
-            foreach ($displayIds as $index => $displayId) {
-                $isDefault = in_array($displayId, $defaultDisplayIds, true) ? 1 : 0;
-                if ($isDefault) {
-                    $this->db->execute('UPDATE display_channel_assignments SET is_default = 0 WHERE display_id = ?', [$displayId]);
+            $this->db->execute('DELETE FROM channel_display_schedule_assignments WHERE channel_id = ?', [$channelId]);
+            $nextPriorityByDisplay = [];
+            foreach ($assignmentRows as $assignment) {
+                $priority = $assignment['priority'];
+                if ($priority === null) {
+                    $displayId = $assignment['display_id'];
+                    if (!isset($nextPriorityByDisplay[$displayId])) {
+                        $nextPriorityByDisplay[$displayId] = (int)($this->db->one(
+                            'SELECT COALESCE(MAX(priority), 0) + 1 AS next_priority FROM channel_display_schedule_assignments WHERE display_id = ?',
+                            [$displayId]
+                        )['next_priority'] ?? 1);
+                    }
+                    $priority = $nextPriorityByDisplay[$displayId]++;
                 }
                 $this->db->execute(
-                    'INSERT INTO display_channel_assignments (display_id, channel_id, is_default, sort_order) VALUES (?, ?, ?, ?)',
-                    [$displayId, $channelId, $isDefault, $index + 1]
-                );
-                $assignmentMap[$displayId] = (int)$this->db->lastInsertId();
-            }
-
-            $displayScheduleIds = $this->normalizeIds($this->request->input('schedule_display_id', []));
-            $weekdays = (array)$this->request->input('schedule_weekday', []);
-            $starts = (array)$this->request->input('schedule_start', []);
-            $ends = (array)$this->request->input('schedule_end', []);
-
-            foreach ($displayScheduleIds as $index => $displayId) {
-                $weekday = $weekdays[$index] ?? '';
-                $start = $starts[$index] ?? '';
-                $end = $ends[$index] ?? '';
-                if ($weekday === '' || $start === '' || $end === '' || !isset($assignmentMap[$displayId])) {
-                    continue;
-                }
-                $this->db->execute(
-                    'INSERT INTO display_channel_schedules (display_channel_assignment_id, weekday, start_time, end_time, is_enabled) VALUES (?, ?, ?, ?, 1)',
-                    [$assignmentMap[$displayId], (int)$weekday, $start . ':00', $end . ':00']
+                    'INSERT INTO channel_display_schedule_assignments (display_id, channel_id, schedule_id, priority, is_active) VALUES (?, ?, ?, ?, 1)',
+                    [$assignment['display_id'], $channelId, $assignment['schedule_id'], $priority]
                 );
             }
 
@@ -409,10 +402,159 @@ class AdminController
     {
         $this->auth->requireLogin();
         $displayId = (int)$this->request->input('display_id');
-        foreach ($this->normalizeIds($this->request->input('ids', [])) as $index => $channelId) {
-            $this->db->execute('UPDATE display_channel_assignments SET sort_order = ? WHERE channel_id = ? AND display_id = ?', [$index + 1, $channelId, $displayId]);
+        foreach ($this->normalizeIds($this->request->input('ids', [])) as $index => $assignmentId) {
+            $this->db->execute('UPDATE channel_display_schedule_assignments SET priority = ? WHERE id = ? AND display_id = ?', [$index + 1, $assignmentId, $displayId]);
         }
         json_response(['ok' => true]);
+    }
+
+    public function schedules(): void
+    {
+        $this->auth->requireLogin();
+
+        $schedules = $this->db->all(
+            'SELECT s.id, s.name, s.type, s.is_system, s.is_active, s.created_at, s.updated_at,
+                    COUNT(cdsa.id) AS assignment_count
+             FROM schedules s
+             LEFT JOIN channel_display_schedule_assignments cdsa ON cdsa.schedule_id = s.id
+             GROUP BY s.id, s.name, s.type, s.is_system, s.is_active, s.created_at, s.updated_at
+             ORDER BY s.is_system DESC, s.name ASC'
+        );
+        $rules = $this->db->all(
+            'SELECT * FROM schedule_rules ORDER BY schedule_id ASC, weekday ASC, start_time ASC'
+        );
+        $rulesBySchedule = [];
+        foreach ($rules as $rule) {
+            $rulesBySchedule[(int)$rule['schedule_id']][] = $rule;
+        }
+
+        $this->view->render('admin/schedules', [
+            'schedules' => $schedules,
+            'rulesBySchedule' => $rulesBySchedule,
+            'flash' => flash('success'),
+            'error' => flash('error'),
+        ]);
+    }
+
+    public function scheduleForm(?int $id = null): void
+    {
+        $this->auth->requireLogin();
+
+        $schedule = $id ? $this->db->one('SELECT * FROM schedules WHERE id = ?', [$id]) : null;
+        if ($id && !$schedule) {
+            flash('error', __('schedule.not_found'));
+            redirect('/admin/schedules');
+        }
+        if ($schedule && !empty($schedule['is_system'])) {
+            flash('error', __('schedule.system_not_editable'));
+            redirect('/admin/schedules');
+        }
+
+        $rules = $id
+            ? $this->db->all('SELECT * FROM schedule_rules WHERE schedule_id = ? ORDER BY weekday ASC, start_time ASC', [$id])
+            : [];
+        if (!$rules) {
+            $rules = [['weekday' => '', 'start_time' => '', 'end_time' => '']];
+        }
+
+        $this->view->render('admin/schedule_form', [
+            'schedule' => $schedule,
+            'rules' => $rules,
+            'error' => flash('error'),
+        ]);
+    }
+
+    public function saveSchedule(?int $id = null): void
+    {
+        $this->auth->requireLogin();
+
+        $schedule = $id ? $this->db->one('SELECT * FROM schedules WHERE id = ?', [$id]) : null;
+        if ($id && !$schedule) {
+            flash('error', __('schedule.not_found'));
+            redirect('/admin/schedules');
+        }
+        if ($schedule && !empty($schedule['is_system'])) {
+            flash('error', __('schedule.system_not_editable'));
+            redirect('/admin/schedules');
+        }
+
+        $name = trim((string)$this->request->input('name'));
+        $isActive = $this->request->input('is_active') ? 1 : 0;
+        try {
+            if ($name === '') {
+                throw new RuntimeException(__('schedule.name_required'));
+            }
+            $rules = $this->normalizeScheduleRuleInput(
+                (array)$this->request->input('rule_weekday', []),
+                (array)$this->request->input('rule_start_time', []),
+                (array)$this->request->input('rule_end_time', [])
+            );
+        } catch (RuntimeException $e) {
+            flash('error', $e->getMessage());
+            redirect($id ? '/admin/schedules/' . $id . '/edit' : '/admin/schedules/create');
+        }
+
+        $pdo = $this->db->pdo();
+        $pdo->beginTransaction();
+        try {
+            if ($id) {
+                $this->db->execute(
+                    'UPDATE schedules SET name = ?, is_active = ? WHERE id = ?',
+                    [$name, $isActive, $id]
+                );
+                $scheduleId = $id;
+            } else {
+                $this->db->execute(
+                    'INSERT INTO schedules (name, type, is_system, is_active) VALUES (?, ?, 0, ?)',
+                    [$name, 'weekly_time_slot', $isActive]
+                );
+                $scheduleId = (int)$this->db->lastInsertId();
+            }
+
+            $this->db->execute('DELETE FROM schedule_rules WHERE schedule_id = ?', [$scheduleId]);
+            foreach ($rules as $rule) {
+                $this->db->execute(
+                    'INSERT INTO schedule_rules (schedule_id, weekday, start_time, end_time) VALUES (?, ?, ?, ?)',
+                    [$scheduleId, $rule['weekday'], $rule['start_time'], $rule['end_time']]
+                );
+            }
+
+            $pdo->commit();
+        } catch (\Throwable $e) {
+            $pdo->rollBack();
+            throw $e;
+        }
+
+        flash('success', __($id ? 'schedule.updated' : 'schedule.created'));
+        redirect('/admin/schedules');
+    }
+
+    public function deleteSchedule(int $id): void
+    {
+        $this->auth->requireLogin();
+
+        $schedule = $this->db->one('SELECT * FROM schedules WHERE id = ?', [$id]);
+        if (!$schedule) {
+            flash('error', __('schedule.not_found'));
+            redirect('/admin/schedules');
+        }
+        if (!empty($schedule['is_system'])) {
+            flash('error', __('schedule.system_not_deletable'));
+            redirect('/admin/schedules');
+        }
+
+        $usage = (int)($this->db->one(
+            'SELECT COUNT(*) AS cnt FROM channel_display_schedule_assignments WHERE schedule_id = ?',
+            [$id]
+        )['cnt'] ?? 0);
+        if ($usage > 0) {
+            flash('error', __('schedule.still_used'));
+            redirect('/admin/schedules');
+        }
+
+        $this->db->execute('DELETE FROM schedules WHERE id = ?', [$id]);
+        flash('success', __('schedule.deleted'));
+        redirect('/admin/schedules');
     }
 
     public function slides(): void
@@ -816,23 +958,26 @@ class AdminController
     {
         $timezone = new \DateTimeZone(($display['timezone'] ?? '') ?: 'UTC');
         $now = new \DateTime('now', $timezone);
-        $weekday = (int)$now->format('w');
+        $weekday = (int)$now->format('N');
         $currentTime = $now->format('H:i:s');
 
         $activeAssignment = $this->db->one(
-            'SELECT dca.channel_id, c.name AS channel_name
-             FROM display_channel_assignments dca
-             INNER JOIN channels c ON c.id = dca.channel_id
-             INNER JOIN display_channel_schedules dcs ON dcs.display_channel_assignment_id = dca.id
-             WHERE dca.display_id = ?
-               AND dca.is_default = 0
+            'SELECT cdsa.channel_id, c.name AS channel_name
+             FROM channel_display_schedule_assignments cdsa
+             INNER JOIN channels c ON c.id = cdsa.channel_id
+             INNER JOIN schedules s ON s.id = cdsa.schedule_id
+             INNER JOIN schedule_rules sr ON sr.schedule_id = s.id
+             WHERE cdsa.display_id = ?
+               AND cdsa.is_active = 1
                AND c.is_active = 1
-               AND dcs.is_enabled = 1
-               AND dcs.weekday = ?
-               AND ? BETWEEN dcs.start_time AND dcs.end_time
-             ORDER BY dca.sort_order ASC, dca.id ASC
+               AND s.is_active = 1
+               AND s.type = \'weekly_time_slot\'
+               AND sr.weekday = ?
+               AND ? >= sr.start_time
+               AND ? < sr.end_time
+             ORDER BY cdsa.priority ASC, cdsa.id ASC
              LIMIT 1',
-            [$display['id'], $weekday, $currentTime]
+            [$display['id'], $weekday, $currentTime, $currentTime]
         );
 
         if ($activeAssignment) {
@@ -840,13 +985,16 @@ class AdminController
         }
 
         return $this->db->one(
-            'SELECT dca.channel_id, c.name AS channel_name
-             FROM display_channel_assignments dca
-             INNER JOIN channels c ON c.id = dca.channel_id
-             WHERE dca.display_id = ?
-               AND dca.is_default = 1
+            'SELECT cdsa.channel_id, c.name AS channel_name
+             FROM channel_display_schedule_assignments cdsa
+             INNER JOIN channels c ON c.id = cdsa.channel_id
+             INNER JOIN schedules s ON s.id = cdsa.schedule_id
+             WHERE cdsa.display_id = ?
+               AND cdsa.is_active = 1
                AND c.is_active = 1
-             ORDER BY dca.sort_order ASC, dca.id ASC
+               AND s.is_active = 1
+               AND s.type = \'fulltime\'
+             ORDER BY cdsa.priority ASC, cdsa.id ASC
              LIMIT 1',
             [$display['id']]
         );
@@ -938,6 +1086,125 @@ class AdminController
                 [$index + 1, (int)$row['slide_id'], $channelId]
             );
         }
+    }
+
+    private function normalizeChannelAssignmentInput(array $displayValues, array $scheduleValues, array $priorityValues): array
+    {
+        $validDisplays = array_fill_keys(array_map(
+            static fn (array $row): int => (int)$row['id'],
+            $this->db->all('SELECT id FROM displays')
+        ), true);
+        $validSchedules = array_fill_keys(array_map(
+            static fn (array $row): int => (int)$row['id'],
+            $this->db->all('SELECT id FROM schedules')
+        ), true);
+
+        $rows = [];
+        $seen = [];
+        $count = max(count($displayValues), count($scheduleValues), count($priorityValues));
+        for ($i = 0; $i < $count; $i++) {
+            $displayRaw = trim((string)($displayValues[$i] ?? ''));
+            $scheduleRaw = trim((string)($scheduleValues[$i] ?? ''));
+            $priorityRaw = trim((string)($priorityValues[$i] ?? ''));
+
+            if ($displayRaw === '' && $scheduleRaw === '' && $priorityRaw === '') {
+                continue;
+            }
+            if ($displayRaw === '' || $scheduleRaw === '') {
+                throw new RuntimeException(__('channel.assignment_incomplete'));
+            }
+            if (!ctype_digit($displayRaw) || !ctype_digit($scheduleRaw)) {
+                throw new RuntimeException(__('channel.assignment_invalid'));
+            }
+
+            $displayId = (int)$displayRaw;
+            $scheduleId = (int)$scheduleRaw;
+            if (!isset($validDisplays[$displayId]) || !isset($validSchedules[$scheduleId])) {
+                throw new RuntimeException(__('channel.assignment_invalid'));
+            }
+
+            $priority = null;
+            if ($priorityRaw !== '') {
+                if (!ctype_digit($priorityRaw) || (int)$priorityRaw < 1) {
+                    throw new RuntimeException(__('channel.assignment_invalid_priority'));
+                }
+                $priority = (int)$priorityRaw;
+            }
+
+            $key = $displayId . ':' . $scheduleId;
+            if (isset($seen[$key])) {
+                continue;
+            }
+            $seen[$key] = true;
+            $rows[] = [
+                'display_id' => $displayId,
+                'schedule_id' => $scheduleId,
+                'priority' => $priority,
+            ];
+        }
+
+        return $rows;
+    }
+
+    private function normalizeScheduleRuleInput(array $weekdayValues, array $startValues, array $endValues): array
+    {
+        $rules = [];
+        $seen = [];
+        $count = max(count($weekdayValues), count($startValues), count($endValues));
+        for ($i = 0; $i < $count; $i++) {
+            $weekdayRaw = trim((string)($weekdayValues[$i] ?? ''));
+            $startRaw = trim((string)($startValues[$i] ?? ''));
+            $endRaw = trim((string)($endValues[$i] ?? ''));
+
+            if ($weekdayRaw === '' && $startRaw === '' && $endRaw === '') {
+                continue;
+            }
+            if (!ctype_digit($weekdayRaw) || (int)$weekdayRaw < 1 || (int)$weekdayRaw > 7) {
+                throw new RuntimeException(__('schedule.invalid_rule'));
+            }
+
+            $start = $this->normalizeTimeInput($startRaw);
+            $end = $this->normalizeTimeInput($endRaw);
+            if ($start === null || $end === null) {
+                throw new RuntimeException(__('schedule.invalid_rule'));
+            }
+            if ($start >= $end) {
+                throw new RuntimeException(__('schedule.no_day_overflow'));
+            }
+
+            $weekday = (int)$weekdayRaw;
+            $key = $weekday . ':' . $start . ':' . $end;
+            if (isset($seen[$key])) {
+                continue;
+            }
+            $seen[$key] = true;
+            $rules[] = [
+                'weekday' => $weekday,
+                'start_time' => $start,
+                'end_time' => $end,
+            ];
+        }
+
+        if (!$rules) {
+            throw new RuntimeException(__('schedule.rule_required'));
+        }
+
+        return $rules;
+    }
+
+    private function normalizeTimeInput(string $value): ?string
+    {
+        if (!preg_match('/^(\d{2}):(\d{2})$/', $value, $matches)) {
+            return null;
+        }
+
+        $hour = (int)$matches[1];
+        $minute = (int)$matches[2];
+        if ($hour > 23 || $minute > 59) {
+            return null;
+        }
+
+        return sprintf('%02d:%02d:00', $hour, $minute);
     }
 
     private function normalizeIds(mixed $value): array

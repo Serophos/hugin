@@ -264,7 +264,10 @@ class FrontendController
             'channel_name' => (string)$activeAssignment['channel_name'],
             'channel_updated_at' => (string)($activeAssignment['updated_at'] ?? ''),
             'assignment_id' => (int)$activeAssignment['id'],
-            'assignment_default' => (int)$activeAssignment['is_default'],
+            'assignment_default' => (int)(($activeAssignment['schedule_type'] ?? '') === 'fulltime'),
+            'assignment_schedule_id' => (int)($activeAssignment['schedule_id'] ?? 0),
+            'assignment_schedule_name' => (string)($activeAssignment['schedule_name'] ?? ''),
+            'assignment_schedule_type' => (string)($activeAssignment['schedule_type'] ?? ''),
             'assignment_sort_order' => (int)$activeAssignment['sort_order'],
             'effect' => $effect,
             'duration' => $duration,
@@ -357,23 +360,29 @@ class FrontendController
     {
         $timezone = new DateTimeZone($display['timezone'] ?: 'UTC');
         $now = new DateTime('now', $timezone);
-        $weekday = (int)$now->format('w');
+        $weekday = (int)$now->format('N');
         $currentTime = $now->format('H:i:s');
 
         $activeAssignment = $this->db->one(
-            'SELECT dca.*, c.name AS channel_name, c.description AS channel_description, c.transition_effect, c.slide_duration_seconds, c.is_active AS channel_is_active
-             FROM display_channel_assignments dca
-             INNER JOIN channels c ON c.id = dca.channel_id
-             INNER JOIN display_channel_schedules dcs ON dcs.display_channel_assignment_id = dca.id
-             WHERE dca.display_id = ?
-               AND dca.is_default = 0
+            'SELECT cdsa.id, cdsa.display_id, cdsa.channel_id, cdsa.schedule_id, cdsa.priority AS sort_order,
+                    s.name AS schedule_name, s.type AS schedule_type,
+                    c.name AS channel_name, c.description AS channel_description,
+                    c.transition_effect, c.slide_duration_seconds, c.updated_at, c.is_active AS channel_is_active
+             FROM channel_display_schedule_assignments cdsa
+             INNER JOIN channels c ON c.id = cdsa.channel_id
+             INNER JOIN schedules s ON s.id = cdsa.schedule_id
+             INNER JOIN schedule_rules sr ON sr.schedule_id = s.id
+             WHERE cdsa.display_id = ?
+               AND cdsa.is_active = 1
                AND c.is_active = 1
-               AND dcs.is_enabled = 1
-               AND dcs.weekday = ?
-               AND ? BETWEEN dcs.start_time AND dcs.end_time
-             ORDER BY dca.sort_order ASC, dca.id ASC
+               AND s.is_active = 1
+               AND s.type = \'weekly_time_slot\'
+               AND sr.weekday = ?
+               AND ? >= sr.start_time
+               AND ? < sr.end_time
+             ORDER BY cdsa.priority ASC, cdsa.id ASC
              LIMIT 1',
-            [$display['id'], $weekday, $currentTime]
+            [$display['id'], $weekday, $currentTime, $currentTime]
         );
 
         if ($activeAssignment) {
@@ -381,13 +390,19 @@ class FrontendController
         }
 
         return $this->db->one(
-            'SELECT dca.*, c.name AS channel_name, c.description AS channel_description, c.transition_effect, c.slide_duration_seconds, c.is_active AS channel_is_active
-             FROM display_channel_assignments dca
-             INNER JOIN channels c ON c.id = dca.channel_id
-             WHERE dca.display_id = ?
-               AND dca.is_default = 1
+            'SELECT cdsa.id, cdsa.display_id, cdsa.channel_id, cdsa.schedule_id, cdsa.priority AS sort_order,
+                    s.name AS schedule_name, s.type AS schedule_type,
+                    c.name AS channel_name, c.description AS channel_description,
+                    c.transition_effect, c.slide_duration_seconds, c.updated_at, c.is_active AS channel_is_active
+             FROM channel_display_schedule_assignments cdsa
+             INNER JOIN channels c ON c.id = cdsa.channel_id
+             INNER JOIN schedules s ON s.id = cdsa.schedule_id
+             WHERE cdsa.display_id = ?
+               AND cdsa.is_active = 1
                AND c.is_active = 1
-             ORDER BY dca.sort_order ASC, dca.id ASC
+               AND s.is_active = 1
+               AND s.type = \'fulltime\'
+             ORDER BY cdsa.priority ASC, cdsa.id ASC
              LIMIT 1',
             [$display['id']]
         );

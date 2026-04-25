@@ -168,25 +168,29 @@ class DisplayStatusService
     {
         $timezone = new DateTimeZone(($display['timezone'] ?? '') ?: 'UTC');
         $now = new DateTime('now', $timezone);
-        $weekday = (int)$now->format('w');
+        $weekday = (int)$now->format('N');
         $currentTime = $now->format('H:i:s');
 
         $activeAssignment = $this->db->one(
-            'SELECT dca.id, dca.channel_id, dca.is_default, dca.sort_order,
+            'SELECT cdsa.id, cdsa.channel_id, cdsa.schedule_id, cdsa.priority AS sort_order,
+                    s.name AS schedule_name, s.type AS schedule_type,
                     c.name AS channel_name, c.description AS channel_description,
                     c.transition_effect, c.slide_duration_seconds, c.updated_at, c.is_active AS channel_is_active
-             FROM display_channel_assignments dca
-             INNER JOIN channels c ON c.id = dca.channel_id
-             INNER JOIN display_channel_schedules dcs ON dcs.display_channel_assignment_id = dca.id
-             WHERE dca.display_id = ?
-               AND dca.is_default = 0
+             FROM channel_display_schedule_assignments cdsa
+             INNER JOIN channels c ON c.id = cdsa.channel_id
+             INNER JOIN schedules s ON s.id = cdsa.schedule_id
+             INNER JOIN schedule_rules sr ON sr.schedule_id = s.id
+             WHERE cdsa.display_id = ?
+               AND cdsa.is_active = 1
                AND c.is_active = 1
-               AND dcs.is_enabled = 1
-               AND dcs.weekday = ?
-               AND ? BETWEEN dcs.start_time AND dcs.end_time
-             ORDER BY dca.sort_order ASC, dca.id ASC
+               AND s.is_active = 1
+               AND s.type = \'weekly_time_slot\'
+               AND sr.weekday = ?
+               AND ? >= sr.start_time
+               AND ? < sr.end_time
+             ORDER BY cdsa.priority ASC, cdsa.id ASC
              LIMIT 1',
-            [$display['id'], $weekday, $currentTime]
+            [$display['id'], $weekday, $currentTime, $currentTime]
         );
 
         if ($activeAssignment) {
@@ -194,15 +198,19 @@ class DisplayStatusService
         }
 
         return $this->db->one(
-            'SELECT dca.id, dca.channel_id, dca.is_default, dca.sort_order,
+            'SELECT cdsa.id, cdsa.channel_id, cdsa.schedule_id, cdsa.priority AS sort_order,
+                    s.name AS schedule_name, s.type AS schedule_type,
                     c.name AS channel_name, c.description AS channel_description,
                     c.transition_effect, c.slide_duration_seconds, c.updated_at, c.is_active AS channel_is_active
-             FROM display_channel_assignments dca
-             INNER JOIN channels c ON c.id = dca.channel_id
-             WHERE dca.display_id = ?
-               AND dca.is_default = 1
+             FROM channel_display_schedule_assignments cdsa
+             INNER JOIN channels c ON c.id = cdsa.channel_id
+             INNER JOIN schedules s ON s.id = cdsa.schedule_id
+             WHERE cdsa.display_id = ?
+               AND cdsa.is_active = 1
                AND c.is_active = 1
-             ORDER BY dca.sort_order ASC, dca.id ASC
+               AND s.is_active = 1
+               AND s.type = \'fulltime\'
+             ORDER BY cdsa.priority ASC, cdsa.id ASC
              LIMIT 1',
             [$display['id']]
         );

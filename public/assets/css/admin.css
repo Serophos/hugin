@@ -260,10 +260,22 @@ th {
 
 .link-button.danger { color: var(--danger); }
 
-.schedule-row {
+.schedule-row,
+.assignment-row,
+.rule-row {
     display: grid;
-    grid-template-columns: 1.2fr 1fr 1fr;
+    grid-template-columns: 1.2fr 1.2fr 0.65fr auto;
     gap: 0.75rem;
+    margin-bottom: 0.75rem;
+    align-items: end;
+}
+
+.rule-row {
+    grid-template-columns: 1.2fr 1fr 1fr auto;
+}
+
+.assignment-list,
+.rule-list {
     margin-bottom: 0.75rem;
 }
 
@@ -292,7 +304,9 @@ th {
         align-items: flex-start;
     }
 
-    .schedule-row {
+    .schedule-row,
+    .assignment-row,
+    .rule-row {
         grid-template-columns: 1fr;
     }
 }

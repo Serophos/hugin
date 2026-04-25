@@ -29,6 +29,13 @@ if ($uri === '/admin/about' && $method === 'GET') { $admin->about(); exit; }
 if ($uri === '/admin/plugins' && $method === 'GET') { $admin->plugins(); exit; }
 if (preg_match('#^/admin/plugins/([a-zA-Z0-9\-_]+)/toggle$#', $uri, $m) && $method === 'POST') { $admin->togglePlugin($m[1]); exit; }
 
+if ($uri === '/admin/schedules' && $method === 'GET') { $admin->schedules(); exit; }
+if ($uri === '/admin/schedules/create' && $method === 'GET') { $admin->scheduleForm(); exit; }
+if ($uri === '/admin/schedules/create' && $method === 'POST') { $admin->saveSchedule(); exit; }
+if (preg_match('#^/admin/schedules/(\d+)/edit$#', $uri, $m) && $method === 'GET') { $admin->scheduleForm((int)$m[1]); exit; }
+if (preg_match('#^/admin/schedules/(\d+)/edit$#', $uri, $m) && $method === 'POST') { $admin->saveSchedule((int)$m[1]); exit; }
+if (preg_match('#^/admin/schedules/(\d+)/delete$#', $uri, $m) && $method === 'POST') { $admin->deleteSchedule((int)$m[1]); exit; }
+
 if ($uri === '/admin/displays' && $method === 'GET') { $admin->displays(); exit; }
 if ($uri === '/admin/displays/create' && $method === 'GET') { $admin->displayForm(); exit; }
 if ($uri === '/admin/displays/create' && $method === 'POST') { $admin->saveDisplay(); exit; }

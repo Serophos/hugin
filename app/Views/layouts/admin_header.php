@@ -21,6 +21,7 @@
             <a href="<?= e(url('/admin')) ?>"><?= e(__('nav.dashboard')) ?></a>
             <a href="<?= e(url('/admin/displays')) ?>"><?= e(__('nav.displays')) ?></a>
             <a href="<?= e(url('/admin/channels')) ?>"><?= e(__('nav.channels')) ?></a>
+            <a href="<?= e(url('/admin/schedules')) ?>"><?= e(__('nav.schedules')) ?></a>
             <a href="<?= e(url('/admin/slides')) ?>"><?= e(__('nav.slides')) ?></a>
             <a href="<?= e(url('/admin/media')) ?>"><?= e(__('nav.media')) ?></a>
             <?php if (is_admin()): ?>

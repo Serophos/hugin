@@ -1,4 +1,8 @@
-<?php $title = $channel ? __('channel.edit_title') : __('channel.create_title'); require __DIR__ . '/../layouts/admin_header.php'; ?>
+<?php
+$title = $channel ? __('channel.edit_title') : __('channel.create_title');
+$assignmentRows = $assignments ?: [['display_id' => '', 'schedule_id' => '', 'priority' => '']];
+require __DIR__ . '/../layouts/admin_header.php';
+?>
 <h1><?= e($title) ?></h1>
 <?php if ($error): ?><div class="alert error"><?= e($error) ?></div><?php endif; ?>
 <div class="card">
@@ -16,59 +20,110 @@
         <label class="full-width"><?= e(__('common.description')) ?><textarea name="description" rows="4"><?= e($channel['description'] ?? '') ?></textarea></label>
         <label class="checkbox-row"><input type="checkbox" name="is_active" value="1" <?= checked($channel['is_active'] ?? 1) ?>> <?= e(__('common.active')) ?></label>
 
-        <div class="full-width">
-            <h3><?= e(__('channel.assigned_displays')) ?></h3>
-            <div class="checkbox-grid">
-                <?php foreach ($displays as $display): $assigned = isset($assignments[$display['id']]); ?>
-                    <label class="checkbox-row"><input type="checkbox" name="display_ids[]" value="<?= e((string)$display['id']) ?>" <?= $assigned ? 'checked' : '' ?>> <?= e($display['name']) ?></label>
-                    <label class="checkbox-row sub-option"><input type="checkbox" name="default_display_ids[]" value="<?= e((string)$display['id']) ?>" <?= !empty($assignments[$display['id']]['is_default']) ? 'checked' : '' ?>> <?= e(__('channel.default_for_display')) ?></label>
-                <?php endforeach; ?>
-            </div>
-        </div>
-
-        <div class="full-width">
-            <h3><?= e(__('channel.schedules_per_display')) ?></h3>
-            <p class="muted"><?= e(__('channel.schedule_help')) ?></p>
-            <div id="schedule-list">
-                <?php $rows = $schedules ?: [['display_id' => '', 'weekday' => '', 'start_time' => '', 'end_time' => '']]; ?>
-                <?php foreach ($rows as $schedule): ?>
-                    <div class="schedule-row">
-                        <select name="schedule_display_id[]">
-                            <option value=""><?= e(__('channel.display_placeholder')) ?></option>
-                            <?php foreach ($displays as $display): ?>
-                                <option value="<?= e((string)$display['id']) ?>" <?= selected($schedule['display_id'] ?? '', $display['id']) ?>><?= e($display['name']) ?></option>
-                            <?php endforeach; ?>
-                        </select>
-                        <select name="schedule_weekday[]">
-                            <option value=""><?= e(__('channel.day_placeholder')) ?></option>
-                            <?php foreach (range(0, 6) as $i): ?>
-                                <option value="<?= e((string)$i) ?>" <?= selected($schedule['weekday'] ?? '', $i) ?>><?= e(__('days.' . $i)) ?></option>
-                            <?php endforeach; ?>
-                        </select>
-                        <input type="time" name="schedule_start[]" value="<?= e(substr((string)($schedule['start_time'] ?? ''), 0, 5)) ?>">
-                        <input type="time" name="schedule_end[]" value="<?= e(substr((string)($schedule['end_time'] ?? ''), 0, 5)) ?>">
+        <div class="full-width plugin-settings-card">
+            <h3><?= e(__('channel.display_schedule_assignments')) ?></h3>
+            <div id="assignment-list" class="assignment-list">
+                <?php foreach ($assignmentRows as $assignment): ?>
+                    <div class="assignment-row">
+                        <label><?= e(__('channel.display_monitor')) ?>
+                            <select name="assignment_display_id[]">
+                                <option value=""><?= e(__('channel.display_placeholder')) ?></option>
+                                <?php foreach ($displays as $display): ?>
+                                    <option value="<?= e((string)$display['id']) ?>" <?= selected($assignment['display_id'] ?? '', $display['id']) ?>><?= e($display['name']) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </label>
+                        <label><?= e(__('schedule.singular')) ?>
+                            <select name="assignment_schedule_id[]">
+                                <option value=""><?= e(__('channel.schedule_placeholder')) ?></option>
+                                <?php foreach ($schedules as $schedule): ?>
+                                    <option value="<?= e((string)$schedule['id']) ?>" <?= selected($assignment['schedule_id'] ?? '', $schedule['id']) ?>><?= e($schedule['name']) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </label>
+                        <label><?= e(__('channel.priority')) ?>
+                            <input type="number" min="1" name="assignment_priority[]" value="<?= e((string)($assignment['priority'] ?? '')) ?>">
+                        </label>
+                        <button type="button" class="button secondary assignment-remove"><?= e(__('common.remove')) ?></button>
                     </div>
                 <?php endforeach; ?>
             </div>
-            <button type="button" class="button secondary" onclick="addScheduleRow()"><?= e(__('channel.add_schedule')) ?></button>
+            <button type="button" class="button secondary" id="add-assignment"><?= e(__('channel.add_assignment')) ?></button>
         </div>
 
         <div class="form-actions"><button type="submit"><?= e(__('common.save')) ?></button><a class="button secondary" href="<?= e(url('/admin/channels')) ?>"><?= e(__('common.cancel')) ?></a></div>
     </form>
 </div>
 <script>
-const huginDisplays = <?= json_encode(array_values($displays), JSON_UNESCAPED_SLASHES) ?>;
-const huginDayLabels = <?= json_encode(array_map(static fn($i) => __('days.' . $i), range(0, 6)), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
-const huginDisplayPlaceholder = <?= json_encode(__('channel.display_placeholder')) ?>;
-const huginDayPlaceholder = <?= json_encode(__('channel.day_placeholder')) ?>;
-function addScheduleRow() {
-    const container = document.getElementById('schedule-list');
-    const row = document.createElement('div');
-    const displayOptions = [`<option value="">${huginDisplayPlaceholder}</option>`].concat(huginDisplays.map(d => `<option value="${d.id}">${d.name}</option>`)).join('');
-    const dayOptions = huginDayLabels.map((day, i) => `<option value="${i}">${day}</option>`).join('');
-    row.className = 'schedule-row';
-    row.innerHTML = `<select name="schedule_display_id[]">${displayOptions}</select><select name="schedule_weekday[]"><option value="">${huginDayPlaceholder}</option>${dayOptions}</select><input type="time" name="schedule_start[]"><input type="time" name="schedule_end[]">`;
-    container.appendChild(row);
-}
+(() => {
+    const displays = <?= json_encode(array_values($displays), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
+    const schedules = <?= json_encode(array_values($schedules), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
+    const displayPlaceholder = <?= json_encode(__('channel.display_placeholder'), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
+    const schedulePlaceholder = <?= json_encode(__('channel.schedule_placeholder'), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
+    const labels = {
+        display: <?= json_encode(__('channel.display_monitor'), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>,
+        schedule: <?= json_encode(__('schedule.singular'), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>,
+        priority: <?= json_encode(__('channel.priority'), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>,
+        remove: <?= json_encode(__('common.remove'), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>
+    };
+
+    const list = document.getElementById('assignment-list');
+    const addButton = document.getElementById('add-assignment');
+
+    function buildSelect(name, placeholder, items, selectedValue) {
+        const select = document.createElement('select');
+        select.name = name;
+        const blank = document.createElement('option');
+        blank.value = '';
+        blank.textContent = placeholder;
+        select.appendChild(blank);
+        items.forEach((item) => {
+            const option = document.createElement('option');
+            option.value = item.id;
+            option.textContent = item.name;
+            if (String(item.id) === String(selectedValue || '')) option.selected = true;
+            select.appendChild(option);
+        });
+        return select;
+    }
+
+    function buildLabel(text, control) {
+        const label = document.createElement('label');
+        label.append(document.createTextNode(text), control);
+        return label;
+    }
+
+    function addRow(values = {}) {
+        const row = document.createElement('div');
+        row.className = 'assignment-row';
+        row.appendChild(buildLabel(labels.display, buildSelect('assignment_display_id[]', displayPlaceholder, displays, values.display_id)));
+        row.appendChild(buildLabel(labels.schedule, buildSelect('assignment_schedule_id[]', schedulePlaceholder, schedules, values.schedule_id)));
+
+        const priorityInput = document.createElement('input');
+        priorityInput.type = 'number';
+        priorityInput.min = '1';
+        priorityInput.name = 'assignment_priority[]';
+        priorityInput.value = values.priority || '';
+        row.appendChild(buildLabel(labels.priority, priorityInput));
+
+        const removeButton = document.createElement('button');
+        removeButton.type = 'button';
+        removeButton.className = 'button secondary assignment-remove';
+        removeButton.textContent = labels.remove;
+        row.appendChild(removeButton);
+        list.appendChild(row);
+    }
+
+    addButton.addEventListener('click', () => addRow());
+    list.addEventListener('click', (event) => {
+        if (!event.target.classList.contains('assignment-remove')) return;
+        const rows = list.querySelectorAll('.assignment-row');
+        if (rows.length <= 1) {
+            rows[0].querySelectorAll('select, input').forEach((input) => { input.value = ''; });
+            return;
+        }
+        event.target.closest('.assignment-row').remove();
+    });
+})();
 </script>
 <?php require __DIR__ . '/../layouts/admin_footer.php'; ?>

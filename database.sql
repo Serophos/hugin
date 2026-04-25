@@ -5,6 +5,9 @@ SET FOREIGN_KEY_CHECKS = 0;
 DROP TABLE IF EXISTS slide_plugin_data;
 DROP TABLE IF EXISTS plugins;
 DROP TABLE IF EXISTS channel_slide_assignments;
+DROP TABLE IF EXISTS channel_display_schedule_assignments;
+DROP TABLE IF EXISTS schedule_rules;
+DROP TABLE IF EXISTS schedules;
 DROP TABLE IF EXISTS display_channel_schedules;
 DROP TABLE IF EXISTS display_channel_assignments;
 DROP TABLE IF EXISTS slides;
@@ -85,27 +88,39 @@ CREATE TABLE display_heartbeats (
     CONSTRAINT fk_heartbeat_channel FOREIGN KEY (current_channel_id) REFERENCES channels(id) ON DELETE SET NULL
 );
 
-CREATE TABLE display_channel_assignments (
+CREATE TABLE schedules (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(150) NOT NULL,
+    type ENUM('fulltime', 'weekly_time_slot') NOT NULL DEFAULT 'weekly_time_slot',
+    is_system TINYINT(1) NOT NULL DEFAULT 0,
+    is_active TINYINT(1) NOT NULL DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE schedule_rules (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    schedule_id INT UNSIGNED NOT NULL,
+    weekday TINYINT UNSIGNED NOT NULL COMMENT '1=Monday ... 7=Sunday',
+    start_time TIME NOT NULL,
+    end_time TIME NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_schedule_rules_schedule FOREIGN KEY (schedule_id) REFERENCES schedules(id) ON DELETE CASCADE
+);
+
+CREATE TABLE channel_display_schedule_assignments (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     display_id INT UNSIGNED NOT NULL,
     channel_id INT UNSIGNED NOT NULL,
-    is_default TINYINT(1) NOT NULL DEFAULT 0,
-    sort_order INT NOT NULL DEFAULT 0,
+    schedule_id INT UNSIGNED NOT NULL,
+    priority INT NOT NULL DEFAULT 0,
+    is_active TINYINT(1) NOT NULL DEFAULT 1,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE KEY uniq_display_channel (display_id, channel_id),
-    CONSTRAINT fk_dca_display FOREIGN KEY (display_id) REFERENCES displays(id) ON DELETE CASCADE,
-    CONSTRAINT fk_dca_channel FOREIGN KEY (channel_id) REFERENCES channels(id) ON DELETE CASCADE
-);
-
-CREATE TABLE display_channel_schedules (
-    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    display_channel_assignment_id INT UNSIGNED NOT NULL,
-    weekday TINYINT UNSIGNED NOT NULL COMMENT '0=Sunday ... 6=Saturday',
-    start_time TIME NOT NULL,
-    end_time TIME NOT NULL,
-    is_enabled TINYINT(1) NOT NULL DEFAULT 1,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT fk_dcs_assignment FOREIGN KEY (display_channel_assignment_id) REFERENCES display_channel_assignments(id) ON DELETE CASCADE
+    UNIQUE KEY uniq_display_channel_schedule (display_id, channel_id, schedule_id),
+    KEY idx_cdsa_display_priority (display_id, priority),
+    CONSTRAINT fk_cdsa_display FOREIGN KEY (display_id) REFERENCES displays(id) ON DELETE CASCADE,
+    CONSTRAINT fk_cdsa_channel FOREIGN KEY (channel_id) REFERENCES channels(id) ON DELETE CASCADE,
+    CONSTRAINT fk_cdsa_schedule FOREIGN KEY (schedule_id) REFERENCES schedules(id) ON DELETE RESTRICT
 );
 
 CREATE TABLE media_assets (
@@ -187,23 +202,28 @@ INSERT INTO channels (name, description, transition_effect, slide_duration_secon
 ('Morning News', 'Shown in the morning', 'slide-left', 6, 1),
 ('Menu Loop', 'General cafeteria content', 'zoom', 8, 1);
 
-INSERT INTO display_channel_assignments (display_id, channel_id, is_default, sort_order) VALUES
-(1, 1, 1, 1),
-(1, 2, 0, 2),
-(2, 1, 1, 1),
-(2, 3, 0, 2);
+INSERT INTO schedules (name, type, is_system, is_active) VALUES
+('Fulltime', 'fulltime', 1, 1),
+('Weekday mornings', 'weekly_time_slot', 0, 1),
+('Weekday lunch', 'weekly_time_slot', 0, 1);
 
-INSERT INTO display_channel_schedules (display_channel_assignment_id, weekday, start_time, end_time, is_enabled) VALUES
-(2, 1, '06:00:00', '11:59:59', 1),
-(2, 2, '06:00:00', '11:59:59', 1),
-(2, 3, '06:00:00', '11:59:59', 1),
-(2, 4, '06:00:00', '11:59:59', 1),
-(2, 5, '06:00:00', '11:59:59', 1),
-(4, 1, '10:00:00', '14:00:00', 1),
-(4, 2, '10:00:00', '14:00:00', 1),
-(4, 3, '10:00:00', '14:00:00', 1),
-(4, 4, '10:00:00', '14:00:00', 1),
-(4, 5, '10:00:00', '14:00:00', 1);
+INSERT INTO schedule_rules (schedule_id, weekday, start_time, end_time) VALUES
+(2, 1, '06:00:00', '12:00:00'),
+(2, 2, '06:00:00', '12:00:00'),
+(2, 3, '06:00:00', '12:00:00'),
+(2, 4, '06:00:00', '12:00:00'),
+(2, 5, '06:00:00', '12:00:00'),
+(3, 1, '10:00:00', '14:00:00'),
+(3, 2, '10:00:00', '14:00:00'),
+(3, 3, '10:00:00', '14:00:00'),
+(3, 4, '10:00:00', '14:00:00'),
+(3, 5, '10:00:00', '14:00:00');
+
+INSERT INTO channel_display_schedule_assignments (display_id, channel_id, schedule_id, priority, is_active) VALUES
+(1, 1, 1, 10, 1),
+(1, 2, 2, 1, 1),
+(2, 1, 1, 10, 1),
+(2, 3, 3, 1, 1);
 
 INSERT INTO slides (name, slide_type, source_mode, source_url, media_asset_id, duration_seconds, title_position, is_active) VALUES
 ('Welcome Image', 'image', 'external', 'https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=1600&q=80', NULL, 8, 'bottom-left', 1),
