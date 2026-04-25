@@ -7,6 +7,9 @@
     font-family: Inter, Arial, sans-serif;
 }
 .weather-slide * { box-sizing: border-box; }
+.weather-slide .weather-icon-wrap img{
+    background: none;
+}
 .weather-background {
     position: absolute;
     inset: -10%;

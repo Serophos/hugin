@@ -74,8 +74,12 @@ if ($queryValue === '') {
 
 <script>
 (function () {
-    const root = document.currentScript.closest('.weather-plugin-config');
+    const script = document.currentScript;
+    const scope = script ? (script.closest('[data-plugin-slide-type]') || document) : document;
+    const root = scope.querySelector('.weather-plugin-config');
     if (!root) return;
+    if (root.dataset.weatherSearchInitialized === '1') return;
+    root.dataset.weatherSearchInitialized = '1';
 
     const queryInput = root.querySelector('[data-weather-role="location-query"]');
     const resultsBox = root.querySelector('[data-weather-role="search-results"]');
@@ -89,6 +93,7 @@ if ($queryValue === '') {
         noResults: <?= json_encode($strings['search_no_results'] ?? 'No locations found.', JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>,
         failed: <?= json_encode($strings['search_failed'] ?? 'Location lookup failed.', JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>
     };
+    const geocodingBaseUrl = <?= json_encode($plugin->getGeocodingBaseUrl(), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
 
     let abortController = null;
     let debounceTimer = null;
@@ -133,7 +138,7 @@ if ($queryValue === '') {
     async function searchLocations(query) {
         if (abortController) abortController.abort();
         abortController = new AbortController();
-        const url = new URL('<?= e($plugin->getGeocodingBaseUrl()) ?>');
+        const url = new URL(geocodingBaseUrl, window.location.href);
         url.searchParams.set('name', query);
         url.searchParams.set('count', '8');
         url.searchParams.set('language', 'en');
