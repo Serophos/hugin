@@ -420,6 +420,10 @@ th {
     padding: 1rem;
 }
 
+.full-license {
+    white-space: pre;
+}
+
 .repo-link {
     word-break: break-word;
 }

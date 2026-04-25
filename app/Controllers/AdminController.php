@@ -68,7 +68,7 @@ class AdminController
                 'name' => __('about.license_name'),
                 'short_name' => __('about.license_short_name'),
                 'summary' => __('about.license_summary'),
-                'source_url' => 'https://example.com/your-org/hugin',
+                'source_url' => 'https://github.com/Serophos/hugin',
             ],
         ]);
     }
