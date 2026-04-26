@@ -194,8 +194,9 @@ If you are upgrading from an earlier package, re-import `database.sql` or migrat
 
 ## Display online detection
 
-Each display page sends a heartbeat on load and every 5 minutes after that.
+Each display page sends a heartbeat on load and then repeats below the configured online threshold.
 
-- Green status: display seen within the last 30 minutes
-- Red status: no heartbeat for more than 30 minutes
+- Green status: display seen within the configured online window
+- Orange status: display seen after the online window but before the stale window
+- Red status: no heartbeat after the configured stale window
 - The dashboard also shows the currently active channel and the last seen IP address

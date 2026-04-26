@@ -1,3 +1,4 @@
+<?php $heartbeatInterval = max(30, min(120, (int)floor(((int)app_config('monitoring.online_threshold_seconds', 180)) / 2))); ?>
 <!doctype html>
 <html lang="<?= e(current_locale()) ?>">
 <head>
@@ -14,6 +15,7 @@
      class="slideshow effect-<?= e($effect) ?> orientation-<?= e($orientation ?? ($display['orientation'] ?? 'landscape')) ?>"
      data-default-duration="<?= e((string)$duration) ?>"
      data-heartbeat-url="<?= e(url('/display/' . $display['slug'] . '/heartbeat')) ?>"
+     data-heartbeat-interval="<?= e((string)$heartbeatInterval) ?>"
      data-state-url="<?= e(url('/display/' . $display['slug'] . '/state')) ?>"
      data-state-signature="<?= e($stateSignature) ?>">
     <?php foreach ($slides as $index => $slide): ?>

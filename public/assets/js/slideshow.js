@@ -11,6 +11,26 @@
     let stateTimer = null;
     let currentSignature = slideshow.dataset.stateSignature || '';
 
+    const resolveEndpointUrl = value => {
+        if (!value) return '';
+
+        try {
+            const endpoint = new URL(value, window.location.href);
+            if (endpoint.origin !== window.location.origin) {
+                endpoint.protocol = window.location.protocol;
+                endpoint.host = window.location.host;
+            }
+            return endpoint.toString();
+        } catch (error) {
+            return value;
+        }
+    };
+
+    const heartbeatIntervalMs = () => {
+        const seconds = parseInt(slideshow.dataset.heartbeatInterval || '90', 10);
+        return Math.max(seconds || 90, 30) * 1000;
+    };
+
     const stopVideo = slide => {
         const video = slide?.querySelector('video');
         if (video) {
@@ -97,34 +117,54 @@
         };
     };
 
-    const sendHeartbeat = () => {
-        const url = slideshow.dataset.heartbeatUrl;
+    const sendHeartbeatBeacon = (url, payload) => {
+        if (!navigator.sendBeacon) return false;
+        const blob = new Blob([payload], { type: 'application/json' });
+        return navigator.sendBeacon(url, blob);
+    };
+
+    const sendHeartbeat = (options = {}) => {
+        const url = resolveEndpointUrl(slideshow.dataset.heartbeatUrl);
         if (!url) return;
 
         const payload = JSON.stringify(collectHeartbeatPayload());
 
-        if (navigator.sendBeacon) {
-            const blob = new Blob([payload], { type: 'application/json' });
-            navigator.sendBeacon(url, blob);
+        if (options.preferBeacon && sendHeartbeatBeacon(url, payload)) {
+            return;
+        }
+
+        if (!window.fetch) {
+            sendHeartbeatBeacon(url, payload);
             return;
         }
 
         fetch(url, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
             body: payload,
+            cache: 'no-store',
+            credentials: 'same-origin',
             keepalive: true,
-        }).catch(() => {});
+        })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Heartbeat failed with HTTP ${response.status}`);
+                }
+            })
+            .catch(() => {
+                sendHeartbeatBeacon(url, payload);
+            });
     };
 
     const reloadIfChanged = () => {
-        const url = slideshow.dataset.stateUrl;
+        const url = resolveEndpointUrl(slideshow.dataset.stateUrl);
         if (!url) return;
 
         fetch(url, {
             method: 'GET',
             headers: { 'Accept': 'application/json' },
             cache: 'no-store',
+            credentials: 'same-origin',
         })
             .then(response => response.ok ? response.json() : null)
             .then(data => {
@@ -166,7 +206,7 @@
     const queueHeartbeat = () => {
         clearInterval(heartbeatTimer);
         sendHeartbeat();
-        heartbeatTimer = setInterval(sendHeartbeat, 5 * 60 * 1000);
+        heartbeatTimer = setInterval(sendHeartbeat, heartbeatIntervalMs());
     };
 
     const queueStateCheck = () => {
@@ -174,7 +214,8 @@
         stateTimer = setInterval(reloadIfChanged, 60 * 1000);
     };
 
-    window.addEventListener('online', sendHeartbeat);
+    window.addEventListener('online', () => sendHeartbeat());
+    window.addEventListener('pagehide', () => sendHeartbeat({ preferBeacon: true }));
     window.addEventListener('resize', () => {
         clearTimeout(window.__huginResizeHeartbeat);
         window.__huginResizeHeartbeat = setTimeout(sendHeartbeat, 600);
