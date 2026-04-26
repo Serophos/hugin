@@ -203,12 +203,17 @@ class AdminController
 
     public function displays(): void
     {
-        $this->auth->requireLogin();
+        $this->auth->requireRole('admin');
 
         $displays = $this->db->all(
             'SELECT d.*,
+                    g.name AS group_name,
+                    l.name AS location_name,
                     (SELECT COUNT(DISTINCT cdsa.channel_id) FROM channel_display_schedule_assignments cdsa WHERE cdsa.display_id = d.id) AS channel_count
              FROM displays d
+             LEFT JOIN display_group_memberships dgm ON dgm.display_id = d.id
+             LEFT JOIN display_groups g ON g.id = dgm.group_id
+             LEFT JOIN display_locations l ON l.id = g.location_id
              ORDER BY d.sort_order ASC, d.name ASC'
         );
 
@@ -220,7 +225,7 @@ class AdminController
 
     public function displayForm(?int $id = null): void
     {
-        $this->auth->requireLogin();
+        $this->auth->requireRole('admin');
 
         $display = $id ? $this->db->one('SELECT * FROM displays WHERE id = ?', [$id]) : null;
         $heartbeat = null;
@@ -244,7 +249,7 @@ class AdminController
 
     public function saveDisplay(?int $id = null): void
     {
-        $this->auth->requireLogin();
+        $this->auth->requireRole('admin');
 
         $name = trim((string)$this->request->input('name'));
         $slug = slugify((string)$this->request->input('slug', $name));
@@ -287,7 +292,7 @@ class AdminController
 
     public function deleteDisplay(int $id): void
     {
-        $this->auth->requireLogin();
+        $this->auth->requireRole('admin');
         $this->db->execute('DELETE FROM displays WHERE id = ?', [$id]);
         flash('success', __('display.deleted'));
         redirect('/admin/displays');
@@ -295,11 +300,385 @@ class AdminController
 
     public function sortDisplays(): void
     {
-        $this->auth->requireLogin();
+        $this->auth->requireRole('admin');
         foreach ($this->normalizeIds($this->request->input('ids', [])) as $index => $id) {
             $this->db->execute('UPDATE displays SET sort_order = ? WHERE id = ?', [$index + 1, $id]);
         }
         json_response(['ok' => true]);
+    }
+
+    public function locations(): void
+    {
+        $this->auth->requireRole('admin');
+
+        $locations = $this->db->all(
+            'SELECT l.*,
+                    COUNT(DISTINCT g.id) AS group_count,
+                    COUNT(DISTINCT dgm.display_id) AS display_count
+             FROM display_locations l
+             LEFT JOIN display_groups g ON g.location_id = l.id
+             LEFT JOIN display_group_memberships dgm ON dgm.group_id = g.id
+             GROUP BY l.id
+             ORDER BY l.sort_order ASC, l.name ASC'
+        );
+
+        $displays = $this->getDisplayOrganizationRows();
+        $unassignedDisplays = array_values(array_filter(
+            $displays,
+            static fn(array $display): bool => empty($display['group_id'])
+        ));
+
+        $this->view->render('admin/locations', [
+            'locations' => $locations,
+            'unassignedDisplays' => $unassignedDisplays,
+            'flash' => flash('success'),
+            'error' => flash('error'),
+        ]);
+    }
+
+    public function locationForm(int $id): void
+    {
+        $this->auth->requireRole('admin');
+
+        $location = $this->db->one(
+            'SELECT l.*,
+                    COUNT(DISTINCT g.id) AS group_count,
+                    COUNT(DISTINCT dgm.display_id) AS display_count
+             FROM display_locations l
+             LEFT JOIN display_groups g ON g.location_id = l.id
+             LEFT JOIN display_group_memberships dgm ON dgm.group_id = g.id
+             WHERE l.id = ?
+             GROUP BY l.id',
+            [$id]
+        );
+
+        if (!$location) {
+            flash('error', __('locations.not_found'));
+            redirect('/admin/locations');
+        }
+
+        $groups = $this->db->all(
+            'SELECT g.*, COUNT(dgm.display_id) AS display_count
+             FROM display_groups g
+             LEFT JOIN display_group_memberships dgm ON dgm.group_id = g.id
+             WHERE g.location_id = ?
+             GROUP BY g.id
+             ORDER BY g.sort_order ASC, g.name ASC',
+            [$id]
+        );
+
+        $unassignedDisplays = $this->getDisplayOrganizationRows('dgm.group_id IS NULL');
+
+        $this->view->render('admin/location_edit', [
+            'location' => $location,
+            'groups' => $groups,
+            'unassignedDisplays' => $unassignedDisplays,
+            'flash' => flash('success'),
+            'error' => flash('error'),
+        ]);
+    }
+
+    public function saveLocation(?int $id = null): void
+    {
+        $this->auth->requireRole('admin');
+
+        $name = trim((string)$this->request->input('name'));
+        $address = trim((string)$this->request->input('address'));
+        $description = trim((string)$this->request->input('description'));
+        $sortOrder = max(0, (int)$this->request->input('sort_order', 0));
+
+        if ($name === '') {
+            flash('error', __('locations.name_required'));
+            redirect($id ? '/admin/locations/' . $id . '/edit' : '/admin/locations');
+        }
+
+        $existing = $this->db->one('SELECT id FROM display_locations WHERE name = ? LIMIT 1', [$name]);
+        if ($existing && (int)$existing['id'] !== (int)$id) {
+            flash('error', __('locations.name_exists'));
+            redirect($id ? '/admin/locations/' . $id . '/edit' : '/admin/locations');
+        }
+
+        if ($id) {
+            $location = $this->db->one('SELECT id FROM display_locations WHERE id = ?', [$id]);
+            if (!$location) {
+                flash('error', __('locations.not_found'));
+                redirect('/admin/locations');
+            }
+
+            $this->db->execute(
+                'UPDATE display_locations SET name = ?, address = ?, description = ?, sort_order = ? WHERE id = ?',
+                [$name, $address, $description, $sortOrder, $id]
+            );
+            flash('success', __('locations.updated'));
+            redirect('/admin/locations/' . $id . '/edit');
+        } else {
+            $nextSort = $sortOrder ?: ((int)($this->db->one('SELECT COALESCE(MAX(sort_order), 0) + 1 AS next_sort FROM display_locations')['next_sort'] ?? 1));
+            $this->db->execute(
+                'INSERT INTO display_locations (name, address, description, sort_order) VALUES (?, ?, ?, ?)',
+                [$name, $address, $description, $nextSort]
+            );
+            flash('success', __('locations.created'));
+            redirect('/admin/locations/' . $this->db->lastInsertId() . '/edit');
+        }
+    }
+
+    public function deleteLocation(int $id): void
+    {
+        $this->auth->requireRole('admin');
+
+        $location = $this->db->one('SELECT id, name FROM display_locations WHERE id = ?', [$id]);
+        if (!$location) {
+            flash('error', __('locations.not_found'));
+            redirect('/admin/locations');
+        }
+
+        $displayCount = (int)($this->db->one(
+            'SELECT COUNT(DISTINCT dgm.display_id) AS cnt
+             FROM display_groups g
+             INNER JOIN display_group_memberships dgm ON dgm.group_id = g.id
+             WHERE g.location_id = ?',
+            [$id]
+        )['cnt'] ?? 0);
+
+        $this->db->execute('DELETE FROM display_locations WHERE id = ?', [$id]);
+        flash('success', __('locations.deleted', ['count' => $displayCount]));
+        redirect('/admin/locations');
+    }
+
+    public function saveDisplayGroup(?int $id = null): void
+    {
+        $this->auth->requireRole('admin');
+
+        $locationId = (int)$this->request->input('location_id');
+        $name = trim((string)$this->request->input('name'));
+        $description = trim((string)$this->request->input('description'));
+        $sortOrder = max(0, (int)$this->request->input('sort_order', 0));
+        $defaultReturn = $locationId > 0 ? '/admin/locations/' . $locationId . '/edit' : '/admin/locations';
+        $returnTo = $this->adminReturnPath($defaultReturn);
+
+        if ($name === '') {
+            flash('error', __('display_groups.name_required'));
+            redirect($returnTo);
+        }
+
+        $location = $this->db->one('SELECT id FROM display_locations WHERE id = ?', [$locationId]);
+        if (!$location) {
+            flash('error', __('locations.not_found'));
+            redirect('/admin/locations');
+        }
+
+        $existing = $this->db->one(
+            'SELECT id FROM display_groups WHERE location_id = ? AND name = ? LIMIT 1',
+            [$locationId, $name]
+        );
+        if ($existing && (int)$existing['id'] !== (int)$id) {
+            flash('error', __('display_groups.name_exists'));
+            redirect($returnTo);
+        }
+
+        if ($id) {
+            $group = $this->db->one('SELECT id FROM display_groups WHERE id = ?', [$id]);
+            if (!$group) {
+                flash('error', __('display_groups.not_found'));
+                redirect($returnTo);
+            }
+
+            $this->db->execute(
+                'UPDATE display_groups SET location_id = ?, name = ?, description = ?, sort_order = ? WHERE id = ?',
+                [$locationId, $name, $description, $sortOrder, $id]
+            );
+            flash('success', __('display_groups.updated'));
+        } else {
+            $nextSort = $sortOrder ?: ((int)($this->db->one(
+                'SELECT COALESCE(MAX(sort_order), 0) + 1 AS next_sort FROM display_groups WHERE location_id = ?',
+                [$locationId]
+            )['next_sort'] ?? 1));
+            $this->db->execute(
+                'INSERT INTO display_groups (location_id, name, description, sort_order) VALUES (?, ?, ?, ?)',
+                [$locationId, $name, $description, $nextSort]
+            );
+            flash('success', __('display_groups.created'));
+        }
+
+        redirect($returnTo);
+    }
+
+    public function deleteDisplayGroup(int $id): void
+    {
+        $this->auth->requireRole('admin');
+
+        $group = $this->db->one('SELECT id, name, location_id FROM display_groups WHERE id = ?', [$id]);
+        if (!$group) {
+            flash('error', __('display_groups.not_found'));
+            redirect('/admin/locations');
+        }
+        $returnTo = $this->adminReturnPath('/admin/locations/' . $group['location_id'] . '/edit');
+
+        $displayCount = (int)($this->db->one(
+            'SELECT COUNT(*) AS cnt FROM display_group_memberships WHERE group_id = ?',
+            [$id]
+        )['cnt'] ?? 0);
+
+        $this->db->execute('DELETE FROM display_groups WHERE id = ?', [$id]);
+        flash('success', __('display_groups.deleted', ['count' => $displayCount]));
+        redirect($returnTo);
+    }
+
+    public function moveDisplaysToGroup(): void
+    {
+        $this->auth->requireRole('admin');
+
+        $displayIds = $this->normalizeIds($this->request->input('display_ids', []));
+        $targetGroupValue = trim((string)$this->request->input('target_group_id', ''));
+        $targetGroupId = $targetGroupValue === '' ? null : (int)$targetGroupValue;
+        $returnTo = $this->adminReturnPath();
+
+        if ($displayIds === []) {
+            flash('error', __('display_groups.bulk_none_selected'));
+            redirect($returnTo);
+        }
+
+        if ($targetGroupId !== null) {
+            $group = $this->db->one('SELECT id FROM display_groups WHERE id = ?', [$targetGroupId]);
+            if (!$group) {
+                flash('error', __('display_groups.not_found'));
+                redirect($returnTo);
+            }
+        }
+
+        $validDisplays = array_fill_keys(array_map(
+            static fn(array $row): int => (int)$row['id'],
+            $this->db->all('SELECT id FROM displays')
+        ), true);
+        $displayIds = array_values(array_filter($displayIds, static fn(int $id): bool => isset($validDisplays[$id])));
+
+        if ($displayIds === []) {
+            flash('error', __('display_groups.bulk_none_selected'));
+            redirect($returnTo);
+        }
+
+        if ($targetGroupId === null) {
+            $placeholders = implode(', ', array_fill(0, count($displayIds), '?'));
+            $this->db->execute(
+                'UPDATE display_group_memberships SET group_id = NULL, updated_at = CURRENT_TIMESTAMP WHERE display_id IN (' . $placeholders . ')',
+                $displayIds
+            );
+        } else {
+            foreach ($displayIds as $index => $displayId) {
+                $this->db->execute(
+                    'INSERT INTO display_group_memberships
+                        (display_id, group_id, layout_x, layout_y, layout_width, layout_height, layout_rotation_degrees, sort_order)
+                     VALUES (?, ?, 0, 0, NULL, NULL, 0, ?)
+                     ON DUPLICATE KEY UPDATE
+                        layout_x = IF(group_id <=> VALUES(group_id), layout_x, VALUES(layout_x)),
+                        layout_y = IF(group_id <=> VALUES(group_id), layout_y, VALUES(layout_y)),
+                        layout_width = IF(group_id <=> VALUES(group_id), layout_width, VALUES(layout_width)),
+                        layout_height = IF(group_id <=> VALUES(group_id), layout_height, VALUES(layout_height)),
+                        layout_rotation_degrees = IF(group_id <=> VALUES(group_id), layout_rotation_degrees, VALUES(layout_rotation_degrees)),
+                        group_id = VALUES(group_id),
+                        sort_order = VALUES(sort_order),
+                        updated_at = CURRENT_TIMESTAMP',
+                    [$displayId, $targetGroupId, $index + 1]
+                );
+            }
+        }
+
+        flash('success', __('display_groups.bulk_moved', ['count' => count($displayIds)]));
+        redirect($returnTo);
+    }
+
+    public function displayGroup(int $id): void
+    {
+        $this->auth->requireRole('admin');
+
+        $group = $this->db->one(
+            'SELECT g.*, l.name AS location_name
+             FROM display_groups g
+             INNER JOIN display_locations l ON l.id = g.location_id
+             WHERE g.id = ?',
+            [$id]
+        );
+
+        if (!$group) {
+            flash('error', __('display_groups.not_found'));
+            redirect('/admin/locations');
+        }
+
+        $displays = $this->getDisplayOrganizationRows('dgm.group_id = ?', [$id]);
+        foreach ($displays as &$display) {
+            $defaults = $this->defaultLayoutSize($display);
+            $display['layout_x'] = (int)($display['layout_x'] ?? 0);
+            $display['layout_y'] = (int)($display['layout_y'] ?? 0);
+            $display['layout_width'] = max(72, (int)($display['layout_width'] ?: $defaults['width']));
+            $display['layout_height'] = max(72, (int)($display['layout_height'] ?: $defaults['height']));
+            $display['layout_rotation_degrees'] = (int)($display['layout_rotation_degrees'] ?? 0);
+        }
+        unset($display);
+
+        $unassignedDisplays = $this->getDisplayOrganizationRows('dgm.group_id IS NULL');
+
+        $this->view->render('admin/display_group', [
+            'group' => $group,
+            'displays' => $displays,
+            'unassignedDisplays' => $unassignedDisplays,
+            'flash' => flash('success'),
+            'error' => flash('error'),
+        ]);
+    }
+
+    public function saveDisplayGroupLayout(int $id): void
+    {
+        $this->auth->requireRole('admin');
+
+        $group = $this->db->one('SELECT id FROM display_groups WHERE id = ?', [$id]);
+        if (!$group) {
+            json_response(['ok' => false, 'message' => __('display_groups.not_found')], 404);
+        }
+
+        $items = json_decode((string)$this->request->input('items', '[]'), true);
+        if (!is_array($items)) {
+            json_response(['ok' => false, 'message' => __('display_groups.layout_invalid')], 422);
+        }
+
+        $allowedDisplays = array_fill_keys(array_map(
+            static fn(array $row): int => (int)$row['display_id'],
+            $this->db->all('SELECT display_id FROM display_group_memberships WHERE group_id = ?', [$id])
+        ), true);
+
+        $this->db->pdo()->beginTransaction();
+        try {
+            foreach ($items as $index => $item) {
+                if (!is_array($item)) {
+                    continue;
+                }
+
+                $displayId = (int)($item['display_id'] ?? 0);
+                if (!isset($allowedDisplays[$displayId])) {
+                    continue;
+                }
+
+                $x = $this->clampInt($item['x'] ?? 0, -100000, 100000);
+                $y = $this->clampInt($item['y'] ?? 0, -100000, 100000);
+                $width = $this->clampInt($item['width'] ?? 180, 72, 20000);
+                $height = $this->clampInt($item['height'] ?? 120, 72, 20000);
+                $rotation = $this->normalizeLayoutRotation((int)($item['rotation'] ?? 0));
+
+                $this->db->execute(
+                    'UPDATE display_group_memberships
+                     SET layout_x = ?, layout_y = ?, layout_width = ?, layout_height = ?,
+                         layout_rotation_degrees = ?, sort_order = ?, updated_at = CURRENT_TIMESTAMP
+                     WHERE display_id = ? AND group_id = ?',
+                    [$x, $y, $width, $height, $rotation, $index + 1, $displayId, $id]
+                );
+            }
+
+            $this->db->pdo()->commit();
+        } catch (\Throwable $e) {
+            $this->db->pdo()->rollBack();
+            json_response(['ok' => false, 'message' => __('display_groups.layout_save_failed')], 500);
+        }
+
+        json_response(['ok' => true, 'message' => __('display_groups.layout_saved')]);
     }
 
     public function channels(): void
@@ -977,6 +1356,150 @@ class AdminController
         $this->db->execute('DELETE FROM users WHERE id = ?', [$id]);
         flash('success', __('users.deleted'));
         redirect('/admin/users');
+    }
+
+    private function adminReturnPath(string $default = '/admin/locations'): string
+    {
+        $returnTo = trim((string)$this->request->input('return_to', $default));
+        return str_starts_with($returnTo, '/admin') ? $returnTo : $default;
+    }
+
+    private function getDisplayOrganizationRows(string $where = '', array $params = []): array
+    {
+        $sql = 'SELECT d.id, d.name, d.slug, d.description, d.orientation, d.is_active, d.sort_order,
+                       dgm.group_id, dgm.layout_x, dgm.layout_y, dgm.layout_width, dgm.layout_height,
+                       dgm.layout_rotation_degrees, dgm.bezel_top, dgm.bezel_right, dgm.bezel_bottom,
+                       dgm.bezel_left, dgm.sort_order AS group_sort_order,
+                       g.name AS group_name, g.location_id,
+                       l.name AS location_name,
+                       h.last_seen_at, h.screen_width, h.screen_height, h.avail_screen_width,
+                       h.avail_screen_height, h.screen_orientation, h.current_channel_name
+                FROM displays d
+                LEFT JOIN display_group_memberships dgm ON dgm.display_id = d.id
+                LEFT JOIN display_groups g ON g.id = dgm.group_id
+                LEFT JOIN display_locations l ON l.id = g.location_id
+                LEFT JOIN display_heartbeats h ON h.display_id = d.id';
+
+        if ($where !== '') {
+            $sql .= ' WHERE ' . $where;
+        }
+
+        $sql .= ' ORDER BY COALESCE(l.sort_order, 999999) ASC,
+                         l.name ASC,
+                         COALESCE(g.sort_order, 999999) ASC,
+                         g.name ASC,
+                         COALESCE(dgm.sort_order, d.sort_order) ASC,
+                         d.name ASC';
+
+        $rows = $this->db->all($sql, $params);
+        foreach ($rows as &$row) {
+            $row['monitoring_status'] = $this->displayMonitoringStatus((int)$row['is_active'], $row['last_seen_at'] ?? null);
+            $row['monitoring_label'] = $this->displayMonitoringLabel($row['monitoring_status']);
+            $row['minutes_since_seen'] = $this->minutesSinceSeen($row['last_seen_at'] ?? null);
+            $row['resolution_label'] = $this->resolutionLabel($row);
+        }
+        unset($row);
+
+        return $rows;
+    }
+
+    private function defaultLayoutSize(array $display): array
+    {
+        $screenWidth = (int)($display['screen_width'] ?? 0);
+        $screenHeight = (int)($display['screen_height'] ?? 0);
+
+        if ($screenWidth > 0 && $screenHeight > 0) {
+            $ratio = $screenWidth / max(1, $screenHeight);
+            if ($ratio >= 1) {
+                return [
+                    'width' => 220,
+                    'height' => max(96, (int)round(220 / $ratio)),
+                ];
+            }
+
+            return [
+                'width' => max(96, (int)round(220 * $ratio)),
+                'height' => 220,
+            ];
+        }
+
+        return ($display['orientation'] ?? 'landscape') === 'vertical'
+            ? ['width' => 124, 'height' => 220]
+            : ['width' => 220, 'height' => 124];
+    }
+
+    private function resolutionLabel(array $display): string
+    {
+        $width = (int)($display['screen_width'] ?? 0);
+        $height = (int)($display['screen_height'] ?? 0);
+
+        return $width > 0 && $height > 0
+            ? $width . ' x ' . $height
+            : __('common.unknown');
+    }
+
+    private function displayMonitoringStatus(int $isActive, ?string $lastSeenAt): string
+    {
+        if ($isActive !== 1) {
+            return 'inactive';
+        }
+
+        if (!$lastSeenAt) {
+            return 'never_seen';
+        }
+
+        $timestamp = strtotime($lastSeenAt);
+        if ($timestamp === false) {
+            return 'never_seen';
+        }
+
+        $seconds = max(0, time() - $timestamp);
+        if ($seconds <= $this->monitoringOnlineThresholdSeconds()) {
+            return 'online';
+        }
+
+        if ($seconds <= $this->monitoringStaleThresholdSeconds()) {
+            return 'stale';
+        }
+
+        return 'offline';
+    }
+
+    private function displayMonitoringLabel(string $status): string
+    {
+        return match ($status) {
+            'online' => __('monitoring.status_online', [], __('common.online')),
+            'stale' => __('monitoring.status_stale', [], 'Stale'),
+            'offline' => __('monitoring.status_offline', [], __('common.offline')),
+            'never_seen' => __('monitoring.status_never_seen', [], 'Never seen'),
+            'inactive' => __('common.inactive'),
+            default => __('common.unknown'),
+        };
+    }
+
+    private function monitoringOnlineThresholdSeconds(): int
+    {
+        return max(30, (int)app_config('monitoring.online_threshold_seconds', 180));
+    }
+
+    private function monitoringStaleThresholdSeconds(): int
+    {
+        return max($this->monitoringOnlineThresholdSeconds(), (int)app_config('monitoring.stale_threshold_seconds', 1800));
+    }
+
+    private function clampInt(mixed $value, int $min, int $max): int
+    {
+        return min($max, max($min, (int)$value));
+    }
+
+    private function normalizeLayoutRotation(int $rotation): int
+    {
+        $rotation %= 360;
+        if ($rotation < 0) {
+            $rotation += 360;
+        }
+
+        return in_array($rotation, [0, 90, 180, 270], true) ? $rotation : 0;
     }
 
     private function count(string $table): int

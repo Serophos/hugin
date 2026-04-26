@@ -4,7 +4,10 @@
         <h1><?= e(__('display.plural')) ?></h1>
         <p class="muted"><?= e(__('display.drag_hint')) ?></p>
     </div>
-    <a class="button" href="<?= e(url('/admin/displays/create')) ?>"><?= e(__('display.new')) ?></a>
+    <div class="actions">
+        <a class="button secondary" href="<?= e(url('/admin/locations')) ?>"><?= e(__('locations.manage')) ?></a>
+        <a class="button" href="<?= e(url('/admin/displays/create')) ?>"><?= e(__('display.new')) ?></a>
+    </div>
 </div>
 <?php if ($flash): ?><div class="alert success"><?= e($flash) ?></div><?php endif; ?>
 <div class="card">
@@ -14,6 +17,8 @@
             <th class="handle-col"></th>
             <th><?= e(__('common.name')) ?></th>
             <th><?= e(__('display.url_label')) ?></th>
+            <th><?= e(__('locations.singular')) ?></th>
+            <th><?= e(__('display_groups.singular')) ?></th>
             <th><?= e(__('common.effect')) ?></th>
             <th><?= e(__('display.channels_count')) ?></th>
             <th><?= e(__('common.status')) ?></th>
@@ -26,14 +31,16 @@
                 <td class="handle">↕</td>
                 <td><?= e($display['name']) ?></td>
                 <td><a href="<?= e(url('/display/' . $display['slug'])) ?>" target="_blank"><?= e('/display/' . $display['slug']) ?></a></td>
+                <td><?= e($display['location_name'] ?: __('locations.unassigned')) ?></td>
+                <td><?= e($display['group_name'] ?: __('locations.unassigned')) ?></td>
                 <td><?= e(enum_label('effects', $display['transition_effect'], $display['transition_effect'])) ?> · <?= e((string)$display['slide_duration_seconds']) ?>s</td>
                 <td><?= e((string)$display['channel_count']) ?></td>
                 <td><?= e($display['is_active'] ? __('common.active') : __('common.inactive')) ?></td>
                 <td class="actions">
-                    <a href="<?= e(url('/admin/displays/' . $display['id'] . '/edit')) ?>"><?= e(__('common.edit')) ?></a>
+                    <a class="button secondary small" href="<?= e(url('/admin/displays/' . $display['id'] . '/edit')) ?>"><?= e(__('common.edit')) ?></a>
                     <form method="post" action="<?= e(url('/admin/displays/' . $display['id'] . '/delete')) ?>" class="inline-form" onsubmit="return confirm(<?= json_encode(__('display.delete_confirm', [], 'Delete display?')) ?>);">
                         <?= csrf_field() ?>
-                        <button type="submit" class="link-button danger"><?= e(__('common.delete')) ?></button>
+                        <button type="submit" class="button danger small"><?= e(__('common.delete')) ?></button>
                     </form>
                 </td>
             </tr>
