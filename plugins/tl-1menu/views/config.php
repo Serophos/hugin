@@ -20,20 +20,6 @@
     </label>
 
     <fieldset class="full-width">
-        <legend><?= e(__('plugins.tl-1menu.config.exclude_types')) ?></legend>
-        <p class="muted"><?= e(__('plugins.tl-1menu.config.exclude_types_help')) ?></p>
-        <div class="tl1menu-admin-checklist">
-            <?php $selectedTypes = array_map('intval', is_array($settings['exclude_types'] ?? null) ? $settings['exclude_types'] : []); ?>
-            <?php foreach ($foodTypes as $typeId => $typeKey): ?>
-                <label class="checkbox-row">
-                    <input type="checkbox" name="plugin_settings[<?= e($plugin->getName()) ?>][exclude_types][]" value="<?= e((string)$typeId) ?>" <?= in_array((int)$typeId, $selectedTypes, true) ? 'checked' : '' ?>>
-                    <span><?= e($plugin->getMenuService()->getFoodTypeLabel((int)$typeId, (string)$typeKey)) ?> (<?= e((string)$typeId) ?>)</span>
-                </label>
-            <?php endforeach; ?>
-        </div>
-    </fieldset>
-
-    <fieldset class="full-width">
         <legend><?= e(__('plugins.tl-1menu.config.environment_title')) ?></legend>
         <div class="tl1menu-admin-checklist">
             <label class="checkbox-row">
@@ -55,6 +41,24 @@
         </div>
     </fieldset>
 
+    <fieldset class="full-width">
+        <legend><?= e(__('plugins.tl-1menu.config.price_title')) ?></legend>
+        <div class="tl1menu-admin-checklist">
+            <label class="checkbox-row">
+                <input type="checkbox" name="plugin_settings[<?= e($plugin->getName()) ?>][display_student_price]" value="1" <?= !empty($settings['display_student_price']) ? 'checked' : '' ?>>
+                <span><?= e(__('plugins.tl-1menu.config.display_student_price')) ?></span>
+            </label>
+            <label class="checkbox-row">
+                <input type="checkbox" name="plugin_settings[<?= e($plugin->getName()) ?>][display_employee_price]" value="1" <?= !empty($settings['display_employee_price']) ? 'checked' : '' ?>>
+                <span><?= e(__('plugins.tl-1menu.config.display_employee_price')) ?></span>
+            </label>
+            <label class="checkbox-row">
+                <input type="checkbox" name="plugin_settings[<?= e($plugin->getName()) ?>][display_guest_price]" value="1" <?= !empty($settings['display_guest_price']) ? 'checked' : '' ?>>
+                <span><?= e(__('plugins.tl-1menu.config.display_guest_price')) ?></span>
+            </label>
+        </div>
+    </fieldset>
+
     <details class="tl1menu-admin-advanced full-width">
         <summary><?= e(__('plugins.tl-1menu.config.advanced_options')) ?></summary>
         <div class="tl1menu-admin-advanced__content">
@@ -63,25 +67,19 @@
                 <span><?= e(__('plugins.tl-1menu.config.show_header')) ?></span>
             </label>
 
-            <label class="full-width"><?= e(__('plugins.tl-1menu.config.background_color')) ?>
-                <input type="color" name="plugin_settings[<?= e($plugin->getName()) ?>][background_color]" value="<?= e((string)($settings['background_color'] ?? '#f1f5f9')) ?>">
-            </label>
-
-            <label class="full-width"><?= e(__('plugins.tl-1menu.config.background_image')) ?>
-                <input type="file" name="plugin_settings[<?= e($plugin->getName()) ?>][background_image_file]" accept="image/*">
-            </label>
-            <p class="muted"><?= e(__('plugins.tl-1menu.config.background_image_help')) ?></p>
-
-            <?php if (!empty($settings['background_image']) && !empty($backgroundImageUrl)): ?>
-                <div class="tl1menu-admin-preview">
-                    <div class="tl1menu-admin-preview__label"><?= e(__('plugins.tl-1menu.config.current_background_image')) ?></div>
-                    <img src="<?= e($backgroundImageUrl) ?>" alt="" class="tl1menu-admin-preview__image">
-                    <label class="checkbox-row">
-                        <input type="checkbox" name="plugin_settings[<?= e($plugin->getName()) ?>][remove_background_image]" value="1">
-                        <span><?= e(__('plugins.tl-1menu.config.remove_background_image')) ?></span>
-                    </label>
+            <fieldset class="full-width">
+                <legend><?= e(__('plugins.tl-1menu.config.exclude_types')) ?></legend>
+                <p class="muted"><?= e(__('plugins.tl-1menu.config.exclude_types_help')) ?></p>
+                <div class="tl1menu-admin-checklist">
+                    <?php $selectedTypes = array_map('intval', is_array($settings['exclude_types'] ?? null) ? $settings['exclude_types'] : []); ?>
+                    <?php foreach ($foodTypes as $typeId => $typeKey): ?>
+                        <label class="checkbox-row">
+                            <input type="checkbox" name="plugin_settings[<?= e($plugin->getName()) ?>][exclude_types][]" value="<?= e((string)$typeId) ?>" <?= in_array((int)$typeId, $selectedTypes, true) ? 'checked' : '' ?>>
+                            <span><?= e($plugin->getMenuService()->getFoodTypeLabel((int)$typeId, (string)$typeKey)) ?> (<?= e((string)$typeId) ?>)</span>
+                        </label>
+                    <?php endforeach; ?>
                 </div>
-            <?php endif; ?>
+            </fieldset>
         </div>
     </details>
 </div>

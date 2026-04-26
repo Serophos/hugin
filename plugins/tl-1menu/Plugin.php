@@ -29,13 +29,23 @@ class Plugin extends AbstractSlidePlugin
             'mensa' => (string)($config['default_mensa'] ?? 'mensa1'),
             'language' => (string)($config['default_language'] ?? 'de'),
             'exclude_types' => array_values(array_map('intval', is_array($config['default_exclude'] ?? null) ? $config['default_exclude'] : [])),
+            'display_student_price' => true,
+            'display_employee_price' => true,
+            'display_guest_price' => true,
             'display_co2' => (bool)($config['default_display_co2'] ?? true),
             'display_water' => (bool)($config['default_display_water'] ?? false),
             'display_animal_welfare' => (bool)($config['default_display_animal_welfare'] ?? false),
             'display_rainforest' => (bool)($config['default_display_rainforest'] ?? false),
             'show_header' => (bool)($config['default_show_header'] ?? true),
-            'background_color' => (string)($config['default_background_color'] ?? '#f1f5f9'),
-            'background_image' => '',
+        ];
+    }
+
+    public function getDefaultGlobalSettings(): array
+    {
+        $config = $this->getPluginConfig();
+        return [
+            'background_color' => $this->normalizeColor((string)($config['default_background_color'] ?? '#f1f5f9')),
+            'background_media_asset_id' => null,
         ];
     }
 
@@ -47,8 +57,54 @@ class Plugin extends AbstractSlidePlugin
             'plugin' => $this,
             'mensen' => $this->getMenuService()->getAvailableMensen(),
             'foodTypes' => $this->getMenuService()->getFoodTypes(),
-            'backgroundImageUrl' => $this->getBackgroundImageUrl((string)($settings['background_image'] ?? ''), $api),
         ]);
+    }
+
+    public function renderGlobalSettings(array $settings, PluginApi $api): string
+    {
+        $settings = array_replace($this->getDefaultGlobalSettings(), $settings);
+        $backgroundAssetId = $this->normalizeOptionalId($settings['background_media_asset_id'] ?? null);
+        $backgroundAsset = $backgroundAssetId !== null ? $api->getMediaAsset($backgroundAssetId) : null;
+        if (($backgroundAsset['media_kind'] ?? null) !== 'image') {
+            $backgroundAsset = null;
+        }
+
+        return $this->renderView('views/global_config.php', [
+            'settings' => $settings,
+            'plugin' => $this,
+            'imageMediaAssets' => $api->listMediaAssets('image'),
+            'backgroundImageUrl' => $api->mediaAssetUrl($backgroundAsset),
+        ]);
+    }
+
+    public function normalizeGlobalSettings(array $input, array $existingSettings, PluginApi $api): array
+    {
+        $existingSettings = array_replace($this->getDefaultGlobalSettings(), $existingSettings);
+        $backgroundColor = $this->normalizeColorInput($input, (string)$existingSettings['background_color']);
+        $backgroundMediaAssetId = $this->normalizeOptionalId($input['background_media_asset_id'] ?? null);
+
+        $uploadedBackground = $api->pluginUploadedFile($this->getName(), 'background_image_file', 'plugin_global_settings');
+        if ($uploadedBackground && ($uploadedBackground['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
+            $this->assertUploadedImage($uploadedBackground);
+            $mediaAsset = $api->storeMediaAsset($uploadedBackground, $this->getDisplayName() . ' background');
+            if (!$mediaAsset || ($mediaAsset['media_kind'] ?? '') !== 'image') {
+                throw new RuntimeException(__('plugins.tl-1menu.errors.background_invalid_type'));
+            }
+            $backgroundMediaAssetId = (int)$mediaAsset['id'];
+        } elseif ($backgroundMediaAssetId !== null) {
+            $mediaAsset = $api->getMediaAsset($backgroundMediaAssetId);
+            if (!$mediaAsset) {
+                throw new RuntimeException(__('plugins.tl-1menu.errors.background_asset_not_found'));
+            }
+            if (($mediaAsset['media_kind'] ?? '') !== 'image') {
+                throw new RuntimeException(__('plugins.tl-1menu.errors.background_invalid_type'));
+            }
+        }
+
+        return [
+            'background_color' => $backgroundColor,
+            'background_media_asset_id' => $backgroundMediaAssetId,
+        ];
     }
 
     public function normalizeSettings(array $input, array $existingSettings, PluginApi $api): array
@@ -81,34 +137,25 @@ class Plugin extends AbstractSlidePlugin
             throw new RuntimeException(__('plugins.tl-1menu.errors.invalid_language'));
         }
 
-        $backgroundColor = $this->normalizeColor((string)($input['background_color'] ?? $defaults['background_color']));
-        $backgroundImage = (string)($existingSettings['background_image'] ?? '');
-        if (!empty($input['remove_background_image'])) {
-            $this->deleteBackgroundImage($backgroundImage);
-            $backgroundImage = '';
-        }
-        $uploadedBackground = $_FILES['plugin_settings']['name'][$this->getName()]['background_image_file'] ?? null;
-        if ($uploadedBackground !== null) {
-            $backgroundImage = $this->storeBackgroundImageFromRequest($backgroundImage);
-        }
-
         return [
             'mensa' => $mensa,
             'language' => $language,
             'exclude_types' => $excludeTypes,
+            'display_student_price' => !empty($input['display_student_price']),
+            'display_employee_price' => !empty($input['display_employee_price']),
+            'display_guest_price' => !empty($input['display_guest_price']),
             'display_co2' => !empty($input['display_co2']),
             'display_water' => !empty($input['display_water']),
             'display_animal_welfare' => !empty($input['display_animal_welfare']),
             'display_rainforest' => !empty($input['display_rainforest']),
             'show_header' => !empty($input['show_header']),
-            'background_color' => $backgroundColor,
-            'background_image' => $backgroundImage,
         ];
     }
 
     public function renderFrontend(array $slide, array $settings, PluginApi $api): string
     {
         $settings = array_replace($this->getDefaultSettings(), $settings);
+        $globalSettings = array_replace($this->getDefaultGlobalSettings(), $api->loadGlobalSettings($this->getName()));
         $language = in_array($settings['language'], ['de', 'en'], true) ? $settings['language'] : 'de';
         $today = $this->resolveEffectiveDate();
         $service = $this->getMenuService();
@@ -133,7 +180,8 @@ class Plugin extends AbstractSlidePlugin
             'items' => $items,
             'errorMessage' => $errorMessage,
             'service' => $service,
-            'backgroundImageUrl' => $this->getBackgroundImageUrl((string)($settings['background_image'] ?? ''), $api),
+            'globalSettings' => $globalSettings,
+            'backgroundImageUrl' => $api->mediaAssetUrl($this->normalizeOptionalId($globalSettings['background_media_asset_id'] ?? null)),
         ]);
     }
 
@@ -150,13 +198,15 @@ class Plugin extends AbstractSlidePlugin
             'language' => $settings['language'],
             'date' => $this->resolveEffectiveDate(),
             'exclude_types' => $settings['exclude_types'],
+            'display_student_price' => (bool)$settings['display_student_price'],
+            'display_employee_price' => (bool)$settings['display_employee_price'],
+            'display_guest_price' => (bool)$settings['display_guest_price'],
             'display_co2' => (bool)$settings['display_co2'],
             'display_water' => (bool)$settings['display_water'],
             'display_animal_welfare' => (bool)$settings['display_animal_welfare'],
             'display_rainforest' => (bool)$settings['display_rainforest'],
             'show_header' => (bool)$settings['show_header'],
-            'background_color' => (string)$settings['background_color'],
-            'background_image' => (string)$settings['background_image'],
+            'global' => array_replace($this->getDefaultGlobalSettings(), $api->loadGlobalSettings($this->getName())),
         ];
     }
 
@@ -198,84 +248,73 @@ class Plugin extends AbstractSlidePlugin
     private function normalizeColor(string $value): string
     {
         $value = trim($value);
-        if (preg_match('/^#[0-9a-fA-F]{6}$/', $value) === 1) {
-            return strtolower($value);
+        if ($value !== '' && $value[0] !== '#') {
+            $value = '#' . $value;
         }
 
-        return (string)($this->getPluginConfig()['default_background_color'] ?? '#f1f5f9');
+        return \normalize_hex_color($value, '#f1f5f9');
     }
 
-    private function getBackgroundImageUrl(string $relativePath, PluginApi $api): ?string
+    /** @param array<string, mixed> $input */
+    private function normalizeColorInput(array $input, string $default): string
     {
-        $relativePath = ltrim(trim($relativePath), '/');
-        if ($relativePath === '') {
+        $hex = trim((string)($input['background_color'] ?? ''));
+        if ($hex !== '') {
+            if ($hex[0] !== '#') {
+                $hex = '#' . $hex;
+            }
+            $normalized = \normalize_hex_color($hex, '');
+            if ($normalized !== '') {
+                return $normalized;
+            }
+        }
+
+        $channels = [];
+        foreach (['background_red', 'background_green', 'background_blue'] as $key) {
+            if (!isset($input[$key]) || !is_numeric($input[$key])) {
+                $channels = [];
+                break;
+            }
+            $channels[] = max(0, min(255, (int)$input[$key]));
+        }
+
+        if (count($channels) === 3) {
+            return sprintf('#%02x%02x%02x', $channels[0], $channels[1], $channels[2]);
+        }
+
+        return $this->normalizeColor($default);
+    }
+
+    private function normalizeOptionalId(mixed $value): ?int
+    {
+        if ($value === null || trim((string)$value) === '') {
             return null;
         }
 
-        return $api->pluginAssetUrl($this->getName(), $relativePath);
+        $id = (int)$value;
+        return $id > 0 ? $id : null;
     }
 
-    private function storeBackgroundImageFromRequest(string $existingPath = ''): string
+    /** @param array<string, mixed> $file */
+    private function assertUploadedImage(array $file): void
     {
-        $file = [
-            'name' => $_FILES['plugin_settings']['name'][$this->getName()]['background_image_file'] ?? '',
-            'type' => $_FILES['plugin_settings']['type'][$this->getName()]['background_image_file'] ?? '',
-            'tmp_name' => $_FILES['plugin_settings']['tmp_name'][$this->getName()]['background_image_file'] ?? '',
-            'error' => $_FILES['plugin_settings']['error'][$this->getName()]['background_image_file'] ?? UPLOAD_ERR_NO_FILE,
-            'size' => $_FILES['plugin_settings']['size'][$this->getName()]['background_image_file'] ?? 0,
-        ];
-
-        if (($file['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) {
-            return $existingPath;
-        }
         if (($file['error'] ?? UPLOAD_ERR_OK) !== UPLOAD_ERR_OK) {
-            throw new RuntimeException(__('plugins.tl-1menu.errors.background_upload_failed'));
+            return;
         }
-        if (!is_uploaded_file((string)$file['tmp_name'])) {
-            throw new RuntimeException(__('plugins.tl-1menu.errors.background_upload_failed'));
+
+        $tmpName = (string)($file['tmp_name'] ?? '');
+        if ($tmpName === '') {
+            return;
         }
 
         $finfo = finfo_open(FILEINFO_MIME_TYPE);
-        $mimeType = is_resource($finfo) ? (string)finfo_file($finfo, (string)$file['tmp_name']) : '';
+        $mimeType = is_resource($finfo) ? (string)finfo_file($finfo, $tmpName) : '';
         if (is_resource($finfo)) {
             finfo_close($finfo);
         }
 
-        $allowed = [
-            'image/jpeg' => 'jpg',
-            'image/png' => 'png',
-            'image/gif' => 'gif',
-            'image/webp' => 'webp',
-        ];
-        if (!isset($allowed[$mimeType])) {
+        if (!in_array($mimeType, ['image/jpeg', 'image/png', 'image/gif', 'image/webp'], true)) {
             throw new RuntimeException(__('plugins.tl-1menu.errors.background_invalid_type'));
-        }
-
-        $targetDir = __DIR__ . '/assets/uploads';
-        if (!is_dir($targetDir) && !mkdir($targetDir, 0775, true) && !is_dir($targetDir)) {
-            throw new RuntimeException(__('plugins.tl-1menu.errors.background_upload_failed'));
-        }
-
-        $filename = 'bg-' . bin2hex(random_bytes(12)) . '.' . $allowed[$mimeType];
-        $targetFile = $targetDir . '/' . $filename;
-        if (!move_uploaded_file((string)$file['tmp_name'], $targetFile)) {
-            throw new RuntimeException(__('plugins.tl-1menu.errors.background_upload_failed'));
-        }
-
-        $this->deleteBackgroundImage($existingPath);
-        return 'assets/uploads/' . $filename;
-    }
-
-    private function deleteBackgroundImage(string $relativePath): void
-    {
-        $relativePath = ltrim(trim($relativePath), '/');
-        if ($relativePath === '' || !str_starts_with($relativePath, 'assets/uploads/')) {
-            return;
-        }
-
-        $absolutePath = __DIR__ . '/' . $relativePath;
-        if (is_file($absolutePath)) {
-            @unlink($absolutePath);
         }
     }
 }

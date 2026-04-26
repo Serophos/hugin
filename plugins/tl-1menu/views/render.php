@@ -6,11 +6,32 @@ $showWater = !empty($settings['display_water']);
 $showAnimalWelfare = !empty($settings['display_animal_welfare']);
 $showRainforest = !empty($settings['display_rainforest']);
 $showAnyEco = $showCo2 || $showWater || $showAnimalWelfare || $showRainforest;
+$showStudentPrice = !empty($settings['display_student_price']);
+$showEmployeePrice = !empty($settings['display_employee_price']);
+$showGuestPrice = !empty($settings['display_guest_price']);
+$visiblePriceCount = ($showStudentPrice ? 1 : 0) + ($showEmployeePrice ? 1 : 0) + ($showGuestPrice ? 1 : 0);
+$showAnyPrice = $visiblePriceCount > 0;
 $showHeader = !empty($settings['show_header']);
-$backgroundColor = (string)($settings['background_color'] ?? '#f1f5f9');
-$styleParts = ['--tl1menu-bg-color:' . $backgroundColor];
+$backgroundColor = normalize_hex_color((string)($globalSettings['background_color'] ?? '#f1f5f9'), '#f1f5f9');
+$isLightBackground = color_luminance($backgroundColor) > 0.42;
+$headerTextColor = readable_text_color($backgroundColor);
+$headerMutedColor = $isLightBackground ? '#334155' : '#e2e8f0';
+$headerSurfaceColor = $isLightBackground ? 'rgba(255, 255, 255, 0.78)' : 'rgba(15, 23, 42, 0.72)';
+$headerBorderColor = $isLightBackground ? 'rgba(15, 23, 42, 0.10)' : 'rgba(255, 255, 255, 0.18)';
+$imageOverlay = $isLightBackground
+    ? 'linear-gradient(180deg, rgba(255,255,255,0.80) 0%, rgba(241,245,249,0.92) 100%)'
+    : 'linear-gradient(180deg, rgba(15,23,42,0.66) 0%, rgba(15,23,42,0.78) 100%)';
+$styleParts = [
+    '--tl1menu-bg-color:' . $backgroundColor,
+    '--tl1menu-header-fg:' . $headerTextColor,
+    '--tl1menu-header-muted:' . $headerMutedColor,
+    '--tl1menu-header-surface:' . $headerSurfaceColor,
+    '--tl1menu-header-border:' . $headerBorderColor,
+    '--tl1menu-image-overlay:' . $imageOverlay,
+];
 if (!empty($backgroundImageUrl)) {
-    $styleParts[] = '--tl1menu-bg-image:url(' . $backgroundImageUrl . ')';
+    $safeBackgroundImageUrl = str_replace(["\\", "\"", "\n", "\r"], ['%5C', '%22', '', ''], (string)$backgroundImageUrl);
+    $styleParts[] = '--tl1menu-bg-image:url("' . $safeBackgroundImageUrl . '")';
 }
 $categoryIcons = [
     'vegan' => '🌿',
@@ -92,13 +113,21 @@ $categoryIcons = [
                         <?php endif; ?>
                     </div>
 
-                    <div class="tl1menu__prices">
-                        <div class="tl1menu__price"><span><?= e(__('plugins.tl-1menu.frontend.student')) ?></span><strong><?= e($service->formatPrice($item->getPrice('student'), $language)) ?></strong></div>
-                        <div class="tl1menu__price"><span><?= e(__('plugins.tl-1menu.frontend.staff')) ?></span><strong><?= e($service->formatPrice($item->getPrice('staff'), $language)) ?></strong></div>
-                        <div class="tl1menu__price"><span><?= e(__('plugins.tl-1menu.frontend.guest')) ?></span><strong><?= e($service->formatPrice($item->getPrice('guest'), $language)) ?></strong></div>
-                    </div>
+                    <?php if ($showAnyPrice): ?>
+                        <div class="tl1menu__prices tl1menu__prices--count-<?= e((string)$visiblePriceCount) ?>">
+                            <?php if ($showStudentPrice): ?>
+                                <div class="tl1menu__price"><span><?= e(__('plugins.tl-1menu.frontend.student')) ?></span><strong><?= e($service->formatPrice($item->getPrice('student'), $language)) ?></strong></div>
+                            <?php endif; ?>
+                            <?php if ($showEmployeePrice): ?>
+                                <div class="tl1menu__price"><span><?= e(__('plugins.tl-1menu.frontend.staff')) ?></span><strong><?= e($service->formatPrice($item->getPrice('staff'), $language)) ?></strong></div>
+                            <?php endif; ?>
+                            <?php if ($showGuestPrice): ?>
+                                <div class="tl1menu__price"><span><?= e(__('plugins.tl-1menu.frontend.guest')) ?></span><strong><?= e($service->formatPrice($item->getPrice('guest'), $language)) ?></strong></div>
+                            <?php endif; ?>
+                        </div>
+                    <?php endif; ?>
 
-                    <?php if ($hasZeroPrice): ?>
+                    <?php if ($hasZeroPrice && $showAnyPrice): ?>
                         <div class="tl1menu__price-note"><?= e(__('plugins.tl-1menu.frontend.price_at_counter')) ?></div>
                     <?php endif; ?>
 
