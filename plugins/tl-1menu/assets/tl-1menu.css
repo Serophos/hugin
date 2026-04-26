@@ -5,7 +5,6 @@
     padding: 2.2rem;
     color: #0f172a;
     background-color: var(--tl1menu-bg-color, #f1f5f9);
-    background-image: linear-gradient(180deg, rgba(255,255,255,0.24) 0%, rgba(241,245,249,0.10) 100%);
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
