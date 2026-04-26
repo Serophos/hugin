@@ -1,7 +1,6 @@
 config/config.php
 # Ignore everything inside plugins
 plugins/tl-1menu/config.php
-plugins/weather/cache/*
 # Ignroe everything inside storage
 storage/*
 storage/**

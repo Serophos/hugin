@@ -5,7 +5,7 @@ return [
 
     'plugin.weather.admin.title' => 'Weather plugin',
     'plugin.weather.admin.description' => 'Displays current weather for one selected location using Open-Meteo current weather data.',
-    'plugin.weather.admin.free_notice' => 'Free Open-Meteo mode is enabled. The public endpoint is intended for non-commercial use. For commercial use, configure an API key and commercial endpoint in plugins/weather/config.php.',
+    'plugin.weather.admin.free_notice' => 'Free Open-Meteo mode is enabled. The public endpoint is intended for non-commercial use. For commercial use, configure an API key and commercial endpoint in the plugin settings page.',
     'plugin.weather.admin.location_search' => 'Location search',
     'plugin.weather.admin.location_placeholder' => 'Search city or location',
     'plugin.weather.admin.search_help' => 'Type a city and save the slide. If the live search list is unavailable, the first matching location will be resolved automatically on save.',
@@ -18,6 +18,15 @@ return [
     'plugin.weather.admin.footer_note' => 'Weather data is fetched server-side and cached for one hour. The frontend clock uses the client browser time and timezone.',
     'plugin.weather.admin.search_no_results' => 'No locations found.',
     'plugin.weather.admin.search_failed' => 'Location lookup failed.',
+
+    'plugin.weather.global.title' => 'Open-Meteo API settings',
+    'plugin.weather.global.description' => 'Configure the Open-Meteo endpoints used by all weather slides. Leave the API key empty for the public non-commercial API.',
+    'plugin.weather.global.weather_base_url' => 'Weather API endpoint',
+    'plugin.weather.global.weather_base_url_help' => 'Default public endpoint: https://api.open-meteo.com/v1/forecast',
+    'plugin.weather.global.geocoding_base_url' => 'Geocoding API endpoint',
+    'plugin.weather.global.geocoding_base_url_help' => 'Default public endpoint: https://geocoding-api.open-meteo.com/v1/search',
+    'plugin.weather.global.api_key' => 'API key',
+    'plugin.weather.global.api_key_help' => 'The key is stored in the database and sent only from server-side API requests.',
 
     'plugin.weather.unknown_location' => 'Unknown location',
     'plugin.weather.label.feels_like' => 'Feels like',
@@ -44,4 +53,6 @@ return [
     'plugin.weather.error.current_weather_missing' => 'Weather plugin: weather API did not return current data.',
     'plugin.weather.error.api_request_failed' => 'Weather plugin: API request failed.',
     'plugin.weather.error.invalid_api_response' => 'Weather plugin: invalid API response.',
+    'plugin.weather.error.invalid_weather_endpoint' => 'Weather plugin: invalid weather API endpoint.',
+    'plugin.weather.error.invalid_geocoding_endpoint' => 'Weather plugin: invalid geocoding API endpoint.',
 ];

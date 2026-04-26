@@ -7,6 +7,9 @@ use RuntimeException;
 
 class Plugin extends AbstractSlidePlugin
 {
+    private const DEFAULT_GEOCODING_BASE_URL = 'https://geocoding-api.open-meteo.com/v1/search';
+    private const DEFAULT_WEATHER_BASE_URL = 'https://api.open-meteo.com/v1/forecast';
+
     private array $config;
     private ?array $translations = null;
 
@@ -33,29 +36,77 @@ class Plugin extends AbstractSlidePlugin
         ];
     }
 
-    public function isCommercialMode(): bool
+    public function getDefaultGlobalSettings(): array
     {
-        return !empty($this->config['commercial_mode']);
+        return [
+            'weather_base_url' => self::DEFAULT_WEATHER_BASE_URL,
+            'geocoding_base_url' => self::DEFAULT_GEOCODING_BASE_URL,
+            'api_key' => '',
+        ];
     }
 
-    public function getGeocodingBaseUrl(): string
+    public function isCommercialMode(array $globalSettings = []): bool
     {
-        return (string)($this->config['geocoding_base_url'] ?? 'https://geocoding-api.open-meteo.com/v1/search');
+        $globalSettings = array_replace($this->getDefaultGlobalSettings(), $globalSettings);
+        return trim((string)($globalSettings['api_key'] ?? '')) !== ''
+            || trim((string)($globalSettings['weather_base_url'] ?? '')) !== self::DEFAULT_WEATHER_BASE_URL;
+    }
+
+    public function getGeocodingBaseUrl(array $globalSettings = []): string
+    {
+        $globalSettings = array_replace($this->getDefaultGlobalSettings(), $globalSettings);
+        return (string)$globalSettings['geocoding_base_url'];
     }
 
     public function renderAdminSettings(array $slide, array $settings, PluginApi $api): string
     {
         $settings = array_replace($this->getDefaultSettings(), $settings);
+        $globalSettings = $this->loadGlobalSettings($api);
+
         return $this->renderView('views/config.php', [
             'plugin' => $this,
             'settings' => $settings,
+            'globalSettings' => $globalSettings,
             'strings' => $this->adminStrings(),
         ]);
+    }
+
+    public function renderGlobalSettings(array $settings, PluginApi $api): string
+    {
+        $settings = array_replace($this->getDefaultGlobalSettings(), $settings);
+
+        return $this->renderView('views/global_config.php', [
+            'plugin' => $this,
+            'settings' => $settings,
+            'strings' => $this->globalSettingsStrings(),
+        ]);
+    }
+
+    public function normalizeGlobalSettings(array $input, array $existingSettings, PluginApi $api): array
+    {
+        $settings = array_replace($this->getDefaultGlobalSettings(), $existingSettings, $input);
+
+        return [
+            'weather_base_url' => $this->normalizeEndpoint(
+                $settings['weather_base_url'] ?? '',
+                self::DEFAULT_WEATHER_BASE_URL,
+                'plugin.weather.error.invalid_weather_endpoint',
+                'Weather plugin: invalid weather API endpoint.'
+            ),
+            'geocoding_base_url' => $this->normalizeEndpoint(
+                $settings['geocoding_base_url'] ?? '',
+                self::DEFAULT_GEOCODING_BASE_URL,
+                'plugin.weather.error.invalid_geocoding_endpoint',
+                'Weather plugin: invalid geocoding API endpoint.'
+            ),
+            'api_key' => trim((string)($settings['api_key'] ?? '')),
+        ];
     }
 
     public function normalizeSettings(array $input, array $existingSettings, PluginApi $api): array
     {
         $settings = array_replace($this->getDefaultSettings(), $existingSettings, $input);
+        $globalSettings = $this->loadGlobalSettings($api);
         $settings['location_query'] = trim((string)($settings['location_query'] ?? ''));
         $settings['location_name'] = trim((string)($settings['location_name'] ?? ''));
         $settings['latitude'] = $this->sanitizeCoordinate($settings['latitude'] ?? null, 'latitude');
@@ -83,7 +134,7 @@ class Plugin extends AbstractSlidePlugin
         $settings['show_datetime'] = !empty($settings['show_datetime']);
 
         if (($settings['location_name'] === '' || $settings['latitude'] === '' || $settings['longitude'] === '') && $settings['location_query'] !== '') {
-            $resolved = $this->resolveLocationFromQuery($settings['location_query']);
+            $resolved = $this->resolveLocationFromQuery($settings['location_query'], $globalSettings);
             $settings['location_name'] = (string)($resolved['location_name'] ?? '');
             $settings['latitude'] = (string)($resolved['latitude'] ?? '');
             $settings['longitude'] = (string)($resolved['longitude'] ?? '');
@@ -101,7 +152,8 @@ class Plugin extends AbstractSlidePlugin
     public function renderFrontend(array $slide, array $settings, PluginApi $api): string
     {
         $settings = array_replace($this->getDefaultSettings(), $settings);
-        $weather = $this->fetchCurrentWeather($settings);
+        $globalSettings = $this->loadGlobalSettings($api);
+        $weather = $this->fetchCurrentWeather($settings, $globalSettings, $api);
         $visual = $this->resolveVisuals((int)($weather['weather_code'] ?? -1), !empty($weather['is_day']));
         $units = [
             'temperature' => $settings['temperature_unit'] === 'fahrenheit' ? '°F' : '°C',
@@ -165,7 +217,7 @@ class Plugin extends AbstractSlidePlugin
         return [
             'title' => $this->t('plugin.weather.admin.title', 'Weather plugin'),
             'description' => $this->t('plugin.weather.admin.description', 'Displays current weather for one selected location using Open-Meteo current weather data.'),
-            'free_notice' => $this->t('plugin.weather.admin.free_notice', 'Free Open-Meteo mode is enabled. The public endpoint is intended for non-commercial use. For commercial use, configure an API key and commercial endpoint in plugins/weather/config.php.'),
+            'free_notice' => $this->t('plugin.weather.admin.free_notice', 'Free Open-Meteo mode is enabled. The public endpoint is intended for non-commercial use. For commercial use, configure an API key and commercial endpoint in the plugin settings page.'),
             'location_search' => $this->t('plugin.weather.admin.location_search', 'Location search'),
             'location_placeholder' => $this->t('plugin.weather.admin.location_placeholder', 'Search city or location'),
             'search_help' => $this->t('plugin.weather.admin.search_help', 'Type a city and save the slide. If the live search list is unavailable, the first matching location will be resolved automatically on save.'),
@@ -178,6 +230,20 @@ class Plugin extends AbstractSlidePlugin
             'footer_note' => $this->t('plugin.weather.admin.footer_note', 'Weather data is fetched server-side and cached for one hour. The frontend clock uses the client browser time and timezone.'),
             'search_no_results' => $this->t('plugin.weather.admin.search_no_results', 'No locations found.'),
             'search_failed' => $this->t('plugin.weather.admin.search_failed', 'Location lookup failed.'),
+        ];
+    }
+
+    public function globalSettingsStrings(): array
+    {
+        return [
+            'title' => $this->t('plugin.weather.global.title', 'Open-Meteo API settings'),
+            'description' => $this->t('plugin.weather.global.description', 'Configure the Open-Meteo endpoints used by all weather slides. Leave the API key empty for the public non-commercial API.'),
+            'weather_base_url' => $this->t('plugin.weather.global.weather_base_url', 'Weather API endpoint'),
+            'weather_base_url_help' => $this->t('plugin.weather.global.weather_base_url_help', 'Default public endpoint: https://api.open-meteo.com/v1/forecast'),
+            'geocoding_base_url' => $this->t('plugin.weather.global.geocoding_base_url', 'Geocoding API endpoint'),
+            'geocoding_base_url_help' => $this->t('plugin.weather.global.geocoding_base_url_help', 'Default public endpoint: https://geocoding-api.open-meteo.com/v1/search'),
+            'api_key' => $this->t('plugin.weather.global.api_key', 'API key'),
+            'api_key_help' => $this->t('plugin.weather.global.api_key_help', 'The key is stored in the database and sent only from server-side API requests.'),
         ];
     }
 
@@ -234,6 +300,26 @@ class Plugin extends AbstractSlidePlugin
         return rtrim(rtrim(number_format($number, 6, '.', ''), '0'), '.');
     }
 
+    private function loadGlobalSettings(PluginApi $api): array
+    {
+        return array_replace($this->getDefaultGlobalSettings(), $api->loadGlobalSettings($this->getName()));
+    }
+
+    private function normalizeEndpoint(mixed $value, string $default, string $errorKey, string $errorDefault): string
+    {
+        $url = trim((string)$value);
+        if ($url === '') {
+            return $default;
+        }
+
+        $scheme = strtolower((string)parse_url($url, PHP_URL_SCHEME));
+        if (!in_array($scheme, ['http', 'https'], true) || filter_var($url, FILTER_VALIDATE_URL) === false) {
+            throw new RuntimeException($this->t($errorKey, $errorDefault));
+        }
+
+        return rtrim($url, '?&');
+    }
+
     private function windUnitLabel(string $value): string
     {
         return match ($value) {
@@ -244,21 +330,20 @@ class Plugin extends AbstractSlidePlugin
         };
     }
 
-    private function resolveLocationFromQuery(string $query): array
+    private function resolveLocationFromQuery(string $query, array $globalSettings): array
     {
-        $url = $this->getGeocodingBaseUrl() . '?' . http_build_query([
+        $queryParams = [
             'name' => $query,
             'count' => 1,
             'language' => 'en',
             'format' => 'json',
-        ], '', '&', PHP_QUERY_RFC3986);
-
-        $apiKey = trim((string)($this->config['api_key'] ?? ''));
+        ];
+        $apiKey = trim((string)($globalSettings['api_key'] ?? ''));
         if ($apiKey !== '') {
-            $separator = str_contains($url, '?') ? '&' : '?';
-            $url .= $separator . 'apikey=' . rawurlencode($apiKey);
+            $queryParams['apikey'] = $apiKey;
         }
 
+        $url = $this->buildUrlWithQuery($this->getGeocodingBaseUrl($globalSettings), $queryParams);
         $payload = $this->httpGetJson($url);
         $result = is_array($payload['results'][0] ?? null) ? $payload['results'][0] : null;
         if (!$result) {
@@ -281,16 +366,18 @@ class Plugin extends AbstractSlidePlugin
         ];
     }
 
-    private function fetchCurrentWeather(array $settings): array
+    private function fetchCurrentWeather(array $settings, array $globalSettings, PluginApi $api): array
     {
         $cacheKey = sha1(json_encode([
+            $globalSettings['weather_base_url'],
+            $globalSettings['api_key'],
             $settings['latitude'],
             $settings['longitude'],
             $settings['temperature_unit'],
             $settings['wind_speed_unit'],
             $settings['precipitation_unit'],
         ], JSON_UNESCAPED_SLASHES));
-        $cacheFile = $this->rootPath . '/cache/' . $cacheKey . '.json';
+        $cacheFile = $api->pluginCachePath($this->getName(), $cacheKey . '.json');
         $ttl = (int)($this->config['cache_ttl_seconds'] ?? 3600);
         if (is_file($cacheFile) && (filemtime($cacheFile) ?: 0) >= time() - $ttl) {
             $cached = json_decode((string)file_get_contents($cacheFile), true);
@@ -299,22 +386,20 @@ class Plugin extends AbstractSlidePlugin
             }
         }
 
-        $url = $this->buildWeatherUrl($settings);
+        $url = $this->buildWeatherUrl($settings, $globalSettings);
         $payload = $this->httpGetJson($url);
         $current = is_array($payload['current'] ?? null) ? $payload['current'] : null;
         if (!$current) {
             throw new RuntimeException($this->t('plugin.weather.error.current_weather_missing', 'Weather plugin: weather API did not return current data.'));
         }
 
-        if (is_dir(dirname($cacheFile)) || @mkdir(dirname($cacheFile), 0775, true)) {
-            @file_put_contents($cacheFile, json_encode($current, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
-        }
+        @file_put_contents($cacheFile, json_encode($current, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
         return $current;
     }
 
-    private function buildWeatherUrl(array $settings): string
+    private function buildWeatherUrl(array $settings, array $globalSettings): string
     {
-        $base = (string)($this->config['weather_base_url'] ?? 'https://api.open-meteo.com/v1/forecast');
+        $base = (string)($globalSettings['weather_base_url'] ?? self::DEFAULT_WEATHER_BASE_URL);
         $query = [
             'latitude' => $settings['latitude'],
             'longitude' => $settings['longitude'],
@@ -325,12 +410,22 @@ class Plugin extends AbstractSlidePlugin
             'timezone' => 'auto',
         ];
 
-        $apiKey = trim((string)($this->config['api_key'] ?? ''));
+        $apiKey = trim((string)($globalSettings['api_key'] ?? ''));
         if ($apiKey !== '') {
             $query['apikey'] = $apiKey;
         }
 
-        return $base . '?' . http_build_query($query, '', '&', PHP_QUERY_RFC3986);
+        return $this->buildUrlWithQuery($base, $query);
+    }
+
+    private function buildUrlWithQuery(string $base, array $query): string
+    {
+        $separator = '?';
+        if (str_contains($base, '?')) {
+            $separator = str_ends_with($base, '?') || str_ends_with($base, '&') ? '' : '&';
+        }
+
+        return $base . $separator . http_build_query($query, '', '&', PHP_QUERY_RFC3986);
     }
 
     private function httpGetJson(string $url): array

@@ -5,7 +5,7 @@ return [
 
     'plugin.weather.admin.title' => 'Wetter-Plugin',
     'plugin.weather.admin.description' => 'Zeigt das aktuelle Wetter für einen ausgewaehlten Ort mit aktuellen Open-Meteo-Wetterdaten an.',
-    'plugin.weather.admin.free_notice' => 'Der freie Open-Meteo-Modus ist aktiviert. Der oeffentliche Endpunkt ist nur für nicht-kommerzielle Nutzung gedacht. für die kommerzielle Nutzung konfigurieren Sie einen API-Schluessel und einen kommerziellen Endpunkt in plugins/weather/config.php.',
+    'plugin.weather.admin.free_notice' => 'Der freie Open-Meteo-Modus ist aktiviert. Der oeffentliche Endpunkt ist nur für nicht-kommerzielle Nutzung gedacht. Für die kommerzielle Nutzung konfigurieren Sie einen API-Schluessel und einen kommerziellen Endpunkt in den Plugin-Einstellungen.',
     'plugin.weather.admin.location_search' => 'Ort suchen',
     'plugin.weather.admin.location_placeholder' => 'Stadt oder Ort suchen',
     'plugin.weather.admin.search_help' => 'Geben Sie eine Stadt ein und speichern Sie die Folie. Wenn die Live-Suchliste nicht verfuegbar ist, wird beim Speichern automatisch der erste passende Ort verwendet.',
@@ -18,6 +18,15 @@ return [
     'plugin.weather.admin.footer_note' => 'Wetterdaten werden serverseitig geladen und für eine Stunde zwischengespeichert. Die Uhr im Frontend verwendet die Browser-Zeit und Zeitzone des Clients.',
     'plugin.weather.admin.search_no_results' => 'Keine Orte gefunden.',
     'plugin.weather.admin.search_failed' => 'Ortsabfrage fehlgeschlagen.',
+
+    'plugin.weather.global.title' => 'Open-Meteo API-Einstellungen',
+    'plugin.weather.global.description' => 'Konfigurieren Sie die Open-Meteo-Endpunkte für alle Wetter-Folien. Lassen Sie den API-Schluessel leer, um die oeffentliche nicht-kommerzielle API zu verwenden.',
+    'plugin.weather.global.weather_base_url' => 'Wetter-API-Endpunkt',
+    'plugin.weather.global.weather_base_url_help' => 'Oeffentlicher Standard-Endpunkt: https://api.open-meteo.com/v1/forecast',
+    'plugin.weather.global.geocoding_base_url' => 'Geocoding-API-Endpunkt',
+    'plugin.weather.global.geocoding_base_url_help' => 'Oeffentlicher Standard-Endpunkt: https://geocoding-api.open-meteo.com/v1/search',
+    'plugin.weather.global.api_key' => 'API-Schluessel',
+    'plugin.weather.global.api_key_help' => 'Der Schluessel wird in der Datenbank gespeichert und nur von serverseitigen API-Anfragen gesendet.',
 
     'plugin.weather.unknown_location' => 'Unbekannter Ort',
     'plugin.weather.label.feels_like' => 'Gefühlt',
@@ -44,4 +53,6 @@ return [
     'plugin.weather.error.current_weather_missing' => 'Wetter-Plugin: Die Wetter-API hat keine aktuellen Daten geliefert.',
     'plugin.weather.error.api_request_failed' => 'Wetter-Plugin: API-Anfrage fehlgeschlagen.',
     'plugin.weather.error.invalid_api_response' => 'Wetter-Plugin: ungültige API-Antwort.',
+    'plugin.weather.error.invalid_weather_endpoint' => 'Wetter-Plugin: ungültiger Wetter-API-Endpunkt.',
+    'plugin.weather.error.invalid_geocoding_endpoint' => 'Wetter-Plugin: ungültiger Geocoding-API-Endpunkt.',
 ];

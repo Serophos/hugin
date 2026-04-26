@@ -1,5 +1,6 @@
 <?php
 $strings = $strings ?? [];
+$globalSettings = $globalSettings ?? [];
 $queryValue = trim((string)($settings['location_query'] ?? ''));
 if ($queryValue === '') {
     $queryValue = (string)($settings['location_name'] ?? '');
@@ -8,7 +9,7 @@ if ($queryValue === '') {
 <div class="plugin-settings-card weather-plugin-config">
     <h3><?= e($strings['title'] ?? 'Weather plugin') ?></h3>
     <p class="muted"><?= e($strings['description'] ?? '') ?></p>
-    <?php if (!$plugin->isCommercialMode()): ?>
+    <?php if (!$plugin->isCommercialMode($globalSettings)): ?>
         <div class="alert warning">
             <?= e($strings['free_notice'] ?? '') ?>
         </div>
@@ -93,7 +94,7 @@ if ($queryValue === '') {
         noResults: <?= json_encode($strings['search_no_results'] ?? 'No locations found.', JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>,
         failed: <?= json_encode($strings['search_failed'] ?? 'Location lookup failed.', JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>
     };
-    const geocodingBaseUrl = <?= json_encode($plugin->getGeocodingBaseUrl(), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
+    const geocodingBaseUrl = <?= json_encode($plugin->getGeocodingBaseUrl($globalSettings), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
 
     let abortController = null;
     let debounceTimer = null;
