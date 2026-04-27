@@ -21,8 +21,8 @@
         </label>
         <label class="checkbox-row"><input type="checkbox" name="is_active" value="1" <?= checked($user['is_active'] ?? 1) ?>> <?= e(__('common.active')) ?></label>
         <div class="form-actions">
-            <button type="submit"><?= e(__('common.save')) ?></button>
-            <a class="button secondary" href="<?= e(url('/admin/users')) ?>"><?= e(__('common.cancel')) ?></a>
+            <button type="submit" class="button button--default"><?= admin_icon('save') ?><span><?= e(__('common.save')) ?></span></button>
+            <a class="button button--normal" href="<?= e(url('/admin/users')) ?>"><?= admin_icon('cancel') ?><span><?= e(__('common.cancel')) ?></span></a>
         </div>
     </form>
 </div>

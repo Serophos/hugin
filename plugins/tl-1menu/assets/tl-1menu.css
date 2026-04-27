@@ -11,7 +11,7 @@
     font-family: Inter, Arial, sans-serif;
 }
 .tl1menu--with-image {
-    background-image: var(--tl1menu-image-overlay, linear-gradient(180deg, rgba(248,250,252,0.80) 0%, rgba(241,245,249,0.92) 100%)), var(--tl1menu-bg-image);
+    background-image: var(--tl1menu-image-overlay), var(--tl1menu-bg-image);
 }
 .tl1menu *, .tl1menu *::before, .tl1menu *::after { box-sizing: border-box; }
 .tl1menu__header {

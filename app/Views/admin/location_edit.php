@@ -4,7 +4,7 @@
         <h1><?= e($location['name']) ?></h1>
         <p class="muted"><?= e(__('locations.counts', ['groups' => (int)$location['group_count'], 'displays' => (int)$location['display_count']])) ?></p>
     </div>
-    <a class="button secondary" href="<?= e(url('/admin/locations')) ?>"><?= e(__('locations.plural')) ?></a>
+    <a class="button button--normal" href="<?= e(url('/admin/locations')) ?>"><?= admin_icon('back') ?><span><?= e(__('locations.plural')) ?></span></a>
 </div>
 
 <?php if ($flash): ?><div class="alert success"><?= e($flash) ?></div><?php endif; ?>
@@ -29,8 +29,8 @@
                     <textarea name="description" rows="3"><?= e($location['description'] ?? '') ?></textarea>
                 </label>
                 <div class="form-actions full-width">
-                    <button type="submit"><?= e(__('common.save')) ?></button>
-                    <a class="button secondary" href="<?= e(url('/admin/locations')) ?>"><?= e(__('common.cancel')) ?></a>
+                    <button type="submit" class="button button--default"><?= admin_icon('save') ?><span><?= e(__('common.save')) ?></span></button>
+                    <a class="button button--normal" href="<?= e(url('/admin/locations')) ?>"><?= admin_icon('cancel') ?><span><?= e(__('common.cancel')) ?></span></a>
                 </div>
             </form>
         </div>
@@ -63,11 +63,11 @@
                                 <td><?= e((string)$group['display_count']) ?></td>
                                 <td><?= e($group['description'] ?: __('common.none')) ?></td>
                                 <td class="actions">
-                                    <a class="button secondary small" href="<?= e(url('/admin/display-groups/' . $group['id'])) ?>"><?= e(__('common.edit')) ?></a>
+                                    <a class="button button--normal button--small" href="<?= e(url('/admin/display-groups/' . $group['id'])) ?>"><?= admin_icon('edit') ?><span><?= e(__('common.edit')) ?></span></a>
                                     <form method="post" action="<?= e(url('/admin/display-groups/' . $group['id'] . '/delete')) ?>" class="inline-form" onsubmit="return confirm(<?= e(json_encode(__('display_groups.delete_confirm'))) ?>);">
                                         <?= csrf_field() ?>
                                         <input type="hidden" name="return_to" value="<?= e('/admin/locations/' . $location['id'] . '/edit') ?>">
-                                        <button type="submit" class="button danger small"><?= e(__('common.delete')) ?></button>
+                                        <button type="submit" class="button button--danger button--small"><?= admin_icon('delete') ?><span><?= e(__('common.delete')) ?></span></button>
                                     </form>
                                 </td>
                             </tr>
@@ -95,7 +95,7 @@
                 <label><?= e(__('common.sort_order')) ?>
                     <input type="number" name="sort_order" value="0" min="0">
                 </label>
-                <button type="submit"><?= e(__('common.create')) ?></button>
+                <button type="submit" class="button button--default"><?= admin_icon('add') ?><span><?= e(__('common.create')) ?></span></button>
             </form>
         </div>
 

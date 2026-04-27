@@ -1,7 +1,7 @@
 <?php $title = __('channel.plural'); require __DIR__ . '/../layouts/admin_header.php'; ?>
 <div class="page-head">
     <div><h1><?= e(__('channel.plural')) ?></h1><p class="muted"><?= e(__('channel.overview_hint')) ?></p></div>
-    <a class="button" href="<?= e(url('/admin/channels/create')) ?>"><?= e(__('channel.new')) ?></a>
+    <a class="button button--default" href="<?= e(url('/admin/channels/create')) ?>"><?= admin_icon('add') ?><span><?= e(__('channel.new')) ?></span></a>
 </div>
 <?php if ($flash): ?><div class="alert success"><?= e($flash) ?></div><?php endif; ?>
 <?php foreach ($groups as $group): ?>
@@ -20,10 +20,10 @@
                 <td><?= e((string)$channel['slide_count']) ?></td>
                 <td><?= e($channel['is_active'] ? __('common.active') : __('common.inactive')) ?></td>
                 <td class="actions">
-                    <a href="<?= e(url('/admin/channels/' . $channel['channel_id'] . '/edit')) ?>"><?= e(__('common.edit')) ?></a>
+                    <a class="button button--normal button--small" href="<?= e(url('/admin/channels/' . $channel['channel_id'] . '/edit')) ?>"><?= admin_icon('edit') ?><span><?= e(__('common.edit')) ?></span></a>
                     <form method="post" action="<?= e(url('/admin/channels/' . $channel['channel_id'] . '/delete')) ?>" class="inline-form" onsubmit="return confirm(<?= json_encode(__('channel.delete_confirm')) ?>);">
                         <?= csrf_field() ?>
-                        <button type="submit" class="link-button danger"><?= e(__('common.delete')) ?></button>
+                        <button type="submit" class="button button--danger button--small"><?= admin_icon('delete') ?><span><?= e(__('common.delete')) ?></span></button>
                     </form>
                 </td>
             </tr>

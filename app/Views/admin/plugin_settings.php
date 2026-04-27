@@ -17,8 +17,8 @@
             <p class="muted"><?= e(__('plugins.no_global_settings')) ?></p>
         <?php endif; ?>
         <div class="form-actions">
-            <button type="submit"><?= e(__('common.save')) ?></button>
-            <a class="button secondary" href="<?= e(url('/admin/plugins')) ?>"><?= e(__('common.cancel')) ?></a>
+            <button type="submit" class="button button--default"><?= admin_icon('save') ?><span><?= e(__('common.save')) ?></span></button>
+            <a class="button button--normal" href="<?= e(url('/admin/plugins')) ?>"><?= admin_icon('cancel') ?><span><?= e(__('common.cancel')) ?></span></a>
         </div>
     </form>
 </div>

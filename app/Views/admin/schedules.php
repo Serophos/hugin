@@ -16,27 +16,28 @@ require __DIR__ . '/../layouts/admin_header.php';
 ?>
 <div class="page-head">
     <div><h1><?= e(__('schedule.plural')) ?></h1><p class="muted"><?= e(__('schedule.overview_hint')) ?></p></div>
-    <a class="button" href="<?= e(url('/admin/schedules/create')) ?>"><?= e(__('schedule.new')) ?></a>
+    <a class="button button--default" href="<?= e(url('/admin/schedules/create')) ?>"><?= admin_icon('add') ?><span><?= e(__('schedule.new')) ?></span></a>
 </div>
 <?php if ($flash): ?><div class="alert success"><?= e($flash) ?></div><?php endif; ?>
 <?php if ($error): ?><div class="alert error"><?= e($error) ?></div><?php endif; ?>
 <div class="card">
-    <table>
-        <thead><tr><th><?= e(__('common.name')) ?></th><th><?= e(__('common.type')) ?></th><th><?= e(__('schedule.rules')) ?></th><th><?= e(__('schedule.assignment_count')) ?></th><th><?= e(__('common.status')) ?></th><th></th></tr></thead>
+    <table class="schedule-table">
+        <thead><tr><th><?= e(__('common.name')) ?></th><th><?= e(__('common.type')) ?></th><th class="schedule-rules-col"><?= e(__('schedule.rules')) ?></th><th><?= e(__('schedule.assignment_count')) ?></th><th><?= e(__('common.status')) ?></th><th class="schedule-actions-col"></th></tr></thead>
         <tbody>
         <?php foreach ($schedules as $schedule): ?>
+            <?php $summary = $ruleSummary($rulesBySchedule[(int)$schedule['id']] ?? []); ?>
             <tr>
                 <td><strong><?= e($schedule['name']) ?></strong><?php if (!empty($schedule['is_system'])): ?><br><span class="muted small"><?= e(__('schedule.system_label')) ?></span><?php endif; ?></td>
                 <td><?= e(__($schedule['type'] === 'fulltime' ? 'schedule.type_fulltime' : 'schedule.type_weekly')) ?></td>
-                <td><?= e($ruleSummary($rulesBySchedule[(int)$schedule['id']] ?? [])) ?></td>
+                <td class="schedule-rules-cell" title="<?= e($summary) ?>"><?= e($summary) ?></td>
                 <td><?= e((string)$schedule['assignment_count']) ?></td>
                 <td><?= e($schedule['is_active'] ? __('common.active') : __('common.inactive')) ?></td>
                 <td class="actions">
                     <?php if (empty($schedule['is_system'])): ?>
-                        <a href="<?= e(url('/admin/schedules/' . $schedule['id'] . '/edit')) ?>"><?= e(__('common.edit')) ?></a>
+                        <a class="button button--normal button--small" href="<?= e(url('/admin/schedules/' . $schedule['id'] . '/edit')) ?>"><?= admin_icon('edit') ?><span><?= e(__('common.edit')) ?></span></a>
                         <form method="post" action="<?= e(url('/admin/schedules/' . $schedule['id'] . '/delete')) ?>" class="inline-form" onsubmit="return confirm(<?= json_encode(__('schedule.delete_confirm')) ?>);">
                             <?= csrf_field() ?>
-                            <button type="submit" class="link-button danger"><?= e(__('common.delete')) ?></button>
+                            <button type="submit" class="button button--danger button--small button--icon-only" title="<?= e(__('common.delete')) ?>" aria-label="<?= e(__('common.delete')) ?>"><?= admin_icon('delete') ?></button>
                         </form>
                     <?php else: ?>
                         <span class="muted small"><?= e(__('schedule.protected_label')) ?></span>

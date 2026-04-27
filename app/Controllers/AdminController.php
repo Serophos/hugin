@@ -1003,6 +1003,18 @@ class AdminController
              ORDER BY c.name ASC, csa.sort_order ASC, s.name ASC'
         );
 
+        $allSlides = $this->db->all(
+            'SELECT s.id, s.name, s.slide_type, s.source_url, s.duration_seconds, s.is_active,
+                    m.original_name AS media_name,
+                    GROUP_CONCAT(DISTINCT c.name ORDER BY c.name ASC SEPARATOR ", ") AS channel_names
+             FROM slides s
+             LEFT JOIN channel_slide_assignments csa ON csa.slide_id = s.id
+             LEFT JOIN channels c ON c.id = csa.channel_id
+             LEFT JOIN media_assets m ON m.id = s.media_asset_id
+             GROUP BY s.id, s.name, s.slide_type, s.source_url, s.duration_seconds, s.is_active, m.original_name
+             ORDER BY s.name ASC'
+        );
+
         $groups = [];
         foreach ($rows as $row) {
             $key = $row['channel_id'];
@@ -1016,7 +1028,12 @@ class AdminController
             $groups[$key]['slides'][] = $row;
         }
 
-        $this->view->render('admin/slides', ['groups' => $groups, 'flash' => flash('success'), 'pluginLabels' => $this->plugins->getPluginLabelMap()]);
+        $this->view->render('admin/slides', [
+            'groups' => $groups,
+            'allSlides' => $allSlides,
+            'flash' => flash('success'),
+            'pluginLabels' => $this->plugins->getPluginLabelMap(),
+        ]);
     }
 
     public function slideForm(?int $id = null): void

@@ -32,11 +32,11 @@
                     <td><?= e($plugin['description']) ?></td>
                     <td><?= e($plugin['is_enabled'] ? __('common.enabled') : __('common.disabled')) ?></td>
                     <td class="actions">
-                        <a class="button secondary" href="<?= e(url('/admin/plugins/' . $plugin['plugin_name'] . '/settings')) ?>"><?= e(__('plugins.configure')) ?></a>
+                        <a class="button button--normal button--small" href="<?= e(url('/admin/plugins/' . $plugin['plugin_name'] . '/settings')) ?>"><?= admin_icon('settings') ?><span><?= e(__('plugins.configure')) ?></span></a>
                         <form method="post" action="<?= e(url('/admin/plugins/' . $plugin['plugin_name'] . '/toggle')) ?>" class="inline-form">
                             <?= csrf_field() ?>
                             <input type="hidden" name="enable" value="<?= $plugin['is_enabled'] ? '0' : '1' ?>">
-                            <button type="submit" class="button secondary"><?= e($plugin['is_enabled'] ? __('plugins.disable') : __('plugins.enable')) ?></button>
+                            <button type="submit" class="button button--normal button--small"><?= admin_icon($plugin['is_enabled'] ? 'cancel' : 'add') ?><span><?= e($plugin['is_enabled'] ? __('plugins.disable') : __('plugins.enable')) ?></span></button>
                         </form>
                     </td>
                 </tr>

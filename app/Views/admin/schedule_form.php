@@ -26,14 +26,14 @@ require __DIR__ . '/../layouts/admin_header.php';
                         </label>
                         <label><?= e(__('schedule.start_time')) ?><input type="time" name="rule_start_time[]" value="<?= e(substr((string)($rule['start_time'] ?? ''), 0, 5)) ?>"></label>
                         <label><?= e(__('schedule.end_time')) ?><input type="time" name="rule_end_time[]" value="<?= e(substr((string)($rule['end_time'] ?? ''), 0, 5)) ?>"></label>
-                        <button type="button" class="button secondary rule-remove"><?= e(__('common.remove')) ?></button>
+                        <button type="button" class="button button--normal rule-remove"><?= admin_icon('remove') ?><span><?= e(__('common.remove')) ?></span></button>
                     </div>
                 <?php endforeach; ?>
             </div>
-            <button type="button" class="button secondary" id="add-rule"><?= e(__('schedule.add_rule')) ?></button>
+            <button type="button" class="button button--normal" id="add-rule"><?= admin_icon('add') ?><span><?= e(__('schedule.add_rule')) ?></span></button>
         </div>
 
-        <div class="form-actions"><button type="submit"><?= e(__('common.save')) ?></button><a class="button secondary" href="<?= e(url('/admin/schedules')) ?>"><?= e(__('common.cancel')) ?></a></div>
+        <div class="form-actions"><button type="submit" class="button button--default"><?= admin_icon('save') ?><span><?= e(__('common.save')) ?></span></button><a class="button button--normal" href="<?= e(url('/admin/schedules')) ?>"><?= admin_icon('cancel') ?><span><?= e(__('common.cancel')) ?></span></a></div>
     </form>
 </div>
 <script>
@@ -89,7 +89,7 @@ require __DIR__ . '/../layouts/admin_header.php';
 
         const removeButton = document.createElement('button');
         removeButton.type = 'button';
-        removeButton.className = 'button secondary rule-remove';
+        removeButton.className = 'button button--normal rule-remove';
         removeButton.textContent = labels.remove;
         row.appendChild(removeButton);
         list.appendChild(row);
@@ -97,13 +97,14 @@ require __DIR__ . '/../layouts/admin_header.php';
 
     addButton.addEventListener('click', addRow);
     list.addEventListener('click', (event) => {
-        if (!event.target.classList.contains('rule-remove')) return;
+        const removeButton = event.target.closest('.rule-remove');
+        if (!removeButton || !list.contains(removeButton)) return;
         const rows = list.querySelectorAll('.rule-row');
         if (rows.length <= 1) {
             rows[0].querySelectorAll('select, input').forEach((input) => { input.value = ''; });
             return;
         }
-        event.target.closest('.rule-row').remove();
+        removeButton.closest('.rule-row').remove();
     });
 })();
 </script>

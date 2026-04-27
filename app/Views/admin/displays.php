@@ -5,8 +5,8 @@
         <p class="muted"><?= e(__('display.drag_hint')) ?></p>
     </div>
     <div class="actions">
-        <a class="button secondary" href="<?= e(url('/admin/locations')) ?>"><?= e(__('locations.manage')) ?></a>
-        <a class="button" href="<?= e(url('/admin/displays/create')) ?>"><?= e(__('display.new')) ?></a>
+        <a class="button button--normal" href="<?= e(url('/admin/locations')) ?>"><?= admin_icon('manage') ?><span><?= e(__('locations.manage')) ?></span></a>
+        <a class="button button--default" href="<?= e(url('/admin/displays/create')) ?>"><?= admin_icon('add') ?><span><?= e(__('display.new')) ?></span></a>
     </div>
 </div>
 <?php if ($flash): ?><div class="alert success"><?= e($flash) ?></div><?php endif; ?>
@@ -37,10 +37,10 @@
                 <td><?= e((string)$display['channel_count']) ?></td>
                 <td><?= e($display['is_active'] ? __('common.active') : __('common.inactive')) ?></td>
                 <td class="actions">
-                    <a class="button secondary small" href="<?= e(url('/admin/displays/' . $display['id'] . '/edit')) ?>"><?= e(__('common.edit')) ?></a>
+                    <a class="button button--normal button--small" href="<?= e(url('/admin/displays/' . $display['id'] . '/edit')) ?>"><?= admin_icon('edit') ?><span><?= e(__('common.edit')) ?></span></a>
                     <form method="post" action="<?= e(url('/admin/displays/' . $display['id'] . '/delete')) ?>" class="inline-form" onsubmit="return confirm(<?= json_encode(__('display.delete_confirm', [], 'Delete display?')) ?>);">
                         <?= csrf_field() ?>
-                        <button type="submit" class="button danger small"><?= e(__('common.delete')) ?></button>
+                        <button type="submit" class="button button--danger button--small"><?= admin_icon('delete') ?><span><?= e(__('common.delete')) ?></span></button>
                     </form>
                 </td>
             </tr>

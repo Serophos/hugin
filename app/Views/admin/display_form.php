@@ -25,7 +25,7 @@
             <label><?= e(__('common.sort_order')) ?><input type="number" min="0" name="sort_order" value="<?= e((string)($display['sort_order'] ?? 0)) ?>"></label>
             <label class="full-width"><?= e(__('common.description')) ?><textarea name="description" rows="4"><?= e($display['description'] ?? '') ?></textarea></label>
             <label class="checkbox-row"><input type="checkbox" name="is_active" value="1" <?= checked($display['is_active'] ?? 1) ?>> <?= e(__('common.active')) ?></label>
-            <div class="form-actions"><button type="submit"><?= e(__('common.save')) ?></button><a class="button secondary" href="<?= e(url('/admin/displays')) ?>"><?= e(__('common.cancel')) ?></a></div>
+            <div class="form-actions"><button type="submit" class="button button--default"><?= admin_icon('save') ?><span><?= e(__('common.save')) ?></span></button><a class="button button--normal" href="<?= e(url('/admin/displays')) ?>"><?= admin_icon('cancel') ?><span><?= e(__('common.cancel')) ?></span></a></div>
         </form>
     </div>
 

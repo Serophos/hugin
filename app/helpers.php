@@ -108,6 +108,31 @@ function csrf_field(): string
     return '<input type="hidden" name="_csrf" value="' . e(csrf_token()) . '">';
 }
 
+function admin_icon(string $name): string
+{
+    $icons = [
+        'add' => '<path d="M12 5v14"></path><path d="M5 12h14"></path>',
+        'back' => '<path d="M15 18l-6-6 6-6"></path><path d="M9 12h11"></path>',
+        'cancel' => '<path d="M6 6l12 12"></path><path d="M18 6L6 18"></path>',
+        'delete' => '<path d="M5 7h14"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M8 7l1 13h6l1-13"></path><path d="M9 7V5h6v2"></path>',
+        'edit' => '<path d="M4 20h4L18.5 9.5l-4-4L4 16v4z"></path><path d="M13.5 5.5l4 4"></path>',
+        'login' => '<path d="M10 17l5-5-5-5"></path><path d="M15 12H3"></path><path d="M14 4h5v16h-5"></path>',
+        'manage' => '<path d="M4 5h7v7H4z"></path><path d="M13 5h7v7h-7z"></path><path d="M4 14h7v5H4z"></path><path d="M13 14h7v5h-7z"></path>',
+        'move' => '<path d="M5 12h14"></path><path d="M12 5l7 7-7 7"></path>',
+        'open' => '<path d="M14 5h5v5"></path><path d="M10 14l9-9"></path><path d="M19 14v5H5V5h5"></path>',
+        'remove' => '<path d="M5 12h14"></path>',
+        'save' => '<path d="M5 4h11l3 3v13H5z"></path><path d="M8 4v6h8"></path><path d="M8 20v-6h8v6"></path>',
+        'settings' => '<path d="M4 7h16"></path><path d="M4 17h16"></path><circle cx="9" cy="7" r="2"></circle><circle cx="15" cy="17" r="2"></circle>',
+        'upload' => '<path d="M12 16V5"></path><path d="M8 9l4-4 4 4"></path><path d="M5 19h14"></path>',
+    ];
+
+    if (!isset($icons[$name])) {
+        return '';
+    }
+
+    return '<svg class="button-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' . $icons[$name] . '</svg>';
+}
+
 function require_csrf(): void
 {
     $token = $_POST['_csrf'] ?? $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';

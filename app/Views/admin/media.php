@@ -19,7 +19,7 @@
             <label><?= e(__('media.file')) ?>
                 <input type="file" name="media_file" accept="image/*,video/*" required>
             </label>
-            <button type="submit"><?= e(__('media.upload_title')) ?></button>
+            <button type="submit" class="button button--default"><?= admin_icon('upload') ?><span><?= e(__('media.upload_title')) ?></span></button>
         </form>
     </div>
 
@@ -65,11 +65,11 @@
                 <td><?= e((string)$asset['usage_count']) ?></td>
                 <td><?= e($asset['uploaded_by'] ?? __('common.unknown', [], 'Unknown')) ?></td>
                 <td class="actions">
-                    <a href="<?= e(url($asset['file_path'])) ?>" target="_blank"><?= e(__('common.open')) ?></a>
+                    <a class="button button--normal button--small" href="<?= e(url($asset['file_path'])) ?>" target="_blank"><?= admin_icon('open') ?><span><?= e(__('common.open')) ?></span></a>
                     <?php if (is_admin()): ?>
                         <form method="post" action="<?= e(url('/admin/media/' . $asset['id'] . '/delete')) ?>" class="inline-form" onsubmit="return confirm(<?= json_encode(__('media.delete_confirm')) ?>);">
                             <?= csrf_field() ?>
-                            <button type="submit" class="link-button danger"><?= e(__('common.delete')) ?></button>
+                            <button type="submit" class="button button--danger button--small"><?= admin_icon('delete') ?><span><?= e(__('common.delete')) ?></span></button>
                         </form>
                     <?php endif; ?>
                 </td>

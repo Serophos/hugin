@@ -4,7 +4,7 @@
         <h1><?= e(__('locations.plural')) ?></h1>
         <p class="muted"><?= e(__('locations.overview_hint')) ?></p>
     </div>
-    <a class="button secondary" href="<?= e(url('/admin/displays')) ?>"><?= e(__('display.plural')) ?></a>
+    <a class="button button--normal" href="<?= e(url('/admin/displays')) ?>"><?= admin_icon('back') ?><span><?= e(__('display.plural')) ?></span></a>
 </div>
 
 <?php if ($flash): ?><div class="alert success"><?= e($flash) ?></div><?php endif; ?>
@@ -40,10 +40,10 @@
                                 <td><?= e((string)$location['group_count']) ?></td>
                                 <td><?= e((string)$location['display_count']) ?></td>
                                 <td class="actions">
-                                    <a class="button secondary small" href="<?= e(url('/admin/locations/' . $location['id'] . '/edit')) ?>"><?= e(__('common.edit')) ?></a>
+                                    <a class="button button--normal button--small" href="<?= e(url('/admin/locations/' . $location['id'] . '/edit')) ?>"><?= admin_icon('edit') ?><span><?= e(__('common.edit')) ?></span></a>
                                     <form method="post" action="<?= e(url('/admin/locations/' . $location['id'] . '/delete')) ?>" class="inline-form" onsubmit="return confirm(<?= e(json_encode(__('locations.delete_confirm'))) ?>);">
                                         <?= csrf_field() ?>
-                                        <button type="submit" class="button danger small"><?= e(__('common.delete')) ?></button>
+                                        <button type="submit" class="button button--danger button--small"><?= admin_icon('delete') ?><span><?= e(__('common.delete')) ?></span></button>
                                     </form>
                                 </td>
                             </tr>
@@ -72,7 +72,7 @@
                 <label><?= e(__('common.sort_order')) ?>
                     <input type="number" name="sort_order" value="0" min="0">
                 </label>
-                <button type="submit"><?= e(__('common.create')) ?></button>
+                <button type="submit" class="button button--default"><?= admin_icon('add') ?><span><?= e(__('common.create')) ?></span></button>
             </form>
         </div>
 

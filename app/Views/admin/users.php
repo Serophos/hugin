@@ -4,7 +4,7 @@
         <h1><?= e(__('users.title')) ?></h1>
         <p class="muted"><?= e(__('users.intro')) ?></p>
     </div>
-    <a class="button" href="<?= e(url('/admin/users/create')) ?>"><?= e(__('users.new')) ?></a>
+    <a class="button button--default" href="<?= e(url('/admin/users/create')) ?>"><?= admin_icon('add') ?><span><?= e(__('users.new')) ?></span></a>
 </div>
 <?php if ($flash): ?><div class="alert success"><?= e($flash) ?></div><?php endif; ?>
 <div class="card">
@@ -28,10 +28,10 @@
                 <td><?= e($user['is_active'] ? __('common.active') : __('common.inactive')) ?></td>
                 <td><?= e((string)$user['created_at']) ?></td>
                 <td class="actions">
-                    <a href="<?= e(url('/admin/users/' . $user['id'] . '/edit')) ?>"><?= e(__('common.edit')) ?></a>
+                    <a class="button button--normal button--small" href="<?= e(url('/admin/users/' . $user['id'] . '/edit')) ?>"><?= admin_icon('edit') ?><span><?= e(__('common.edit')) ?></span></a>
                     <form method="post" action="<?= e(url('/admin/users/' . $user['id'] . '/delete')) ?>" class="inline-form" onsubmit="return confirm(<?= json_encode(__('users.delete_confirm')) ?>);">
                         <?= csrf_field() ?>
-                        <button type="submit" class="link-button danger"><?= e(__('common.delete')) ?></button>
+                        <button type="submit" class="button button--danger button--small"><?= admin_icon('delete') ?><span><?= e(__('common.delete')) ?></span></button>
                     </form>
                 </td>
             </tr>

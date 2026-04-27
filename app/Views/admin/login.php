@@ -11,7 +11,7 @@
         <label><?= e(__('auth.password')) ?>
             <input type="password" name="password" required>
         </label>
-        <button type="submit"><?= e(__('common.login')) ?></button>
+        <button type="submit" class="button button--default"><?= admin_icon('login') ?><span><?= e(__('common.login')) ?></span></button>
     </form>
 </div>
 <?php require __DIR__ . '/../layouts/admin_footer.php'; ?>

@@ -5,11 +5,11 @@
         <p class="muted"><?= e($group['location_name']) ?> &middot; <?= e(__('display_groups.arrangement_hint')) ?></p>
     </div>
     <div class="actions">
-        <a class="button secondary" href="<?= e(url('/admin/locations/' . $group['location_id'] . '/edit')) ?>"><?= e(__('locations.plural')) ?></a>
+        <a class="button button--normal" href="<?= e(url('/admin/locations/' . $group['location_id'] . '/edit')) ?>"><?= admin_icon('back') ?><span><?= e(__('locations.plural')) ?></span></a>
         <form method="post" action="<?= e(url('/admin/display-groups/' . $group['id'] . '/delete')) ?>" class="inline-form" onsubmit="return confirm(<?= e(json_encode(__('display_groups.delete_confirm'))) ?>);">
             <?= csrf_field() ?>
             <input type="hidden" name="return_to" value="<?= e('/admin/locations/' . $group['location_id'] . '/edit') ?>">
-            <button type="submit" class="button danger small"><?= e(__('common.delete')) ?></button>
+            <button type="submit" class="button button--danger button--small"><?= admin_icon('delete') ?><span><?= e(__('common.delete')) ?></span></button>
         </form>
     </div>
 </div>
@@ -29,10 +29,11 @@
             <div class="form-actions">
                 <button
                     type="button"
+                    class="button button--default"
                     data-save-layout
                     data-saving-label="<?= e(__('display_groups.layout_saving')) ?>"
                     data-unsaved-label="<?= e(__('display_groups.layout_unsaved')) ?>"
-                ><?= e(__('display_groups.save_layout')) ?></button>
+                ><?= admin_icon('save') ?><span><?= e(__('display_groups.save_layout')) ?></span></button>
                 <span class="layout-save-state muted" data-layout-message></span>
             </div>
         </div>
@@ -89,7 +90,7 @@
                 <label><?= e(__('common.sort_order')) ?>
                     <input type="number" name="sort_order" value="<?= e((string)$group['sort_order']) ?>" min="0">
                 </label>
-                <button type="submit"><?= e(__('common.save')) ?></button>
+                <button type="submit" class="button button--default"><?= admin_icon('save') ?><span><?= e(__('common.save')) ?></span></button>
             </form>
         </div>
 
@@ -110,7 +111,7 @@
                                 <input type="hidden" name="target_group_id" value="">
                                 <input type="hidden" name="return_to" value="<?= e('/admin/display-groups/' . $group['id']) ?>">
                                 <input type="hidden" name="display_ids[]" value="<?= e((string)$display['id']) ?>">
-                                <button type="submit" class="button secondary small"><?= e(__('display_groups.move_to_unassigned')) ?></button>
+                                <button type="submit" class="button button--normal button--small"><?= admin_icon('move') ?><span><?= e(__('display_groups.move_to_unassigned')) ?></span></button>
                             </form>
                         </div>
                     <?php endforeach; ?>
@@ -135,7 +136,7 @@
                                 <input type="hidden" name="target_group_id" value="<?= e((string)$group['id']) ?>">
                                 <input type="hidden" name="return_to" value="<?= e('/admin/display-groups/' . $group['id']) ?>">
                                 <input type="hidden" name="display_ids[]" value="<?= e((string)$display['id']) ?>">
-                                <button type="submit" class="button small"><?= e(__('display_groups.add_to_group')) ?></button>
+                                <button type="submit" class="button button--default button--small"><?= admin_icon('add') ?><span><?= e(__('display_groups.add_to_group')) ?></span></button>
                             </form>
                         </div>
                     <?php endforeach; ?>

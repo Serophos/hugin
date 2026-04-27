@@ -44,14 +44,14 @@ require __DIR__ . '/../layouts/admin_header.php';
                         <label><?= e(__('channel.priority')) ?>
                             <input type="number" min="1" name="assignment_priority[]" value="<?= e((string)($assignment['priority'] ?? '')) ?>">
                         </label>
-                        <button type="button" class="button secondary assignment-remove"><?= e(__('common.remove')) ?></button>
+                        <button type="button" class="button button--normal assignment-remove"><?= admin_icon('remove') ?><span><?= e(__('common.remove')) ?></span></button>
                     </div>
                 <?php endforeach; ?>
             </div>
-            <button type="button" class="button secondary" id="add-assignment"><?= e(__('channel.add_assignment')) ?></button>
+            <button type="button" class="button button--normal" id="add-assignment"><?= admin_icon('add') ?><span><?= e(__('channel.add_assignment')) ?></span></button>
         </div>
 
-        <div class="form-actions"><button type="submit"><?= e(__('common.save')) ?></button><a class="button secondary" href="<?= e(url('/admin/channels')) ?>"><?= e(__('common.cancel')) ?></a></div>
+        <div class="form-actions"><button type="submit" class="button button--default"><?= admin_icon('save') ?><span><?= e(__('common.save')) ?></span></button><a class="button button--normal" href="<?= e(url('/admin/channels')) ?>"><?= admin_icon('cancel') ?><span><?= e(__('common.cancel')) ?></span></a></div>
     </form>
 </div>
 <script>
@@ -108,7 +108,7 @@ require __DIR__ . '/../layouts/admin_header.php';
 
         const removeButton = document.createElement('button');
         removeButton.type = 'button';
-        removeButton.className = 'button secondary assignment-remove';
+        removeButton.className = 'button button--normal assignment-remove';
         removeButton.textContent = labels.remove;
         row.appendChild(removeButton);
         list.appendChild(row);
@@ -116,13 +116,14 @@ require __DIR__ . '/../layouts/admin_header.php';
 
     addButton.addEventListener('click', () => addRow());
     list.addEventListener('click', (event) => {
-        if (!event.target.classList.contains('assignment-remove')) return;
+        const removeButton = event.target.closest('.assignment-remove');
+        if (!removeButton || !list.contains(removeButton)) return;
         const rows = list.querySelectorAll('.assignment-row');
         if (rows.length <= 1) {
             rows[0].querySelectorAll('select, input').forEach((input) => { input.value = ''; });
             return;
         }
-        event.target.closest('.assignment-row').remove();
+        removeButton.closest('.assignment-row').remove();
     });
 })();
 </script>
