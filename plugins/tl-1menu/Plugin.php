@@ -308,8 +308,8 @@ class Plugin extends AbstractSlidePlugin
         }
 
         $finfo = finfo_open(FILEINFO_MIME_TYPE);
-        $mimeType = is_resource($finfo) ? (string)finfo_file($finfo, $tmpName) : '';
-        if (is_resource($finfo)) {
+        $mimeType = $finfo !== false ? (string)finfo_file($finfo, $tmpName) : '';
+        if ($finfo !== false) {
             finfo_close($finfo);
         }
 
