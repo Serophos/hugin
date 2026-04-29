@@ -241,7 +241,10 @@ final class MensaXmlParser
 
     private function sortItems(MenuItem $a, MenuItem $b): int
     {
-        return [$a->date, $a->locationId ?? 0, $a->spalte, $a->titleDe] <=> [$b->date, $b->locationId ?? 0, $b->spalte, $b->titleDe];
+        $aSpalte = $a->spalte > 0 ? $a->spalte : PHP_INT_MAX;
+        $bSpalte = $b->spalte > 0 ? $b->spalte : PHP_INT_MAX;
+
+        return [$a->date, $aSpalte, $a->locationId ?? 0, $a->titleDe] <=> [$b->date, $bSpalte, $b->locationId ?? 0, $b->titleDe];
     }
 
     /** @return array<int, string> */

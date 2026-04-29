@@ -1,6 +1,16 @@
 <?php
+$items = is_array($items ?? null) ? $items : [];
+usort($items, static function ($a, $b): int {
+    $aSpalte = is_object($a) && isset($a->spalte) && (int)$a->spalte > 0 ? (int)$a->spalte : PHP_INT_MAX;
+    $bSpalte = is_object($b) && isset($b->spalte) && (int)$b->spalte > 0 ? (int)$b->spalte : PHP_INT_MAX;
+    $aTitle = is_object($a) && isset($a->titleDe) ? (string)$a->titleDe : '';
+    $bTitle = is_object($b) && isset($b->titleDe) ? (string)$b->titleDe : '';
+
+    return [$aSpalte, $aTitle] <=> [$bSpalte, $bTitle];
+});
+
 $itemCount = count($items);
-$gridClass = 'count-' . max(0, min(6, $itemCount));
+$gridClass = 'count-' . max(0, min(8, $itemCount));
 $showCo2 = !empty($settings['display_co2']);
 $showWater = !empty($settings['display_water']);
 $showAnimalWelfare = !empty($settings['display_animal_welfare']);
@@ -18,16 +28,12 @@ $headerTextColor = readable_text_color($backgroundColor);
 $headerMutedColor = $isLightBackground ? '#334155' : '#e2e8f0';
 $headerSurfaceColor = $isLightBackground ? 'rgba(255, 255, 255, 0.78)' : 'rgba(15, 23, 42, 0.72)';
 $headerBorderColor = $isLightBackground ? 'rgba(15, 23, 42, 0.10)' : 'rgba(255, 255, 255, 0.18)';
-$imageOverlay = $isLightBackground
-    ? 'linear-gradient(180deg, rgba(255,255,255,0.80) 0%, rgba(241,245,249,0.92) 100%)'
-    : 'linear-gradient(180deg, rgba(15,23,42,0.66) 0%, rgba(15,23,42,0.78) 100%)';
 $styleParts = [
     '--tl1menu-bg-color:' . $backgroundColor,
     '--tl1menu-header-fg:' . $headerTextColor,
     '--tl1menu-header-muted:' . $headerMutedColor,
     '--tl1menu-header-surface:' . $headerSurfaceColor,
     '--tl1menu-header-border:' . $headerBorderColor,
-    '--tl1menu-image-overlay:' . $imageOverlay,
 ];
 if (!empty($backgroundImageUrl)) {
     $safeBackgroundImageUrl = str_replace(["\\", "\"", "\n", "\r"], ['%5C', '%22', '', ''], (string)$backgroundImageUrl);
