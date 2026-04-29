@@ -38,6 +38,11 @@
                 <td><?= e($display['is_active'] ? __('common.active') : __('common.inactive')) ?></td>
                 <td class="actions">
                     <a class="button button--normal button--small" href="<?= e(url('/admin/displays/' . $display['id'] . '/edit')) ?>"><?= admin_icon('edit') ?><span><?= e(__('common.edit')) ?></span></a>
+                    <form method="post" action="<?= e(url('/admin/displays/' . $display['id'] . '/reload')) ?>" class="inline-form">
+                        <?= csrf_field() ?>
+                        <input type="hidden" name="return_to" value="/admin/displays">
+                        <button type="submit" class="button button--normal button--small"><?= admin_icon('reload') ?><span><?= e(__('display.reload_slideshow')) ?></span></button>
+                    </form>
                     <form method="post" action="<?= e(url('/admin/displays/' . $display['id'] . '/delete')) ?>" class="inline-form" onsubmit="return confirm(<?= json_encode(__('display.delete_confirm', [], 'Delete display?')) ?>);">
                         <?= csrf_field() ?>
                         <button type="submit" class="button button--danger button--small"><?= admin_icon('delete') ?><span><?= e(__('common.delete')) ?></span></button>

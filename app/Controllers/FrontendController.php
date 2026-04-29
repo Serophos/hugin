@@ -186,7 +186,13 @@ class FrontendController
     private function loadChannelSlides(int $channelId): array
     {
         return $this->db->all(
-            'SELECT s.*, m.file_path AS media_file_path, bg.file_path AS background_media_file_path
+            'SELECT s.*,
+                    csa.sort_order AS assignment_sort_order,
+                    csa.created_at AS assignment_created_at,
+                    m.file_path AS media_file_path,
+                    m.created_at AS media_created_at,
+                    bg.file_path AS background_media_file_path,
+                    bg.created_at AS background_media_created_at
              FROM channel_slide_assignments csa
              INNER JOIN slides s ON s.id = csa.slide_id
              LEFT JOIN media_assets m ON m.id = s.media_asset_id
@@ -262,26 +268,41 @@ class FrontendController
             'display_updated_at' => (string)($display['updated_at'] ?? ''),
             'channel_id' => (int)$activeAssignment['channel_id'],
             'channel_name' => (string)$activeAssignment['channel_name'],
-            'channel_updated_at' => (string)($activeAssignment['updated_at'] ?? ''),
+            'channel_updated_at' => (string)($activeAssignment['channel_updated_at'] ?? ''),
             'assignment_id' => (int)$activeAssignment['id'],
+            'assignment_created_at' => (string)($activeAssignment['assignment_created_at'] ?? ''),
             'assignment_default' => (int)(($activeAssignment['schedule_type'] ?? '') === 'fulltime'),
             'assignment_schedule_id' => (int)($activeAssignment['schedule_id'] ?? 0),
             'assignment_schedule_name' => (string)($activeAssignment['schedule_name'] ?? ''),
             'assignment_schedule_type' => (string)($activeAssignment['schedule_type'] ?? ''),
+            'assignment_schedule_updated_at' => (string)($activeAssignment['schedule_updated_at'] ?? ''),
+            'assignment_schedule_rule_id' => (int)($activeAssignment['schedule_rule_id'] ?? 0),
+            'assignment_schedule_rule_weekday' => (int)($activeAssignment['schedule_rule_weekday'] ?? 0),
+            'assignment_schedule_rule_start_time' => (string)($activeAssignment['schedule_rule_start_time'] ?? ''),
+            'assignment_schedule_rule_end_time' => (string)($activeAssignment['schedule_rule_end_time'] ?? ''),
             'assignment_sort_order' => (int)$activeAssignment['sort_order'],
             'effect' => $effect,
             'duration' => $duration,
             'orientation' => (string)($display['orientation'] ?? 'landscape'),
+            'plugin_global_updated_at' => $this->collectPluginGlobalUpdatedAt($resolvedSlides),
             'slides' => array_map(static function (array $slide): array {
                 return [
                     'id' => (int)$slide['id'],
                     'name' => (string)$slide['name'],
                     'slide_type' => (string)$slide['slide_type'],
                     'source_mode' => (string)$slide['source_mode'],
+                    'media_asset_id' => (int)($slide['media_asset_id'] ?? 0),
+                    'background_media_asset_id' => (int)($slide['background_media_asset_id'] ?? 0),
                     'resolved_source_url' => (string)$slide['resolved_source_url'],
+                    'resolved_background_url' => (string)($slide['text_background_url'] ?? ''),
                     'resolved_duration' => (int)$slide['resolved_duration'],
                     'updated_at' => (string)($slide['updated_at'] ?? ''),
+                    'assignment_sort_order' => (int)($slide['assignment_sort_order'] ?? 0),
+                    'assignment_created_at' => (string)($slide['assignment_created_at'] ?? ''),
+                    'media_created_at' => (string)($slide['media_created_at'] ?? ''),
+                    'background_media_created_at' => (string)($slide['background_media_created_at'] ?? ''),
                     'title_position' => (string)($slide['title_position'] ?? ''),
+                    'text_rendered_hash' => is_string($slide['text_rendered_html'] ?? null) ? sha1((string)$slide['text_rendered_html']) : '',
                     'plugin_name' => (string)($slide['plugin_name'] ?? ''),
                     'plugin_state' => $slide['plugin_state'] ?? null,
                 ];
@@ -291,6 +312,36 @@ class FrontendController
         $payload['signature'] = sha1(json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '');
         $payload['ok'] = true;
         return $payload;
+    }
+
+    private function collectPluginGlobalUpdatedAt(array $resolvedSlides): array
+    {
+        $pluginNames = [];
+        foreach ($resolvedSlides as $slide) {
+            $pluginName = (string)($slide['plugin_name'] ?? '');
+            if ($pluginName !== '' && $pluginName !== 'missing-plugin') {
+                $pluginNames[$pluginName] = true;
+            }
+        }
+
+        if (!$pluginNames) {
+            return [];
+        }
+
+        $names = array_keys($pluginNames);
+        $placeholders = implode(', ', array_fill(0, count($names), '?'));
+        $rows = $this->db->all(
+            'SELECT plugin_name, updated_at FROM plugin_global_settings WHERE plugin_name IN (' . $placeholders . ')',
+            $names
+        );
+
+        $updatedAt = [];
+        foreach ($rows as $row) {
+            $updatedAt[(string)$row['plugin_name']] = (string)($row['updated_at'] ?? '');
+        }
+        ksort($updatedAt);
+
+        return $updatedAt;
     }
 
     private function readJsonBody(): array
@@ -363,48 +414,33 @@ class FrontendController
         $weekday = (int)$now->format('N');
         $currentTime = $now->format('H:i:s');
 
-        $activeAssignment = $this->db->one(
-            'SELECT cdsa.id, cdsa.display_id, cdsa.channel_id, cdsa.schedule_id, cdsa.priority AS sort_order,
-                    s.name AS schedule_name, s.type AS schedule_type,
-                    c.name AS channel_name, c.description AS channel_description,
-                    c.transition_effect, c.slide_duration_seconds, c.updated_at, c.is_active AS channel_is_active
-             FROM channel_display_schedule_assignments cdsa
-             INNER JOIN channels c ON c.id = cdsa.channel_id
-             INNER JOIN schedules s ON s.id = cdsa.schedule_id
-             INNER JOIN schedule_rules sr ON sr.schedule_id = s.id
-             WHERE cdsa.display_id = ?
-               AND cdsa.is_active = 1
-               AND c.is_active = 1
-               AND s.is_active = 1
-               AND s.type = \'weekly_time_slot\'
-               AND sr.weekday = ?
-               AND ? >= sr.start_time
-               AND ? < sr.end_time
-             ORDER BY cdsa.priority ASC, cdsa.id ASC
-             LIMIT 1',
-            [$display['id'], $weekday, $currentTime, $currentTime]
-        );
-
-        if ($activeAssignment) {
-            return $activeAssignment;
-        }
-
         return $this->db->one(
             'SELECT cdsa.id, cdsa.display_id, cdsa.channel_id, cdsa.schedule_id, cdsa.priority AS sort_order,
-                    s.name AS schedule_name, s.type AS schedule_type,
+                    cdsa.created_at AS assignment_created_at,
+                    s.name AS schedule_name, s.type AS schedule_type, s.updated_at AS schedule_updated_at,
+                    sr.id AS schedule_rule_id, sr.weekday AS schedule_rule_weekday,
+                    sr.start_time AS schedule_rule_start_time, sr.end_time AS schedule_rule_end_time,
                     c.name AS channel_name, c.description AS channel_description,
-                    c.transition_effect, c.slide_duration_seconds, c.updated_at, c.is_active AS channel_is_active
+                    c.transition_effect, c.slide_duration_seconds, c.updated_at AS channel_updated_at, c.is_active AS channel_is_active
              FROM channel_display_schedule_assignments cdsa
              INNER JOIN channels c ON c.id = cdsa.channel_id
              INNER JOIN schedules s ON s.id = cdsa.schedule_id
+             LEFT JOIN schedule_rules sr ON sr.schedule_id = s.id
+                AND s.type = \'weekly_time_slot\'
+                AND sr.weekday = ?
+                AND ? >= sr.start_time
+                AND ? < sr.end_time
              WHERE cdsa.display_id = ?
                AND cdsa.is_active = 1
                AND c.is_active = 1
                AND s.is_active = 1
-               AND s.type = \'fulltime\'
-             ORDER BY cdsa.priority ASC, cdsa.id ASC
+               AND (
+                    s.type = \'fulltime\'
+                    OR (s.type = \'weekly_time_slot\' AND sr.id IS NOT NULL)
+               )
+             ORDER BY cdsa.priority ASC, cdsa.id ASC, sr.id ASC
              LIMIT 1',
-            [$display['id']]
+            [$weekday, $currentTime, $currentTime, $display['id']]
         );
     }
 }

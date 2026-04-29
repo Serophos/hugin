@@ -298,6 +298,26 @@ class AdminController
         redirect('/admin/displays');
     }
 
+    public function reloadDisplay(int $id): void
+    {
+        $this->auth->requireRole('admin');
+
+        $display = $this->db->one('SELECT id, name FROM displays WHERE id = ?', [$id]);
+        if (!$display) {
+            flash('error', __('display.not_found'));
+            redirect('/admin/displays');
+        }
+
+        $this->db->execute(
+            'UPDATE displays
+             SET updated_at = IF(updated_at >= CURRENT_TIMESTAMP, updated_at + INTERVAL 1 SECOND, CURRENT_TIMESTAMP)
+             WHERE id = ?',
+            [$id]
+        );
+        flash('success', __('display.reload_requested', ['display' => $display['name']]));
+        redirect($this->adminReturnPath('/admin/displays'));
+    }
+
     public function sortDisplays(): void
     {
         $this->auth->requireRole('admin');
@@ -1554,42 +1574,27 @@ class AdminController
         $weekday = (int)$now->format('N');
         $currentTime = $now->format('H:i:s');
 
-        $activeAssignment = $this->db->one(
-            'SELECT cdsa.channel_id, c.name AS channel_name
-             FROM channel_display_schedule_assignments cdsa
-             INNER JOIN channels c ON c.id = cdsa.channel_id
-             INNER JOIN schedules s ON s.id = cdsa.schedule_id
-             INNER JOIN schedule_rules sr ON sr.schedule_id = s.id
-             WHERE cdsa.display_id = ?
-               AND cdsa.is_active = 1
-               AND c.is_active = 1
-               AND s.is_active = 1
-               AND s.type = \'weekly_time_slot\'
-               AND sr.weekday = ?
-               AND ? >= sr.start_time
-               AND ? < sr.end_time
-             ORDER BY cdsa.priority ASC, cdsa.id ASC
-             LIMIT 1',
-            [$display['id'], $weekday, $currentTime, $currentTime]
-        );
-
-        if ($activeAssignment) {
-            return $activeAssignment;
-        }
-
         return $this->db->one(
             'SELECT cdsa.channel_id, c.name AS channel_name
              FROM channel_display_schedule_assignments cdsa
              INNER JOIN channels c ON c.id = cdsa.channel_id
              INNER JOIN schedules s ON s.id = cdsa.schedule_id
+             LEFT JOIN schedule_rules sr ON sr.schedule_id = s.id
+                AND s.type = \'weekly_time_slot\'
+                AND sr.weekday = ?
+                AND ? >= sr.start_time
+                AND ? < sr.end_time
              WHERE cdsa.display_id = ?
                AND cdsa.is_active = 1
                AND c.is_active = 1
                AND s.is_active = 1
-               AND s.type = \'fulltime\'
-             ORDER BY cdsa.priority ASC, cdsa.id ASC
+               AND (
+                    s.type = \'fulltime\'
+                    OR (s.type = \'weekly_time_slot\' AND sr.id IS NOT NULL)
+               )
+             ORDER BY cdsa.priority ASC, cdsa.id ASC, sr.id ASC
              LIMIT 1',
-            [$display['id']]
+            [$weekday, $currentTime, $currentTime, $display['id']]
         );
     }
 

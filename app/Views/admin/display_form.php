@@ -31,6 +31,14 @@
 
     <aside class="card heartbeat-sidebar">
         <h2><?= e(__('display.heartbeat_title')) ?></h2>
+        <?php if ($display): ?>
+            <form method="post" action="<?= e(url('/admin/displays/' . $display['id'] . '/reload')) ?>" class="form-actions">
+                <?= csrf_field() ?>
+                <input type="hidden" name="return_to" value="<?= e('/admin/displays/' . $display['id'] . '/edit') ?>">
+                <button type="submit" class="button button--normal"><?= admin_icon('reload') ?><span><?= e(__('display.reload_slideshow')) ?></span></button>
+            </form>
+            <p class="muted"><?= e(__('display.reload_hint')) ?></p>
+        <?php endif; ?>
         <?php if (!$display): ?>
             <p class="muted"><?= e(__('display.heartbeat_save_first')) ?></p>
         <?php elseif (!$heartbeat): ?>

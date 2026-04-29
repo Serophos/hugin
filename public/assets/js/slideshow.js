@@ -3,13 +3,24 @@
     if (!slideshow) return;
 
     const slides = Array.from(document.querySelectorAll('.slide'));
-    if (slides.length === 0) return;
+    if (slides.length === 0) {
+        slideshow.classList.remove('is-startup-sync-pending');
+        return;
+    }
 
-    let index = 0;
+    let index = Math.max(0, slides.findIndex(slide => slide.classList.contains('is-active')));
     let timer = null;
     let heartbeatTimer = null;
     let stateTimer = null;
+    let scheduleStateTimer = null;
+    let watchdogTimer = null;
+    let nextSlideDueAt = 0;
+    let startupComplete = false;
+    let stateRequestInFlight = false;
     let currentSignature = slideshow.dataset.stateSignature || '';
+    const requestFrame = window.requestAnimationFrame
+        ? window.requestAnimationFrame.bind(window)
+        : (callback => window.setTimeout(callback, 16));
 
     const resolveEndpointUrl = value => {
         if (!value) return '';
@@ -31,6 +42,104 @@
         return Math.max(seconds || 90, 30) * 1000;
     };
 
+    const stateCheckIntervalMs = () => {
+        const seconds = parseInt(slideshow.dataset.stateCheckInterval || '60', 10);
+        return Math.max(seconds || 60, 5) * 1000;
+    };
+
+    const durationForSlide = slide => {
+        const seconds = parseInt(slide?.dataset.duration || slideshow.dataset.defaultDuration || '8', 10);
+        return Math.max(seconds || 8, 1) * 1000;
+    };
+
+    const nextIndex = (fromIndex, offset = 1) => (fromIndex + offset + slides.length) % slides.length;
+
+    const msUntilNextMinuteTick = () => {
+        const now = new Date();
+        const msIntoMinute = (now.getSeconds() * 1000) + now.getMilliseconds();
+        const targetMs = 50;
+
+        if (msIntoMinute < targetMs) {
+            return targetMs - msIntoMinute;
+        }
+
+        return 60000 - msIntoMinute + targetMs;
+    };
+
+    const shouldWaitForStartupSync = () => {
+        const key = slideshow.dataset.startupSyncKey || `hugin:slideshow-started:${window.location.pathname}`;
+
+        try {
+            if (window.sessionStorage.getItem(key)) {
+                return false;
+            }
+            window.sessionStorage.setItem(key, String(Date.now()));
+            return true;
+        } catch (error) {
+            const navEntry = window.performance?.getEntriesByType?.('navigation')?.[0];
+            const isReload = navEntry?.type === 'reload' || window.performance?.navigation?.type === 1;
+            return !isReload;
+        }
+    };
+
+    const waitForStartupSync = () => {
+        if (!shouldWaitForStartupSync()) {
+            return Promise.resolve();
+        }
+
+        return new Promise(resolve => {
+            window.setTimeout(resolve, msUntilNextMinuteTick());
+        });
+    };
+
+    const ensureMediaLoaded = slide => {
+        if (!slide) return;
+
+        slide.querySelectorAll('img[data-src], video[data-src], iframe[data-src]').forEach(element => {
+            const source = element.dataset.src;
+            if (!source || element.getAttribute('src')) return;
+
+            element.setAttribute('src', source);
+            if (element.tagName === 'VIDEO') {
+                element.load();
+            }
+        });
+    };
+
+    const unloadHeavyMedia = slide => {
+        if (!slide) return;
+
+        slide.querySelectorAll('video[data-src]').forEach(video => {
+            video.pause();
+            video.removeAttribute('src');
+            video.load();
+        });
+
+        slide.querySelectorAll('iframe[data-src]').forEach(iframe => {
+            iframe.removeAttribute('src');
+        });
+    };
+
+    const prepareMediaAround = activeIndex => {
+        ensureMediaLoaded(slides[activeIndex]);
+        if (slides.length > 1) {
+            ensureMediaLoaded(slides[nextIndex(activeIndex)]);
+        }
+    };
+
+    const cleanupFarMedia = activeIndex => {
+        const keep = new Set([activeIndex]);
+        if (slides.length > 1) {
+            keep.add(nextIndex(activeIndex));
+        }
+
+        slides.forEach((slide, slideIndex) => {
+            if (!keep.has(slideIndex)) {
+                unloadHeavyMedia(slide);
+            }
+        });
+    };
+
     const stopVideo = slide => {
         const video = slide?.querySelector('video');
         if (video) {
@@ -42,6 +151,7 @@
     const startVideo = slide => {
         const video = slide?.querySelector('video');
         if (video) {
+            ensureMediaLoaded(slide);
             video.currentTime = 0;
             video.play().catch(() => {});
         }
@@ -158,17 +268,31 @@
 
     const reloadIfChanged = () => {
         const url = resolveEndpointUrl(slideshow.dataset.stateUrl);
-        if (!url) return;
+        if (!url || !window.fetch || stateRequestInFlight) return Promise.resolve();
 
-        fetch(url, {
+        stateRequestInFlight = true;
+
+        return fetch(url, {
             method: 'GET',
             headers: { 'Accept': 'application/json' },
             cache: 'no-store',
             credentials: 'same-origin',
         })
-            .then(response => response.ok ? response.json() : null)
+            .then(response => {
+                if (response.status === 404 || response.status === 409) {
+                    window.location.reload();
+                    return null;
+                }
+
+                return response.ok ? response.json() : null;
+            })
             .then(data => {
-                if (!data || !data.signature) return;
+                if (!data) return;
+                if (data.ok === false) {
+                    window.location.reload();
+                    return;
+                }
+                if (!data.signature) return;
                 if (!currentSignature) {
                     currentSignature = data.signature;
                     return;
@@ -177,30 +301,48 @@
                     window.location.reload();
                 }
             })
-            .catch(() => {});
+            .catch(() => {})
+            .then(() => {
+                stateRequestInFlight = false;
+            });
     };
 
-    const activate = nextIndex => {
+    const queueNext = () => {
+        clearTimeout(timer);
+
+        if (!startupComplete || slides.length <= 1) {
+            return;
+        }
+
+        const delay = durationForSlide(slides[index]);
+        nextSlideDueAt = Date.now() + delay;
+        timer = window.setTimeout(() => {
+            activate(nextIndex(index));
+        }, delay);
+    };
+
+    const activate = nextSlideIndex => {
+        if (!startupComplete) return;
+
         const current = slides[index];
-        const next = slides[nextIndex];
+        const next = slides[nextSlideIndex];
         if (!next || next === current) {
             queueNext();
             return;
         }
 
-        stopVideo(current);
-        current.classList.remove('is-active');
-        next.classList.add('is-active');
-        startVideo(next);
-        index = nextIndex;
-        queueNext();
-    };
+        ensureMediaLoaded(next);
 
-    const queueNext = () => {
-        clearTimeout(timer);
-        const active = slides[index];
-        const seconds = parseInt(active?.dataset.duration || slideshow.dataset.defaultDuration || '8', 10);
-        timer = setTimeout(() => activate((index + 1) % slides.length), Math.max(seconds, 1) * 1000);
+        requestFrame(() => {
+            stopVideo(current);
+            current.classList.remove('is-active');
+            next.classList.add('is-active');
+            index = nextSlideIndex;
+            startVideo(next);
+            prepareMediaAround(index);
+            window.setTimeout(() => cleanupFarMedia(index), 1300);
+            queueNext();
+        });
     };
 
     const queueHeartbeat = () => {
@@ -211,23 +353,67 @@
 
     const queueStateCheck = () => {
         clearInterval(stateTimer);
-        stateTimer = setInterval(reloadIfChanged, 60 * 1000);
+        stateTimer = setInterval(reloadIfChanged, stateCheckIntervalMs());
     };
 
-    window.addEventListener('online', () => sendHeartbeat());
+    const queueMinuteAlignedStateCheck = () => {
+        clearTimeout(scheduleStateTimer);
+        scheduleStateTimer = window.setTimeout(() => {
+            reloadIfChanged();
+            queueMinuteAlignedStateCheck();
+        }, msUntilNextMinuteTick());
+    };
+
+    const queueWatchdog = () => {
+        clearInterval(watchdogTimer);
+        watchdogTimer = setInterval(() => {
+            if (!startupComplete || slides.length <= 1 || !nextSlideDueAt) return;
+
+            const lateBy = Date.now() - nextSlideDueAt;
+            if (lateBy > Math.max(5000, durationForSlide(slides[index]))) {
+                activate(nextIndex(index));
+            }
+        }, 5000);
+    };
+
+    const startSlideshow = () => {
+        startupComplete = true;
+        slideshow.classList.remove('is-startup-sync-pending');
+        prepareMediaAround(index);
+        startVideo(slides[index]);
+        cleanupFarMedia(index);
+        reloadIfChanged();
+        queueStateCheck();
+        queueMinuteAlignedStateCheck();
+        queueWatchdog();
+        queueNext();
+    };
+
+    window.addEventListener('online', () => {
+        sendHeartbeat();
+        reloadIfChanged();
+    });
     window.addEventListener('pagehide', () => sendHeartbeat({ preferBeacon: true }));
     window.addEventListener('resize', () => {
         clearTimeout(window.__huginResizeHeartbeat);
         window.__huginResizeHeartbeat = setTimeout(sendHeartbeat, 600);
     });
+    window.addEventListener('focus', () => {
+        if (nextSlideDueAt && Date.now() >= nextSlideDueAt) {
+            activate(nextIndex(index));
+        }
+        reloadIfChanged();
+    });
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible' && nextSlideDueAt && Date.now() >= nextSlideDueAt) {
+            activate(nextIndex(index));
+        }
+    });
     if (screen.orientation?.addEventListener) {
         screen.orientation.addEventListener('change', sendHeartbeat);
     }
 
-    startVideo(slides[0]);
+    prepareMediaAround(index);
     queueHeartbeat();
-    queueStateCheck();
-    if (slides.length > 1) {
-        queueNext();
-    }
+    waitForStartupSync().then(startSlideshow);
 })();

@@ -171,48 +171,30 @@ class DisplayStatusService
         $weekday = (int)$now->format('N');
         $currentTime = $now->format('H:i:s');
 
-        $activeAssignment = $this->db->one(
-            'SELECT cdsa.id, cdsa.channel_id, cdsa.schedule_id, cdsa.priority AS sort_order,
-                    s.name AS schedule_name, s.type AS schedule_type,
-                    c.name AS channel_name, c.description AS channel_description,
-                    c.transition_effect, c.slide_duration_seconds, c.updated_at, c.is_active AS channel_is_active
-             FROM channel_display_schedule_assignments cdsa
-             INNER JOIN channels c ON c.id = cdsa.channel_id
-             INNER JOIN schedules s ON s.id = cdsa.schedule_id
-             INNER JOIN schedule_rules sr ON sr.schedule_id = s.id
-             WHERE cdsa.display_id = ?
-               AND cdsa.is_active = 1
-               AND c.is_active = 1
-               AND s.is_active = 1
-               AND s.type = \'weekly_time_slot\'
-               AND sr.weekday = ?
-               AND ? >= sr.start_time
-               AND ? < sr.end_time
-             ORDER BY cdsa.priority ASC, cdsa.id ASC
-             LIMIT 1',
-            [$display['id'], $weekday, $currentTime, $currentTime]
-        );
-
-        if ($activeAssignment) {
-            return $activeAssignment;
-        }
-
         return $this->db->one(
             'SELECT cdsa.id, cdsa.channel_id, cdsa.schedule_id, cdsa.priority AS sort_order,
                     s.name AS schedule_name, s.type AS schedule_type,
                     c.name AS channel_name, c.description AS channel_description,
-                    c.transition_effect, c.slide_duration_seconds, c.updated_at, c.is_active AS channel_is_active
+                    c.transition_effect, c.slide_duration_seconds, c.updated_at AS channel_updated_at, c.is_active AS channel_is_active
              FROM channel_display_schedule_assignments cdsa
              INNER JOIN channels c ON c.id = cdsa.channel_id
              INNER JOIN schedules s ON s.id = cdsa.schedule_id
+             LEFT JOIN schedule_rules sr ON sr.schedule_id = s.id
+                AND s.type = \'weekly_time_slot\'
+                AND sr.weekday = ?
+                AND ? >= sr.start_time
+                AND ? < sr.end_time
              WHERE cdsa.display_id = ?
                AND cdsa.is_active = 1
                AND c.is_active = 1
                AND s.is_active = 1
-               AND s.type = \'fulltime\'
-             ORDER BY cdsa.priority ASC, cdsa.id ASC
+               AND (
+                    s.type = \'fulltime\'
+                    OR (s.type = \'weekly_time_slot\' AND sr.id IS NOT NULL)
+               )
+             ORDER BY cdsa.priority ASC, cdsa.id ASC, sr.id ASC
              LIMIT 1',
-            [$display['id']]
+            [$weekday, $currentTime, $currentTime, $display['id']]
         );
     }
 
