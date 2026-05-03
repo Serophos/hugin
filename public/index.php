@@ -73,6 +73,7 @@ if ($uri === '/admin/slides/create' && $method === 'POST') { $admin->saveSlide()
 if (preg_match('#^/admin/slides/(\d+)/edit$#', $uri, $m) && $method === 'GET') { $admin->slideForm((int)$m[1]); exit; }
 if (preg_match('#^/admin/slides/(\d+)/edit$#', $uri, $m) && $method === 'POST') { $admin->saveSlide((int)$m[1]); exit; }
 if (preg_match('#^/admin/slides/(\d+)/delete$#', $uri, $m) && $method === 'POST') { $admin->deleteSlide((int)$m[1]); exit; }
+if (preg_match('#^/admin/channels/(\d+)/slides/add$#', $uri, $m) && $method === 'POST') { $admin->addSlidesToChannel((int)$m[1]); exit; }
 if (preg_match('#^/admin/channels/(\d+)/slides/(\d+)/remove$#', $uri, $m) && $method === 'POST') { $admin->removeSlideFromChannel((int)$m[2], (int)$m[1]); exit; }
 if ($uri === '/admin/sort/slides' && $method === 'POST') { $admin->sortSlides(); exit; }
 

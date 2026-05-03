@@ -1157,6 +1157,7 @@ class AdminController
     {
         $this->auth->requireLogin();
 
+        $channels = $this->db->all('SELECT id, name, is_active FROM channels ORDER BY name ASC');
         $rows = $this->db->all(
             'SELECT c.id AS channel_id, c.name AS channel_name, s.id, s.name, s.slide_type, s.source_url, s.duration_seconds, s.is_active,
                     csa.sort_order, m.original_name AS media_name
@@ -1170,7 +1171,8 @@ class AdminController
         $allSlides = $this->db->all(
             'SELECT s.id, s.name, s.slide_type, s.source_url, s.duration_seconds, s.is_active,
                     m.original_name AS media_name,
-                    GROUP_CONCAT(DISTINCT c.name ORDER BY c.name ASC SEPARATOR ", ") AS channel_names
+                    GROUP_CONCAT(DISTINCT c.name ORDER BY c.name ASC SEPARATOR ", ") AS channel_names,
+                    COUNT(DISTINCT c.id) AS channel_count
              FROM slides s
              LEFT JOIN channel_slide_assignments csa ON csa.slide_id = s.id
              LEFT JOIN channels c ON c.id = csa.channel_id
@@ -1178,17 +1180,34 @@ class AdminController
              GROUP BY s.id, s.name, s.slide_type, s.source_url, s.duration_seconds, s.is_active, m.original_name
              ORDER BY s.name ASC'
         );
+        $uniqueSlides = [];
+        foreach ($allSlides as $slide) {
+            $uniqueSlides[(int)$slide['id']] = $slide;
+        }
+        $allSlides = array_values($uniqueSlides);
 
         $groups = [];
+        foreach ($channels as $channel) {
+            $groups[(int)$channel['id']] = [
+                'channel_name' => $channel['name'],
+                'channel_id' => (int)$channel['id'],
+                'is_active' => (int)$channel['is_active'],
+                'slide_ids' => [],
+                'slides' => [],
+            ];
+        }
         foreach ($rows as $row) {
-            $key = $row['channel_id'];
+            $key = (int)$row['channel_id'];
             if (!isset($groups[$key])) {
                 $groups[$key] = [
                     'channel_name' => $row['channel_name'],
-                    'channel_id' => $row['channel_id'],
+                    'channel_id' => $key,
+                    'is_active' => 1,
+                    'slide_ids' => [],
                     'slides' => [],
                 ];
             }
+            $groups[$key]['slide_ids'][] = (int)$row['id'];
             $groups[$key]['slides'][] = $row;
         }
 
@@ -1210,12 +1229,16 @@ class AdminController
             redirect('/admin/slides');
         }
 
-        $channels = $this->db->all('SELECT id, name AS label FROM channels WHERE is_active = 1 ORDER BY name ASC');
+        $channels = $this->db->all('SELECT id, name AS label, is_active FROM channels ORDER BY name ASC');
         $mediaAssets = $this->db->all('SELECT * FROM media_assets ORDER BY created_at DESC, id DESC');
         $imageMediaAssets = array_values(array_filter($mediaAssets, static fn(array $asset): bool => ($asset['media_kind'] ?? '') === 'image'));
         $assignedChannelIds = $id
             ? array_map(static fn(array $row): int => (int)$row['channel_id'], $this->db->all('SELECT channel_id FROM channel_slide_assignments WHERE slide_id = ?', [$id]))
             : [];
+        $preselectedChannelId = (int)$this->request->input('channel_id', 0);
+        if (!$id && $preselectedChannelId > 0 && $this->db->one('SELECT id FROM channels WHERE id = ?', [$preselectedChannelId])) {
+            $assignedChannelIds = [$preselectedChannelId];
+        }
         $oldSlideInput = form_has_old('slide') ? old_input('slide') : [];
         if (is_array($oldSlideInput['channel_ids'] ?? null)) {
             $assignedChannelIds = array_map(static fn(mixed $id): int => (int)$id, $oldSlideInput['channel_ids']);
@@ -1247,6 +1270,7 @@ class AdminController
             'pluginDefinitions' => $pluginDefinitions,
             'pluginForms' => $pluginForms,
             'pluginLabels' => $this->plugins->getPluginLabelMap(),
+            'returnTo' => $this->adminReturnPath('/admin/slides'),
             'error' => flash('error'),
         ]);
     }
@@ -1291,6 +1315,7 @@ class AdminController
             'background_media_asset_id' => (string)$this->request->input('background_media_asset_id', ''),
             'plugin_settings' => $pluginSettingsInput,
             'is_active' => $isActive,
+            'return_to' => (string)$this->request->input('return_to', '/admin/slides'),
         ];
         $errors = [];
 
@@ -1441,7 +1466,7 @@ class AdminController
         }
 
         flash('success', __($id ? 'slide.updated' : 'slide.created'));
-        redirect('/admin/slides');
+        redirect($this->adminReturnPath('/admin/slides'));
     }
 
     public function deleteSlide(int $id): void
@@ -1449,7 +1474,7 @@ class AdminController
         $this->auth->requireLogin();
         $this->db->execute('DELETE FROM slides WHERE id = ?', [$id]);
         flash('success', __('slide.deleted'));
-        redirect('/admin/slides');
+        redirect($this->adminReturnPath('/admin/slides'));
     }
 
     public function removeSlideFromChannel(int $slideId, int $channelId): void
@@ -1468,7 +1493,7 @@ class AdminController
 
         if (!$assignment) {
             flash('error', __('slide.assignment_not_found'));
-            redirect('/admin/slides');
+            redirect($this->adminReturnPath('/admin/slides'));
         }
 
         $this->db->execute(
@@ -1479,7 +1504,61 @@ class AdminController
         $this->reindexChannelSlides($channelId);
 
         flash('success', __('slide.removed_from_channel', ['slide' => $assignment['slide_name'], 'channel' => $assignment['channel_name']]));
-        redirect('/admin/slides');
+        redirect($this->adminReturnPath('/admin/slides'));
+    }
+
+    public function addSlidesToChannel(int $channelId): void
+    {
+        $this->auth->requireLogin();
+
+        $returnTo = $this->adminReturnPath('/admin/slides');
+        $channel = $this->db->one('SELECT id, name FROM channels WHERE id = ?', [$channelId]);
+        if (!$channel) {
+            flash('error', __('channel.not_found'));
+            redirect($returnTo);
+        }
+
+        $slideIds = $this->normalizeIds($this->request->input('slide_ids', []));
+        if ($slideIds === []) {
+            flash('error', __('slide.add_existing_none_selected'));
+            redirect($returnTo);
+        }
+
+        $validSlideIds = array_fill_keys(array_map(
+            static fn(array $row): int => (int)$row['id'],
+            $this->db->all('SELECT id FROM slides')
+        ), true);
+        $existingSlideIds = array_fill_keys(array_map(
+            static fn(array $row): int => (int)$row['slide_id'],
+            $this->db->all('SELECT slide_id FROM channel_slide_assignments WHERE channel_id = ?', [$channelId])
+        ), true);
+        $slideIds = array_values(array_filter(
+            $slideIds,
+            static fn(int $slideId): bool => isset($validSlideIds[$slideId]) && !isset($existingSlideIds[$slideId])
+        ));
+
+        if ($slideIds === []) {
+            flash('error', __('slide.add_existing_no_new_slides'));
+            redirect($returnTo);
+        }
+
+        $nextSort = (int)($this->db->one(
+            'SELECT COALESCE(MAX(sort_order), 0) + 1 AS next_sort FROM channel_slide_assignments WHERE channel_id = ?',
+            [$channelId]
+        )['next_sort'] ?? 1);
+
+        foreach ($slideIds as $slideId) {
+            $this->db->execute(
+                'INSERT IGNORE INTO channel_slide_assignments (channel_id, slide_id, sort_order) VALUES (?, ?, ?)',
+                [$channelId, $slideId, $nextSort++]
+            );
+        }
+
+        flash('success', __('slide.added_to_channel', [
+            'count' => count($slideIds),
+            'channel' => $channel['name'],
+        ]));
+        redirect($returnTo);
     }
 
     public function sortSlides(): void

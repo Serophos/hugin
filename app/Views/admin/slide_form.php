@@ -1,6 +1,7 @@
 <?php
 $formId = 'slide';
 $selectedSlideType = (string)old('slide_type', $slide['slide_type'] ?? 'image', $formId);
+$returnToPath = (string)old('return_to', $returnTo ?? '/admin/slides', $formId);
 $title = $slide ? __('slide.edit_title') : __('slide.create_title');
 require __DIR__ . '/../layouts/admin_header.php';
 ?>
@@ -9,10 +10,17 @@ require __DIR__ . '/../layouts/admin_header.php';
 <div class="card">
     <form method="post" enctype="multipart/form-data" action="<?= e($slide ? url('/admin/slides/' . $slide['id'] . '/edit') : url('/admin/slides/create')) ?>" class="form-grid" id="slide-form">
         <?= csrf_field() ?>
+        <input type="hidden" name="return_to" value="<?= e($returnToPath) ?>">
         <label class="full-width"><?= e(__('slide.assigned_channels')) ?>
             <select name="channel_ids[]" multiple size="8" required<?= field_attrs('channel_ids', $formId) ?>>
                 <?php foreach ($channels as $channel): ?>
-                    <option value="<?= e((string)$channel['id']) ?>" <?= in_array((int)$channel['id'], $assignedChannelIds ?? [], true) ? 'selected' : '' ?>><?= e($channel['label']) ?></option>
+                    <?php
+                    $channelLabel = (string)$channel['label'];
+                    if (isset($channel['is_active']) && (int)$channel['is_active'] !== 1) {
+                        $channelLabel .= ' (' . __('common.inactive') . ')';
+                    }
+                    ?>
+                    <option value="<?= e((string)$channel['id']) ?>" <?= in_array((int)$channel['id'], $assignedChannelIds ?? [], true) ? 'selected' : '' ?>><?= e($channelLabel) ?></option>
                 <?php endforeach; ?>
             </select>
             <?= field_error_html('channel_ids', $formId) ?>
@@ -112,7 +120,7 @@ require __DIR__ . '/../layouts/admin_header.php';
         </div>
 
         <label class="checkbox-row"><input type="checkbox" name="is_active" value="1" <?= old_checked('is_active', $slide['is_active'] ?? 1, $formId) ?>> <?= e(__('common.active')) ?></label>
-        <div class="form-actions"><button type="submit" class="button button--default"><?= admin_icon('save') ?><span><?= e(__('common.save')) ?></span></button><a class="button button--normal" href="<?= e(url('/admin/slides')) ?>"><?= admin_icon('cancel') ?><span><?= e(__('common.cancel')) ?></span></a></div>
+        <div class="form-actions"><button type="submit" class="button button--default"><?= admin_icon('save') ?><span><?= e(__('common.save')) ?></span></button><a class="button button--normal" href="<?= e(url($returnToPath)) ?>"><?= admin_icon('cancel') ?><span><?= e(__('common.cancel')) ?></span></a></div>
     </form>
 </div>
 <script>
