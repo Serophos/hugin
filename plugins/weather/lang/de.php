@@ -22,10 +22,13 @@ return [
     'plugin.weather.global.title' => 'Open-Meteo API-Einstellungen',
     'plugin.weather.global.description' => 'Konfigurieren Sie die Open-Meteo-Endpunkte für alle Wetter-Folien. Lassen Sie den API-Schluessel leer, um die oeffentliche nicht-kommerzielle API zu verwenden.',
     'plugin.weather.global.weather_base_url' => 'Wetter-API-Endpunkt',
+    'plugin.weather.global.weather_base_url_placeholder' => 'https://api.open-meteo.com/v1/forecast',
     'plugin.weather.global.weather_base_url_help' => 'Oeffentlicher Standard-Endpunkt: https://api.open-meteo.com/v1/forecast',
     'plugin.weather.global.geocoding_base_url' => 'Geocoding-API-Endpunkt',
+    'plugin.weather.global.geocoding_base_url_placeholder' => 'https://geocoding-api.open-meteo.com/v1/search',
     'plugin.weather.global.geocoding_base_url_help' => 'Oeffentlicher Standard-Endpunkt: https://geocoding-api.open-meteo.com/v1/search',
     'plugin.weather.global.api_key' => 'API-Schluessel',
+    'plugin.weather.global.api_key_placeholder' => 'Optional, z. B. Open-Meteo Commercial Key',
     'plugin.weather.global.api_key_help' => 'Der Schluessel wird in der Datenbank gespeichert und nur von serverseitigen API-Anfragen gesendet.',
 
     'plugin.weather.unknown_location' => 'Unbekannter Ort',

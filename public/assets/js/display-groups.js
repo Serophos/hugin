@@ -66,10 +66,10 @@
                         throw new Error(payload.message || 'Save failed.');
                     }
                     setDirty(false);
-                    setMessage(payload.message || 'Saved.');
+                    setMessage(payload.message || saveButton.dataset.savedLabel || 'Saved.');
                 })
                 .catch(error => {
-                    setMessage(error.message || 'Save failed.');
+                    setMessage(error.message || saveButton.dataset.saveFailedLabel || 'Save failed.');
                 })
                 .finally(() => {
                     saveButton.disabled = false;

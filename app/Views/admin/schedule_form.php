@@ -1,6 +1,22 @@
 <?php
+$formId = 'schedule';
 $title = $schedule ? __('schedule.edit_title') : __('schedule.create_title');
-$ruleRows = $rules ?: [['weekday' => '', 'start_time' => '', 'end_time' => '']];
+if (form_has_old($formId)) {
+    $weekdayValues = old_array('rule_weekday', [], $formId);
+    $startValues = old_array('rule_start_time', [], $formId);
+    $endValues = old_array('rule_end_time', [], $formId);
+    $rowCount = max(1, count($weekdayValues), count($startValues), count($endValues));
+    $ruleRows = [];
+    for ($i = 0; $i < $rowCount; $i++) {
+        $ruleRows[] = [
+            'weekday' => $weekdayValues[$i] ?? '',
+            'start_time' => $startValues[$i] ?? '',
+            'end_time' => $endValues[$i] ?? '',
+        ];
+    }
+} else {
+    $ruleRows = $rules ?: [['weekday' => '', 'start_time' => '', 'end_time' => '']];
+}
 require __DIR__ . '/../layouts/admin_header.php';
 ?>
 <h1><?= e($title) ?></h1>
@@ -8,24 +24,34 @@ require __DIR__ . '/../layouts/admin_header.php';
 <div class="card">
     <form method="post" action="<?= e($schedule ? url('/admin/schedules/' . $schedule['id'] . '/edit') : url('/admin/schedules/create')) ?>" class="form-grid">
         <?= csrf_field() ?>
-        <label><?= e(__('common.name')) ?><input type="text" name="name" value="<?= e($schedule['name'] ?? '') ?>" required></label>
-        <label class="checkbox-row"><input type="checkbox" name="is_active" value="1" <?= checked($schedule['is_active'] ?? 1) ?>> <?= e(__('common.active')) ?></label>
+        <label><?= e(__('common.name')) ?>
+            <input type="text" name="name" value="<?= e((string)old('name', $schedule['name'] ?? '', $formId)) ?>" placeholder="<?= e(__('schedule.name_placeholder')) ?>" required<?= field_attrs('name', $formId) ?>>
+            <?= field_error_html('name', $formId) ?>
+        </label>
+        <label class="checkbox-row"><input type="checkbox" name="is_active" value="1" <?= old_checked('is_active', $schedule['is_active'] ?? 1, $formId) ?>> <?= e(__('common.active')) ?></label>
 
         <div class="full-width plugin-settings-card">
             <h3><?= e(__('schedule.rules')) ?></h3>
             <div id="rule-list" class="rule-list">
-                <?php foreach ($ruleRows as $rule): ?>
+                <?php foreach ($ruleRows as $index => $rule): ?>
                     <div class="rule-row">
                         <label><?= e(__('schedule.weekday')) ?>
-                            <select name="rule_weekday[]">
+                            <select name="rule_weekday[]"<?= field_attrs('rule_weekday.' . $index, $formId) ?>>
                                 <option value=""><?= e(__('schedule.weekday_placeholder')) ?></option>
                                 <?php foreach (range(1, 7) as $day): ?>
                                     <option value="<?= e((string)$day) ?>" <?= selected($rule['weekday'] ?? '', $day) ?>><?= e(__('days.' . $day)) ?></option>
                                 <?php endforeach; ?>
                             </select>
+                            <?= field_error_html('rule_weekday.' . $index, $formId) ?>
                         </label>
-                        <label><?= e(__('schedule.start_time')) ?><input type="time" name="rule_start_time[]" value="<?= e(substr((string)($rule['start_time'] ?? ''), 0, 5)) ?>"></label>
-                        <label><?= e(__('schedule.end_time')) ?><input type="time" name="rule_end_time[]" value="<?= e(substr((string)($rule['end_time'] ?? ''), 0, 5)) ?>"></label>
+                        <label><?= e(__('schedule.start_time')) ?>
+                            <input type="time" name="rule_start_time[]" value="<?= e(substr((string)($rule['start_time'] ?? ''), 0, 5)) ?>" title="<?= e(__('schedule.time_help')) ?>"<?= field_attrs('rule_start_time.' . $index, $formId) ?>>
+                            <?= field_error_html('rule_start_time.' . $index, $formId) ?>
+                        </label>
+                        <label><?= e(__('schedule.end_time')) ?>
+                            <input type="time" name="rule_end_time[]" value="<?= e(substr((string)($rule['end_time'] ?? ''), 0, 5)) ?>" title="<?= e(__('schedule.time_help')) ?>"<?= field_attrs('rule_end_time.' . $index, $formId) ?>>
+                            <?= field_error_html('rule_end_time.' . $index, $formId) ?>
+                        </label>
                         <button type="button" class="button button--normal rule-remove"><?= admin_icon('remove') ?><span><?= e(__('common.remove')) ?></span></button>
                     </div>
                 <?php endforeach; ?>
@@ -44,6 +70,7 @@ require __DIR__ . '/../layouts/admin_header.php';
         weekdayPlaceholder: <?= json_encode(__('schedule.weekday_placeholder'), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>,
         start: <?= json_encode(__('schedule.start_time'), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>,
         end: <?= json_encode(__('schedule.end_time'), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>,
+        timeHelp: <?= json_encode(__('schedule.time_help'), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>,
         remove: <?= json_encode(__('common.remove'), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>
     };
 
@@ -80,11 +107,13 @@ require __DIR__ . '/../layouts/admin_header.php';
         const startInput = document.createElement('input');
         startInput.type = 'time';
         startInput.name = 'rule_start_time[]';
+        startInput.title = labels.timeHelp;
         row.appendChild(buildLabel(labels.start, startInput));
 
         const endInput = document.createElement('input');
         endInput.type = 'time';
         endInput.name = 'rule_end_time[]';
+        endInput.title = labels.timeHelp;
         row.appendChild(buildLabel(labels.end, endInput));
 
         const removeButton = document.createElement('button');

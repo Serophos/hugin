@@ -1,6 +1,7 @@
 <?php
 $backgroundColor = normalize_hex_color((string)($settings['background_color'] ?? '#f1f5f9'), '#f1f5f9');
 $selectedAssetId = (string)($settings['background_media_asset_id'] ?? '');
+$formId = 'plugin_settings';
 ?>
 <div class="plugin-settings-card tl1menu-global-settings">
     <h3><?= e(__('plugins.tl-1menu.global_config.title')) ?></h3>
@@ -9,14 +10,15 @@ $selectedAssetId = (string)($settings['background_media_asset_id'] ?? '');
     <fieldset class="full-width">
         <legend><?= e(__('plugins.tl-1menu.global_config.background_color')) ?></legend>
         <label class="tl1menu-color-control"><?= e(__('plugins.tl-1menu.global_config.color_picker')) ?>
-            <input type="color" name="plugin_global_settings[<?= e($plugin->getName()) ?>][background_color]" value="<?= e($backgroundColor) ?>">
+            <input type="color" name="plugin_global_settings[<?= e($plugin->getName()) ?>][background_color]" value="<?= e($backgroundColor) ?>"<?= field_attrs('background_color', $formId) ?>>
+            <?= field_error_html('background_color', $formId) ?>
         </label>
     </fieldset>
 
     <fieldset class="full-width">
         <legend><?= e(__('plugins.tl-1menu.global_config.background_image')) ?></legend>
         <label class="full-width"><?= e(__('plugins.tl-1menu.global_config.media_library_image')) ?>
-            <select name="plugin_global_settings[<?= e($plugin->getName()) ?>][background_media_asset_id]">
+            <select name="plugin_global_settings[<?= e($plugin->getName()) ?>][background_media_asset_id]"<?= field_attrs('background_media_asset_id', $formId) ?>>
                 <option value=""><?= e(__('common.none')) ?></option>
                 <?php foreach (($imageMediaAssets ?? []) as $asset): ?>
                     <option value="<?= e((string)$asset['id']) ?>" <?= selected($selectedAssetId, $asset['id']) ?>>
@@ -24,10 +26,13 @@ $selectedAssetId = (string)($settings['background_media_asset_id'] ?? '');
                     </option>
                 <?php endforeach; ?>
             </select>
+            <?= field_error_html('background_media_asset_id', $formId) ?>
         </label>
 
         <label class="full-width"><?= e(__('plugins.tl-1menu.global_config.upload_background_image')) ?>
-            <input type="file" name="plugin_global_settings[<?= e($plugin->getName()) ?>][background_image_file]" accept="image/*">
+            <input type="file" name="plugin_global_settings[<?= e($plugin->getName()) ?>][background_image_file]" accept="image/*"<?= field_attrs('background_image_file', $formId) ?>>
+            <?= field_error_html('background_image_file', $formId) ?>
+            <small class="field-note"><?= e(__('forms.file_reselect_hint')) ?></small>
         </label>
         <p class="muted"><?= e(__('plugins.tl-1menu.global_config.background_image_help')) ?></p>
 

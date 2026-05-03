@@ -1,4 +1,8 @@
-<?php $title = $group['name']; require __DIR__ . '/../layouts/admin_header.php'; ?>
+<?php
+$groupEditForm = 'display_group_edit';
+$title = $group['name'];
+require __DIR__ . '/../layouts/admin_header.php';
+?>
 <div class="page-head">
     <div>
         <h1><?= e($group['name']) ?></h1>
@@ -33,6 +37,8 @@
                     data-save-layout
                     data-saving-label="<?= e(__('display_groups.layout_saving')) ?>"
                     data-unsaved-label="<?= e(__('display_groups.layout_unsaved')) ?>"
+                    data-saved-label="<?= e(__('display_groups.layout_saved')) ?>"
+                    data-save-failed-label="<?= e(__('display_groups.layout_save_failed')) ?>"
                 ><?= admin_icon('save') ?><span><?= e(__('display_groups.save_layout')) ?></span></button>
                 <span class="layout-save-state muted" data-layout-message></span>
             </div>
@@ -82,13 +88,16 @@
                 <input type="hidden" name="location_id" value="<?= e((string)$group['location_id']) ?>">
                 <input type="hidden" name="return_to" value="<?= e('/admin/display-groups/' . $group['id']) ?>">
                 <label><?= e(__('common.name')) ?>
-                    <input name="name" value="<?= e($group['name']) ?>" required>
+                    <input name="name" value="<?= e((string)old('name', $group['name'], $groupEditForm)) ?>" placeholder="<?= e(__('display_groups.name_placeholder')) ?>" required<?= field_attrs('name', $groupEditForm) ?>>
+                    <?= field_error_html('name', $groupEditForm) ?>
                 </label>
                 <label><?= e(__('common.description')) ?>
-                    <textarea name="description" rows="3"><?= e($group['description'] ?? '') ?></textarea>
+                    <textarea name="description" rows="3" placeholder="<?= e(__('display_groups.description_placeholder')) ?>"<?= field_attrs('description', $groupEditForm) ?>><?= e((string)old('description', $group['description'] ?? '', $groupEditForm)) ?></textarea>
+                    <?= field_error_html('description', $groupEditForm) ?>
                 </label>
                 <label><?= e(__('common.sort_order')) ?>
-                    <input type="number" name="sort_order" value="<?= e((string)$group['sort_order']) ?>" min="0">
+                    <input type="number" name="sort_order" value="<?= e((string)old('sort_order', $group['sort_order'], $groupEditForm)) ?>" min="0" placeholder="<?= e(__('display_groups.sort_order_placeholder')) ?>"<?= field_attrs('sort_order', $groupEditForm) ?>>
+                    <?= field_error_html('sort_order', $groupEditForm) ?>
                 </label>
                 <button type="submit" class="button button--default"><?= admin_icon('save') ?><span><?= e(__('common.save')) ?></span></button>
             </form>

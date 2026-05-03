@@ -22,10 +22,13 @@ return [
     'plugin.weather.global.title' => 'Open-Meteo API settings',
     'plugin.weather.global.description' => 'Configure the Open-Meteo endpoints used by all weather slides. Leave the API key empty for the public non-commercial API.',
     'plugin.weather.global.weather_base_url' => 'Weather API endpoint',
+    'plugin.weather.global.weather_base_url_placeholder' => 'https://api.open-meteo.com/v1/forecast',
     'plugin.weather.global.weather_base_url_help' => 'Default public endpoint: https://api.open-meteo.com/v1/forecast',
     'plugin.weather.global.geocoding_base_url' => 'Geocoding API endpoint',
+    'plugin.weather.global.geocoding_base_url_placeholder' => 'https://geocoding-api.open-meteo.com/v1/search',
     'plugin.weather.global.geocoding_base_url_help' => 'Default public endpoint: https://geocoding-api.open-meteo.com/v1/search',
     'plugin.weather.global.api_key' => 'API key',
+    'plugin.weather.global.api_key_placeholder' => 'Optional, e.g. open-meteo commercial key',
     'plugin.weather.global.api_key_help' => 'The key is stored in the database and sent only from server-side API requests.',
 
     'plugin.weather.unknown_location' => 'Unknown location',

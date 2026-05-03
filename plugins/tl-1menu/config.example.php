@@ -13,6 +13,7 @@ return [
     'default_display_water' => false,
     'default_display_animal_welfare' => false,
     'default_display_rainforest' => false,
+    'default_show_header' => true,
     'default_background_color' => '#f1f5f9',
     'food_types' => [
         48 => 'mensa_tipp_vegan_legacy',

@@ -1,6 +1,8 @@
 <?php
 $strings = $strings ?? [];
 $globalSettings = $globalSettings ?? [];
+$formId = 'slide';
+$fieldPrefix = 'plugin_settings.' . $plugin->getName() . '.';
 $queryValue = trim((string)($settings['location_query'] ?? ''));
 if ($queryValue === '') {
     $queryValue = (string)($settings['location_name'] ?? '');
@@ -23,7 +25,9 @@ if ($queryValue === '') {
             placeholder="<?= e($strings['location_placeholder'] ?? '') ?>"
             data-weather-role="location-query"
             autocomplete="off"
+            <?= field_attrs($fieldPrefix . 'location_query', $formId) ?>
         >
+        <?= field_error_html($fieldPrefix . 'location_query', $formId) ?>
     </label>
     <div class="weather-search-results" data-weather-role="search-results"></div>
     <p class="muted small"><?= e($strings['search_help'] ?? '') ?></p>
@@ -43,24 +47,27 @@ if ($queryValue === '') {
 
     <div class="grid-3 compact-grid">
         <label><?= e($strings['temperature_unit'] ?? 'Temperature unit') ?>
-            <select name="plugin_settings[<?= e($plugin->getName()) ?>][temperature_unit]">
+            <select name="plugin_settings[<?= e($plugin->getName()) ?>][temperature_unit]"<?= field_attrs($fieldPrefix . 'temperature_unit', $formId) ?>>
                 <option value="celsius" <?= selected($settings['temperature_unit'], 'celsius') ?>>°C</option>
                 <option value="fahrenheit" <?= selected($settings['temperature_unit'], 'fahrenheit') ?>>°F</option>
             </select>
+            <?= field_error_html($fieldPrefix . 'temperature_unit', $formId) ?>
         </label>
         <label><?= e($strings['wind_speed_unit'] ?? 'Wind speed unit') ?>
-            <select name="plugin_settings[<?= e($plugin->getName()) ?>][wind_speed_unit]">
+            <select name="plugin_settings[<?= e($plugin->getName()) ?>][wind_speed_unit]"<?= field_attrs($fieldPrefix . 'wind_speed_unit', $formId) ?>>
                 <option value="kmh" <?= selected($settings['wind_speed_unit'], 'kmh') ?>>km/h</option>
                 <option value="ms" <?= selected($settings['wind_speed_unit'], 'ms') ?>>m/s</option>
                 <option value="mph" <?= selected($settings['wind_speed_unit'], 'mph') ?>>mph</option>
                 <option value="kn" <?= selected($settings['wind_speed_unit'], 'kn') ?>>kn</option>
             </select>
+            <?= field_error_html($fieldPrefix . 'wind_speed_unit', $formId) ?>
         </label>
         <label><?= e($strings['precipitation_unit'] ?? 'Precipitation unit') ?>
-            <select name="plugin_settings[<?= e($plugin->getName()) ?>][precipitation_unit]">
+            <select name="plugin_settings[<?= e($plugin->getName()) ?>][precipitation_unit]"<?= field_attrs($fieldPrefix . 'precipitation_unit', $formId) ?>>
                 <option value="mm" <?= selected($settings['precipitation_unit'], 'mm') ?>>mm</option>
                 <option value="inch" <?= selected($settings['precipitation_unit'], 'inch') ?>>inch</option>
             </select>
+            <?= field_error_html($fieldPrefix . 'precipitation_unit', $formId) ?>
         </label>
     </div>
 

@@ -4,6 +4,7 @@ namespace App\Controllers;
 use App\Core\Auth;
 use App\Core\Database;
 use App\Core\Request;
+use App\Core\SlidePluginInterface;
 use App\Core\UploadManager;
 use App\Core\View;
 use App\Core\PluginManager;
@@ -36,8 +37,12 @@ class AdminController
             redirect('/admin');
         }
 
-        flash('error', __('errors.invalid_username_password'));
-        redirect('/admin/login');
+        $this->redirectWithForm('/admin/login', __('errors.invalid_username_password'), [
+            'username' => $username,
+        ], [
+            'username' => __('errors.invalid_username_password'),
+            'password' => __('errors.invalid_username_password'),
+        ], 'login');
     }
 
     public function logout(): void
@@ -114,6 +119,9 @@ class AdminController
             $plugin->getDefaultGlobalSettings(),
             $this->plugins->loadGlobalSettings($pluginName)
         );
+        if (form_has_old('plugin_settings')) {
+            $settings = array_replace($settings, old_input('plugin_settings'));
+        }
         $formHtml = $plugin->renderGlobalSettings($settings, $this->plugins->buildApi(null, null, null, $this->auth->id()));
 
         $this->view->render('admin/plugin_settings', [
@@ -144,8 +152,13 @@ class AdminController
             $settings = $plugin->normalizeGlobalSettings($input, $existingSettings, $this->plugins->buildApi(null, null, null, $this->auth->id()));
             $this->plugins->saveGlobalSettings($pluginName, $settings);
         } catch (RuntimeException $e) {
-            flash('error', $e->getMessage());
-            redirect('/admin/plugins/' . $pluginName . '/settings');
+            $this->redirectWithForm(
+                '/admin/plugins/' . $pluginName . '/settings',
+                $e->getMessage(),
+                $input,
+                $this->pluginFieldErrors($plugin, $e->getMessage(), true),
+                'plugin_settings'
+            );
         }
 
         flash('success', __('plugins.settings_saved', ['plugin' => $plugin->getDisplayName()]));
@@ -228,6 +241,11 @@ class AdminController
         $this->auth->requireRole('admin');
 
         $display = $id ? $this->db->one('SELECT * FROM displays WHERE id = ?', [$id]) : null;
+        if ($id && !$display) {
+            flash('error', __('display.not_found'));
+            redirect('/admin/displays');
+        }
+
         $heartbeat = null;
 
         if ($id) {
@@ -251,25 +269,73 @@ class AdminController
     {
         $this->auth->requireRole('admin');
 
-        $name = trim((string)$this->request->input('name'));
-        $slug = slugify((string)$this->request->input('slug', $name));
+        if ($id && !$this->db->one('SELECT id FROM displays WHERE id = ?', [$id])) {
+            flash('error', __('display.not_found'));
+            redirect('/admin/displays');
+        }
+
+        $nameRaw = (string)$this->request->input('name');
+        $slugRaw = (string)$this->request->input('slug', $nameRaw);
+        $durationRaw = trim((string)$this->request->input('slide_duration_seconds', '8'));
+        $sortOrderRaw = trim((string)$this->request->input('sort_order', '0'));
+        $name = trim($nameRaw);
+        $slug = slugify($slugRaw !== '' ? $slugRaw : $name);
         $description = trim((string)$this->request->input('description'));
         $effect = $this->sanitizeEffect((string)$this->request->input('transition_effect', 'fade'), false);
-        $duration = max(1, (int)$this->request->input('slide_duration_seconds', 8));
+        $duration = max(1, (int)$durationRaw);
         $timezone = trim((string)$this->request->input('timezone', 'UTC')) ?: 'UTC';
-        $sortOrder = max(0, (int)$this->request->input('sort_order', 0));
+        $sortOrder = max(0, (int)$sortOrderRaw);
         $orientation = $this->sanitizeOrientation((string)$this->request->input('orientation', 'landscape'));
         $isActive = $this->request->input('is_active') ? 1 : 0;
+        $old = [
+            'name' => $nameRaw,
+            'slug' => $slugRaw,
+            'description' => (string)$this->request->input('description'),
+            'transition_effect' => $effect,
+            'slide_duration_seconds' => $durationRaw,
+            'timezone' => (string)$this->request->input('timezone', 'UTC'),
+            'sort_order' => $sortOrderRaw,
+            'orientation' => $orientation,
+            'is_active' => $isActive,
+        ];
+        $errors = [];
 
-        if ($name === '' || $slug === '') {
-            flash('error', __('display.name_and_slug_required'));
-            redirect($id ? '/admin/displays/' . $id . '/edit' : '/admin/displays/create');
+        if ($name === '') {
+            $errors['name'] = __('display.name_and_slug_required');
+        }
+        if (trim($slugRaw) === '') {
+            $errors['slug'] = __('display.name_and_slug_required');
+        } elseif (preg_match('/[a-z0-9]/i', $slugRaw) !== 1) {
+            $errors['slug'] = __('display.invalid_slug');
+        }
+        if (!$this->isPositiveInteger($durationRaw)) {
+            $errors['slide_duration_seconds'] = __('validation.positive_number');
+        }
+        if (!$this->isNonNegativeInteger($sortOrderRaw)) {
+            $errors['sort_order'] = __('validation.non_negative_number');
+        }
+        if (!$this->isValidTimezone($timezone)) {
+            $errors['timezone'] = __('display.invalid_timezone');
+        }
+        if ($errors !== []) {
+            $this->redirectWithForm(
+                $id ? '/admin/displays/' . $id . '/edit' : '/admin/displays/create',
+                __('validation.fix_marked_fields'),
+                $old,
+                $errors,
+                'display'
+            );
         }
 
         $existing = $this->db->one('SELECT id FROM displays WHERE slug = ? LIMIT 1', [$slug]);
         if ($existing && (int)$existing['id'] !== (int)$id) {
-            flash('error', __('display.slug_exists'));
-            redirect($id ? '/admin/displays/' . $id . '/edit' : '/admin/displays/create');
+            $this->redirectWithForm(
+                $id ? '/admin/displays/' . $id . '/edit' : '/admin/displays/create',
+                __('display.slug_exists'),
+                $old,
+                ['slug' => __('display.slug_exists')],
+                'display'
+            );
         }
 
         if ($id) {
@@ -402,20 +468,35 @@ class AdminController
     {
         $this->auth->requireRole('admin');
 
-        $name = trim((string)$this->request->input('name'));
+        $nameRaw = (string)$this->request->input('name');
+        $sortOrderRaw = trim((string)$this->request->input('sort_order', '0'));
+        $name = trim($nameRaw);
         $address = trim((string)$this->request->input('address'));
         $description = trim((string)$this->request->input('description'));
-        $sortOrder = max(0, (int)$this->request->input('sort_order', 0));
+        $sortOrder = max(0, (int)$sortOrderRaw);
+        $form = $id ? 'location_edit' : 'location_create';
+        $returnPath = $id ? '/admin/locations/' . $id . '/edit' : '/admin/locations';
+        $old = [
+            'name' => $nameRaw,
+            'address' => (string)$this->request->input('address'),
+            'description' => (string)$this->request->input('description'),
+            'sort_order' => $sortOrderRaw,
+        ];
+        $errors = [];
 
         if ($name === '') {
-            flash('error', __('locations.name_required'));
-            redirect($id ? '/admin/locations/' . $id . '/edit' : '/admin/locations');
+            $errors['name'] = __('locations.name_required');
+        }
+        if (!$this->isNonNegativeInteger($sortOrderRaw)) {
+            $errors['sort_order'] = __('validation.non_negative_number');
+        }
+        if ($errors !== []) {
+            $this->redirectWithForm($returnPath, __('validation.fix_marked_fields'), $old, $errors, $form);
         }
 
         $existing = $this->db->one('SELECT id FROM display_locations WHERE name = ? LIMIT 1', [$name]);
         if ($existing && (int)$existing['id'] !== (int)$id) {
-            flash('error', __('locations.name_exists'));
-            redirect($id ? '/admin/locations/' . $id . '/edit' : '/admin/locations');
+            $this->redirectWithForm($returnPath, __('locations.name_exists'), $old, ['name' => __('locations.name_exists')], $form);
         }
 
         if ($id) {
@@ -470,21 +551,35 @@ class AdminController
         $this->auth->requireRole('admin');
 
         $locationId = (int)$this->request->input('location_id');
-        $name = trim((string)$this->request->input('name'));
+        $nameRaw = (string)$this->request->input('name');
+        $name = trim($nameRaw);
         $description = trim((string)$this->request->input('description'));
-        $sortOrder = max(0, (int)$this->request->input('sort_order', 0));
+        $sortOrderRaw = trim((string)$this->request->input('sort_order', '0'));
+        $sortOrder = max(0, (int)$sortOrderRaw);
         $defaultReturn = $locationId > 0 ? '/admin/locations/' . $locationId . '/edit' : '/admin/locations';
         $returnTo = $this->adminReturnPath($defaultReturn);
+        $form = $id ? 'display_group_edit' : 'display_group_create';
+        $old = [
+            'location_id' => $locationId,
+            'name' => $nameRaw,
+            'description' => (string)$this->request->input('description'),
+            'sort_order' => $sortOrderRaw,
+        ];
+        $errors = [];
 
         if ($name === '') {
-            flash('error', __('display_groups.name_required'));
-            redirect($returnTo);
+            $errors['name'] = __('display_groups.name_required');
+        }
+        if (!$this->isNonNegativeInteger($sortOrderRaw)) {
+            $errors['sort_order'] = __('validation.non_negative_number');
+        }
+        if ($errors !== []) {
+            $this->redirectWithForm($returnTo, __('validation.fix_marked_fields'), $old, $errors, $form);
         }
 
         $location = $this->db->one('SELECT id FROM display_locations WHERE id = ?', [$locationId]);
         if (!$location) {
-            flash('error', __('locations.not_found'));
-            redirect('/admin/locations');
+            $this->redirectWithForm('/admin/locations', __('locations.not_found'), $old, ['location_id' => __('locations.not_found')], $form);
         }
 
         $existing = $this->db->one(
@@ -492,8 +587,7 @@ class AdminController
             [$locationId, $name]
         );
         if ($existing && (int)$existing['id'] !== (int)$id) {
-            flash('error', __('display_groups.name_exists'));
-            redirect($returnTo);
+            $this->redirectWithForm($returnTo, __('display_groups.name_exists'), $old, ['name' => __('display_groups.name_exists')], $form);
         }
 
         if ($id) {
@@ -736,6 +830,11 @@ class AdminController
         $this->auth->requireLogin();
 
         $channel = $id ? $this->db->one('SELECT * FROM channels WHERE id = ?', [$id]) : null;
+        if ($id && !$channel) {
+            flash('error', __('channel.not_found'));
+            redirect('/admin/channels');
+        }
+
         $displays = $this->db->all('SELECT id, name FROM displays ORDER BY sort_order ASC, name ASC');
         $schedules = $this->db->all(
             'SELECT id, name, type, is_system, is_active FROM schedules ORDER BY is_system DESC, name ASC'
@@ -768,31 +867,59 @@ class AdminController
     {
         $this->auth->requireLogin();
 
-        $name = trim((string)$this->request->input('name'));
+        if ($id && !$this->db->one('SELECT id FROM channels WHERE id = ?', [$id])) {
+            flash('error', __('channel.not_found'));
+            redirect('/admin/channels');
+        }
+
+        $nameRaw = (string)$this->request->input('name');
+        $durationRaw = trim((string)$this->request->input('slide_duration_seconds', ''));
+        $assignmentDisplayValues = (array)$this->request->input('assignment_display_id', []);
+        $assignmentScheduleValues = (array)$this->request->input('assignment_schedule_id', []);
+        $assignmentPriorityValues = (array)$this->request->input('assignment_priority', []);
+        $name = trim($nameRaw);
         $description = trim((string)$this->request->input('description'));
         $effect = $this->sanitizeEffect((string)$this->request->input('transition_effect', 'inherit'), true);
-        $durationRaw = trim((string)$this->request->input('slide_duration_seconds', ''));
         $duration = $durationRaw === '' ? null : max(1, (int)$durationRaw);
         $isActive = $this->request->input('is_active') ? 1 : 0;
+        $old = [
+            'name' => $nameRaw,
+            'description' => (string)$this->request->input('description'),
+            'transition_effect' => $effect,
+            'slide_duration_seconds' => $durationRaw,
+            'is_active' => $isActive,
+            'assignment_display_id' => $assignmentDisplayValues,
+            'assignment_schedule_id' => $assignmentScheduleValues,
+            'assignment_priority' => $assignmentPriorityValues,
+        ];
+        $errors = [];
 
         if ($name === '') {
-            flash('error', __('channel.name_required'));
-            redirect($id ? '/admin/channels/' . $id . '/edit' : '/admin/channels/create');
+            $errors['name'] = __('channel.name_required');
+        }
+        if ($durationRaw !== '' && !$this->isPositiveInteger($durationRaw)) {
+            $errors['slide_duration_seconds'] = __('validation.positive_number');
         }
 
-        try {
-            $assignmentRows = $this->normalizeChannelAssignmentInput(
-                (array)$this->request->input('assignment_display_id', []),
-                (array)$this->request->input('assignment_schedule_id', []),
-                (array)$this->request->input('assignment_priority', [])
-            );
-        } catch (RuntimeException $e) {
-            flash('error', $e->getMessage());
-            redirect($id ? '/admin/channels/' . $id . '/edit' : '/admin/channels/create');
-        }
+        $assignmentErrors = [];
+        $assignmentRows = $this->normalizeChannelAssignmentInput(
+            $assignmentDisplayValues,
+            $assignmentScheduleValues,
+            $assignmentPriorityValues,
+            $assignmentErrors
+        );
+        $errors = array_replace($errors, $assignmentErrors);
         if (!$assignmentRows) {
-            flash('error', __('channel.assignment_required'));
-            redirect($id ? '/admin/channels/' . $id . '/edit' : '/admin/channels/create');
+            $errors['assignment_display_id.0'] = $errors['assignment_display_id.0'] ?? __('channel.assignment_required');
+        }
+        if ($errors !== []) {
+            $this->redirectWithForm(
+                $id ? '/admin/channels/' . $id . '/edit' : '/admin/channels/create',
+                __('validation.fix_marked_fields'),
+                $old,
+                $errors,
+                'channel'
+            );
         }
 
         $pdo = $this->db->pdo();
@@ -930,20 +1057,37 @@ class AdminController
             redirect('/admin/schedules');
         }
 
-        $name = trim((string)$this->request->input('name'));
+        $nameRaw = (string)$this->request->input('name');
+        $name = trim($nameRaw);
         $isActive = $this->request->input('is_active') ? 1 : 0;
-        try {
-            if ($name === '') {
-                throw new RuntimeException(__('schedule.name_required'));
-            }
-            $rules = $this->normalizeScheduleRuleInput(
-                (array)$this->request->input('rule_weekday', []),
-                (array)$this->request->input('rule_start_time', []),
-                (array)$this->request->input('rule_end_time', [])
+        $weekdayValues = (array)$this->request->input('rule_weekday', []);
+        $startValues = (array)$this->request->input('rule_start_time', []);
+        $endValues = (array)$this->request->input('rule_end_time', []);
+        $old = [
+            'name' => $nameRaw,
+            'is_active' => $isActive,
+            'rule_weekday' => $weekdayValues,
+            'rule_start_time' => $startValues,
+            'rule_end_time' => $endValues,
+        ];
+        $errors = [];
+        if ($name === '') {
+            $errors['name'] = __('schedule.name_required');
+        }
+        $ruleErrors = [];
+        $rules = $this->normalizeScheduleRuleInput($weekdayValues, $startValues, $endValues, $ruleErrors);
+        $errors = array_replace($errors, $ruleErrors);
+        if (!$rules) {
+            $errors['rule_weekday.0'] = $errors['rule_weekday.0'] ?? __('schedule.rule_required');
+        }
+        if ($errors !== []) {
+            $this->redirectWithForm(
+                $id ? '/admin/schedules/' . $id . '/edit' : '/admin/schedules/create',
+                __('validation.fix_marked_fields'),
+                $old,
+                $errors,
+                'schedule'
             );
-        } catch (RuntimeException $e) {
-            flash('error', $e->getMessage());
-            redirect($id ? '/admin/schedules/' . $id . '/edit' : '/admin/schedules/create');
         }
 
         $pdo = $this->db->pdo();
@@ -1061,17 +1205,30 @@ class AdminController
         $this->auth->requireLogin();
 
         $slide = $id ? $this->db->one('SELECT * FROM slides WHERE id = ?', [$id]) : null;
+        if ($id && !$slide) {
+            flash('error', __('slide.not_found'));
+            redirect('/admin/slides');
+        }
+
         $channels = $this->db->all('SELECT id, name AS label FROM channels WHERE is_active = 1 ORDER BY name ASC');
         $mediaAssets = $this->db->all('SELECT * FROM media_assets ORDER BY created_at DESC, id DESC');
         $imageMediaAssets = array_values(array_filter($mediaAssets, static fn(array $asset): bool => ($asset['media_kind'] ?? '') === 'image'));
         $assignedChannelIds = $id
             ? array_map(static fn(array $row): int => (int)$row['channel_id'], $this->db->all('SELECT channel_id FROM channel_slide_assignments WHERE slide_id = ?', [$id]))
             : [];
+        $oldSlideInput = form_has_old('slide') ? old_input('slide') : [];
+        if (is_array($oldSlideInput['channel_ids'] ?? null)) {
+            $assignedChannelIds = array_map(static fn(mixed $id): int => (int)$id, $oldSlideInput['channel_ids']);
+        }
+        $oldPluginSettings = is_array($oldSlideInput['plugin_settings'] ?? null) ? $oldSlideInput['plugin_settings'] : [];
 
         $pluginDefinitions = [];
         $pluginForms = [];
         foreach ($this->plugins->getEnabledPlugins() as $plugin) {
             $settings = $id ? $this->plugins->loadSlideSettings($id, $plugin->getName()) : $plugin->getDefaultSettings();
+            if (is_array($oldPluginSettings[$plugin->getName()] ?? null)) {
+                $settings = array_replace($settings, $oldPluginSettings[$plugin->getName()]);
+            }
             $pluginDefinitions[] = [
                 'name' => $plugin->getName(),
                 'slide_type' => $plugin->getSlideType(),
@@ -1098,8 +1255,14 @@ class AdminController
     {
         $this->auth->requireLogin();
 
+        if ($id && !$this->db->one('SELECT id FROM slides WHERE id = ?', [$id])) {
+            flash('error', __('slide.not_found'));
+            redirect('/admin/slides');
+        }
+
         $channelIds = $this->normalizeIds($this->request->input('channel_ids', []));
-        $name = trim((string)$this->request->input('name'));
+        $nameRaw = (string)$this->request->input('name');
+        $name = trim($nameRaw);
         $slideType = (string)$this->request->input('slide_type');
         $sourceMode = (string)$this->request->input('source_mode', 'external');
         $sourceUrl = trim((string)$this->request->input('source_url'));
@@ -1113,17 +1276,54 @@ class AdminController
         $backgroundMediaAssetId = $this->request->input('background_media_asset_id') ? (int)$this->request->input('background_media_asset_id') : null;
         $plugin = $this->plugins->getPluginBySlideType($slideType, true);
         $isPluginType = $plugin !== null;
+        $pluginSettingsInput = (array)$this->request->input('plugin_settings', []);
+        $old = [
+            'channel_ids' => (array)$this->request->input('channel_ids', []),
+            'name' => $nameRaw,
+            'slide_type' => $slideType,
+            'title_position' => (string)$this->request->input('title_position', 'bottom-left'),
+            'duration_seconds' => $durationRaw,
+            'source_mode' => $sourceMode,
+            'source_url' => (string)$this->request->input('source_url'),
+            'media_asset_id' => (string)$this->request->input('media_asset_id', ''),
+            'text_markup' => (string)$this->request->input('text_markup', ''),
+            'background_color' => (string)$this->request->input('background_color', '#0f172a'),
+            'background_media_asset_id' => (string)$this->request->input('background_media_asset_id', ''),
+            'plugin_settings' => $pluginSettingsInput,
+            'is_active' => $isActive,
+        ];
+        $errors = [];
 
-        if (!$channelIds || $name === '' || (!$this->isBuiltInSlideType($slideType) && !$isPluginType)) {
-            flash('error', __('slide.channel_assignment_required'));
-            redirect($id ? '/admin/slides/' . $id . '/edit' : '/admin/slides/create');
+        if (!$channelIds) {
+            $errors['channel_ids'] = __('slide.assigned_channels_required');
+        }
+        if ($name === '') {
+            $errors['name'] = __('slide.name_required');
+        }
+        if (!$this->isBuiltInSlideType($slideType) && !$isPluginType) {
+            $errors['slide_type'] = __('slide.slide_type_required');
+        }
+        if ($durationRaw !== '' && !$this->isPositiveInteger($durationRaw)) {
+            $errors['duration_seconds'] = __('validation.positive_number');
+        }
+        if (!in_array($sourceMode, ['external', 'media'], true)) {
+            $errors['source_mode'] = __('slide.invalid_source_mode');
+        }
+        if ($errors !== []) {
+            $this->redirectWithForm(
+                $id ? '/admin/slides/' . $id . '/edit' : '/admin/slides/create',
+                __('validation.fix_marked_fields'),
+                $old,
+                $errors,
+                'slide'
+            );
         }
 
         $pluginSettings = [];
         $mediaAsset = null;
         try {
             if ($isPluginType) {
-                $submittedPluginSettings = (array)(($this->request->input('plugin_settings', [])[$plugin->getName()] ?? []));
+                $submittedPluginSettings = (array)($pluginSettingsInput[$plugin->getName()] ?? []);
                 $existingPluginSettings = $id ? $this->plugins->loadSlideSettings($id, $plugin->getName()) : [];
                 $pluginSettings = $plugin->normalizeSettings($submittedPluginSettings, $existingPluginSettings, $this->plugins->buildApi(null, null, null, $this->auth->id()));
                 $sourceMode = 'external';
@@ -1140,6 +1340,9 @@ class AdminController
             } elseif ($slideType === 'text') {
                 $uploadedBackground = $this->request->file('background_uploaded_file');
                 if ($uploadedBackground && ($uploadedBackground['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
+                    if ($this->uploadedMediaKind($uploadedBackground) !== 'image') {
+                        throw new RuntimeException(__('slide.background_image_type_mismatch'));
+                    }
                     $mediaAsset = $this->uploadManager->storeUploadedFile($uploadedBackground, (int)$this->auth->id(), $name . ' background');
                     $backgroundMediaAssetId = (int)$mediaAsset['id'];
                 } elseif ($backgroundMediaAssetId) {
@@ -1164,6 +1367,11 @@ class AdminController
                 $textMarkup = '';
                 $uploadedFile = $this->request->file('uploaded_file');
                 if ($uploadedFile && ($uploadedFile['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
+                    $expectedKind = $slideType === 'image' ? 'image' : 'video';
+                    $uploadedKind = $this->uploadedMediaKind($uploadedFile);
+                    if ($uploadedKind !== null && $uploadedKind !== $expectedKind) {
+                        throw new RuntimeException(__('slide.selected_media_type_mismatch'));
+                    }
                     $mediaAsset = $this->uploadManager->storeUploadedFile($uploadedFile, (int)$this->auth->id(), $name);
                     $mediaAssetId = (int)$mediaAsset['id'];
                     $sourceUrl = (string)$mediaAsset['file_path'];
@@ -1193,8 +1401,13 @@ class AdminController
                 }
             }
         } catch (RuntimeException $e) {
-            flash('error', $e->getMessage());
-            redirect($id ? '/admin/slides/' . $id . '/edit' : '/admin/slides/create');
+            $this->redirectWithForm(
+                $id ? '/admin/slides/' . $id . '/edit' : '/admin/slides/create',
+                $e->getMessage(),
+                $old,
+                $this->slideFieldErrors($slideType, $sourceMode, $plugin, $e->getMessage()),
+                'slide'
+            );
         }
 
         $pdo = $this->db->pdo();
@@ -1295,6 +1508,7 @@ class AdminController
     public function uploadMedia(): void
     {
         $this->auth->requireLogin();
+        $old = ['name' => (string)$this->request->input('name')];
         try {
             $asset = $this->uploadManager->storeUploadedFile($this->request->file('media_file'), (int)$this->auth->id(), trim((string)$this->request->input('name')));
             if (!$asset) {
@@ -1302,7 +1516,9 @@ class AdminController
             }
             flash('success', __('media.uploaded'));
         } catch (RuntimeException $e) {
-            flash('error', $e->getMessage());
+            $this->redirectWithForm('/admin/media', $e->getMessage(), $old, [
+                'media_file' => $e->getMessage(),
+            ], 'media_upload');
         }
         redirect('/admin/media');
     }
@@ -1337,27 +1553,64 @@ class AdminController
     {
         $this->auth->requireRole('admin');
         $user = $id ? $this->db->one('SELECT id, username, display_name, role, is_active FROM users WHERE id = ?', [$id]) : null;
+        if ($id && !$user) {
+            flash('error', __('users.not_found'));
+            redirect('/admin/users');
+        }
+
         $this->view->render('admin/user_form', ['user' => $user, 'error' => flash('error')]);
     }
 
     public function saveUser(?int $id = null): void
     {
         $this->auth->requireRole('admin');
-        $username = trim((string)$this->request->input('username'));
+        if ($id && !$this->db->one('SELECT id FROM users WHERE id = ?', [$id])) {
+            flash('error', __('users.not_found'));
+            redirect('/admin/users');
+        }
+
+        $usernameRaw = (string)$this->request->input('username');
+        $username = trim($usernameRaw);
         $displayName = trim((string)$this->request->input('display_name'));
         $role = (string)$this->request->input('role', 'editor');
         $password = (string)$this->request->input('password');
         $isActive = $this->request->input('is_active') ? 1 : 0;
+        $old = [
+            'username' => $usernameRaw,
+            'display_name' => (string)$this->request->input('display_name'),
+            'role' => $role,
+            'is_active' => $isActive,
+        ];
+        $errors = [];
 
-        if ($username === '' || !in_array($role, ['admin', 'editor'], true)) {
-            flash('error', __('users.valid_role_required'));
-            redirect($id ? '/admin/users/' . $id . '/edit' : '/admin/users/create');
+        if ($username === '') {
+            $errors['username'] = __('users.username_required');
+        }
+        if (!in_array($role, ['admin', 'editor'], true)) {
+            $errors['role'] = __('users.role_required');
+        }
+        if (!$id && $password === '') {
+            $errors['password'] = __('users.password_required_new');
+        }
+        if ($errors !== []) {
+            $this->redirectWithForm(
+                $id ? '/admin/users/' . $id . '/edit' : '/admin/users/create',
+                __('validation.fix_marked_fields'),
+                $old,
+                $errors,
+                'user'
+            );
         }
 
         $existing = $this->db->one('SELECT id FROM users WHERE username = ? LIMIT 1', [$username]);
         if ($existing && (int)$existing['id'] !== (int)$id) {
-            flash('error', __('users.username_exists'));
-            redirect($id ? '/admin/users/' . $id . '/edit' : '/admin/users/create');
+            $this->redirectWithForm(
+                $id ? '/admin/users/' . $id . '/edit' : '/admin/users/create',
+                __('users.username_exists'),
+                $old,
+                ['username' => __('users.username_exists')],
+                'user'
+            );
         }
 
         if ($id) {
@@ -1373,10 +1626,6 @@ class AdminController
             }
             flash('success', __('users.updated'));
         } else {
-            if ($password === '') {
-                flash('error', __('users.password_required_new'));
-                redirect('/admin/users/create');
-            }
             $this->db->execute('INSERT INTO users (username, display_name, role, password_hash, is_active) VALUES (?, ?, ?, ?, ?)', [$username, $displayName, $role, password_hash($password, PASSWORD_DEFAULT), $isActive]);
             flash('success', __('users.created'));
         }
@@ -1393,6 +1642,197 @@ class AdminController
         $this->db->execute('DELETE FROM users WHERE id = ?', [$id]);
         flash('success', __('users.deleted'));
         redirect('/admin/users');
+    }
+
+    private function redirectWithForm(string $path, string $message, array $oldInput, array $errors, string $form = 'default'): void
+    {
+        flash('error', $message);
+        flash_form_state($form, $oldInput, $errors);
+        redirect($path);
+    }
+
+    private function isPositiveInteger(string $value): bool
+    {
+        return preg_match('/^[1-9][0-9]*$/', trim($value)) === 1;
+    }
+
+    private function isNonNegativeInteger(string $value): bool
+    {
+        return preg_match('/^[0-9]+$/', trim($value)) === 1;
+    }
+
+    private function isValidTimezone(string $timezone): bool
+    {
+        $timezone = trim($timezone);
+        if ($timezone === '') {
+            return false;
+        }
+
+        try {
+            new \DateTimeZone($timezone);
+            return true;
+        } catch (\Exception) {
+            return false;
+        }
+    }
+
+    private function uploadedMediaKind(array $file): ?string
+    {
+        if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+            return null;
+        }
+
+        $tmpName = (string)($file['tmp_name'] ?? '');
+        if ($tmpName === '') {
+            return null;
+        }
+
+        $finfo = finfo_open(FILEINFO_MIME_TYPE);
+        $mimeType = $finfo !== false ? (string)finfo_file($finfo, $tmpName) : '';
+        if ($finfo !== false) {
+            finfo_close($finfo);
+        }
+
+        if (str_starts_with($mimeType, 'image/')) {
+            return 'image';
+        }
+        if (str_starts_with($mimeType, 'video/')) {
+            return 'video';
+        }
+
+        return null;
+    }
+
+    private function pluginFieldErrors(SlidePluginInterface $plugin, string $message, bool $global = false): array
+    {
+        if (!$global) {
+            return [];
+        }
+
+        if ($plugin->getName() === 'weather') {
+            if ($this->messageMatches($message, [
+                'plugins.weather.plugin.weather.error.invalid_weather_endpoint' => 'Weather plugin: invalid weather API endpoint.',
+            ])) {
+                return ['weather_base_url' => $message];
+            }
+            if ($this->messageMatches($message, [
+                'plugins.weather.plugin.weather.error.invalid_geocoding_endpoint' => 'Weather plugin: invalid geocoding API endpoint.',
+            ])) {
+                return ['geocoding_base_url' => $message];
+            }
+        }
+
+        if ($plugin->getName() === 'tl-1menu') {
+            if ($this->messageMatches($message, ['plugins.tl-1menu.errors.background_asset_not_found'])) {
+                return ['background_media_asset_id' => $message];
+            }
+            if ($this->messageMatches($message, ['plugins.tl-1menu.errors.background_invalid_type'])) {
+                return [
+                    'background_media_asset_id' => $message,
+                    'background_image_file' => $message,
+                ];
+            }
+        }
+
+        return [];
+    }
+
+    private function slideFieldErrors(string $slideType, string $sourceMode, ?SlidePluginInterface $plugin, string $message): array
+    {
+        if ($plugin) {
+            $pluginName = $plugin->getName();
+            $prefix = 'plugin_settings.' . $pluginName . '.';
+
+            if ($pluginName === 'weather') {
+                if ($this->messageMatches($message, [
+                    'plugins.weather.plugin.weather.error.location_required' => 'Weather plugin: please search and select a location.',
+                    'plugins.weather.plugin.weather.error.location_not_found' => 'Weather plugin: no matching location found.',
+                    'plugins.weather.plugin.weather.error.invalid_latitude' => 'Weather plugin: invalid latitude.',
+                    'plugins.weather.plugin.weather.error.invalid_longitude' => 'Weather plugin: invalid longitude.',
+                ])) {
+                    return [$prefix . 'location_query' => $message];
+                }
+                if ($this->messageMatches($message, [
+                    'plugins.weather.plugin.weather.error.invalid_temperature_unit' => 'Weather plugin: invalid temperature unit.',
+                ])) {
+                    return [$prefix . 'temperature_unit' => $message];
+                }
+                if ($this->messageMatches($message, [
+                    'plugins.weather.plugin.weather.error.invalid_wind_speed_unit' => 'Weather plugin: invalid wind speed unit.',
+                ])) {
+                    return [$prefix . 'wind_speed_unit' => $message];
+                }
+                if ($this->messageMatches($message, [
+                    'plugins.weather.plugin.weather.error.invalid_precipitation_unit' => 'Weather plugin: invalid precipitation unit.',
+                ])) {
+                    return [$prefix . 'precipitation_unit' => $message];
+                }
+            }
+
+            if ($pluginName === 'tl-1menu') {
+                if ($this->messageMatches($message, ['plugins.tl-1menu.errors.invalid_mensa'])) {
+                    return [$prefix . 'mensa' => $message];
+                }
+                if ($this->messageMatches($message, ['plugins.tl-1menu.errors.invalid_language'])) {
+                    return [$prefix . 'language' => $message];
+                }
+            }
+
+            return ['plugin_settings.' . $pluginName => $message];
+        }
+
+        if ($this->messageMatches($message, ['slide.website_requires_url'])) {
+            return ['source_url' => $message];
+        }
+        if ($this->messageMatches($message, ['slide.choose_media_or_upload'])) {
+            return [
+                'media_asset_id' => $message,
+                'uploaded_file' => $message,
+            ];
+        }
+        if ($this->messageMatches($message, ['slide.selected_media_not_found'])) {
+            return $slideType === 'text'
+                ? ['background_media_asset_id' => $message]
+                : ['media_asset_id' => $message];
+        }
+        if ($this->messageMatches($message, ['slide.provide_external_or_media'])) {
+            return [
+                'source_url' => $message,
+                'uploaded_file' => $message,
+            ];
+        }
+        if ($this->messageMatches($message, ['slide.selected_media_type_mismatch'])) {
+            return $sourceMode === 'media'
+                ? ['media_asset_id' => $message]
+                : ['uploaded_file' => $message];
+        }
+        if ($this->messageMatches($message, ['slide.background_image_type_mismatch'])) {
+            return [
+                'background_media_asset_id' => $message,
+                'background_uploaded_file' => $message,
+            ];
+        }
+
+        return ['slide_type' => $message];
+    }
+
+    private function messageMatches(string $message, array $keys): bool
+    {
+        foreach ($keys as $key => $default) {
+            if (is_int($key)) {
+                $key = (string)$default;
+                $default = null;
+            }
+
+            if ($message === __((string)$key, [], is_string($default) ? $default : null)) {
+                return true;
+            }
+            if (is_string($default) && $message === $default) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function adminReturnPath(string $default = '/admin/locations'): string
@@ -1686,7 +2126,7 @@ class AdminController
         }
     }
 
-    private function normalizeChannelAssignmentInput(array $displayValues, array $scheduleValues, array $priorityValues): array
+    private function normalizeChannelAssignmentInput(array $displayValues, array $scheduleValues, array $priorityValues, array &$fieldErrors = []): array
     {
         $validDisplays = array_fill_keys(array_map(
             static fn (array $row): int => (int)$row['id'],
@@ -1708,29 +2148,45 @@ class AdminController
             if ($displayRaw === '' && $scheduleRaw === '' && $priorityRaw === '') {
                 continue;
             }
-            if ($displayRaw === '' || $scheduleRaw === '') {
-                throw new RuntimeException(__('channel.assignment_incomplete'));
-            }
-            if (!ctype_digit($displayRaw) || !ctype_digit($scheduleRaw)) {
-                throw new RuntimeException(__('channel.assignment_invalid'));
+
+            $rowHasError = false;
+            if ($displayRaw === '') {
+                $fieldErrors['assignment_display_id.' . $i] = __('channel.assignment_display_required');
+                $rowHasError = true;
+            } elseif (!ctype_digit($displayRaw) || !isset($validDisplays[(int)$displayRaw])) {
+                $fieldErrors['assignment_display_id.' . $i] = __('channel.assignment_invalid_display');
+                $rowHasError = true;
             }
 
-            $displayId = (int)$displayRaw;
-            $scheduleId = (int)$scheduleRaw;
-            if (!isset($validDisplays[$displayId]) || !isset($validSchedules[$scheduleId])) {
-                throw new RuntimeException(__('channel.assignment_invalid'));
+            if ($scheduleRaw === '') {
+                $fieldErrors['assignment_schedule_id.' . $i] = __('channel.assignment_schedule_required');
+                $rowHasError = true;
+            } elseif (!ctype_digit($scheduleRaw) || !isset($validSchedules[(int)$scheduleRaw])) {
+                $fieldErrors['assignment_schedule_id.' . $i] = __('channel.assignment_invalid_schedule');
+                $rowHasError = true;
             }
 
             $priority = null;
             if ($priorityRaw !== '') {
                 if (!ctype_digit($priorityRaw) || (int)$priorityRaw < 1) {
-                    throw new RuntimeException(__('channel.assignment_invalid_priority'));
+                    $fieldErrors['assignment_priority.' . $i] = __('channel.assignment_invalid_priority');
+                    $rowHasError = true;
+                } else {
+                    $priority = (int)$priorityRaw;
                 }
-                $priority = (int)$priorityRaw;
             }
+
+            if ($rowHasError) {
+                continue;
+            }
+
+            $displayId = (int)$displayRaw;
+            $scheduleId = (int)$scheduleRaw;
 
             $key = $displayId . ':' . $scheduleId;
             if (isset($seen[$key])) {
+                $fieldErrors['assignment_display_id.' . $i] = __('channel.assignment_duplicate');
+                $fieldErrors['assignment_schedule_id.' . $i] = __('channel.assignment_duplicate');
                 continue;
             }
             $seen[$key] = true;
@@ -1744,7 +2200,7 @@ class AdminController
         return $rows;
     }
 
-    private function normalizeScheduleRuleInput(array $weekdayValues, array $startValues, array $endValues): array
+    private function normalizeScheduleRuleInput(array $weekdayValues, array $startValues, array $endValues, array &$fieldErrors = []): array
     {
         $rules = [];
         $seen = [];
@@ -1758,21 +2214,32 @@ class AdminController
                 continue;
             }
             if (!ctype_digit($weekdayRaw) || (int)$weekdayRaw < 1 || (int)$weekdayRaw > 7) {
-                throw new RuntimeException(__('schedule.invalid_rule'));
+                $fieldErrors['rule_weekday.' . $i] = __('schedule.invalid_weekday');
             }
 
             $start = $this->normalizeTimeInput($startRaw);
             $end = $this->normalizeTimeInput($endRaw);
-            if ($start === null || $end === null) {
-                throw new RuntimeException(__('schedule.invalid_rule'));
+            if ($start === null) {
+                $fieldErrors['rule_start_time.' . $i] = __('schedule.invalid_start_time');
+            }
+            if ($end === null) {
+                $fieldErrors['rule_end_time.' . $i] = __('schedule.invalid_end_time');
+            }
+            if (isset($fieldErrors['rule_weekday.' . $i], $fieldErrors['rule_start_time.' . $i], $fieldErrors['rule_end_time.' . $i])) {
+                continue;
+            }
+            if (isset($fieldErrors['rule_weekday.' . $i]) || isset($fieldErrors['rule_start_time.' . $i]) || isset($fieldErrors['rule_end_time.' . $i])) {
+                continue;
             }
             if ($start >= $end) {
-                throw new RuntimeException(__('schedule.no_day_overflow'));
+                $fieldErrors['rule_end_time.' . $i] = __('schedule.no_day_overflow');
+                continue;
             }
 
             $weekday = (int)$weekdayRaw;
             $key = $weekday . ':' . $start . ':' . $end;
             if (isset($seen[$key])) {
+                $fieldErrors['rule_weekday.' . $i] = __('schedule.duplicate_rule');
                 continue;
             }
             $seen[$key] = true;
@@ -1781,10 +2248,6 @@ class AdminController
                 'start_time' => $start,
                 'end_time' => $end,
             ];
-        }
-
-        if (!$rules) {
-            throw new RuntimeException(__('schedule.rule_required'));
         }
 
         return $rules;

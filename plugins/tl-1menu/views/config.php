@@ -1,22 +1,28 @@
+<?php
+$formId = 'slide';
+$fieldPrefix = 'plugin_settings.' . $plugin->getName() . '.';
+?>
 <div class="plugin-settings-card">
     <h3><?= e(__('plugins.tl-1menu.config.title')) ?></h3>
     <p class="muted"><?= e(__('plugins.tl-1menu.config.intro')) ?></p>
 
     <label class="full-width"><?= e(__('plugins.tl-1menu.config.mensa')) ?>
-        <select name="plugin_settings[<?= e($plugin->getName()) ?>][mensa]">
+        <select name="plugin_settings[<?= e($plugin->getName()) ?>][mensa]"<?= field_attrs($fieldPrefix . 'mensa', $formId) ?>>
             <?php foreach ($mensen as $mensaKey): ?>
                 <option value="<?= e($mensaKey) ?>" <?= selected($settings['mensa'], $mensaKey) ?>>
                     <?= e(__('plugins.tl-1menu.locations.' . $mensaKey, [], $mensaKey)) ?>
                 </option>
             <?php endforeach; ?>
         </select>
+        <?= field_error_html($fieldPrefix . 'mensa', $formId) ?>
     </label>
 
     <label class="full-width"><?= e(__('plugins.tl-1menu.config.language')) ?>
-        <select name="plugin_settings[<?= e($plugin->getName()) ?>][language]">
+        <select name="plugin_settings[<?= e($plugin->getName()) ?>][language]"<?= field_attrs($fieldPrefix . 'language', $formId) ?>>
             <option value="de" <?= selected($settings['language'], 'de') ?>><?= e(__('plugins.tl-1menu.languages.de')) ?></option>
             <option value="en" <?= selected($settings['language'], 'en') ?>><?= e(__('plugins.tl-1menu.languages.en')) ?></option>
         </select>
+        <?= field_error_html($fieldPrefix . 'language', $formId) ?>
     </label>
 
     <fieldset class="full-width">

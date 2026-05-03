@@ -214,7 +214,11 @@ class Plugin extends AbstractSlidePlugin
     private function getPluginConfig(): array
     {
         if ($this->config === null) {
-            $loaded = require __DIR__ . '/config.php';
+            $configFile = __DIR__ . '/config.php';
+            if (!is_file($configFile)) {
+                $configFile = __DIR__ . '/config.example.php';
+            }
+            $loaded = is_file($configFile) ? require $configFile : [];
             $this->config = is_array($loaded) ? $loaded : [];
         }
         return $this->config;

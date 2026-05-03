@@ -1,4 +1,8 @@
-<?php $title = __('locations.plural'); require __DIR__ . '/../layouts/admin_header.php'; ?>
+<?php
+$locationCreateForm = 'location_create';
+$title = __('locations.plural');
+require __DIR__ . '/../layouts/admin_header.php';
+?>
 <div class="page-head">
     <div>
         <h1><?= e(__('locations.plural')) ?></h1>
@@ -61,16 +65,20 @@
             <form method="post" action="<?= e(url('/admin/locations/create')) ?>" class="form-grid">
                 <?= csrf_field() ?>
                 <label><?= e(__('common.name')) ?>
-                    <input name="name" required>
+                    <input name="name" value="<?= e((string)old('name', '', $locationCreateForm)) ?>" placeholder="<?= e(__('locations.name_placeholder')) ?>" required<?= field_attrs('name', $locationCreateForm) ?>>
+                    <?= field_error_html('name', $locationCreateForm) ?>
                 </label>
                 <label><?= e(__('locations.address')) ?>
-                    <input name="address">
+                    <input name="address" value="<?= e((string)old('address', '', $locationCreateForm)) ?>" placeholder="<?= e(__('locations.address_placeholder')) ?>"<?= field_attrs('address', $locationCreateForm) ?>>
+                    <?= field_error_html('address', $locationCreateForm) ?>
                 </label>
                 <label><?= e(__('common.description')) ?>
-                    <textarea name="description" rows="3"></textarea>
+                    <textarea name="description" rows="3" placeholder="<?= e(__('locations.description_placeholder')) ?>"<?= field_attrs('description', $locationCreateForm) ?>><?= e((string)old('description', '', $locationCreateForm)) ?></textarea>
+                    <?= field_error_html('description', $locationCreateForm) ?>
                 </label>
                 <label><?= e(__('common.sort_order')) ?>
-                    <input type="number" name="sort_order" value="0" min="0">
+                    <input type="number" name="sort_order" value="<?= e((string)old('sort_order', '0', $locationCreateForm)) ?>" min="0" placeholder="<?= e(__('locations.sort_order_placeholder')) ?>"<?= field_attrs('sort_order', $locationCreateForm) ?>>
+                    <?= field_error_html('sort_order', $locationCreateForm) ?>
                 </label>
                 <button type="submit" class="button button--default"><?= admin_icon('add') ?><span><?= e(__('common.create')) ?></span></button>
             </form>

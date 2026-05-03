@@ -1,4 +1,8 @@
-<?php $title = __('media.title'); require __DIR__ . '/../layouts/admin_header.php'; ?>
+<?php
+$uploadForm = 'media_upload';
+$title = __('media.title');
+require __DIR__ . '/../layouts/admin_header.php';
+?>
 <div class="page-head">
     <div>
         <h1><?= e(__('media.title')) ?></h1>
@@ -14,10 +18,13 @@
         <form method="post" action="<?= e(url('/admin/media/upload')) ?>" enctype="multipart/form-data" class="form-grid">
             <?= csrf_field() ?>
             <label><?= e(__('common.name')) ?>
-                <input type="text" name="name" placeholder="<?= e(__('media.optional_display_name')) ?>">
+                <input type="text" name="name" value="<?= e((string)old('name', '', $uploadForm)) ?>" placeholder="<?= e(__('media.name_placeholder')) ?>"<?= field_attrs('name', $uploadForm) ?>>
+                <?= field_error_html('name', $uploadForm) ?>
             </label>
             <label><?= e(__('media.file')) ?>
-                <input type="file" name="media_file" accept="image/*,video/*" required>
+                <input type="file" name="media_file" accept="image/*,video/*" required<?= field_attrs('media_file', $uploadForm) ?>>
+                <?= field_error_html('media_file', $uploadForm) ?>
+                <small class="field-note"><?= e(__('forms.file_reselect_hint')) ?></small>
             </label>
             <button type="submit" class="button button--default"><?= admin_icon('upload') ?><span><?= e(__('media.upload_title')) ?></span></button>
         </form>

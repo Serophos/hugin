@@ -84,6 +84,112 @@ function flash(string $key, ?string $message = null): ?string
     return $value;
 }
 
+function flash_form_state(string $form, array $oldInput = [], array $errors = []): void
+{
+    $_SESSION['_form_state'][$form] = [
+        'old' => $oldInput,
+        'errors' => $errors,
+    ];
+}
+
+function form_state(string $form = 'default'): array
+{
+    static $state = null;
+
+    if ($state === null) {
+        $state = is_array($_SESSION['_form_state'] ?? null) ? $_SESSION['_form_state'] : [];
+        unset($_SESSION['_form_state']);
+    }
+
+    return is_array($state[$form] ?? null) ? $state[$form] : [];
+}
+
+function form_has_old(string $form = 'default'): bool
+{
+    $state = form_state($form);
+    return array_key_exists('old', $state) && is_array($state['old']);
+}
+
+function old_input(string $form = 'default'): array
+{
+    $state = form_state($form);
+    return is_array($state['old'] ?? null) ? $state['old'] : [];
+}
+
+function form_data_get(array $data, string $key, mixed $default = null): mixed
+{
+    if (array_key_exists($key, $data)) {
+        return $data[$key];
+    }
+
+    $segments = explode('.', $key);
+    $value = $data;
+    foreach ($segments as $segment) {
+        if (!is_array($value) || !array_key_exists($segment, $value)) {
+            return $default;
+        }
+        $value = $value[$segment];
+    }
+
+    return $value;
+}
+
+function old(string $key, mixed $default = '', string $form = 'default'): mixed
+{
+    $state = form_state($form);
+    $old = is_array($state['old'] ?? null) ? $state['old'] : [];
+    return form_data_get($old, $key, $default);
+}
+
+function old_array(string $key, array $default = [], string $form = 'default'): array
+{
+    $value = old($key, $default, $form);
+    return is_array($value) ? $value : ($value === null || $value === '' ? [] : [$value]);
+}
+
+function old_checked(string $key, mixed $default = false, string $form = 'default'): string
+{
+    $value = form_has_old($form) ? old($key, false, $form) : $default;
+    return checked(!empty($value));
+}
+
+function old_selected(string $key, mixed $option, mixed $default = '', string $form = 'default'): string
+{
+    return selected(old($key, $default, $form), $option);
+}
+
+function field_error(string $key, string $form = 'default'): ?string
+{
+    $state = form_state($form);
+    $errors = is_array($state['errors'] ?? null) ? $state['errors'] : [];
+    $message = form_data_get($errors, $key);
+    return is_string($message) && $message !== '' ? $message : null;
+}
+
+function field_error_id(string $key, string $form = 'default'): string
+{
+    return 'error-' . preg_replace('/[^a-zA-Z0-9_-]+/', '-', $form . '-' . $key);
+}
+
+function field_attrs(string $key, string $form = 'default'): string
+{
+    if (!field_error($key, $form)) {
+        return '';
+    }
+
+    return ' class="is-invalid" aria-invalid="true" aria-describedby="' . e(field_error_id($key, $form)) . '"';
+}
+
+function field_error_html(string $key, string $form = 'default'): string
+{
+    $message = field_error($key, $form);
+    if (!$message) {
+        return '';
+    }
+
+    return '<small id="' . e(field_error_id($key, $form)) . '" class="field-error">' . e($message) . '</small>';
+}
+
 function selected(mixed $a, mixed $b): string
 {
     return (string)$a === (string)$b ? 'selected' : '';
@@ -138,6 +244,12 @@ function require_csrf(): void
 {
     $token = $_POST['_csrf'] ?? $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
     if (!is_string($token) || !hash_equals(csrf_token(), $token)) {
+        $refererPath = parse_url((string)($_SERVER['HTTP_REFERER'] ?? ''), PHP_URL_PATH);
+        if (is_string($refererPath) && str_starts_with($refererPath, '/admin')) {
+            flash('error', __('errors.csrf_mismatch', [], 'CSRF token mismatch.'));
+            redirect($refererPath);
+        }
+
         http_response_code(419);
         echo __('errors.csrf_mismatch', [], 'CSRF token mismatch.');
         exit;

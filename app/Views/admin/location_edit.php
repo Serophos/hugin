@@ -1,4 +1,9 @@
-<?php $title = __('common.edit') . ': ' . $location['name']; require __DIR__ . '/../layouts/admin_header.php'; ?>
+<?php
+$locationEditForm = 'location_edit';
+$groupCreateForm = 'display_group_create';
+$title = __('common.edit') . ': ' . $location['name'];
+require __DIR__ . '/../layouts/admin_header.php';
+?>
 <div class="page-head">
     <div>
         <h1><?= e($location['name']) ?></h1>
@@ -17,16 +22,20 @@
             <form method="post" action="<?= e(url('/admin/locations/' . $location['id'] . '/edit')) ?>" class="form-grid compact-grid">
                 <?= csrf_field() ?>
                 <label><?= e(__('common.name')) ?>
-                    <input name="name" value="<?= e($location['name']) ?>" required>
+                    <input name="name" value="<?= e((string)old('name', $location['name'], $locationEditForm)) ?>" placeholder="<?= e(__('locations.name_placeholder')) ?>" required<?= field_attrs('name', $locationEditForm) ?>>
+                    <?= field_error_html('name', $locationEditForm) ?>
                 </label>
                 <label><?= e(__('locations.address')) ?>
-                    <input name="address" value="<?= e($location['address'] ?? '') ?>">
+                    <input name="address" value="<?= e((string)old('address', $location['address'] ?? '', $locationEditForm)) ?>" placeholder="<?= e(__('locations.address_placeholder')) ?>"<?= field_attrs('address', $locationEditForm) ?>>
+                    <?= field_error_html('address', $locationEditForm) ?>
                 </label>
                 <label><?= e(__('common.sort_order')) ?>
-                    <input type="number" name="sort_order" value="<?= e((string)$location['sort_order']) ?>" min="0">
+                    <input type="number" name="sort_order" value="<?= e((string)old('sort_order', $location['sort_order'], $locationEditForm)) ?>" min="0" placeholder="<?= e(__('locations.sort_order_placeholder')) ?>"<?= field_attrs('sort_order', $locationEditForm) ?>>
+                    <?= field_error_html('sort_order', $locationEditForm) ?>
                 </label>
                 <label class="full-width"><?= e(__('common.description')) ?>
-                    <textarea name="description" rows="3"><?= e($location['description'] ?? '') ?></textarea>
+                    <textarea name="description" rows="3" placeholder="<?= e(__('locations.description_placeholder')) ?>"<?= field_attrs('description', $locationEditForm) ?>><?= e((string)old('description', $location['description'] ?? '', $locationEditForm)) ?></textarea>
+                    <?= field_error_html('description', $locationEditForm) ?>
                 </label>
                 <div class="form-actions full-width">
                     <button type="submit" class="button button--default"><?= admin_icon('save') ?><span><?= e(__('common.save')) ?></span></button>
@@ -87,13 +96,16 @@
                 <input type="hidden" name="location_id" value="<?= e((string)$location['id']) ?>">
                 <input type="hidden" name="return_to" value="<?= e('/admin/locations/' . $location['id'] . '/edit') ?>">
                 <label><?= e(__('common.name')) ?>
-                    <input name="name" required>
+                    <input name="name" value="<?= e((string)old('name', '', $groupCreateForm)) ?>" placeholder="<?= e(__('display_groups.name_placeholder')) ?>" required<?= field_attrs('name', $groupCreateForm) ?>>
+                    <?= field_error_html('name', $groupCreateForm) ?>
                 </label>
                 <label><?= e(__('common.description')) ?>
-                    <textarea name="description" rows="3"></textarea>
+                    <textarea name="description" rows="3" placeholder="<?= e(__('display_groups.description_placeholder')) ?>"<?= field_attrs('description', $groupCreateForm) ?>><?= e((string)old('description', '', $groupCreateForm)) ?></textarea>
+                    <?= field_error_html('description', $groupCreateForm) ?>
                 </label>
                 <label><?= e(__('common.sort_order')) ?>
-                    <input type="number" name="sort_order" value="0" min="0">
+                    <input type="number" name="sort_order" value="<?= e((string)old('sort_order', '0', $groupCreateForm)) ?>" min="0" placeholder="<?= e(__('display_groups.sort_order_placeholder')) ?>"<?= field_attrs('sort_order', $groupCreateForm) ?>>
+                    <?= field_error_html('sort_order', $groupCreateForm) ?>
                 </label>
                 <button type="submit" class="button button--default"><?= admin_icon('add') ?><span><?= e(__('common.create')) ?></span></button>
             </form>

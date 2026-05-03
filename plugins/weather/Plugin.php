@@ -11,7 +11,6 @@ class Plugin extends AbstractSlidePlugin
     private const DEFAULT_WEATHER_BASE_URL = 'https://api.open-meteo.com/v1/forecast';
 
     private array $config;
-    private ?array $translations = null;
 
     public function __construct(array $manifest, string $rootPath)
     {
@@ -208,8 +207,7 @@ class Plugin extends AbstractSlidePlugin
 
     public function t(string $key, string $default = ''): string
     {
-        $messages = $this->getTranslations();
-        return array_key_exists($key, $messages) ? (string)$messages[$key] : $default;
+        return __('plugins.' . $this->getName() . '.' . ltrim($key, '.'), [], $default);
     }
 
     public function adminStrings(): array
@@ -239,49 +237,15 @@ class Plugin extends AbstractSlidePlugin
             'title' => $this->t('plugin.weather.global.title', 'Open-Meteo API settings'),
             'description' => $this->t('plugin.weather.global.description', 'Configure the Open-Meteo endpoints used by all weather slides. Leave the API key empty for the public non-commercial API.'),
             'weather_base_url' => $this->t('plugin.weather.global.weather_base_url', 'Weather API endpoint'),
+            'weather_base_url_placeholder' => $this->t('plugin.weather.global.weather_base_url_placeholder', 'https://api.open-meteo.com/v1/forecast'),
             'weather_base_url_help' => $this->t('plugin.weather.global.weather_base_url_help', 'Default public endpoint: https://api.open-meteo.com/v1/forecast'),
             'geocoding_base_url' => $this->t('plugin.weather.global.geocoding_base_url', 'Geocoding API endpoint'),
+            'geocoding_base_url_placeholder' => $this->t('plugin.weather.global.geocoding_base_url_placeholder', 'https://geocoding-api.open-meteo.com/v1/search'),
             'geocoding_base_url_help' => $this->t('plugin.weather.global.geocoding_base_url_help', 'Default public endpoint: https://geocoding-api.open-meteo.com/v1/search'),
             'api_key' => $this->t('plugin.weather.global.api_key', 'API key'),
+            'api_key_placeholder' => $this->t('plugin.weather.global.api_key_placeholder', 'Optional, e.g. open-meteo commercial key'),
             'api_key_help' => $this->t('plugin.weather.global.api_key_help', 'The key is stored in the database and sent only from server-side API requests.'),
         ];
-    }
-
-    private function getTranslations(): array
-    {
-        if ($this->translations !== null) {
-            return $this->translations;
-        }
-
-        $locale = 'en';
-        $configFile = dirname($this->rootPath, 2) . '/config/config.php';
-        if (is_file($configFile)) {
-            $config = require $configFile;
-            if (is_array($config)) {
-                $app = is_array($config['app'] ?? null) ? $config['app'] : [];
-                $locale = (string)($app['locale'] ?? 'en');
-            }
-        }
-
-        $messages = [];
-        $fallbackFile = $this->rootPath . '/lang/en.php';
-        if (is_file($fallbackFile)) {
-            $loaded = require $fallbackFile;
-            if (is_array($loaded)) {
-                $messages = $loaded;
-            }
-        }
-
-        $localeFile = $this->rootPath . '/lang/' . preg_replace('/[^a-z0-9_-]/i', '', strtolower($locale)) . '.php';
-        if (is_file($localeFile)) {
-            $loaded = require $localeFile;
-            if (is_array($loaded)) {
-                $messages = array_replace($messages, $loaded);
-            }
-        }
-
-        $this->translations = $messages;
-        return $messages;
     }
 
     private function sanitizeCoordinate(mixed $value, string $field): string
