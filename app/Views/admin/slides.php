@@ -74,7 +74,7 @@ require __DIR__ . '/../layouts/admin_header.php';
         $returnTo = '/admin/slides#' . $channelAnchor;
         $createUrl = '/admin/slides/create?channel_id=' . (int)$group['channel_id'] . '&return_to=' . rawurlencode($returnTo);
     ?>
-    <details class="card slide-group" id="<?= e($channelAnchor) ?>" open>
+    <details class="card slide-group" id="<?= e($channelAnchor) ?>">
         <summary>
             <span class="slide-group__title">
                 <span class="slide-group__chevron" aria-hidden="true"></span>
