@@ -17,35 +17,21 @@
         <?php endif; ?>
     </div>
     <?php if (current_user()): ?>
-        <?php
-            $currentPath = parse_url($_SERVER['REQUEST_URI'] ?? '/admin', PHP_URL_PATH) ?: '/admin';
-            $navItems = [
-                ['path' => '/admin', 'label' => __('nav.dashboard'), 'icon' => 'dashboard'],
-                ['path' => '/admin/locations', 'label' => __('nav.locations'), 'icon' => 'locations', 'admin' => true],
-                ['path' => '/admin/displays', 'label' => __('nav.displays'), 'icon' => 'displays', 'admin' => true],
-                ['path' => '/admin/channels', 'label' => __('nav.channels'), 'icon' => 'channels'],
-                ['path' => '/admin/schedules', 'label' => __('nav.schedules'), 'icon' => 'schedules'],
-                ['path' => '/admin/slides', 'label' => __('nav.slides'), 'icon' => 'slides'],
-                ['path' => '/admin/media', 'label' => __('nav.media'), 'icon' => 'media'],
-                ['path' => '/admin/plugins', 'label' => __('nav.plugins'), 'icon' => 'plugins', 'admin' => true],
-                ['path' => '/admin/users', 'label' => __('nav.users'), 'icon' => 'users', 'admin' => true],
-                ['path' => '/admin/about', 'label' => __('nav.about'), 'icon' => 'about'],
-            ];
-        ?>
         <nav class="main-nav">
-            <?php foreach ($navItems as $item): ?>
-                <?php if (!empty($item['admin']) && !is_admin()) {
-                    continue;
-                }
-                $active = $item['path'] === '/admin'
-                    ? $currentPath === '/admin' || $currentPath === '/admin/'
-                    : substr($currentPath, 0, strlen($item['path'])) === $item['path'];
-                ?>
-                <a href="<?= e(url($item['path'])) ?>" class="<?= $active ? 'active' : '' ?>"<?= $active ? ' aria-current="page"' : '' ?> >
-                    <span class="nav-icon"><?= admin_icon($item['icon']) ?></span>
-                    <span><?= e($item['label']) ?></span>
-                </a>
-            <?php endforeach; ?>
+            <a href="<?= e(url('/admin')) ?>"><?= e(__('nav.dashboard')) ?></a>
+            <?php if (is_admin()): ?>
+                <a href="<?= e(url('/admin/locations')) ?>"><?= e(__('nav.locations')) ?></a>
+                <a href="<?= e(url('/admin/displays')) ?>"><?= e(__('nav.displays')) ?></a>
+            <?php endif; ?>
+            <a href="<?= e(url('/admin/channels')) ?>"><?= e(__('nav.channels')) ?></a>
+            <a href="<?= e(url('/admin/schedules')) ?>"><?= e(__('nav.schedules')) ?></a>
+            <a href="<?= e(url('/admin/slides')) ?>"><?= e(__('nav.slides')) ?></a>
+            <a href="<?= e(url('/admin/media')) ?>"><?= e(__('nav.media')) ?></a>
+            <?php if (is_admin()): ?>
+                <a href="<?= e(url('/admin/plugins')) ?>"><?= e(__('nav.plugins')) ?></a>
+                <a href="<?= e(url('/admin/users')) ?>"><?= e(__('nav.users')) ?></a>
+            <?php endif; ?>
+            <a href="<?= e(url('/admin/about')) ?>"><?= e(__('nav.about')) ?></a>
             <form method="post" action="<?= e(url('/admin/logout')) ?>" class="inline-form">
                 <?= csrf_field() ?>
                 <button type="submit" class="link-button"><?= e(__('common.logout')) ?></button>
