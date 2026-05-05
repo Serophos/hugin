@@ -59,13 +59,24 @@ if (preg_match('#^/admin/display-groups/(\d+)/edit$#', $uri, $m) && $method === 
 if (preg_match('#^/admin/display-groups/(\d+)/delete$#', $uri, $m) && $method === 'POST') { $admin->deleteDisplayGroup((int)$m[1]); exit; }
 if (preg_match('#^/admin/display-groups/(\d+)/layout$#', $uri, $m) && $method === 'POST') { $admin->saveDisplayGroupLayout((int)$m[1]); exit; }
 
-if ($uri === '/admin/channels' && $method === 'GET') { $admin->channels(); exit; }
-if ($uri === '/admin/channels/create' && $method === 'GET') { $admin->channelForm(); exit; }
-if ($uri === '/admin/channels/create' && $method === 'POST') { $admin->saveChannel(); exit; }
-if (preg_match('#^/admin/channels/(\d+)/edit$#', $uri, $m) && $method === 'GET') { $admin->channelForm((int)$m[1]); exit; }
-if (preg_match('#^/admin/channels/(\d+)/edit$#', $uri, $m) && $method === 'POST') { $admin->saveChannel((int)$m[1]); exit; }
-if (preg_match('#^/admin/channels/(\d+)/delete$#', $uri, $m) && $method === 'POST') { $admin->deleteChannel((int)$m[1]); exit; }
-if ($uri === '/admin/sort/channels' && $method === 'POST') { $admin->sortChannels(); exit; }
+// Legacy channel routes redirect to playlists for compatibility.
+if ($uri === '/admin/channels' && $method === 'GET') { $admin->playlists(); exit; }
+if ($uri === '/admin/channels/create' && $method === 'GET') { $admin->playlistForm(); exit; }
+if ($uri === '/admin/channels/create' && $method === 'POST') { $admin->savePlaylist(); exit; }
+if (preg_match('#^/admin/channels/(\d+)/edit$#', $uri, $m) && $method === 'GET') { $admin->playlistForm((int)$m[1]); exit; }
+if (preg_match('#^/admin/channels/(\d+)/edit$#', $uri, $m) && $method === 'POST') { $admin->savePlaylist((int)$m[1]); exit; }
+if (preg_match('#^/admin/channels/(\d+)/delete$#', $uri, $m) && $method === 'POST') { $admin->deletePlaylist((int)$m[1]); exit; }
+if ($uri === '/admin/sort/channels' && $method === 'POST') { $admin->sortPlaylists(); exit; }
+if (preg_match('#^/admin/channels/(\d+)/slides/add$#', $uri, $m) && $method === 'POST') { $admin->addSlidesToPlaylist((int)$m[1]); exit; }
+if (preg_match('#^/admin/channels/(\d+)/slides/(\d+)/remove$#', $uri, $m) && $method === 'POST') { $admin->removeSlideFromPlaylist((int)$m[2], (int)$m[1]); exit; }
+
+if ($uri === '/admin/playlists' && $method === 'GET') { $admin->playlists(); exit; }
+if ($uri === '/admin/playlists/create' && $method === 'GET') { $admin->playlistForm(); exit; }
+if ($uri === '/admin/playlists/create' && $method === 'POST') { $admin->savePlaylist(); exit; }
+if (preg_match('#^/admin/playlists/(\d+)/edit$#', $uri, $m) && $method === 'GET') { $admin->playlistForm((int)$m[1]); exit; }
+if (preg_match('#^/admin/playlists/(\d+)/edit$#', $uri, $m) && $method === 'POST') { $admin->savePlaylist((int)$m[1]); exit; }
+if (preg_match('#^/admin/playlists/(\d+)/delete$#', $uri, $m) && $method === 'POST') { $admin->deletePlaylist((int)$m[1]); exit; }
+if ($uri === '/admin/sort/playlists' && $method === 'POST') { $admin->sortPlaylists(); exit; }
 
 if ($uri === '/admin/slides' && $method === 'GET') { $admin->slides(); exit; }
 if ($uri === '/admin/slides/create' && $method === 'GET') { $admin->slideForm(); exit; }
@@ -73,8 +84,8 @@ if ($uri === '/admin/slides/create' && $method === 'POST') { $admin->saveSlide()
 if (preg_match('#^/admin/slides/(\d+)/edit$#', $uri, $m) && $method === 'GET') { $admin->slideForm((int)$m[1]); exit; }
 if (preg_match('#^/admin/slides/(\d+)/edit$#', $uri, $m) && $method === 'POST') { $admin->saveSlide((int)$m[1]); exit; }
 if (preg_match('#^/admin/slides/(\d+)/delete$#', $uri, $m) && $method === 'POST') { $admin->deleteSlide((int)$m[1]); exit; }
-if (preg_match('#^/admin/channels/(\d+)/slides/add$#', $uri, $m) && $method === 'POST') { $admin->addSlidesToChannel((int)$m[1]); exit; }
-if (preg_match('#^/admin/channels/(\d+)/slides/(\d+)/remove$#', $uri, $m) && $method === 'POST') { $admin->removeSlideFromChannel((int)$m[2], (int)$m[1]); exit; }
+if (preg_match('#^/admin/playlists/(\d+)/slides/add$#', $uri, $m) && $method === 'POST') { $admin->addSlidesToPlaylist((int)$m[1]); exit; }
+if (preg_match('#^/admin/playlists/(\d+)/slides/(\d+)/remove$#', $uri, $m) && $method === 'POST') { $admin->removeSlideFromPlaylist((int)$m[2], (int)$m[1]); exit; }
 if ($uri === '/admin/sort/slides' && $method === 'POST') { $admin->sortSlides(); exit; }
 
 if ($uri === '/admin/media' && $method === 'GET') { $admin->media(); exit; }

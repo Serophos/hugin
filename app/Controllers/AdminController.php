@@ -797,7 +797,7 @@ class AdminController
         json_response(['ok' => true, 'message' => __('display_groups.layout_saved')]);
     }
 
-    public function channels(): void
+    public function playlists(): void
     {
         $this->auth->requireLogin();
 
@@ -824,17 +824,17 @@ class AdminController
             $groups[$row['display_id']]['channels'][] = $row;
         }
 
-        $this->view->render('admin/channels', ['groups' => $groups, 'flash' => flash('success')]);
+        $this->view->render('admin/playlists', ['groups' => $groups, 'flash' => flash('success')]);
     }
 
-    public function channelForm(?int $id = null): void
+    public function playlistForm(?int $id = null): void
     {
         $this->auth->requireLogin();
 
         $channel = $id ? $this->db->one('SELECT * FROM channels WHERE id = ?', [$id]) : null;
         if ($id && !$channel) {
             flash('error', __('channel.not_found'));
-            redirect('/admin/channels');
+            redirect('/admin/playlists');
         }
 
         $displays = $this->db->all('SELECT id, name FROM displays ORDER BY sort_order ASC, name ASC');
@@ -856,7 +856,7 @@ class AdminController
             );
         }
 
-        $this->view->render('admin/channel_form', [
+        $this->view->render('admin/playlist_form', [
             'channel' => $channel,
             'displays' => $displays,
             'assignments' => $assignments,
@@ -865,13 +865,13 @@ class AdminController
         ]);
     }
 
-    public function saveChannel(?int $id = null): void
+    public function savePlaylist(?int $id = null): void
     {
         $this->auth->requireLogin();
 
         if ($id && !$this->db->one('SELECT id FROM channels WHERE id = ?', [$id])) {
             flash('error', __('channel.not_found'));
-            redirect('/admin/channels');
+            redirect('/admin/playlists');
         }
 
         $nameRaw = (string)$this->request->input('name');
@@ -916,7 +916,7 @@ class AdminController
         }
         if ($errors !== []) {
             $this->redirectWithForm(
-                $id ? '/admin/channels/' . $id . '/edit' : '/admin/channels/create',
+                $id ? '/admin/playlists/' . $id . '/edit' : '/admin/playlists/create',
                 __('validation.fix_marked_fields'),
                 $old,
                 $errors,
@@ -968,18 +968,18 @@ class AdminController
         }
 
         flash('success', __($id ? 'channel.updated' : 'channel.created'));
-        redirect('/admin/channels');
+        redirect('/admin/playlists');
     }
 
-    public function deleteChannel(int $id): void
+    public function deletePlaylist(int $id): void
     {
         $this->auth->requireLogin();
         $this->db->execute('DELETE FROM channels WHERE id = ?', [$id]);
         flash('success', __('channel.deleted'));
-        redirect('/admin/channels');
+        redirect('/admin/playlists');
     }
 
-    public function sortChannels(): void
+    public function sortPlaylists(): void
     {
         $this->auth->requireLogin();
         $displayId = (int)$this->request->input('display_id');
@@ -1479,7 +1479,7 @@ class AdminController
         redirect($this->adminReturnPath('/admin/slides'));
     }
 
-    public function removeSlideFromChannel(int $slideId, int $channelId): void
+    public function removeSlideFromPlaylist(int $slideId, int $channelId): void
     {
         $this->auth->requireLogin();
 
@@ -1509,7 +1509,7 @@ class AdminController
         redirect($this->adminReturnPath('/admin/slides'));
     }
 
-    public function addSlidesToChannel(int $channelId): void
+    public function addSlidesToPlaylist(int $channelId): void
     {
         $this->auth->requireLogin();
 

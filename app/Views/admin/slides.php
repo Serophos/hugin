@@ -65,7 +65,7 @@ require __DIR__ . '/../layouts/admin_header.php';
     <?php if ($groups === []): ?>
         <div class="card">
             <p class="muted"><?= e(__('slide.no_channels_configured')) ?></p>
-            <a class="button button--default" href="<?= e(url('/admin/channels/create')) ?>"><?= admin_icon('add') ?><span><?= e(__('channel.new')) ?></span></a>
+            <a class="button button--default" href="<?= e(url('/admin/playlists/create')) ?>"><?= admin_icon('add') ?><span><?= e(__('channel.new')) ?></span></a>
         </div>
     <?php endif; ?>
     <?php foreach ($groups as $group): ?>
@@ -95,7 +95,7 @@ require __DIR__ . '/../layouts/admin_header.php';
                     data-open-slide-picker
                     data-channel-id="<?= e((string)$group['channel_id']) ?>"
                     data-channel-name="<?= e($group['channel_name']) ?>"
-                    data-action="<?= e(url('/admin/channels/' . $group['channel_id'] . '/slides/add')) ?>"
+                    data-action="<?= e(url('/admin/playlists/' . $group['channel_id'] . '/slides/add')) ?>"
                     data-return-to="<?= e($returnTo) ?>"
                     data-assigned-slide-ids="<?= e(json_encode(array_values(array_unique($group['slide_ids'] ?? [])), JSON_UNESCAPED_SLASHES)) ?>"
                 ><?= admin_icon('add') ?><span><?= e(__('slide.add_existing_to_channel')) ?></span></button>
@@ -119,7 +119,7 @@ require __DIR__ . '/../layouts/admin_header.php';
                                 <a class="button button--normal button--small" href="<?= e(url('/admin/slides/' . $slide['id'] . '/edit?return_to=' . rawurlencode($returnTo))) ?>"><?= admin_icon('edit') ?><span><?= e(__('slide.edit_content')) ?></span></a>
                                 <form
                                     method="post"
-                                    action="<?= e(url('/admin/channels/' . $group['channel_id'] . '/slides/' . $slide['id'] . '/remove')) ?>"
+                                    action="<?= e(url('/admin/playlists/' . $group['channel_id'] . '/slides/' . $slide['id'] . '/remove')) ?>"
                                     class="inline-form"
                                     data-confirm-submit
                                     data-confirm-title="<?= e(__('slide.remove_from_channel')) ?>"

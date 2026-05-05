@@ -23,7 +23,7 @@
                 <a href="<?= e(url('/admin/locations')) ?>"><?= e(__('nav.locations')) ?></a>
                 <a href="<?= e(url('/admin/displays')) ?>"><?= e(__('nav.displays')) ?></a>
             <?php endif; ?>
-            <a href="<?= e(url('/admin/channels')) ?>"><?= e(__('nav.channels')) ?></a>
+            <a href="<?= e(url('/admin/playlists')) ?>"><?= e(__('nav.playlists')) ?></a>
             <a href="<?= e(url('/admin/schedules')) ?>"><?= e(__('nav.schedules')) ?></a>
             <a href="<?= e(url('/admin/slides')) ?>"><?= e(__('nav.slides')) ?></a>
             <a href="<?= e(url('/admin/media')) ?>"><?= e(__('nav.media')) ?></a>

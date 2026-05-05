@@ -22,7 +22,7 @@ require __DIR__ . '/../layouts/admin_header.php';
 <h1><?= e($title) ?></h1>
 <?php if ($error): ?><div class="alert error"><?= e($error) ?></div><?php endif; ?>
 <div class="card">
-    <form method="post" action="<?= e($channel ? url('/admin/channels/' . $channel['id'] . '/edit') : url('/admin/channels/create')) ?>" class="form-grid">
+    <form method="post" action="<?= e($channel ? url('/admin/playlists/' . $channel['id'] . '/edit') : url('/admin/playlists/create')) ?>" class="form-grid">
         <?= csrf_field() ?>
         <label><?= e(__('common.name')) ?>
             <input type="text" name="name" value="<?= e((string)old('name', $channel['name'] ?? '', $formId)) ?>" placeholder="<?= e(__('channel.name_placeholder')) ?>" required<?= field_attrs('name', $formId) ?>>
@@ -87,7 +87,7 @@ require __DIR__ . '/../layouts/admin_header.php';
             <button type="button" class="button button--normal" id="add-assignment"><?= admin_icon('add') ?><span><?= e(__('channel.add_assignment')) ?></span></button>
         </div>
 
-        <div class="form-actions"><button type="submit" class="button button--default"><?= admin_icon('save') ?><span><?= e(__('common.save')) ?></span></button><a class="button button--normal" href="<?= e(url('/admin/channels')) ?>"><?= admin_icon('cancel') ?><span><?= e(__('common.cancel')) ?></span></a></div>
+        <div class="form-actions"><button type="submit" class="button button--default"><?= admin_icon('save') ?><span><?= e(__('common.save')) ?></span></button><a class="button button--normal" href="<?= e(url('/admin/playlists')) ?>"><?= admin_icon('cancel') ?><span><?= e(__('common.cancel')) ?></span></a></div>
     </form>
 </div>
 <script>
