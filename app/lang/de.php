@@ -21,7 +21,7 @@
 
 return [
     'app' => [
-        'name' => 'Hugin | Open Source Digital Signage',
+        'name' => 'Hugin',
         'admin' => 'Admin',
         'tagline' => 'Mächtige, kostenlose und quelloffene Digital Signage-Software für alle.',
         'description' => 'Hugin ist eine Plattform für Digital Signage und Informationsanzeigen zur zentralen Verwaltung von Displays, Kanälen, Zeitplänen und Slide-Inhalten.',
@@ -436,7 +436,14 @@ return [
         'file' => 'Datei',
         'allowed_formats' => 'Erlaubte Formate: JPG, PNG, GIF, WEBP, MP4, WEBM, OGG',
         'max_size_note' => 'Die maximale Upload-Größe kommt aus config/config.php',
-        'permissions_note' => 'Bearbeiter dürfen Dateien hochladen; nur Administratoren dürfen sie löschen',
+        'permissions_note' => 'Bearbeiter dürfen Dateien hochladen und löschen',
+        'all' => 'Alle',
+        'images' => 'Bilder',
+        'videos' => 'Videos',
+        'showing_assets' => 'Zeige :count von :total Medienobjekten',
+        'previous_page' => 'Vorherige Seite',
+        'next_page' => 'Nächste Seite',
+        'page_of' => 'Seite :page von :count',
         'used_by_slides' => 'Verwendet von Slides',
         'uploaded_by' => 'Hochgeladen von',
         'uploaded' => 'Medium hochgeladen.',

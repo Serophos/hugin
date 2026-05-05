@@ -44,7 +44,7 @@ require __DIR__ . '/../layouts/admin_header.php';
         <label><?= e(__('slide.title_position')) ?>
             <select name="title_position"<?= field_attrs('title_position', $formId) ?>>
                 <?php foreach (['hide','top-left','top-right','bottom-left','bottom-right','center'] as $position): ?>
-                    <option value="<?= e($position) ?>" <?= old_selected('title_position', $position, $slide['title_position'] ?? 'bottom-left', $formId) ?>><?= e(enum_label('title_positions', $position, $position)) ?></option>
+                    <option value="<?= e($position) ?>" <?= old_selected('title_position', $position, $slide['title_position'] ?? 'hide', $formId) ?>><?= e(enum_label('title_positions', $position, $position)) ?></option>
                 <?php endforeach; ?>
             </select>
             <?= field_error_html('title_position', $formId) ?>

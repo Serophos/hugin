@@ -12,6 +12,8 @@ use RuntimeException;
 
 class AdminController
 {
+    private const MEDIA_PAGE_SIZE = 20;
+
     public function __construct(
         private Database $db,
         private View $view,
@@ -1574,14 +1576,52 @@ class AdminController
     public function media(): void
     {
         $this->auth->requireLogin();
+
+        $kind = trim((string)$this->request->input('kind', ''));
+        $allowedKinds = ['image', 'video'];
+        if ($kind !== '' && !in_array($kind, $allowedKinds, true)) {
+            $kind = '';
+        }
+
+        $page = max(1, (int)$this->request->input('page', 1));
+        $pageSize = self::MEDIA_PAGE_SIZE;
+        $where = '';
+        $params = [];
+
+        if ($kind !== '') {
+            $where = ' WHERE m.media_kind = ?';
+            $params[] = $kind;
+        }
+
+        $countResult = $this->db->one('SELECT COUNT(*) AS total FROM media_assets m' . $where, $params);
+        $totalCount = (int)($countResult['total'] ?? 0);
+        $pageCount = max(1, (int)ceil($totalCount / $pageSize));
+
+        if ($page > $pageCount) {
+            $page = $pageCount;
+        }
+
+        $offset = ($page - 1) * $pageSize;
         $media = $this->db->all(
             'SELECT m.*, COALESCE(u.display_name, u.username) AS uploaded_by,
                     (SELECT COUNT(*) FROM slides s WHERE s.media_asset_id = m.id) AS usage_count
              FROM media_assets m
-             LEFT JOIN users u ON u.id = m.uploaded_by_user_id
-             ORDER BY m.created_at DESC, m.id DESC'
+             LEFT JOIN users u ON u.id = m.uploaded_by_user_id'
+             . $where .
+             ' ORDER BY m.created_at DESC, m.id DESC
+             LIMIT ? OFFSET ?',
+            array_merge($params, [$pageSize, $offset])
         );
-        $this->view->render('admin/media', ['media' => $media, 'flash' => flash('success'), 'error' => flash('error')]);
+
+        $this->view->render('admin/media', [
+            'media' => $media,
+            'kind' => $kind,
+            'page' => $page,
+            'pageCount' => $pageCount,
+            'totalCount' => $totalCount,
+            'flash' => flash('success'),
+            'error' => flash('error'),
+        ]);
     }
 
     public function uploadMedia(): void
@@ -1604,7 +1644,13 @@ class AdminController
 
     public function deleteMedia(int $id): void
     {
-        $this->auth->requireRole('admin');
+        $this->auth->requireLogin();
+        $role = $this->auth->user()['role'] ?? '';
+        if ($role !== 'admin' && $role !== 'editor') {
+            http_response_code(403);
+            echo __('errors.forbidden', [], 'Forbidden');
+            exit;
+        }
         $asset = $this->db->one('SELECT * FROM media_assets WHERE id = ?', [$id]);
         if (!$asset) {
             flash('error', __('media.not_found'));
