@@ -359,7 +359,7 @@ return [
         'title_position' => 'Title position',
         'duration_optional' => 'Duration (seconds, optional)',
         'duration_placeholder' => 'e.g. 10',
-        'source_mode' => 'Source mode',
+        'source_mode' => 'Image Source',
         'invalid_source_mode' => 'Please choose a valid source mode.',
         'source_url' => 'Source URL',
         'source_url_placeholder' => 'e.g. https://example.com/status',

@@ -379,7 +379,7 @@ return [
         'title_position' => 'Titelposition',
         'duration_optional' => 'Dauer (Sekunden, optional)',
         'duration_placeholder' => 'z. B. 10',
-        'source_mode' => 'Quellmodus',
+        'source_mode' => 'Bildquelle',
         'invalid_source_mode' => 'Bitte wählen Sie einen gültigen Quellmodus aus.',
         'source_url' => 'Quell-URL',
         'source_url_placeholder' => 'z. B. https://example.com/status',
