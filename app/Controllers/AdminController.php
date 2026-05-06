@@ -2157,7 +2157,7 @@ class AdminController
                     s.type = \'fulltime\'
                     OR (s.type = \'weekly_time_slot\' AND sr.id IS NOT NULL)
                )
-             ORDER BY cdsa.priority ASC, cdsa.id ASC, sr.id ASC
+             ORDER BY CASE WHEN s.type = \'fulltime\' THEN 1 ELSE 0 END ASC, cdsa.priority ASC, cdsa.id ASC, sr.id ASC
              LIMIT 1',
             [$weekday, $currentTime, $currentTime, $display['id']]
         );
