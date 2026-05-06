@@ -245,6 +245,18 @@ function require_csrf(): void
     $token = $_POST['_csrf'] ?? $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
     if (!is_string($token) || !hash_equals(csrf_token(), $token)) {
         $refererPath = parse_url((string)($_SERVER['HTTP_REFERER'] ?? ''), PHP_URL_PATH);
+        if (request_body_too_large()) {
+            $errorMessage = __('errors.request_too_large', [], 'Request body too large. Please upload a smaller file or raise your server limit.');
+            if (is_string($refererPath) && str_starts_with($refererPath, '/admin')) {
+                flash('error', $errorMessage);
+                redirect($refererPath);
+            }
+
+            http_response_code(413);
+            echo $errorMessage;
+            exit;
+        }
+
         if (is_string($refererPath) && str_starts_with($refererPath, '/admin')) {
             flash('error', __('errors.csrf_mismatch', [], 'CSRF token mismatch.'));
             redirect($refererPath);
@@ -465,4 +477,44 @@ function format_bytes(int $bytes): string
         $value /= 1024;
     }
     return $bytes . ' B';
+}
+
+function parse_size(string $value): int
+{
+    if (!preg_match('/^\s*([\d.]+)\s*([kmgtpezy]?)b?\s*$/i', $value, $matches)) {
+        return 0;
+    }
+
+    $number = (float)$matches[1];
+    $unit = strtolower($matches[2]);
+
+    return (int) match ($unit) {
+        'k' => $number * 1024,
+        'm' => $number * 1024 ** 2,
+        'g' => $number * 1024 ** 3,
+        't' => $number * 1024 ** 4,
+        'p' => $number * 1024 ** 5,
+        'e' => $number * 1024 ** 6,
+        'z' => $number * 1024 ** 7,
+        'y' => $number * 1024 ** 8,
+        default => $number,
+    };
+}
+
+function request_body_too_large(): bool
+{
+    if (strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
+        return false;
+    }
+
+    $contentLength = (int)($_SERVER['CONTENT_LENGTH'] ?? 0);
+    if ($contentLength <= 0) {
+        return false;
+    }
+
+    $postMaxSize = parse_size((string)ini_get('post_max_size'));
+    $uploadMaxFilesize = parse_size((string)ini_get('upload_max_filesize'));
+    $limit = max($postMaxSize, $uploadMaxFilesize);
+
+    return $limit > 0 && $contentLength > $limit;
 }

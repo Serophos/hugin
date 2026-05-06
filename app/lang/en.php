@@ -534,6 +534,7 @@ return [
         'invalid_username_password' => 'Invalid username or password.',
         'page_not_found' => 'Page not found.',
         'csrf_mismatch' => 'CSRF token mismatch.',
+        'request_too_large' => 'Request body too large. Please upload a smaller file or raise your server limit.',
         'forbidden' => 'Forbidden',
         'upload_failed' => 'Upload failed.',
         'uploaded_file_too_large' => 'Uploaded file is too large.',

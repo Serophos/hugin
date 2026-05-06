@@ -553,6 +553,7 @@ return [
         'invalid_username_password' => 'Ungültiger Benutzername oder Passwort.',
         'page_not_found' => 'Seite nicht gefunden.',
         'csrf_mismatch' => 'CSRF-Token stimmt nicht überein.',
+        'request_too_large' => 'Die Anfrage ist zu groß. Bitte wählen Sie eine kleinere Datei oder erhöhen Sie das Serverlimit.',
         'forbidden' => 'Zugriff verweigert',
         'upload_failed' => 'Upload fehlgeschlagen.',
         'uploaded_file_too_large' => 'Die hochgeladene Datei ist zu groß.',
