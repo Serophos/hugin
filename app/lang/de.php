@@ -425,6 +425,13 @@ return [
         'background_upload' => 'Hintergrundbild hochladen (optional)',
         'background_image_type_mismatch' => 'Das ausgewählte Hintergrund-Asset muss ein Bild sein.',
         'text_empty_frontend' => 'Für diese Slide wurde kein Text konfiguriert.',
+        'playlist_slides' => 'Slides in Playlist ":playlist"',
+        'playlist_empty' => 'Diese Playlist enthält noch keine Slides.',
+        'add_selected_to_playlist' => 'Auswahl zur Playlist hinzufügen',
+        'remove_from_playlist' => 'Aus Playlist entfernen',
+        'remove_from_playlist_confirm' => '":slide" aus Playlist ":playlist" entfernen? Die Slide bleibt in der Slide-Bibliothek und in anderen Playlists erhalten.',
+        'add_existing_to_playlist' => 'Vorhandene Slide zur Playlist hinzufügen',
+        'create_in_playlist' => 'Neue Slide in Playlist erstellen',
     ],
     'media' => [
         'title' => 'Medienbibliothek',

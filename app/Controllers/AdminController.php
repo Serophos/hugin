@@ -856,11 +856,43 @@ class AdminController
             );
         }
 
+        // Fetch slides for this playlist if editing
+        $slides = [];
+        if ($id) {
+            $slides = $this->db->all(
+                'SELECT s.id, s.name, s.slide_type, s.source_url, s.duration_seconds, s.is_active,
+                        csa.sort_order, m.original_name AS media_name
+                 FROM channel_slide_assignments csa
+                 INNER JOIN slides s ON s.id = csa.slide_id
+                 LEFT JOIN media_assets m ON m.id = s.media_asset_id
+                 WHERE csa.channel_id = ?
+                 ORDER BY csa.sort_order ASC, s.name ASC',
+                [$id]
+            );
+        }
+
+        // Get all available slides for the picker
+        $allSlides = $this->db->all(
+            'SELECT s.id, s.name, s.slide_type, s.source_url, s.duration_seconds, s.is_active,
+                    m.original_name AS media_name,
+                    GROUP_CONCAT(DISTINCT c.name ORDER BY c.name ASC SEPARATOR ", ") AS channel_names,
+                    COUNT(DISTINCT c.id) AS channel_count
+             FROM slides s
+             LEFT JOIN channel_slide_assignments csa ON csa.slide_id = s.id
+             LEFT JOIN channels c ON c.id = csa.channel_id
+             LEFT JOIN media_assets m ON m.id = s.media_asset_id
+             GROUP BY s.id, s.name, s.slide_type, s.source_url, s.duration_seconds, s.is_active, m.original_name
+             ORDER BY s.name ASC'
+        );
+
         $this->view->render('admin/playlist_form', [
             'channel' => $channel,
             'displays' => $displays,
             'assignments' => $assignments,
             'schedules' => $schedules,
+            'slides' => $slides,
+            'allSlides' => $allSlides,
+            'pluginLabels' => $this->plugins->getPluginLabelMap(),
             'error' => flash('error'),
         ]);
     }
@@ -1234,6 +1266,7 @@ class AdminController
         $channels = $this->db->all('SELECT id, name AS label, is_active FROM channels ORDER BY name ASC');
         $mediaAssets = $this->db->all('SELECT * FROM media_assets ORDER BY created_at DESC, id DESC');
         $imageMediaAssets = array_values(array_filter($mediaAssets, static fn(array $asset): bool => ($asset['media_kind'] ?? '') === 'image'));
+        $videoMediaAssets = array_values(array_filter($mediaAssets, static fn(array $asset): bool => ($asset['media_kind'] ?? '') === 'video'));
         $assignedChannelIds = $id
             ? array_map(static fn(array $row): int => (int)$row['channel_id'], $this->db->all('SELECT channel_id FROM channel_slide_assignments WHERE slide_id = ?', [$id]))
             : [];
@@ -1269,6 +1302,7 @@ class AdminController
             'assignedChannelIds' => $assignedChannelIds,
             'mediaAssets' => $mediaAssets,
             'imageMediaAssets' => $imageMediaAssets,
+            'videoMediaAssets' => $videoMediaAssets,
             'pluginDefinitions' => $pluginDefinitions,
             'pluginForms' => $pluginForms,
             'pluginLabels' => $this->plugins->getPluginLabelMap(),

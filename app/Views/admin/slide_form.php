@@ -11,20 +11,22 @@ require __DIR__ . '/../layouts/admin_header.php';
     <form method="post" enctype="multipart/form-data" action="<?= e($slide ? url('/admin/slides/' . $slide['id'] . '/edit') : url('/admin/slides/create')) ?>" class="form-grid" id="slide-form">
         <?= csrf_field() ?>
         <input type="hidden" name="return_to" value="<?= e($returnToPath) ?>">
-        <label class="full-width"><?= e(__('slide.assigned_channels')) ?>
-            <select name="channel_ids[]" multiple size="8" required<?= field_attrs('channel_ids', $formId) ?>>
-                <?php foreach ($channels as $channel): ?>
-                    <?php
-                    $channelLabel = (string)$channel['label'];
-                    if (isset($channel['is_active']) && (int)$channel['is_active'] !== 1) {
-                        $channelLabel .= ' (' . __('common.inactive') . ')';
-                    }
-                    ?>
-                    <option value="<?= e((string)$channel['id']) ?>" <?= in_array((int)$channel['id'], $assignedChannelIds ?? [], true) ? 'selected' : '' ?>><?= e($channelLabel) ?></option>
-                <?php endforeach; ?>
-            </select>
+        <fieldset class="full-width">
+            <legend><?= e(__('slide.assigned_channels')) ?> <span class="required">*</span></legend>
+            <?php foreach ($channels as $channel): ?>
+                <?php
+                $channelLabel = (string)$channel['label'];
+                if (isset($channel['is_active']) && (int)$channel['is_active'] !== 1) {
+                    $channelLabel .= ' (' . __('common.inactive') . ')';
+                }
+                ?>
+                <label class="checkbox-row">
+                    <input type="checkbox" name="channel_ids[]" value="<?= e((string)$channel['id']) ?>" <?= in_array((int)$channel['id'], $assignedChannelIds ?? [], true) ? 'checked' : '' ?>>
+                    <?= e($channelLabel) ?>
+                </label>
+            <?php endforeach; ?>
             <?= field_error_html('channel_ids', $formId) ?>
-        </label>
+        </fieldset>
         <label><?= e(__('common.name')) ?>
             <input type="text" name="name" value="<?= e((string)old('name', $slide['name'] ?? '', $formId)) ?>" placeholder="<?= e(__('slide.name_placeholder')) ?>" required<?= field_attrs('name', $formId) ?>>
             <?= field_error_html('name', $formId) ?>
@@ -72,13 +74,13 @@ require __DIR__ . '/../layouts/admin_header.php';
                 <select name="media_asset_id"<?= field_attrs('media_asset_id', $formId) ?>>
                     <option value=""><?= e(__('slide.choose_uploaded_file')) ?></option>
                     <?php foreach ($mediaAssets as $asset): ?>
-                        <option value="<?= e((string)$asset['id']) ?>" <?= old_selected('media_asset_id', $asset['id'], $slide['media_asset_id'] ?? '', $formId) ?>><?= e($asset['name']) ?> · <?= e($asset['original_name']) ?> (<?= e(enum_label('slide_types', $asset['media_kind'], $asset['media_kind'])) ?>)</option>
+                        <option value="<?= e((string)$asset['id']) ?>" data-media-kind="<?= e($asset['media_kind'] ?? '') ?>" <?= old_selected('media_asset_id', $asset['id'], $slide['media_asset_id'] ?? '', $formId) ?>><?= e($asset['name']) ?> · <?= e($asset['original_name']) ?> (<?= e(enum_label('slide_types', $asset['media_kind'], $asset['media_kind'])) ?>)</option>
                     <?php endforeach; ?>
                 </select>
                 <?= field_error_html('media_asset_id', $formId) ?>
             </label>
             <label id="upload_wrap" class="full-width"><?= e(__('slide.upload_new_media')) ?>
-                <input type="file" name="uploaded_file" accept="image/*,video/*"<?= field_attrs('uploaded_file', $formId) ?>>
+                <input type="file" name="uploaded_file" id="uploaded_file" accept="image/*,video/*"<?= field_attrs('uploaded_file', $formId) ?>>
                 <?= field_error_html('uploaded_file', $formId) ?>
                 <small class="field-note"><?= e(__('forms.file_reselect_hint')) ?></small>
             </label>
@@ -126,6 +128,42 @@ require __DIR__ . '/../layouts/admin_header.php';
 <script>
 const huginPluginSlideTypes = <?= json_encode(array_column($pluginDefinitions, 'slide_type'), JSON_UNESCAPED_SLASHES) ?>;
 
+function filterMediaByType(slideType) {
+    const mediaSelect = document.querySelector('select[name="media_asset_id"]');
+    const uploadInput = document.getElementById('uploaded_file');
+    if (!mediaSelect) return;
+
+    let allowedKind = '';
+    if (slideType === 'image') {
+        allowedKind = 'image';
+    } else if (slideType === 'video') {
+        allowedKind = 'video';
+    }
+
+    // Filter media options
+    const options = mediaSelect.querySelectorAll('option');
+    options.forEach((option, index) => {
+        if (index === 0) return; // Keep the default "choose" option
+        const mediaKind = option.dataset.mediaKind || '';
+        if (allowedKind && mediaKind !== allowedKind) {
+            option.style.display = 'none';
+        } else {
+            option.style.display = '';
+        }
+    });
+
+    // Update file input accept attribute
+    if (uploadInput) {
+        if (allowedKind === 'image') {
+            uploadInput.accept = 'image/*';
+        } else if (allowedKind === 'video') {
+            uploadInput.accept = 'video/*';
+        } else {
+            uploadInput.accept = 'image/*,video/*';
+        }
+    }
+}
+
 function updateSlideTypeUi() {
     const slideType = document.getElementById('slide_type').value;
     const isPlugin = huginPluginSlideTypes.includes(slideType);
@@ -147,6 +185,8 @@ function updateSlideTypeUi() {
     mediaWrap.style.display = !isPlugin && !showWebsiteOnly && !isText && useMedia ? 'grid' : 'none';
     uploadWrap.style.display = !isPlugin && !showWebsiteOnly && !isText ? 'grid' : 'none';
     textFields.style.display = isText ? 'grid' : 'none';
+
+    filterMediaByType(slideType);
 
     document.querySelectorAll('.plugin-settings-section').forEach(section => {
         section.style.display = section.dataset.pluginSlideType === slideType ? 'block' : 'none';

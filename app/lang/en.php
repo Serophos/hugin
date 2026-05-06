@@ -405,6 +405,13 @@ return [
         'background_upload' => 'Upload background image (optional)',
         'background_image_type_mismatch' => 'The selected background asset must be an image.',
         'text_empty_frontend' => 'No text was configured for this slide.',
+        'playlist_slides' => 'Slides in playlist ":playlist"',
+        'playlist_empty' => 'This playlist has no slides yet.',
+        'add_selected_to_playlist' => 'Add selected to playlist',
+        'remove_from_playlist' => 'Remove from playlist',
+        'remove_from_playlist_confirm' => 'Remove ":slide" from playlist ":playlist"? The slide will stay in the Slide Library and any other playlists.',
+        'add_existing_to_playlist' => 'Add existing slide to playlist',
+        'create_in_playlist' => 'Create new slide in playlist',
     ],
     'media' => [
         'title' => 'Media Library',
