@@ -357,6 +357,64 @@ function hex_to_rgb(string $hex): array
     ];
 }
 
+function rgba_color_string(int $red, int $green, int $blue, float $alpha = 1.0): string
+{
+    $red = max(0, min(255, $red));
+    $green = max(0, min(255, $green));
+    $blue = max(0, min(255, $blue));
+    $alpha = max(0, min(1, $alpha));
+    $alphaText = rtrim(rtrim(sprintf('%.3f', $alpha), '0'), '.');
+
+    return sprintf('rgba(%d, %d, %d, %s)', $red, $green, $blue, $alphaText === '' ? '0' : $alphaText);
+}
+
+function hex_to_rgba(string $hex, float $alpha = 1.0): string
+{
+    [$red, $green, $blue] = hex_to_rgb($hex);
+    return rgba_color_string($red, $green, $blue, $alpha);
+}
+
+function normalize_css_rgba_color(?string $value, string $default = 'rgba(17, 24, 39, 1)'): string
+{
+    $value = trim((string)$value);
+    if ($value === '') {
+        return $default;
+    }
+
+    if (strcasecmp($value, 'transparent') === 0) {
+        return 'rgba(0, 0, 0, 0)';
+    }
+
+    if (preg_match('/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/', $value, $m)) {
+        $hex = strtolower($m[1]);
+        if (strlen($hex) === 3 || strlen($hex) === 4) {
+            $red = hexdec($hex[0] . $hex[0]);
+            $green = hexdec($hex[1] . $hex[1]);
+            $blue = hexdec($hex[2] . $hex[2]);
+            $alpha = strlen($hex) === 4 ? hexdec($hex[3] . $hex[3]) / 255 : 1.0;
+            return rgba_color_string($red, $green, $blue, $alpha);
+        }
+
+        $red = hexdec(substr($hex, 0, 2));
+        $green = hexdec(substr($hex, 2, 2));
+        $blue = hexdec(substr($hex, 4, 2));
+        $alpha = strlen($hex) === 8 ? hexdec(substr($hex, 6, 2)) / 255 : 1.0;
+        return rgba_color_string($red, $green, $blue, $alpha);
+    }
+
+    if (preg_match('/^rgba?\(\s*([0-9]{1,3})\s*,\s*([0-9]{1,3})\s*,\s*([0-9]{1,3})(?:\s*,\s*([0-9]*\.?[0-9]+)\s*)?\)$/i', $value, $m)) {
+        $red = (int)$m[1];
+        $green = (int)$m[2];
+        $blue = (int)$m[3];
+        $alpha = isset($m[4]) && $m[4] !== '' ? (float)$m[4] : 1.0;
+        if ($red <= 255 && $green <= 255 && $blue <= 255 && $alpha >= 0 && $alpha <= 1) {
+            return rgba_color_string($red, $green, $blue, $alpha);
+        }
+    }
+
+    return $default;
+}
+
 function color_luminance(string $hex): float
 {
     [$r, $g, $b] = hex_to_rgb($hex);
@@ -380,6 +438,69 @@ function readable_overlay_rgba(string $backgroundHex): string
     }
 
     return 'rgba(15, 23, 42, 0.68)';
+}
+
+function text_slide_position_options(): array
+{
+    return ['top-left', 'top-right', 'center', 'bottom-left', 'bottom-right'];
+}
+
+function text_slide_layout_options(): array
+{
+    return text_slide_position_options();
+}
+
+function normalize_text_slide_layout(?string $value): string
+{
+    $value = (string)$value;
+    return in_array($value, text_slide_layout_options(), true) ? $value : 'center';
+}
+
+function text_slide_qr_position_options(): array
+{
+    return text_slide_position_options();
+}
+
+function normalize_text_slide_qr_position(?string $value): string
+{
+    $value = (string)$value;
+    return in_array($value, text_slide_qr_position_options(), true) ? $value : 'bottom-right';
+}
+
+function text_slide_animation_options(): array
+{
+    return ['none', 'fade-up', 'fly-left', 'fly-right', 'fly-top', 'fly-bottom', 'soft-bounce', 'gentle-zoom'];
+}
+
+function normalize_text_slide_animation(?string $value): string
+{
+    $value = (string)$value;
+    return in_array($value, text_slide_animation_options(), true) ? $value : 'none';
+}
+
+function normalize_integer_range(mixed $value, int $default, int $min, int $max): int
+{
+    $value = trim((string)$value);
+    if ($value === '' || preg_match('/^-?[0-9]+$/', $value) !== 1) {
+        return $default;
+    }
+
+    return max($min, min($max, (int)$value));
+}
+
+function normalize_text_slide_animation_duration_ms(mixed $value): int
+{
+    return normalize_integer_range($value, 560, 300, 800);
+}
+
+function normalize_text_slide_animation_delay_ms(mixed $value): int
+{
+    return normalize_integer_range($value, 0, 0, 5000);
+}
+
+function normalize_text_slide_box_width_percent(mixed $value): int
+{
+    return normalize_integer_range($value, 76, 25, 95);
 }
 
 function render_markup(string $input): string

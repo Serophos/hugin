@@ -44,13 +44,35 @@
             <?php elseif ($slide['slide_type'] === 'video'): ?>
                 <video data-src="<?= e(url($slide['resolved_source_url'])) ?>" muted playsinline loop preload="metadata"></video>
             <?php elseif ($slide['slide_type'] === 'text'): ?>
-                <div class="text-slide" style="--text-slide-bg: <?= e($slide['resolved_background_color'] ?? '#0f172a') ?>; --text-slide-fg: <?= e($slide['resolved_text_color'] ?? '#f8fafc') ?>; --text-slide-overlay: <?= e($slide['resolved_overlay_color'] ?? 'rgba(15,23,42,0.68)') ?>;">
+                <?php
+                $textLayout = (string)($slide['resolved_text_box_layout'] ?? 'center');
+                $textAnimation = (string)($slide['resolved_text_box_animation'] ?? 'none');
+                $textBoxWidthPercent = (int)($slide['resolved_text_box_width_percent'] ?? 76);
+                $textBoxBlur = !empty($slide['resolved_text_box_blur_enabled']) ? '4px' : '0px';
+                $textAnimationDuration = (int)($slide['resolved_text_box_animation_duration_ms'] ?? 560);
+                $textAnimationDelay = (int)($slide['resolved_text_box_animation_delay_ms'] ?? 0);
+                $qrUrl = trim((string)($slide['resolved_qr_url'] ?? ''));
+                $qrPosition = (string)($slide['resolved_qr_position'] ?? 'bottom-right');
+                ?>
+                <div class="text-slide text-slide--layout-<?= e($textLayout) ?>" data-text-animation="<?= e($textAnimation) ?>" style="--text-slide-bg: <?= e($slide['resolved_background_color'] ?? '#0f172a') ?>; --text-slide-fg: <?= e($slide['resolved_text_color'] ?? 'rgba(248,250,252,1)') ?>; --text-slide-overlay: <?= e($slide['resolved_overlay_color'] ?? 'rgba(15,23,42,0.68)') ?>; --text-slide-qr-fg: <?= e($slide['resolved_qr_foreground_color'] ?? 'rgba(15,23,42,1)') ?>; --text-slide-qr-bg: <?= e($slide['resolved_qr_background_color'] ?? 'rgba(255,255,255,1)') ?>; --text-slide-card-width: <?= e((string)$textBoxWidthPercent) ?>vw; --text-slide-card-blur: <?= e($textBoxBlur) ?>; --text-card-animation-duration: <?= e((string)$textAnimationDuration) ?>ms; --text-card-animation-delay: <?= e((string)$textAnimationDelay) ?>ms;">
                     <?php if (!empty($slide['text_background_url'])): ?>
-                        <div class="text-slide-background" style="background-image: url('<?= e(url((string)$slide['text_background_url'])) ?>');"></div>
+                        <?php if (($slide['text_background_kind'] ?? '') === 'video'): ?>
+                            <video class="text-slide-background text-slide-background--video" data-src="<?= e(url((string)$slide['text_background_url'])) ?>" muted playsinline loop preload="metadata" aria-hidden="true"></video>
+                        <?php else: ?>
+                            <div class="text-slide-background text-slide-background--image" style="background-image: url('<?= e(url((string)$slide['text_background_url'])) ?>');"></div>
+                        <?php endif; ?>
                     <?php endif; ?>
                     <div class="text-slide-panel">
-                        <div class="text-slide-content"><?= $slide['text_rendered_html'] ?: '<p>' . e(__('slide.text_empty_frontend')) . '</p>' ?></div>
+                        <div class="text-slide-card">
+                            <div class="text-slide-content"><?= $slide['text_rendered_html'] ?: '<p>' . e(__('slide.text_empty_frontend')) . '</p>' ?></div>
+                        </div>
                     </div>
+                    <?php if ($qrUrl !== ''): ?>
+                        <div class="text-slide-qr text-slide-qr--<?= e($qrPosition) ?>" data-qr-url="<?= e($qrUrl) ?>" data-qr-foreground="<?= e($slide['resolved_qr_foreground_color'] ?? 'rgba(15,23,42,1)') ?>" data-qr-background="<?= e($slide['resolved_qr_background_color'] ?? 'rgba(255,255,255,1)') ?>" role="img" aria-label="<?= e(__('slide.qr_code_label')) ?>">
+                            <canvas class="text-slide-qr__canvas" width="1" height="1"></canvas>
+                            <div class="text-slide-qr__fallback"><?= e($qrUrl) ?></div>
+                        </div>
+                    <?php endif; ?>
                 </div>
             <?php else: ?>
                 <iframe data-src="<?= e($slide['resolved_source_url']) ?>" loading="lazy" referrerpolicy="no-referrer-when-downgrade" title="<?= e($slide['name']) ?>"></iframe>

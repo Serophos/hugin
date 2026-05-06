@@ -192,6 +192,7 @@ class FrontendController
                     m.file_path AS media_file_path,
                     m.created_at AS media_created_at,
                     bg.file_path AS background_media_file_path,
+                    bg.media_kind AS background_media_kind,
                     bg.created_at AS background_media_created_at
              FROM channel_slide_assignments csa
              INNER JOIN slides s ON s.id = csa.slide_id
@@ -218,12 +219,24 @@ class FrontendController
             $slide['resolved_duration'] = (int)($slide['duration_seconds'] ?: $duration);
             $slide['text_rendered_html'] = null;
             $slide['text_background_url'] = $slide['background_media_file_path'] ?? null;
+            $slide['text_background_kind'] = in_array(($slide['background_media_kind'] ?? ''), ['image', 'video'], true) ? (string)$slide['background_media_kind'] : '';
             $slide['resolved_background_color'] = normalize_hex_color((string)($slide['background_color'] ?? '#0f172a'), '#0f172a');
-            $slide['resolved_text_color'] = readable_text_color($slide['resolved_background_color']);
-            $slide['resolved_overlay_color'] = readable_overlay_rgba($slide['resolved_background_color']);
+            $slide['resolved_text_color'] = normalize_css_rgba_color((string)($slide['text_color'] ?? ''), hex_to_rgba(readable_text_color($slide['resolved_background_color'])));
+            $slide['resolved_overlay_color'] = normalize_css_rgba_color((string)($slide['text_box_background_color'] ?? ''), readable_overlay_rgba($slide['resolved_background_color']));
+            $slide['resolved_text_box_layout'] = normalize_text_slide_layout((string)($slide['text_box_layout'] ?? ''));
+            $slide['resolved_text_box_animation'] = normalize_text_slide_animation((string)($slide['text_box_animation'] ?? ''));
+            $slide['resolved_text_box_animation_duration_ms'] = normalize_text_slide_animation_duration_ms($slide['text_box_animation_duration_ms'] ?? '');
+            $slide['resolved_text_box_animation_delay_ms'] = normalize_text_slide_animation_delay_ms($slide['text_box_animation_delay_ms'] ?? '');
+            $slide['resolved_text_box_blur_enabled'] = (int)($slide['text_box_blur_enabled'] ?? 1) === 1;
+            $slide['resolved_text_box_width_percent'] = normalize_text_slide_box_width_percent($slide['text_box_width_percent'] ?? '');
+            $slide['resolved_qr_foreground_color'] = normalize_css_rgba_color((string)($slide['qr_foreground_color'] ?? ''), 'rgba(15, 23, 42, 1)');
+            $slide['resolved_qr_background_color'] = normalize_css_rgba_color((string)($slide['qr_background_color'] ?? ''), 'rgba(255, 255, 255, 1)');
+            $slide['resolved_qr_position'] = normalize_text_slide_qr_position((string)($slide['qr_position'] ?? ''));
+            $slide['resolved_qr_url'] = '';
 
             if (($slide['slide_type'] ?? '') === 'text') {
                 $slide['text_rendered_html'] = render_markup((string)($slide['text_markup'] ?? ''));
+                $slide['resolved_qr_url'] = trim((string)($slide['source_url'] ?? ''));
                 $slide['resolved_source_url'] = '';
             }
             $slide['plugin_name'] = null;
@@ -295,6 +308,19 @@ class FrontendController
                     'background_media_asset_id' => (int)($slide['background_media_asset_id'] ?? 0),
                     'resolved_source_url' => (string)$slide['resolved_source_url'],
                     'resolved_background_url' => (string)($slide['text_background_url'] ?? ''),
+                    'background_media_kind' => (string)($slide['text_background_kind'] ?? ''),
+                    'text_color' => (string)($slide['resolved_text_color'] ?? ''),
+                    'text_box_background_color' => (string)($slide['resolved_overlay_color'] ?? ''),
+                    'text_box_layout' => (string)($slide['resolved_text_box_layout'] ?? ''),
+                    'text_box_animation' => (string)($slide['resolved_text_box_animation'] ?? ''),
+                    'text_box_animation_duration_ms' => (int)($slide['resolved_text_box_animation_duration_ms'] ?? 0),
+                    'text_box_animation_delay_ms' => (int)($slide['resolved_text_box_animation_delay_ms'] ?? 0),
+                    'text_box_blur_enabled' => (int)(($slide['resolved_text_box_blur_enabled'] ?? true) ? 1 : 0),
+                    'text_box_width_percent' => (int)($slide['resolved_text_box_width_percent'] ?? 0),
+                    'qr_url' => (string)($slide['resolved_qr_url'] ?? ''),
+                    'qr_foreground_color' => (string)($slide['resolved_qr_foreground_color'] ?? ''),
+                    'qr_background_color' => (string)($slide['resolved_qr_background_color'] ?? ''),
+                    'qr_position' => (string)($slide['resolved_qr_position'] ?? ''),
                     'resolved_duration' => (int)$slide['resolved_duration'],
                     'updated_at' => (string)($slide['updated_at'] ?? ''),
                     'assignment_sort_order' => (int)($slide['assignment_sort_order'] ?? 0),

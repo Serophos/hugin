@@ -940,6 +940,44 @@ td.actions .inline-form {
     gap: 0.5rem 1rem;
 }
 
+.rgba-control {
+    display: grid;
+    grid-template-columns: minmax(7rem, 0.85fr) minmax(10rem, 1fr);
+    gap: 0.65rem;
+    align-items: end;
+}
+
+.rgba-control input[type="color"] {
+    height: 3.25rem;
+    min-height: 3.25rem;
+    padding: 0.25rem;
+    cursor: pointer;
+}
+
+.rgba-control input[type="range"] {
+    padding: 0;
+}
+
+.rgba-control__alpha {
+    display: grid;
+    gap: 0.35rem;
+}
+
+.rgba-control__alpha-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.75rem;
+    color: var(--muted);
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+@media (max-width: 620px) {
+    .rgba-control {
+        grid-template-columns: 1fr;
+    }
+}
+
 .tl1menu-admin-checklist {
     display: grid;
     gap: 0.45rem;

@@ -1266,7 +1266,7 @@ class AdminController
         $channels = $this->db->all('SELECT id, name AS label, is_active FROM channels ORDER BY name ASC');
         $mediaAssets = $this->db->all('SELECT * FROM media_assets ORDER BY created_at DESC, id DESC');
         $imageMediaAssets = array_values(array_filter($mediaAssets, static fn(array $asset): bool => ($asset['media_kind'] ?? '') === 'image'));
-        $videoMediaAssets = array_values(array_filter($mediaAssets, static fn(array $asset): bool => ($asset['media_kind'] ?? '') === 'video'));
+        $backgroundMediaAssets = array_values(array_filter($mediaAssets, static fn(array $asset): bool => in_array(($asset['media_kind'] ?? ''), ['image', 'video'], true)));
         $assignedChannelIds = $id
             ? array_map(static fn(array $row): int => (int)$row['channel_id'], $this->db->all('SELECT channel_id FROM channel_slide_assignments WHERE slide_id = ?', [$id]))
             : [];
@@ -1302,7 +1302,7 @@ class AdminController
             'assignedChannelIds' => $assignedChannelIds,
             'mediaAssets' => $mediaAssets,
             'imageMediaAssets' => $imageMediaAssets,
-            'videoMediaAssets' => $videoMediaAssets,
+            'backgroundMediaAssets' => $backgroundMediaAssets,
             'pluginDefinitions' => $pluginDefinitions,
             'pluginForms' => $pluginForms,
             'pluginLabels' => $this->plugins->getPluginLabelMap(),
@@ -1334,6 +1334,18 @@ class AdminController
         $textMarkup = trim((string)$this->request->input('text_markup', ''));
         $backgroundColor = normalize_hex_color((string)$this->request->input('background_color', '#0f172a'), '#0f172a');
         $backgroundMediaAssetId = $this->request->input('background_media_asset_id') ? (int)$this->request->input('background_media_asset_id') : null;
+        $textColor = normalize_css_rgba_color((string)$this->request->input('text_color', ''), hex_to_rgba(readable_text_color($backgroundColor)));
+        $textBoxBackgroundColor = normalize_css_rgba_color((string)$this->request->input('text_box_background_color', ''), readable_overlay_rgba($backgroundColor));
+        $textBoxLayout = normalize_text_slide_layout((string)$this->request->input('text_box_layout', 'center'));
+        $textBoxAnimation = normalize_text_slide_animation((string)$this->request->input('text_box_animation', 'none'));
+        $textBoxAnimationDurationMs = normalize_text_slide_animation_duration_ms($this->request->input('text_box_animation_duration_ms', '560'));
+        $textBoxAnimationDelayMs = normalize_text_slide_animation_delay_ms($this->request->input('text_box_animation_delay_ms', '0'));
+        $textBoxBlurEnabled = $this->request->input('text_box_blur_enabled') ? 1 : 0;
+        $textBoxWidthPercent = normalize_text_slide_box_width_percent($this->request->input('text_box_width_percent', '76'));
+        $qrForegroundColor = normalize_css_rgba_color((string)$this->request->input('qr_foreground_color', ''), 'rgba(15, 23, 42, 1)');
+        $qrBackgroundColor = normalize_css_rgba_color((string)$this->request->input('qr_background_color', ''), 'rgba(255, 255, 255, 1)');
+        $qrPosition = normalize_text_slide_qr_position((string)$this->request->input('qr_position', 'bottom-right'));
+        $qrUrl = trim((string)$this->request->input('qr_url', ''));
         $plugin = $this->plugins->getPluginBySlideType($slideType, true);
         $isPluginType = $plugin !== null;
         $pluginSettingsInput = (array)$this->request->input('plugin_settings', []);
@@ -1349,6 +1361,18 @@ class AdminController
             'text_markup' => (string)$this->request->input('text_markup', ''),
             'background_color' => (string)$this->request->input('background_color', '#0f172a'),
             'background_media_asset_id' => (string)$this->request->input('background_media_asset_id', ''),
+            'text_color' => (string)$this->request->input('text_color', ''),
+            'text_box_background_color' => (string)$this->request->input('text_box_background_color', ''),
+            'text_box_layout' => (string)$this->request->input('text_box_layout', 'center'),
+            'text_box_animation' => (string)$this->request->input('text_box_animation', 'none'),
+            'text_box_animation_duration_ms' => (string)$this->request->input('text_box_animation_duration_ms', '560'),
+            'text_box_animation_delay_ms' => (string)$this->request->input('text_box_animation_delay_ms', '0'),
+            'text_box_blur_enabled' => $this->request->input('text_box_blur_enabled') ? 1 : 0,
+            'text_box_width_percent' => (string)$this->request->input('text_box_width_percent', '76'),
+            'qr_url' => (string)$this->request->input('qr_url', ''),
+            'qr_foreground_color' => (string)$this->request->input('qr_foreground_color', ''),
+            'qr_background_color' => (string)$this->request->input('qr_background_color', ''),
+            'qr_position' => (string)$this->request->input('qr_position', 'bottom-right'),
             'plugin_settings' => $pluginSettingsInput,
             'is_active' => $isActive,
             'return_to' => (string)$this->request->input('return_to', '/admin/slides'),
@@ -1390,6 +1414,19 @@ class AdminController
                 $sourceMode = 'external';
                 $sourceUrl = '';
                 $mediaAssetId = null;
+                $backgroundMediaAssetId = null;
+                $textMarkup = '';
+                $textColor = null;
+                $textBoxBackgroundColor = null;
+                $textBoxLayout = null;
+                $textBoxAnimation = null;
+                $textBoxAnimationDurationMs = null;
+                $textBoxAnimationDelayMs = null;
+                $textBoxBlurEnabled = null;
+                $textBoxWidthPercent = null;
+                $qrForegroundColor = null;
+                $qrBackgroundColor = null;
+                $qrPosition = null;
             } elseif ($slideType === 'website') {
                 if ($sourceUrl === '') {
                     throw new RuntimeException(__('slide.website_requires_url'));
@@ -1398,10 +1435,28 @@ class AdminController
                 $mediaAssetId = null;
                 $backgroundMediaAssetId = null;
                 $textMarkup = '';
+                $textColor = null;
+                $textBoxBackgroundColor = null;
+                $textBoxLayout = null;
+                $textBoxAnimation = null;
+                $textBoxAnimationDurationMs = null;
+                $textBoxAnimationDelayMs = null;
+                $textBoxBlurEnabled = null;
+                $textBoxWidthPercent = null;
+                $qrForegroundColor = null;
+                $qrBackgroundColor = null;
+                $qrPosition = null;
             } elseif ($slideType === 'text') {
+                if ($qrUrl !== '' && !filter_var($qrUrl, FILTER_VALIDATE_URL)) {
+                    throw new RuntimeException(__('slide.qr_url_invalid'));
+                }
+                if ($qrUrl !== '' && strlen($qrUrl) > 270) {
+                    throw new RuntimeException(__('slide.qr_url_too_long'));
+                }
+
                 $uploadedBackground = $this->request->file('background_uploaded_file');
                 if ($uploadedBackground && ($uploadedBackground['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
-                    if ($this->uploadedMediaKind($uploadedBackground) !== 'image') {
+                    if (!in_array($this->uploadedMediaKind($uploadedBackground), ['image', 'video'], true)) {
                         throw new RuntimeException(__('slide.background_image_type_mismatch'));
                     }
                     $mediaAsset = $this->uploadManager->storeUploadedFile($uploadedBackground, (int)$this->auth->id(), $name . ' background');
@@ -1415,17 +1470,28 @@ class AdminController
 
                 if ($backgroundMediaAssetId) {
                     $mediaAsset = $mediaAsset ?: $this->db->one('SELECT * FROM media_assets WHERE id = ?', [$backgroundMediaAssetId]);
-                    if (!$mediaAsset || $mediaAsset['media_kind'] !== 'image') {
+                    if (!$mediaAsset || !in_array($mediaAsset['media_kind'], ['image', 'video'], true)) {
                         throw new RuntimeException(__('slide.background_image_type_mismatch'));
                     }
                 }
 
                 $sourceMode = 'external';
-                $sourceUrl = '';
+                $sourceUrl = $qrUrl;
                 $mediaAssetId = null;
             } else {
                 $backgroundMediaAssetId = null;
                 $textMarkup = '';
+                $textColor = null;
+                $textBoxBackgroundColor = null;
+                $textBoxLayout = null;
+                $textBoxAnimation = null;
+                $textBoxAnimationDurationMs = null;
+                $textBoxAnimationDelayMs = null;
+                $textBoxBlurEnabled = null;
+                $textBoxWidthPercent = null;
+                $qrForegroundColor = null;
+                $qrBackgroundColor = null;
+                $qrPosition = null;
                 $uploadedFile = $this->request->file('uploaded_file');
                 if ($uploadedFile && ($uploadedFile['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
                     $expectedKind = $slideType === 'image' ? 'image' : 'video';
@@ -1476,14 +1542,14 @@ class AdminController
         try {
             if ($id) {
                 $this->db->execute(
-                    'UPDATE slides SET name = ?, slide_type = ?, source_mode = ?, source_url = ?, media_asset_id = ?, background_media_asset_id = ?, text_markup = ?, background_color = ?, duration_seconds = ?, title_position = ?, is_active = ? WHERE id = ?',
-                    [$name, $slideType, $sourceMode, $sourceUrl, $mediaAssetId, $backgroundMediaAssetId, $textMarkup !== '' ? $textMarkup : null, $backgroundColor, $duration, $titlePosition, $isActive, $id]
+                    'UPDATE slides SET name = ?, slide_type = ?, source_mode = ?, source_url = ?, media_asset_id = ?, background_media_asset_id = ?, text_markup = ?, background_color = ?, text_color = ?, text_box_background_color = ?, text_box_layout = ?, text_box_animation = ?, text_box_animation_duration_ms = ?, text_box_animation_delay_ms = ?, text_box_blur_enabled = ?, text_box_width_percent = ?, qr_foreground_color = ?, qr_background_color = ?, qr_position = ?, duration_seconds = ?, title_position = ?, is_active = ? WHERE id = ?',
+                    [$name, $slideType, $sourceMode, $sourceUrl, $mediaAssetId, $backgroundMediaAssetId, $textMarkup !== '' ? $textMarkup : null, $backgroundColor, $textColor, $textBoxBackgroundColor, $textBoxLayout, $textBoxAnimation, $textBoxAnimationDurationMs, $textBoxAnimationDelayMs, $textBoxBlurEnabled, $textBoxWidthPercent, $qrForegroundColor, $qrBackgroundColor, $qrPosition, $duration, $titlePosition, $isActive, $id]
                 );
                 $slideId = $id;
             } else {
                 $this->db->execute(
-                    'INSERT INTO slides (name, slide_type, source_mode, source_url, media_asset_id, background_media_asset_id, text_markup, background_color, duration_seconds, title_position, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                    [$name, $slideType, $sourceMode, $sourceUrl, $mediaAssetId, $backgroundMediaAssetId, $textMarkup !== '' ? $textMarkup : null, $backgroundColor, $duration, $titlePosition, $isActive]
+                    'INSERT INTO slides (name, slide_type, source_mode, source_url, media_asset_id, background_media_asset_id, text_markup, background_color, text_color, text_box_background_color, text_box_layout, text_box_animation, text_box_animation_duration_ms, text_box_animation_delay_ms, text_box_blur_enabled, text_box_width_percent, qr_foreground_color, qr_background_color, qr_position, duration_seconds, title_position, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                    [$name, $slideType, $sourceMode, $sourceUrl, $mediaAssetId, $backgroundMediaAssetId, $textMarkup !== '' ? $textMarkup : null, $backgroundColor, $textColor, $textBoxBackgroundColor, $textBoxLayout, $textBoxAnimation, $textBoxAnimationDurationMs, $textBoxAnimationDelayMs, $textBoxBlurEnabled, $textBoxWidthPercent, $qrForegroundColor, $qrBackgroundColor, $qrPosition, $duration, $titlePosition, $isActive]
                 );
                 $slideId = (int)$this->db->lastInsertId();
             }
@@ -1942,6 +2008,9 @@ class AdminController
 
         if ($this->messageMatches($message, ['slide.website_requires_url'])) {
             return ['source_url' => $message];
+        }
+        if ($this->messageMatches($message, ['slide.qr_url_invalid', 'slide.qr_url_too_long'])) {
+            return ['qr_url' => $message];
         }
         if ($this->messageMatches($message, ['slide.choose_media_or_upload'])) {
             return [
