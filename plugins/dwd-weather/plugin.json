@@ -1,0 +1,10 @@
+{
+  "name": "dwd-weather",
+  "display_name": "DWD Weather",
+  "version": "1.0.0",
+  "description": "Displays current weather for a selected location using DWD Open Data weather observations.",
+  "slide_type": "dwd-weather",
+  "api_version": 2,
+  "main": "Plugin.php",
+  "class": "Plugins\\DwdWeather\\Plugin"
+}
