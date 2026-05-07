@@ -470,27 +470,45 @@ td.actions .inline-form {
 .media-kind-tabs {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.5rem;
-    margin-bottom: 1rem;
+    align-items: flex-end;
+    gap: 0.25rem;
+    margin: 0 0 -1px;
+    padding: 0 0.75rem;
+    border-bottom: 1px solid var(--border);
 }
 
 .media-kind-tabs .tab {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: 0.65rem 0.9rem;
-    border-radius: 999px;
+    min-height: 2.65rem;
+    padding: 0.65rem 1rem;
+    border-radius: 10px 10px 0 0;
     border: 1px solid var(--border);
-    background: var(--panel);
-    color: inherit;
+    border-bottom: 0;
+    background: var(--panel-alt);
+    color: var(--muted);
+    font-weight: 700;
     text-decoration: none;
-    transition: background 0.2s ease, border-color 0.2s ease;
+    transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
 }
 
-.media-kind-tabs .tab.active,
 .media-kind-tabs .tab:hover {
-    background: var(--panel-alt);
-    border-color: var(--accent);
+    color: var(--text);
+    background: #fff;
+}
+
+.media-kind-tabs .tab.active {
+    position: relative;
+    z-index: 1;
+    background: var(--panel);
+    color: var(--accent);
+    border-color: var(--border);
+    box-shadow: 0 -1px 0 var(--panel), 0 1px 0 var(--panel);
+}
+
+.media-kind-tabs + .card {
+    border-top-left-radius: 0;
 }
 
 .media-summary {

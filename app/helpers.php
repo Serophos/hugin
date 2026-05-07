@@ -495,7 +495,7 @@ function normalize_integer_range(mixed $value, int $default, int $min, int $max)
 
 function normalize_text_slide_animation_duration_ms(mixed $value): int
 {
-    return normalize_integer_range($value, 560, 300, 800);
+    return normalize_integer_range($value, 600, 300, 800);
 }
 
 function normalize_text_slide_animation_delay_ms(mixed $value): int

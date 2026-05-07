@@ -22,12 +22,6 @@ $prevPageUrl = $baseMediaUrl . ($kind !== '' ? '?kind=' . rawurlencode($kind) . 
 $nextPageUrl = $baseMediaUrl . ($kind !== '' ? '?kind=' . rawurlencode($kind) . '&page=' . ($page + 1) : '?page=' . ($page + 1));
 ?>
 
-<div class="media-kind-tabs">
-    <a class="tab<?= $kind === '' ? ' active' : '' ?>" href="<?= e($allUrl) ?>"><?= e(__('media.all')) ?></a>
-    <a class="tab<?= $kind === 'image' ? ' active' : '' ?>" href="<?= e($imageUrl) ?>"><?= e(__('media.images')) ?></a>
-    <a class="tab<?= $kind === 'video' ? ' active' : '' ?>" href="<?= e($videoUrl) ?>"><?= e(__('media.videos')) ?></a>
-</div>
-
 <div class="media-summary"><?= e(__('media.showing_assets', ['count' => count($media), 'total' => $totalCount])) ?></div>
 
 <div class="grid-2">
@@ -57,6 +51,14 @@ $nextPageUrl = $baseMediaUrl . ($kind !== '' ? '?kind=' . rawurlencode($kind) . 
         </ul>
     </div>
 </div>
+
+<div class="media-kind-tabs">
+    <a class="tab<?= $kind === '' ? ' active' : '' ?>" href="<?= e($allUrl) ?>"><?= e(__('media.all')) ?></a>
+    <a class="tab<?= $kind === 'image' ? ' active' : '' ?>" href="<?= e($imageUrl) ?>"><?= e(__('media.images')) ?></a>
+    <a class="tab<?= $kind === 'video' ? ' active' : '' ?>" href="<?= e($videoUrl) ?>"><?= e(__('media.videos')) ?></a>
+</div>
+
+
 
 <div class="card">
     <div class="table-scroll">

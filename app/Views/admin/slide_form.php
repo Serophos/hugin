@@ -151,7 +151,7 @@ require __DIR__ . '/../layouts/admin_header.php';
                 <?= field_error_html('text_box_animation', $formId) ?>
             </label>
             <label><?= e(__('slide.text_box_animation_duration_ms')) ?>
-                <input type="number" name="text_box_animation_duration_ms" min="300" max="800" step="50" value="<?= e((string)old('text_box_animation_duration_ms', $slide['text_box_animation_duration_ms'] ?? '560', $formId)) ?>"<?= field_attrs('text_box_animation_duration_ms', $formId) ?>>
+                <input type="number" name="text_box_animation_duration_ms" min="300" max="800" step="50" value="<?= e((string)old('text_box_animation_duration_ms', $slide['text_box_animation_duration_ms'] ?? '600', $formId)) ?>"<?= field_attrs('text_box_animation_duration_ms', $formId) ?>>
                 <?= field_error_html('text_box_animation_duration_ms', $formId) ?>
             </label>
             <label><?= e(__('slide.text_box_animation_delay_ms')) ?>

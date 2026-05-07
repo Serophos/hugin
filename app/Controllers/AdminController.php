@@ -1338,7 +1338,7 @@ class AdminController
         $textBoxBackgroundColor = normalize_css_rgba_color((string)$this->request->input('text_box_background_color', ''), readable_overlay_rgba($backgroundColor));
         $textBoxLayout = normalize_text_slide_layout((string)$this->request->input('text_box_layout', 'center'));
         $textBoxAnimation = normalize_text_slide_animation((string)$this->request->input('text_box_animation', 'none'));
-        $textBoxAnimationDurationMs = normalize_text_slide_animation_duration_ms($this->request->input('text_box_animation_duration_ms', '560'));
+        $textBoxAnimationDurationMs = normalize_text_slide_animation_duration_ms($this->request->input('text_box_animation_duration_ms', '600'));
         $textBoxAnimationDelayMs = normalize_text_slide_animation_delay_ms($this->request->input('text_box_animation_delay_ms', '0'));
         $textBoxBlurEnabled = $this->request->input('text_box_blur_enabled') ? 1 : 0;
         $textBoxWidthPercent = normalize_text_slide_box_width_percent($this->request->input('text_box_width_percent', '76'));
@@ -1366,7 +1366,7 @@ class AdminController
             'text_box_background_color' => (string)$this->request->input('text_box_background_color', ''),
             'text_box_layout' => (string)$this->request->input('text_box_layout', 'center'),
             'text_box_animation' => (string)$this->request->input('text_box_animation', 'none'),
-            'text_box_animation_duration_ms' => (string)$this->request->input('text_box_animation_duration_ms', '560'),
+            'text_box_animation_duration_ms' => (string)$this->request->input('text_box_animation_duration_ms', '600'),
             'text_box_animation_delay_ms' => (string)$this->request->input('text_box_animation_delay_ms', '0'),
             'text_box_blur_enabled' => $this->request->input('text_box_blur_enabled') ? 1 : 0,
             'text_box_width_percent' => (string)$this->request->input('text_box_width_percent', '76'),
