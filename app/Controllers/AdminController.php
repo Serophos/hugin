@@ -1342,6 +1342,7 @@ class AdminController
         $textBoxAnimationDelayMs = normalize_text_slide_animation_delay_ms($this->request->input('text_box_animation_delay_ms', '0'));
         $textBoxBlurEnabled = $this->request->input('text_box_blur_enabled') ? 1 : 0;
         $textBoxWidthPercent = normalize_text_slide_box_width_percent($this->request->input('text_box_width_percent', '76'));
+        $qrSizePercent = normalize_text_slide_qr_size_percent($this->request->input('qr_size_percent', '15'));
         $qrForegroundColor = normalize_css_rgba_color((string)$this->request->input('qr_foreground_color', ''), 'rgba(15, 23, 42, 1)');
         $qrBackgroundColor = normalize_css_rgba_color((string)$this->request->input('qr_background_color', ''), 'rgba(255, 255, 255, 1)');
         $qrPosition = normalize_text_slide_qr_position((string)$this->request->input('qr_position', 'bottom-right'));
@@ -1370,6 +1371,7 @@ class AdminController
             'text_box_blur_enabled' => $this->request->input('text_box_blur_enabled') ? 1 : 0,
             'text_box_width_percent' => (string)$this->request->input('text_box_width_percent', '76'),
             'qr_url' => (string)$this->request->input('qr_url', ''),
+            'qr_size_percent' => (string)$this->request->input('qr_size_percent', '15'),
             'qr_foreground_color' => (string)$this->request->input('qr_foreground_color', ''),
             'qr_background_color' => (string)$this->request->input('qr_background_color', ''),
             'qr_position' => (string)$this->request->input('qr_position', 'bottom-right'),
@@ -1424,6 +1426,7 @@ class AdminController
                 $textBoxAnimationDelayMs = null;
                 $textBoxBlurEnabled = null;
                 $textBoxWidthPercent = null;
+                $qrSizePercent = null;
                 $qrForegroundColor = null;
                 $qrBackgroundColor = null;
                 $qrPosition = null;
@@ -1443,6 +1446,7 @@ class AdminController
                 $textBoxAnimationDelayMs = null;
                 $textBoxBlurEnabled = null;
                 $textBoxWidthPercent = null;
+                $qrSizePercent = null;
                 $qrForegroundColor = null;
                 $qrBackgroundColor = null;
                 $qrPosition = null;
@@ -1542,14 +1546,14 @@ class AdminController
         try {
             if ($id) {
                 $this->db->execute(
-                    'UPDATE slides SET name = ?, slide_type = ?, source_mode = ?, source_url = ?, media_asset_id = ?, background_media_asset_id = ?, text_markup = ?, background_color = ?, text_color = ?, text_box_background_color = ?, text_box_layout = ?, text_box_animation = ?, text_box_animation_duration_ms = ?, text_box_animation_delay_ms = ?, text_box_blur_enabled = ?, text_box_width_percent = ?, qr_foreground_color = ?, qr_background_color = ?, qr_position = ?, duration_seconds = ?, title_position = ?, is_active = ? WHERE id = ?',
-                    [$name, $slideType, $sourceMode, $sourceUrl, $mediaAssetId, $backgroundMediaAssetId, $textMarkup !== '' ? $textMarkup : null, $backgroundColor, $textColor, $textBoxBackgroundColor, $textBoxLayout, $textBoxAnimation, $textBoxAnimationDurationMs, $textBoxAnimationDelayMs, $textBoxBlurEnabled, $textBoxWidthPercent, $qrForegroundColor, $qrBackgroundColor, $qrPosition, $duration, $titlePosition, $isActive, $id]
+                    'UPDATE slides SET name = ?, slide_type = ?, source_mode = ?, source_url = ?, media_asset_id = ?, background_media_asset_id = ?, text_markup = ?, background_color = ?, text_color = ?, text_box_background_color = ?, text_box_layout = ?, text_box_animation = ?, text_box_animation_duration_ms = ?, text_box_animation_delay_ms = ?, text_box_blur_enabled = ?, text_box_width_percent = ?, qr_foreground_color = ?, qr_background_color = ?, qr_position = ?, qr_size_percent = ?, duration_seconds = ?, title_position = ?, is_active = ? WHERE id = ?',
+                    [$name, $slideType, $sourceMode, $sourceUrl, $mediaAssetId, $backgroundMediaAssetId, $textMarkup !== '' ? $textMarkup : null, $backgroundColor, $textColor, $textBoxBackgroundColor, $textBoxLayout, $textBoxAnimation, $textBoxAnimationDurationMs, $textBoxAnimationDelayMs, $textBoxBlurEnabled, $textBoxWidthPercent, $qrForegroundColor, $qrBackgroundColor, $qrPosition, $qrSizePercent, $duration, $titlePosition, $isActive, $id]
                 );
                 $slideId = $id;
             } else {
                 $this->db->execute(
-                    'INSERT INTO slides (name, slide_type, source_mode, source_url, media_asset_id, background_media_asset_id, text_markup, background_color, text_color, text_box_background_color, text_box_layout, text_box_animation, text_box_animation_duration_ms, text_box_animation_delay_ms, text_box_blur_enabled, text_box_width_percent, qr_foreground_color, qr_background_color, qr_position, duration_seconds, title_position, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                    [$name, $slideType, $sourceMode, $sourceUrl, $mediaAssetId, $backgroundMediaAssetId, $textMarkup !== '' ? $textMarkup : null, $backgroundColor, $textColor, $textBoxBackgroundColor, $textBoxLayout, $textBoxAnimation, $textBoxAnimationDurationMs, $textBoxAnimationDelayMs, $textBoxBlurEnabled, $textBoxWidthPercent, $qrForegroundColor, $qrBackgroundColor, $qrPosition, $duration, $titlePosition, $isActive]
+                    'INSERT INTO slides (name, slide_type, source_mode, source_url, media_asset_id, background_media_asset_id, text_markup, background_color, text_color, text_box_background_color, text_box_layout, text_box_animation, text_box_animation_duration_ms, text_box_animation_delay_ms, text_box_blur_enabled, text_box_width_percent, qr_foreground_color, qr_background_color, qr_position, qr_size_percent, duration_seconds, title_position, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                    [$name, $slideType, $sourceMode, $sourceUrl, $mediaAssetId, $backgroundMediaAssetId, $textMarkup !== '' ? $textMarkup : null, $backgroundColor, $textColor, $textBoxBackgroundColor, $textBoxLayout, $textBoxAnimation, $textBoxAnimationDurationMs, $textBoxAnimationDelayMs, $textBoxBlurEnabled, $textBoxWidthPercent, $qrForegroundColor, $qrBackgroundColor, $qrPosition, $qrSizePercent, $duration, $titlePosition, $isActive]
                 );
                 $slideId = (int)$this->db->lastInsertId();
             }

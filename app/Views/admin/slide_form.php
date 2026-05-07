@@ -95,7 +95,7 @@ require __DIR__ . '/../layouts/admin_header.php';
                 <?= field_error_html('text_markup', $formId) ?>
             </label>
             <label><?= e(__('slide.background_color')) ?>
-                <input type="color" name="background_color" value="<?= e(normalize_hex_color((string)old('background_color', $slide['background_color'] ?? '#0f172a', $formId), '#0f172a')) ?>"<?= field_attrs('background_color', $formId) ?>>
+                <input type="color" name="background_color" value="<?= e((string)old('background_color', $slide['background_color'] ?? '#0f172a', $formId)) ?>"<?= field_attrs('background_color', $formId) ?>>
                 <?= field_error_html('background_color', $formId) ?>
             </label>
             <label><?= e(__('slide.background_media')) ?>
@@ -170,6 +170,11 @@ require __DIR__ . '/../layouts/admin_header.php';
                 <input type="url" name="qr_url" maxlength="270" value="<?= e((string)old('qr_url', $slide['source_url'] ?? '', $formId)) ?>" placeholder="<?= e(__('slide.qr_url_placeholder')) ?>"<?= field_attrs('qr_url', $formId) ?>>
                 <?= field_error_html('qr_url', $formId) ?>
                 <small class="field-note"><?= e(__('slide.qr_url_help')) ?></small>
+            </label>
+            <label><?= e(__('slide.qr_size_percent')) ?>
+                <input type="number" min="8" max="40" step="1" name="qr_size_percent" value="<?= e((string)old('qr_size_percent', $slide['qr_size_percent'] ?? '15', $formId)) ?>" placeholder="15"<?= field_attrs('qr_size_percent', $formId) ?>>
+                <?= field_error_html('qr_size_percent', $formId) ?>
+                <small class="field-note"><?= e(__('slide.qr_size_percent_help')) ?></small>
             </label>
             <label><?= e(__('slide.qr_position')) ?>
                 <select name="qr_position"<?= field_attrs('qr_position', $formId) ?>>

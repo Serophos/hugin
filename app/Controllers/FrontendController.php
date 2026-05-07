@@ -232,6 +232,7 @@ class FrontendController
             $slide['resolved_qr_foreground_color'] = normalize_css_rgba_color((string)($slide['qr_foreground_color'] ?? ''), 'rgba(15, 23, 42, 1)');
             $slide['resolved_qr_background_color'] = normalize_css_rgba_color((string)($slide['qr_background_color'] ?? ''), 'rgba(255, 255, 255, 1)');
             $slide['resolved_qr_position'] = normalize_text_slide_qr_position((string)($slide['qr_position'] ?? ''));
+            $slide['resolved_qr_size_percent'] = normalize_text_slide_qr_size_percent($slide['qr_size_percent'] ?? '');
             $slide['resolved_qr_url'] = '';
 
             if (($slide['slide_type'] ?? '') === 'text') {

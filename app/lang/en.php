@@ -434,6 +434,8 @@ return [
         'qr_url' => 'QR code URL (optional)',
         'qr_url_placeholder' => 'e.g. https://example.com/menu',
         'qr_url_help' => 'Leave empty to hide the QR code. QR URLs are stored in the existing source URL field for text slides.',
+        'qr_size_percent' => 'QR code size (% of screen width)',
+        'qr_size_percent_help' => 'Control the displayed QR code size relative to the screen width.',
         'qr_url_invalid' => 'Please enter a valid QR code URL.',
         'qr_url_too_long' => 'QR code URLs can be up to 270 bytes.',
         'qr_position' => 'QR position',

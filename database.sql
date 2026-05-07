@@ -207,6 +207,7 @@ CREATE TABLE slides (
     qr_foreground_color VARCHAR(40) NULL,
     qr_background_color VARCHAR(40) NULL,
     qr_position VARCHAR(40) NULL,
+    qr_size_percent TINYINT UNSIGNED NULL,
     duration_seconds INT UNSIGNED NULL,
     title_position ENUM('hide', 'top-left', 'top-right', 'bottom-left', 'bottom-right', 'center') NOT NULL DEFAULT 'bottom-left',
     is_active TINYINT(1) NOT NULL DEFAULT 1,

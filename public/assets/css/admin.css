@@ -940,6 +940,13 @@ td.actions .inline-form {
     gap: 0.5rem 1rem;
 }
 
+input[type="color"] {
+    height: 3.25rem;
+    min-height: 3.25rem;
+    padding: 0.25rem;
+    cursor: pointer;
+}
+
 .rgba-control {
     display: grid;
     grid-template-columns: minmax(7rem, 0.85fr) minmax(10rem, 1fr);

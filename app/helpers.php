@@ -467,6 +467,11 @@ function normalize_text_slide_qr_position(?string $value): string
     return in_array($value, text_slide_qr_position_options(), true) ? $value : 'bottom-right';
 }
 
+function normalize_text_slide_qr_size_percent(mixed $value): int
+{
+    return normalize_integer_range($value, 15, 8, 40);
+}
+
 function text_slide_animation_options(): array
 {
     return ['none', 'fade-up', 'fly-left', 'fly-right', 'fly-top', 'fly-bottom', 'soft-bounce', 'gentle-zoom'];

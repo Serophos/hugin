@@ -362,7 +362,7 @@ html, body {
 .text-slide-qr {
     position: absolute;
     z-index: 3;
-    width: clamp(130px, 12vmin, 230px);
+    width: clamp(130px, var(--text-slide-qr-size, 12vw), 230px);
     aspect-ratio: 1;
     display: grid;
     place-items: center;
