@@ -17,6 +17,11 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+$autoload = __DIR__ . '/../vendor/autoload.php';
+if (file_exists($autoload)) {
+    require_once $autoload;
+}
+
 require_once __DIR__ . '/helpers.php';
 require_once __DIR__ . '/Core/I18n.php';
 require_once __DIR__ . '/Core/Database.php';

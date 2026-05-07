@@ -510,73 +510,20 @@ function render_markup(string $input): string
         return '';
     }
 
-    $blocks = preg_split("/\n{2,}/", $text) ?: [];
-    $html = [];
+    $parser = new Parsedown();
+    $parser->setSafeMode(true);
+    $parser->setBreaksEnabled(true);
 
-    foreach ($blocks as $block) {
-        $block = trim($block);
-        if ($block === '') {
-            continue;
-        }
-
-        $lines = array_values(array_filter(array_map('trim', explode("\n", $block)), static fn($line) => $line !== ''));
-        if ($lines === []) {
-            continue;
-        }
-
-        $isUl = true;
-        $isOl = true;
-        foreach ($lines as $line) {
-            $isUl = $isUl && (bool)preg_match('/^[-*]\s+/', $line);
-            $isOl = $isOl && (bool)preg_match('/^\d+\.\s+/', $line);
-        }
-
-        if ($isUl) {
-            $items = array_map(static function (string $line): string {
-                $content = preg_replace('/^[-*]\s+/', '', $line) ?? $line;
-                return '<li>' . render_markup_inline($content) . '</li>';
-            }, $lines);
-            $html[] = '<ul>' . implode('', $items) . '</ul>';
-            continue;
-        }
-
-        if ($isOl) {
-            $items = array_map(static function (string $line): string {
-                $content = preg_replace('/^\d+\.\s+/', '', $line) ?? $line;
-                return '<li>' . render_markup_inline($content) . '</li>';
-            }, $lines);
-            $html[] = '<ol>' . implode('', $items) . '</ol>';
-            continue;
-        }
-
-        if (preg_match('/^#{1,3}\s+/', $lines[0])) {
-            $level = min(3, max(1, strspn($lines[0], '#')));
-            $content = trim(substr($lines[0], $level));
-            $html[] = sprintf('<h%d>%s</h%d>', $level, render_markup_inline($content), $level);
-            if (count($lines) > 1) {
-                $rest = implode("<br>\n", array_map('render_markup_inline', array_slice($lines, 1)));
-                $html[] = '<p>' . $rest . '</p>';
-            }
-            continue;
-        }
-
-        $paragraph = implode("<br>\n", array_map('render_markup_inline', $lines));
-        $html[] = '<p>' . $paragraph . '</p>';
-    }
-
-    return implode("\n", $html);
+    return $parser->text($text);
 }
 
 function render_markup_inline(string $text): string
 {
-    $escaped = e($text);
-    $escaped = preg_replace('/\[(.+?)\]\((https?:\/\/[^\s)]+)\)/', '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>', $escaped) ?? $escaped;
-    $escaped = preg_replace('/\*\*(.+?)\*\*/s', '<strong>$1</strong>', $escaped) ?? $escaped;
-    $escaped = preg_replace('/__(.+?)__/s', '<strong>$1</strong>', $escaped) ?? $escaped;
-    $escaped = preg_replace('/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/s', '<em>$1</em>', $escaped) ?? $escaped;
-    $escaped = preg_replace('/(?<!_)_(?!_)(.+?)(?<!_)_(?!_)/s', '<em>$1</em>', $escaped) ?? $escaped;
-    $escaped = preg_replace('/`(.+?)`/s', '<code>$1</code>', $escaped) ?? $escaped;
-    return $escaped;
+    $parser = new Parsedown();
+    $parser->setSafeMode(true);
+    $parser->setUrlsLinked(true);
+
+    return $parser->line(trim((string)$text));
 }
 
 function json_response(array $data, int $status = 200): void

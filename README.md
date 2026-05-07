@@ -29,10 +29,11 @@ Hugin is a compact PHP/MySQL digital signage application with:
 
 1. Copy `config/config.example.php` to `config/config.php`
 2. Adjust database settings, optional `app.base_url`, and `app.locale`
-3. Import `database.sql`
-4. Point your web root to the `public/` folder
-5. Make sure `public/uploads/` is writable by PHP
-6. Open `/admin/login`
+3. Run `composer install` from the project root to install dependencies
+4. Import `database.sql`
+5. Point your web root to the `public/` folder
+6. Make sure `public/uploads/` is writable by PHP
+7. Open `/admin/login`
 
 ## Default users
 
