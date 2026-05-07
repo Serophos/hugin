@@ -24,6 +24,7 @@ Hugin is a compact PHP/MySQL digital signage application with:
 - PHP 8.1+
 - MySQL 8+
 - Apache or Nginx
+- Composer
 
 ## Quick start
 
