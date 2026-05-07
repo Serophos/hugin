@@ -262,14 +262,24 @@ INSERT INTO users (username, display_name, role, password_hash, is_active) VALUE
 ('admin', 'Administrator', 'admin', '$2y$12$IoewkYyycR./iDEV.rq5/eZU61ixU5l222mohQBYtC.uLg40bXmHK', 1),
 ('editor', 'Content Editor', 'editor', '$2y$12$IoewkYyycR./iDEV.rq5/eZU61ixU5l222mohQBYtC.uLg40bXmHK', 1);
 
+INSERT INTO display_locations (name, address, description, sort_order) VALUES
+('Milliways', 'Frogstar World B, Milliways Approach 42', 'The Restaurant at the End of the Universe; a safe, fictional demo location for Hugin displays.', 1);
+
+INSERT INTO display_groups (location_id, name, description, sort_order, sync_enabled, sync_mode) VALUES
+(1, 'Arrival Lounge Screens', 'Displays welcoming guests and showing general Hugin demo content.', 1, 0, 'independent'),
+(1, 'Dining Deck Screens', 'Displays for scheduled messages, morning content, and visual announcements.', 2, 0, 'independent');
+
 INSERT INTO displays (name, slug, description, transition_effect, slide_duration_seconds, timezone, orientation, sort_order, is_active) VALUES
-('Lobby Screen', 'lobby-screen', 'Main lobby information screen', 'fade', 8, 'Europe/Berlin', 'landscape', 1, 1),
-('Cafeteria Screen', 'cafeteria-screen', 'Menu and news display', 'slide-left', 8, 'Europe/Berlin', 'landscape', 2, 1);
+('Arrival Lounge Display', 'arrival-lounge-display', 'Demo display in the Milliways arrival lounge.', 'fade', 8, 'Europe/Berlin', 'landscape', 1, 1),
+('Dining Deck Display', 'dining-deck-display', 'Demo display on the Milliways dining deck.', 'slide-left', 8, 'Europe/Berlin', 'landscape', 2, 1);
+
+INSERT INTO display_group_memberships (display_id, group_id, layout_x, layout_y, layout_width, layout_height, layout_rotation_degrees, bezel_top, bezel_right, bezel_bottom, bezel_left, sort_order) VALUES
+(1, 1, 0, 0, NULL, NULL, 0, 0, 0, 0, 0, 1),
+(2, 2, 0, 0, NULL, NULL, 0, 0, 0, 0, 0, 1);
 
 INSERT INTO channels (name, description, transition_effect, slide_duration_seconds, is_active) VALUES
-('Default Channel', 'Fallback content', 'inherit', 8, 1),
-('Morning News', 'Shown in the morning', 'slide-left', 6, 1),
-('Menu Loop', 'General cafeteria content', 'zoom', 8, 1);
+('Hugin Demo Playlist', 'Full-time demo loop for Hugin | Open Source Digital Signage.', 'inherit', 8, 1),
+('Hugin Morning Showcase', 'Morning-only demo playlist showing additional slide settings and presentation styles.', 'slide-left', 7, 1);
 
 INSERT INTO schedules (name, type, is_system, is_active) VALUES
 ('Fulltime', 'fulltime', 1, 1),
@@ -290,26 +300,36 @@ INSERT INTO schedule_rules (schedule_id, weekday, start_time, end_time) VALUES
 
 INSERT INTO channel_display_schedule_assignments (display_id, channel_id, schedule_id, priority, is_active) VALUES
 (1, 1, 1, 10, 1),
-(1, 2, 2, 1, 1),
 (2, 1, 1, 10, 1),
-(2, 3, 3, 1, 1);
+(1, 2, 2, 1, 1);
 
-INSERT INTO slides (name, slide_type, source_mode, source_url, media_asset_id, duration_seconds, title_position, is_active) VALUES
-('Welcome Image', 'image', 'external', 'https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=1600&q=80', NULL, 8, 'bottom-left', 1),
-('Campus Website', 'website', 'external', 'https://www.example.com', NULL, 10, 'bottom-left', 1),
-('Morning Video', 'video', 'external', 'https://www.w3schools.com/html/mov_bbb.mp4', NULL, 12, 'bottom-left', 1),
-('Menu Website', 'website', 'external', 'https://www.example.com/menu', NULL, 10, 'bottom-left', 1),
-('Client Metadata', 'screen-meta', 'external', '', NULL, 10, 'top-left', 1);
+INSERT INTO media_assets (name, original_name, mime_type, file_size, media_kind, file_path, uploaded_by_user_id) VALUES
+('Hugin Teaser Video', 'hugin_open_source_digital_signage.mp4', 'video/mp4', 17750869, 'video', '/demo/hugin_open_source_digital_signage.mp4', 1),
+('Hugin Background Image', 'hugin_open_source_digital_signage.png', 'image/png', 1711082, 'image', '/demo/hugin_open_source_digital_signage.png', 1),
+('Hugin Demo Image 1', 'hugin_demo_image_1.jpeg', 'image/jpeg', 1534871, 'image', '/demo/hugin_demo_image_1.jpeg', 1),
+('Hugin Demo Image 2', 'hugin_demo_image_2.jpeg', 'image/jpeg', 1431159, 'image', '/demo/hugin_demo_image_2.jpeg', 1);
+
+INSERT INTO slides (
+    name, slide_type, source_mode, source_url, media_asset_id, background_media_asset_id, text_markup,
+    background_color, text_color, text_box_background_color, text_box_layout, text_box_animation,
+    text_box_animation_duration_ms, text_box_animation_delay_ms, text_box_blur_enabled, text_box_width_percent,
+    qr_foreground_color, qr_background_color, qr_position, qr_size_percent, duration_seconds, title_position, is_active
+) VALUES
+('Hugin Teaser Video', 'video', 'media', NULL, 1, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 15, 'bottom-left', 1),
+('Hugin Brand Image', 'image', 'media', NULL, 2, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 10, 'bottom-left', 1),
+('Flexible Text Overlay', 'text', 'external', 'https://github.com/', NULL, 3, '<h1>Hugin | Open Source Digital Signage</h1><p>Create polished information screens with rich text, media backgrounds, translucent cards, and QR codes. This slide uses a demo media asset as its background.</p>', '#0f172a', 'rgba(248,250,252,1)', 'rgba(15,23,42,0.72)', 'center', 'fade-up', 600, 100, 1, 76, 'rgba(15,23,42,1)', 'rgba(255,255,255,1)', 'bottom-right', 14, 12, 'hide', 1),
+('Visual Announcements', 'text', 'external', NULL, NULL, 4, '<h1>Readable messages, fast updates</h1><p>Use Hugin to publish announcements, wayfinding notes, menus, and service updates. Layout, card width, animation timing, background media, and colors can be tuned for each slide.</p>', '#111827', 'rgba(255,255,255,1)', 'rgba(17,24,39,0.64)', 'bottom-left', 'slide-right', 700, 200, 1, 68, 'rgba(17,24,39,1)', 'rgba(255,255,255,1)', 'top-right', 12, 12, 'hide', 1),
+('Morning Website Slide', 'website', 'external', 'https://en.wikipedia.org/wiki/Digital_signage', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 14, 'top-left', 1),
+('Morning Media Message', 'text', 'external', 'https://github.com/', NULL, 2, '<h1>Scheduled playlists</h1><p>This morning playlist is active only on weekday mornings and only on one display. Hugin can combine schedules, priorities, and display assignments for targeted communication.</p>', '#06202a', 'rgba(240,253,250,1)', 'rgba(6,32,42,0.70)', 'top-left', 'zoom', 650, 0, 1, 72, 'rgba(6,32,42,1)', 'rgba(240,253,250,1)', 'bottom-right', 13, 10, 'hide', 1),
+('External Video Example', 'video', 'external', 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 12, 'bottom-right', 1),
+('Compact Status Card', 'text', 'external', NULL, NULL, NULL, '<h1>Simple by default</h1><p>Run Hugin on standard web clients, assign playlists to screens, and keep demo content professional, safe, and easy to replace.</p>', '#1f2937', 'rgba(249,250,251,1)', 'rgba(31,41,55,0.78)', 'center', 'none', 560, 0, 0, 55, 'rgba(31,41,55,1)', 'rgba(249,250,251,1)', 'bottom-left', 10, 9, 'hide', 1);
 
 INSERT INTO channel_slide_assignments (channel_id, slide_id, sort_order) VALUES
 (1, 1, 1),
 (1, 2, 2),
-(2, 3, 1),
-(3, 4, 1),
-(1, 5, 3);
-
-INSERT INTO plugins (plugin_name, display_name, version, description, slide_type, is_enabled, manifest_json) VALUES
-('screen-meta', 'Screen Metadata', '1.0.0', 'Renders the most recent heartbeat metadata collected from the display client.', 'screen-meta', 1, NULL);
-
-INSERT INTO slide_plugin_data (slide_id, plugin_name, settings_json) VALUES
-(5, 'screen-meta', '{"heading":"Display Client Information","show_browser":true,"show_os":true,"show_resolution":true,"show_viewport":true,"show_ip":true,"show_timezone":true,"note":"This example plugin slide is powered by the new plugin system."}');
+(1, 3, 3),
+(1, 4, 4),
+(2, 5, 1),
+(2, 6, 2),
+(2, 7, 3),
+(2, 8, 4);
