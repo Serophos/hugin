@@ -23,15 +23,13 @@
                         }
                     <?php endif; ?>
                 <?php endforeach; ?>
-                :root {
+                .text-slide-content {
                     <?php if (!empty($brandingSettings['default_font_text'])): ?>
                         --hugin-font-text: '<?= e($brandingSettings['default_font_text']) ?>', sans-serif;
                     <?php endif; ?>
                     <?php if (!empty($brandingSettings['default_font_heading'])): ?>
                         --hugin-font-heading: '<?= e($brandingSettings['default_font_heading']) ?>', sans-serif;
                     <?php endif; ?>
-                }
-                .text-slide-content {
                     font-family: var(--hugin-font-text, inherit);
                 }
                 .text-slide-content h1,

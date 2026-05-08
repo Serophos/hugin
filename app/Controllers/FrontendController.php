@@ -415,13 +415,28 @@ class FrontendController
 
     private function loadBrandingSettings(): array
     {
-        $settings = $this->plugins->loadGlobalSettings('hugin-branding');
-        return array_replace([
+        $rows = $this->db->all('SELECT setting_key, setting_value FROM app_settings WHERE namespace = ?', ['branding']);
+
+        $defaults = [
             'default_background_color' => '#0f172a',
             'default_text_color' => '#f8fafc',
             'default_font_heading' => '',
             'default_font_text' => '',
-        ], is_array($settings) ? $settings : []);
+        ];
+
+        if (!$rows) {
+            return $defaults;
+        }
+
+        $settings = [];
+        foreach ($rows as $row) {
+            if (!is_string($row['setting_key']) || !array_key_exists('setting_value', $row)) {
+                continue;
+            }
+            $settings[$row['setting_key']] = $row['setting_value'];
+        }
+
+        return array_replace($defaults, $settings);
     }
 
     private function buildDisplayState(array $display, array $activeAssignment, array $resolvedSlides, string $effect, int $duration): array
