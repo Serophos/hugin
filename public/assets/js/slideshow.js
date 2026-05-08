@@ -499,8 +499,17 @@
         const moduleCount = matrix.length;
         const ratio = Math.max(1, window.devicePixelRatio || 1);
         const box = canvas.getBoundingClientRect();
-        const cssSize = Math.max(96, Math.round(box.width || canvas.parentElement?.clientWidth || 180));
-        const pixelSize = Math.max(96, Math.round(cssSize * ratio));
+        const parentBox = canvas.parentElement?.getBoundingClientRect();
+        const effectiveWidth = Math.max(
+            1,
+            box.width,
+            parentBox?.width || 0,
+            canvas.clientWidth || 0,
+            canvas.parentElement?.clientWidth || 0,
+            180
+        );
+        const cssSize = Math.round(effectiveWidth);
+        const pixelSize = Math.max(1, Math.round(cssSize * ratio));
         const quietModules = 4;
         const moduleSize = Math.max(1, Math.floor(pixelSize / (moduleCount + (quietModules * 2))));
         const qrPixelSize = moduleSize * (moduleCount + (quietModules * 2));

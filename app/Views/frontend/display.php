@@ -113,7 +113,7 @@ if (str_starts_with($display['slug'] ?? '', 'preview-slide-') && preg_match('#^p
                         </div>
                     </div>
                     <?php if ($qrUrl !== ''): ?>
-                        <div class="text-slide-qr text-slide-qr--<?= e($qrPosition) ?>" data-qr-url="<?= e($qrUrl) ?>" data-qr-foreground="<?= e($slide['resolved_qr_foreground_color'] ?? 'rgba(15,23,42,1)') ?>" data-qr-background="<?= e($slide['resolved_qr_background_color'] ?? 'rgba(255,255,255,1)') ?>" role="img" aria-label="<?= e(__('slide.qr_code_label')) ?>">
+                        <div class="text-slide-qr text-slide-qr--<?= e($qrPosition) ?>" style="width: <?= e((string)$qrSizePercent) ?>vw;" data-qr-url="<?= e($qrUrl) ?>" data-qr-foreground="<?= e($slide['resolved_qr_foreground_color'] ?? 'rgba(15,23,42,1)') ?>" data-qr-background="<?= e($slide['resolved_qr_background_color'] ?? 'rgba(255,255,255,1)') ?>" role="img" aria-label="<?= e(__('slide.qr_code_label')) ?>">
                             <canvas class="text-slide-qr__canvas" width="1" height="1"></canvas>
                             <div class="text-slide-qr__fallback"><?= e($qrUrl) ?></div>
                         </div>
