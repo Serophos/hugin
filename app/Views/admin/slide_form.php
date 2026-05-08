@@ -6,6 +6,15 @@ $title = $slide ? __('slide.edit_title') : __('slide.create_title');
 $textSlideLayouts = text_slide_layout_options();
 $textSlideAnimations = text_slide_animation_options();
 $textSlideQrPositions = text_slide_qr_position_options();
+$pluginCss = null;
+if (!in_array($selectedSlideType, ['image', 'video', 'website', 'text'])) {
+    foreach ($pluginDefinitions as $p) {
+        if ($p['slide_type'] === $selectedSlideType) {
+            $pluginCss = url('/plugins/' . $p['name'] . '/assets/' . $p['name'] . '.css');
+            break;
+        }
+    }
+}
 require __DIR__ . '/../layouts/admin_header.php';
 ?>
 <h1><?= e($title) ?></h1>

@@ -376,12 +376,77 @@
         overflow: visible;
     }
 }
-.tl1menu-admin-checklist { display: grid; gap: .45rem; max-height: 18rem; overflow: auto; padding: .35rem 0; }
-.checkbox-row { display: flex; align-items: center; gap: .55rem; }
-.checkbox-row input { flex: 0 0 auto; }
-.tl1menu-admin-advanced { margin-top: 1rem; border: 1px solid rgba(148,163,184,0.25); border-radius: 0.85rem; padding: 0.85rem 1rem; background: rgba(248,250,252,0.75); }
-.tl1menu-admin-advanced > summary { cursor: pointer; font-weight: 700; }
-.tl1menu-admin-advanced__content { display: grid; gap: 0.85rem; margin-top: 0.85rem; }
-.tl1menu-admin-preview { display: grid; gap: 0.65rem; }
-.tl1menu-admin-preview__label { font-weight: 700; }
-.tl1menu-admin-preview__image { max-width: 100%; max-height: 180px; border-radius: 0.75rem; border: 1px solid rgba(148,163,184,0.25); object-fit: cover; }
+.tl1menu-admin-checklist {
+    display: grid;
+    gap: 0.45rem;
+    max-height: 18rem;
+    overflow: auto;
+    padding: 0.35rem 0;
+}
+
+.tl1menu-admin-advanced {
+    margin-top: 0.25rem;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0.85rem 1rem;
+    background: #fff;
+}
+
+.tl1menu-admin-advanced > summary {
+    cursor: pointer;
+    font-weight: 700;
+}
+
+.tl1menu-admin-advanced__content {
+    display: grid;
+    gap: 0.85rem;
+    margin-top: 0.85rem;
+}
+
+.tl1menu-color-control {
+    display: grid;
+    gap: 0.45rem;
+    max-width: 18rem;
+}
+
+.tl1menu-color-control input[type="color"] {
+    width: 100%;
+    height: 3.5rem;
+    min-height: 3.5rem;
+    padding: 0.25rem;
+    cursor: pointer;
+}
+
+.tl1menu-color-control input[type="color"]::-webkit-color-swatch-wrapper {
+    padding: 0;
+}
+
+.tl1menu-color-control input[type="color"]::-webkit-color-swatch {
+    min-height: 2.75rem;
+    border-radius: 8px;
+    border: 0;
+}
+
+.tl1menu-color-control input[type="color"]::-moz-color-swatch {
+    min-height: 2.75rem;
+    border-radius: 8px;
+    border: 0;
+}
+
+.tl1menu-admin-preview {
+    display: grid;
+    gap: 0.65rem;
+    margin-top: 0.75rem;
+}
+
+.tl1menu-admin-preview__label {
+    font-weight: 700;
+}
+
+.tl1menu-admin-preview__image {
+    max-width: 100%;
+    max-height: 220px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    object-fit: cover;
+}
