@@ -370,19 +370,7 @@ html, body {
     padding: 0.6rem;
     border-radius: 1rem;
     background: var(--text-slide-qr-bg, rgba(255, 255, 255, 1));
-    -webkit-backdrop-filter: blur(var(--text-slide-card-blur, 4px));
-    backdrop-filter: blur(var(--text-slide-card-blur, 4px));
-    box-shadow: 0 18px 45px rgba(0, 0, 0, 0.22);
-    pointer-events: none;
-}
 
-.text-slide-qr--top-left {
-    top: 6vh;
-    left: 6vw;
-}
-
-.text-slide-qr--top-right {
-    top: 6vh;
     right: 6vw;
 }
 
