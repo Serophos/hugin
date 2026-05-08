@@ -20,7 +20,7 @@ require __DIR__ . '/../layouts/admin_header.php';
 <h1><?= e($title) ?></h1>
 <?php if ($error): ?><div class="alert error"><?= e($error) ?></div><?php endif; ?>
 <div class="card">
-    <form method="post" enctype="multipart/form-data" action="<?= e($slide ? url('/admin/slides/' . $slide['id'] . '/edit') : url('/admin/slides/create')) ?>" class="form-grid" id="slide-form">
+    <form method="post" enctype="multipart/form-data" action="<?= e(($slide && isset($slide['id'])) ? url('/admin/slides/' . $slide['id'] . '/edit') : url('/admin/slides/create')) ?>" class="form-grid" id="slide-form">
         <?= csrf_field() ?>
         <input type="hidden" name="return_to" value="<?= e($returnToPath) ?>">
         <fieldset class="full-width">
