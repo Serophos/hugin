@@ -521,7 +521,7 @@
         canvas.height = pixelSize;
         context.imageSmoothingEnabled = false;
         context.clearRect(0, 0, pixelSize, pixelSize);
-        context.fillStyle = background || 'rgba(255, 255, 255, 1)';
+        context.fillStyle = 'rgba(0,0,0,0)'; //background || 'rgba(255, 255, 255, 1)';
         context.fillRect(0, 0, pixelSize, pixelSize);
         context.fillStyle = foreground || 'rgba(15, 23, 42, 1)';
 
