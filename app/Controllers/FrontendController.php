@@ -45,6 +45,7 @@ class FrontendController
         $heartbeat = $this->db->one('SELECT * FROM display_heartbeats WHERE display_id = ?', [$display['id']]);
         [$resolvedSlides, $pluginAssets] = $this->resolveSlides($slides, $display, $activeAssignment, $heartbeat, $duration);
         $state = $this->buildDisplayState($display, $activeAssignment, $resolvedSlides, $effect, $duration);
+        $brandingSettings = $this->loadBrandingSettings();
 
         $this->view->render('frontend/display', [
             'display' => $display,
@@ -59,6 +60,7 @@ class FrontendController
             'stateSignature' => $state['signature'],
             'orientation' => $display['orientation'] ?? 'landscape',
             'pluginAssets' => $pluginAssets,
+            'brandingSettings' => $brandingSettings,
         ]);
     }
 
@@ -272,6 +274,17 @@ class FrontendController
         }
 
         return [$resolved, $assets];
+    }
+
+    private function loadBrandingSettings(): array
+    {
+        $settings = $this->plugins->loadGlobalSettings('hugin-branding');
+        return array_replace([
+            'default_background_color' => '#0f172a',
+            'default_text_color' => '#f8fafc',
+            'default_font_heading' => '',
+            'default_font_text' => '',
+        ], is_array($settings) ? $settings : []);
     }
 
     private function buildDisplayState(array $display, array $activeAssignment, array $resolvedSlides, string $effect, int $duration): array

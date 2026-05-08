@@ -33,6 +33,7 @@
             <?php if (is_admin()): ?>
                 <a href="<?= e(url('/admin/plugins')) ?>"><?= e(__('nav.plugins')) ?></a>
                 <a href="<?= e(url('/admin/users')) ?>"><?= e(__('nav.users')) ?></a>
+                <a href="<?= e(url('/admin/settings')) ?>"><?= e(__('nav.settings')) ?></a>
             <?php endif; ?>
             <a href="<?= e(url('/admin/about')) ?>"><?= e(__('nav.about')) ?></a>
             <form method="post" action="<?= e(url('/admin/logout')) ?>" class="inline-form">

@@ -9,6 +9,42 @@
     <?php foreach (($pluginAssets['css'] ?? []) as $cssAsset): ?>
         <link rel="stylesheet" href="<?= e($cssAsset) ?>">
     <?php endforeach; ?>
+    <?php if (!empty($brandingSettings['default_font_heading'] || $brandingSettings['default_font_text'])): ?>
+        <?php $fonts = list_public_fonts(); ?>
+        <?php $loadedFamilies = array_values(array_unique(array_filter([$brandingSettings['default_font_heading'] ?? '', $brandingSettings['default_font_text'] ?? '']))); ?>
+        <?php if ($loadedFamilies): ?>
+            <style>
+                <?php foreach ($loadedFamilies as $family): ?>
+                    <?php if (isset($fonts[$family])): ?>
+                        @font-face {
+                            font-family: '<?= e($family) ?>';
+                            font-display: swap;
+                            src: <?= $fonts[$family]['src'] ?>;
+                        }
+                    <?php endif; ?>
+                <?php endforeach; ?>
+                :root {
+                    <?php if (!empty($brandingSettings['default_font_text'])): ?>
+                        --hugin-font-text: '<?= e($brandingSettings['default_font_text']) ?>', sans-serif;
+                    <?php endif; ?>
+                    <?php if (!empty($brandingSettings['default_font_heading'])): ?>
+                        --hugin-font-heading: '<?= e($brandingSettings['default_font_heading']) ?>', sans-serif;
+                    <?php endif; ?>
+                }
+                .text-slide-content {
+                    font-family: var(--hugin-font-text, inherit);
+                }
+                .text-slide-content h1,
+                .text-slide-content h2,
+                .text-slide-content h3,
+                .text-slide-content h4,
+                .text-slide-content h5,
+                .text-slide-content h6 {
+                    font-family: var(--hugin-font-heading, var(--hugin-font-text, inherit));
+                }
+            </style>
+        <?php endif; ?>
+    <?php endif; ?>
 </head>
 <body class="display-orientation-<?= e($orientation ?? ($display['orientation'] ?? 'landscape')) ?>">
 <div id="slideshow"

@@ -13,6 +13,7 @@ use RuntimeException;
 class AdminController
 {
     private const MEDIA_PAGE_SIZE = 20;
+    private const BRANDING_SETTINGS_NAMESPACE = 'branding';
 
     public function __construct(
         private Database $db,
@@ -165,6 +166,61 @@ class AdminController
 
         flash('success', __('plugins.settings_saved', ['plugin' => $plugin->getDisplayName()]));
         redirect('/admin/plugins');
+    }
+
+    public function settingsForm(): void
+    {
+        $this->auth->requireRole('admin');
+        $settings = $this->loadBrandingSettings();
+        if (form_has_old('settings')) {
+            $settings = array_replace($settings, old_input('settings'));
+        }
+
+        $this->view->render('admin/settings', [
+            'settings' => $settings,
+            'fonts' => list_public_fonts(),
+            'error' => flash('error'),
+        ]);
+    }
+
+    public function saveSettings(): void
+    {
+        $this->auth->requireRole('admin');
+        $input = (array)$this->request->input('settings', []);
+        $availableFonts = array_keys(list_public_fonts());
+
+        $defaultBackgroundColor = normalize_hex_color((string)($input['default_background_color'] ?? '#0f172a'), '#0f172a');
+        $defaultTextColor = normalize_hex_color((string)($input['default_text_color'] ?? '#f8fafc'), '#f8fafc');
+        $defaultFontHeading = trim((string)($input['default_font_heading'] ?? ''));
+        $defaultFontText = trim((string)($input['default_font_text'] ?? ''));
+
+        $errors = [];
+        if ($defaultFontHeading !== '' && !in_array($defaultFontHeading, $availableFonts, true)) {
+            $errors['default_font_heading'] = __('settings.invalid_font');
+        }
+        if ($defaultFontText !== '' && !in_array($defaultFontText, $availableFonts, true)) {
+            $errors['default_font_text'] = __('settings.invalid_font');
+        }
+
+        if ($errors !== []) {
+            $this->redirectWithForm(
+                '/admin/settings',
+                __('validation.fix_marked_fields'),
+                $input,
+                $errors,
+                'settings'
+            );
+        }
+
+        $this->saveBrandingSettings([
+            'default_background_color' => $defaultBackgroundColor,
+            'default_text_color' => $defaultTextColor,
+            'default_font_heading' => $defaultFontHeading,
+            'default_font_text' => $defaultFontText,
+        ]);
+
+        flash('success', __('settings.saved'));
+        redirect('/admin/settings');
     }
 
     public function dashboard(): void
@@ -1280,6 +1336,14 @@ class AdminController
         }
         $oldPluginSettings = is_array($oldSlideInput['plugin_settings'] ?? null) ? $oldSlideInput['plugin_settings'] : [];
 
+        $brandingSettings = $this->loadBrandingSettings();
+        if (!$id) {
+            $slide = array_replace([
+                'background_color' => $brandingSettings['default_background_color'],
+                'text_color' => $brandingSettings['default_text_color'],
+            ], $slide ?? []);
+        }
+
         $pluginDefinitions = [];
         $pluginForms = [];
         foreach ($this->plugins->getEnabledPlugins() as $plugin) {
@@ -1878,6 +1942,51 @@ class AdminController
         flash('error', $message);
         flash_form_state($form, $oldInput, $errors);
         redirect($path);
+    }
+
+    private function loadBrandingSettings(): array
+    {
+        $rows = $this->db->all('SELECT setting_key, setting_value FROM app_settings WHERE namespace = ?', [self::BRANDING_SETTINGS_NAMESPACE]);
+
+        $defaults = [
+            'default_background_color' => '#0f172a',
+            'default_text_color' => '#f8fafc',
+            'default_font_heading' => '',
+            'default_font_text' => '',
+        ];
+
+        if (!$rows) {
+            return $defaults;
+        }
+
+        $settings = [];
+        foreach ($rows as $row) {
+            if (!is_string($row['setting_key']) || !array_key_exists('setting_value', $row)) {
+                continue;
+            }
+            $settings[$row['setting_key']] = $row['setting_value'];
+        }
+
+        return array_replace($defaults, $settings);
+    }
+
+    private function saveBrandingSettings(array $settings): void
+    {
+        $pdo = $this->db->pdo();
+        $pdo->beginTransaction();
+        try {
+            $this->db->execute('DELETE FROM app_settings WHERE namespace = ?', [self::BRANDING_SETTINGS_NAMESPACE]);
+
+            $sql = 'INSERT INTO app_settings (namespace, setting_key, setting_value) VALUES (?, ?, ?)';
+            foreach ($settings as $key => $value) {
+                $this->db->execute($sql, [self::BRANDING_SETTINGS_NAMESPACE, $key, $value]);
+            }
+
+            $pdo->commit();
+        } catch (\Throwable $e) {
+            $pdo->rollBack();
+            throw $e;
+        }
     }
 
     private function isPositiveInteger(string $value): bool

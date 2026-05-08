@@ -415,6 +415,62 @@ function normalize_css_rgba_color(?string $value, string $default = 'rgba(17, 24
     return $default;
 }
 
+function list_public_fonts(): array
+{
+    $fontDir = realpath(__DIR__ . '/../public/assets/fonts');
+    if ($fontDir === false || !is_dir($fontDir)) {
+        return [];
+    }
+
+    $supportedTypes = [
+        'woff2' => 'woff2',
+        'woff' => 'woff',
+        'ttf' => 'truetype',
+        'otf' => 'opentype',
+    ];
+
+    $fonts = [];
+    foreach (scandir($fontDir) ?: [] as $file) {
+        if ($file === '.' || $file === '..') {
+            continue;
+        }
+
+        $path = $fontDir . '/' . $file;
+        if (!is_file($path)) {
+            continue;
+        }
+
+        $extension = strtolower(pathinfo($file, PATHINFO_EXTENSION));
+        if (!isset($supportedTypes[$extension])) {
+            continue;
+        }
+
+        $family = pathinfo($file, PATHINFO_FILENAME);
+        $fonts[$family]['family'] = $family;
+        $fonts[$family]['files'][$extension] = $file;
+    }
+
+    ksort($fonts);
+    foreach ($fonts as $family => $font) {
+        $sources = [];
+        foreach (['woff2', 'woff', 'ttf', 'otf'] as $extension) {
+            if (!empty($font['files'][$extension])) {
+                $sources[] = sprintf("url('%s') format('%s')", url('/assets/fonts/' . $font['files'][$extension]), $supportedTypes[$extension]);
+            }
+        }
+
+        if ($sources === []) {
+            unset($fonts[$family]);
+            continue;
+        }
+
+        $fonts[$family]['src'] = implode(', ', $sources);
+        $fonts[$family]['label'] = str_replace(['-', '_'], ' ', $family);
+    }
+
+    return $fonts;
+}
+
 function color_luminance(string $hex): float
 {
     [$r, $g, $b] = hex_to_rgb($hex);

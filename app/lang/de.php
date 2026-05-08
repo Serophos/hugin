@@ -95,6 +95,7 @@ return [
         'media' => 'Medien',
         'about' => 'Info',
         'plugins' => 'Plugins',
+        'settings' => 'Einstellungen',
         'users' => 'Benutzer',
     ],
     'roles' => [
@@ -568,6 +569,21 @@ return [
         'license_short_name' => 'AGPLv3',
         'license_summary' => 'Diese Software wird unter der GNU AGPLv3 bereitgestellt. Wenn Sie eine geänderte Version über ein Netzwerk bereitstellen, müssen Sie auch den entsprechenden Quellcode dieser Version den Nutzern zugänglich machen.',
     ],
+    'settings' => [
+        'title' => 'Globale Einstellungen',
+        'heading' => 'Branding und Standard-Slide-Aussehen',
+        'intro' => 'Konfigurieren Sie die Standard-Hintergrundfarbe, Textfarbe und optionalen Schriftarten, die aus public/assets/fonts geladen werden.',
+        'default_background_color' => 'Standard-Hintergrundfarbe für Slides',
+        'default_text_color' => 'Standard-Textfarbe für Slides',
+        'default_font_heading' => 'Standard-Schriftart für Überschriften',
+        'default_font_text' => 'Standard-Schriftart für normalen Text',
+        'system_default' => 'Standard-Schriftart aus display.css verwenden',
+        'font_directory_help' => 'Schriftarten werden aus public/assets/fonts geladen. Es wird nur die ausgewählte Schriftart für das Frontend geladen.',
+        'no_fonts_available' => 'Es wurden keine Schriftdateien in public/assets/fonts gefunden.',
+        'saved' => 'Hugin-Einstellungen gespeichert.',
+        'invalid_font' => 'Die ausgewählte Schriftart ist nicht verfügbar.',
+    ],
+
     'monitoring' => [
         'disabled' => 'Monitoring API is disabled.',
         'token_not_configured' => 'Monitoring API token is not configured.',
