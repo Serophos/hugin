@@ -394,6 +394,7 @@ return [
         'created' => 'Slide created.',
         'updated' => 'Slide updated.',
         'deleted' => 'Slide deleted.',
+        'save_and_close' => 'Save & Close',
         'edit_content' => 'Edit content',
         'remove_from_channel' => 'Remove from playlist',
         'remove_from_channel_confirm' => 'Remove ":slide" from ":channel"? The slide will stay in the Slide Library and any other playlists.',

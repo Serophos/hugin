@@ -47,12 +47,20 @@
     <?php endif; ?>
 </head>
 <body class="display-orientation-<?= e($orientation ?? ($display['orientation'] ?? 'landscape')) ?>">
+<?php
+$displayRoutePrefix = '/display/' . $display['slug'];
+$isPreviewDisplay = false;
+if (str_starts_with($display['slug'] ?? '', 'preview-slide-') && preg_match('#^preview-slide-(\d+)$#', $display['slug'], $slugMatch)) {
+    $displayRoutePrefix = '/preview-slide/' . $slugMatch[1];
+    $isPreviewDisplay = true;
+}
+?>
 <div id="slideshow"
-     class="slideshow is-startup-sync-pending effect-<?= e($effect) ?> orientation-<?= e($orientation ?? ($display['orientation'] ?? 'landscape')) ?>"
+     class="slideshow <?= $isPreviewDisplay ? '' : 'is-startup-sync-pending ' ?>effect-<?= e($effect) ?> orientation-<?= e($orientation ?? ($display['orientation'] ?? 'landscape')) ?>"
      data-default-duration="<?= e((string)$duration) ?>"
-     data-heartbeat-url="<?= e(url('/display/' . $display['slug'] . '/heartbeat')) ?>"
+     data-heartbeat-url="<?= e(url($displayRoutePrefix . '/heartbeat')) ?>"
      data-heartbeat-interval="<?= e((string)$heartbeatInterval) ?>"
-     data-state-url="<?= e(url('/display/' . $display['slug'] . '/state')) ?>"
+     data-state-url="<?= e(url($displayRoutePrefix . '/state')) ?>"
      data-state-check-interval="60"
      data-state-signature="<?= e($stateSignature) ?>"
      data-startup-sync-key="hugin:slideshow-started:<?= e($display['slug']) ?>">

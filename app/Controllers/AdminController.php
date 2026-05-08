@@ -1414,6 +1414,7 @@ class AdminController
         $plugin = $this->plugins->getPluginBySlideType($slideType, true);
         $isPluginType = $plugin !== null;
         $pluginSettingsInput = (array)$this->request->input('plugin_settings', []);
+        $saveAction = (string)$this->request->input('save_action', 'save_and_close');
         $old = [
             'channel_ids' => (array)$this->request->input('channel_ids', []),
             'name' => $nameRaw,
@@ -1445,9 +1446,6 @@ class AdminController
         ];
         $errors = [];
 
-        if (!$channelIds) {
-            $errors['channel_ids'] = __('slide.assigned_channels_required');
-        }
         if ($name === '') {
             $errors['name'] = __('slide.name_required');
         }
@@ -1636,6 +1634,16 @@ class AdminController
         }
 
         flash('success', __($id ? 'slide.updated' : 'slide.created'));
+
+        if ($saveAction === 'save') {
+            $editUrl = '/admin/slides/' . $slideId . '/edit';
+            $returnToInput = trim((string)$this->request->input('return_to', ''));
+            if ($returnToInput !== '') {
+                $editUrl .= '?return_to=' . rawurlencode($returnToInput);
+            }
+            redirect($editUrl);
+        }
+
         redirect($this->adminReturnPath('/admin/slides'));
     }
 

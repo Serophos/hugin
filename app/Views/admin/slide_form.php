@@ -24,7 +24,7 @@ require __DIR__ . '/../layouts/admin_header.php';
         <?= csrf_field() ?>
         <input type="hidden" name="return_to" value="<?= e($returnToPath) ?>">
         <fieldset class="full-width">
-            <legend><?= e(__('slide.assigned_channels')) ?> <span class="required">*</span></legend>
+            <legend><?= e(__('slide.assigned_channels')) ?></legend>
             <?php foreach ($channels as $channel): ?>
                 <?php
                 $channelLabel = (string)$channel['label'];
@@ -228,7 +228,14 @@ require __DIR__ . '/../layouts/admin_header.php';
         </div>
 
         <label class="checkbox-row"><input type="checkbox" name="is_active" value="1" <?= old_checked('is_active', $slide['is_active'] ?? 1, $formId) ?>> <?= e(__('common.active')) ?></label>
-        <div class="form-actions"><button type="submit" class="button button--default"><?= admin_icon('save') ?><span><?= e(__('common.save')) ?></span></button><a class="button button--normal" href="<?= e(url($returnToPath)) ?>"><?= admin_icon('cancel') ?><span><?= e(__('common.cancel')) ?></span></a></div>
+        <div class="form-actions">
+            <button type="submit" name="save_action" value="save_and_close" class="button button--default"><?= admin_icon('save') ?><span><?= e(__('slide.save_and_close')) ?></span></button>
+            <button type="submit" name="save_action" value="save" class="button button--normal"><?= admin_icon('save') ?><span><?= e(__('common.save')) ?></span></button>
+            <?php if ($slide && isset($slide['id'])): ?>
+                <a class="button button--normal" target="_blank" rel="noopener noreferrer" href="<?= e(url('/preview-slide/' . $slide['id'])) ?>"><?= admin_icon('open') ?><span><?= e(__('common.preview')) ?></span></a>
+            <?php endif; ?>
+            <a class="button button--normal" href="<?= e(url($returnToPath)) ?>"><?= admin_icon('cancel') ?><span><?= e(__('common.cancel')) ?></span></a>
+        </div>
     </form>
 </div>
 <script>

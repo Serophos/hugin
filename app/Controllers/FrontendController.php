@@ -64,6 +64,143 @@ class FrontendController
         ]);
     }
 
+    public function previewSlide(int $slideId): void
+    {
+        $slide = $this->db->one(
+            'SELECT s.*, m.file_path AS media_file_path, bg.file_path AS background_media_file_path, bg.media_kind AS background_media_kind
+             FROM slides s
+             LEFT JOIN media_assets m ON m.id = s.media_asset_id
+             LEFT JOIN media_assets bg ON bg.id = s.background_media_asset_id
+             WHERE s.id = ?',
+            [$slideId]
+        );
+
+        if (!$slide) {
+            http_response_code(404);
+            echo __('slide.not_found');
+            return;
+        }
+
+        $display = [
+            'id' => 0,
+            'slug' => 'preview-slide-' . $slideId,
+            'name' => __('common.preview'),
+            'orientation' => 'landscape',
+            'transition_effect' => 'none',
+            'slide_duration_seconds' => 8,
+            'updated_at' => '',
+        ];
+
+        $activeAssignment = [
+            'id' => 0,
+            'channel_id' => 0,
+            'channel_name' => __('common.preview'),
+            'channel_description' => '',
+            'transition_effect' => 'inherit',
+            'slide_duration_seconds' => 0,
+            'schedule_type' => 'fulltime',
+            'schedule_id' => 0,
+            'schedule_name' => '',
+            'schedule_updated_at' => '',
+            'schedule_rule_id' => 0,
+            'schedule_rule_weekday' => 0,
+            'schedule_rule_start_time' => '',
+            'schedule_rule_end_time' => '',
+            'sort_order' => 0,
+            'assignment_created_at' => '',
+            'channel_updated_at' => '',
+        ];
+
+        $duration = (int)(($slide['duration_seconds'] ?? 0) ?: $display['slide_duration_seconds']);
+        $heartbeat = null;
+        [$resolvedSlides, $pluginAssets] = $this->resolveSlides([$slide], $display, $activeAssignment, $heartbeat, $duration);
+        $state = $this->buildDisplayState($display, $activeAssignment, $resolvedSlides, 'none', $duration);
+        $brandingSettings = $this->loadBrandingSettings();
+
+        $this->view->render('frontend/display', [
+            'display' => $display,
+            'channel' => [
+                'id' => $activeAssignment['channel_id'],
+                'name' => $activeAssignment['channel_name'],
+                'description' => $activeAssignment['channel_description'],
+            ],
+            'slides' => $resolvedSlides,
+            'effect' => 'none',
+            'duration' => $duration,
+            'stateSignature' => $state['signature'],
+            'orientation' => $display['orientation'],
+            'pluginAssets' => $pluginAssets,
+            'brandingSettings' => $brandingSettings,
+        ]);
+    }
+
+    public function previewState(int $slideId): void
+    {
+        $slide = $this->db->one(
+            'SELECT s.*, m.file_path AS media_file_path, bg.file_path AS background_media_file_path, bg.media_kind AS background_media_kind
+             FROM slides s
+             LEFT JOIN media_assets m ON m.id = s.media_asset_id
+             LEFT JOIN media_assets bg ON bg.id = s.background_media_asset_id
+             WHERE s.id = ?',
+            [$slideId]
+        );
+
+        if (!$slide) {
+            json_response(['ok' => false, 'message' => __('slide.not_found')], 404);
+        }
+
+        $display = [
+            'id' => 0,
+            'slug' => 'preview-slide-' . $slideId,
+            'name' => __('common.preview'),
+            'orientation' => 'landscape',
+            'transition_effect' => 'none',
+            'slide_duration_seconds' => 8,
+            'updated_at' => '',
+        ];
+
+        $activeAssignment = [
+            'id' => 0,
+            'channel_id' => 0,
+            'channel_name' => __('common.preview'),
+            'channel_description' => '',
+            'transition_effect' => 'inherit',
+            'slide_duration_seconds' => 0,
+            'schedule_type' => 'fulltime',
+            'schedule_id' => 0,
+            'schedule_name' => '',
+            'schedule_updated_at' => '',
+            'schedule_rule_id' => 0,
+            'schedule_rule_weekday' => 0,
+            'schedule_rule_start_time' => '',
+            'schedule_rule_end_time' => '',
+            'sort_order' => 0,
+            'assignment_created_at' => '',
+            'channel_updated_at' => '',
+        ];
+
+        $duration = (int)(($slide['duration_seconds'] ?? 0) ?: $display['slide_duration_seconds']);
+        $heartbeat = null;
+        [$resolvedSlides] = $this->resolveSlides([$slide], $display, $activeAssignment, $heartbeat, $duration);
+
+        json_response($this->buildDisplayState($display, $activeAssignment, $resolvedSlides, 'none', $duration));
+    }
+
+    public function previewHeartbeat(int $slideId): void
+    {
+        $slide = $this->db->one('SELECT id FROM slides WHERE id = ?', [$slideId]);
+        if (!$slide) {
+            json_response(['ok' => false, 'message' => __('slide.not_found')], 404);
+        }
+
+        json_response([
+            'ok' => true,
+            'display' => __('common.preview'),
+            'channel' => __('common.preview'),
+            'seen_at' => date('c'),
+        ]);
+    }
+
     public function state(string $slug): void
     {
         $display = $this->db->one('SELECT * FROM displays WHERE slug = ? AND is_active = 1', [$slug]);

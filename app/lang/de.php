@@ -414,6 +414,7 @@ return [
         'created' => 'Slide erstellt.',
         'updated' => 'Slide aktualisiert.',
         'deleted' => 'Slide gelöscht.',
+        'save_and_close' => 'Speichern & schließen',
         'edit_content' => 'Inhalt bearbeiten',
         'remove_from_channel' => 'Aus Playlist entfernen',
         'remove_from_channel_confirm' => '":slide" aus ":channel" entfernen? Die Slide bleibt in der Slide-Bibliothek und in anderen Playlists erhalten.',

@@ -107,6 +107,9 @@ if ($uri === '/api/monitoring/displays' && $method === 'GET') { $monitoring->dis
 if (preg_match('#^/api/monitoring/displays/([a-zA-Z0-9\-_]+)$#', $uri, $m) && $method === 'GET') { $monitoring->display($m[1]); exit; }
 
 if (preg_match('#^/plugin-assets/([a-zA-Z0-9\-_]+)/(.+)$#', $uri, $m) && $method === 'GET') { $pluginManager->serveAsset($m[1], $m[2]); exit; }
+if (preg_match('#^/preview-slide/(\d+)$#', $uri, $m) && $method === 'GET') { $frontend->previewSlide((int)$m[1]); exit; }
+if (preg_match('#^/preview-slide/(\d+)/heartbeat$#', $uri, $m) && $method === 'POST') { $frontend->previewHeartbeat((int)$m[1]); exit; }
+if (preg_match('#^/preview-slide/(\d+)/state$#', $uri, $m) && $method === 'GET') { $frontend->previewState((int)$m[1]); exit; }
 if (preg_match('#^/display/([a-zA-Z0-9\-_]+)$#', $uri, $m) && $method === 'GET') { $frontend->display($m[1]); exit; }
 if (preg_match('#^/display/([a-zA-Z0-9\-_]+)/heartbeat$#', $uri, $m) && $method === 'POST') { $frontend->heartbeat($m[1]); exit; }
 if (preg_match('#^/display/([a-zA-Z0-9\-_]+)/state$#', $uri, $m) && $method === 'GET') { $frontend->state($m[1]); exit; }
