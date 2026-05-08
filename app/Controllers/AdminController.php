@@ -1780,7 +1780,7 @@ class AdminController
         $offset = ($page - 1) * $pageSize;
         $media = $this->db->all(
             'SELECT m.*, COALESCE(u.display_name, u.username) AS uploaded_by,
-                    (SELECT COUNT(*) FROM slides s WHERE s.media_asset_id = m.id) AS usage_count
+                    0 AS usage_count
              FROM media_assets m
              LEFT JOIN users u ON u.id = m.uploaded_by_user_id'
              . $where .
@@ -1788,6 +1788,7 @@ class AdminController
              LIMIT ? OFFSET ?',
             array_merge($params, [$pageSize, $offset])
         );
+        $media = $this->withMediaUsageCounts($media);
 
         $this->view->render('admin/media', [
             'media' => $media,
@@ -1832,7 +1833,8 @@ class AdminController
             flash('error', __('media.not_found'));
             redirect('/admin/media');
         }
-        $usage = (int)($this->db->one('SELECT COUNT(*) AS cnt FROM slides WHERE media_asset_id = ?', [$id])['cnt'] ?? 0);
+        $usageCounts = $this->mediaUsageCounts([$id]);
+        $usage = (int)($usageCounts[$id] ?? 0);
         if ($usage > 0) {
             flash('error', __('media.still_used'));
             redirect('/admin/media');
@@ -1950,6 +1952,168 @@ class AdminController
         flash('error', $message);
         flash_form_state($form, $oldInput, $errors);
         redirect($path);
+    }
+
+    private function withMediaUsageCounts(array $media): array
+    {
+        $mediaAssetIds = array_values(array_unique(array_filter(array_map(
+            static fn(array $asset): int => (int)($asset['id'] ?? 0),
+            $media
+        ))));
+        if ($mediaAssetIds === []) {
+            return $media;
+        }
+
+        $usageCounts = $this->mediaUsageCounts($mediaAssetIds);
+        foreach ($media as &$asset) {
+            $assetId = (int)($asset['id'] ?? 0);
+            $asset['usage_count'] = $usageCounts[$assetId] ?? 0;
+        }
+        unset($asset);
+
+        return $media;
+    }
+
+    private function mediaUsageCounts(array $mediaAssetIds): array
+    {
+        $mediaAssetIds = array_values(array_unique(array_filter(array_map(
+            static fn(mixed $id): int => (int)$id,
+            $mediaAssetIds
+        ))));
+        if ($mediaAssetIds === []) {
+            return [];
+        }
+
+        $usageByAsset = [];
+        $assetLookup = [];
+        foreach ($mediaAssetIds as $id) {
+            $usageByAsset[$id] = [];
+            $assetLookup[$id] = true;
+        }
+
+        $placeholders = implode(',', array_fill(0, count($mediaAssetIds), '?'));
+        $slideRows = $this->db->all(
+            'SELECT id, media_asset_id, background_media_asset_id
+             FROM slides
+             WHERE media_asset_id IN (' . $placeholders . ')
+                OR background_media_asset_id IN (' . $placeholders . ')',
+            array_merge($mediaAssetIds, $mediaAssetIds)
+        );
+        foreach ($slideRows as $row) {
+            $slideId = (int)($row['id'] ?? 0);
+            foreach (['media_asset_id', 'background_media_asset_id'] as $column) {
+                $assetId = (int)($row[$column] ?? 0);
+                if ($slideId > 0 && isset($assetLookup[$assetId])) {
+                    $usageByAsset[$assetId][$slideId] = true;
+                }
+            }
+        }
+
+        $pluginRows = $this->db->all(
+            "SELECT slide_id, settings_json
+             FROM slide_plugin_data
+             WHERE settings_json IS NOT NULL AND TRIM(settings_json) <> ''"
+        );
+        foreach ($pluginRows as $row) {
+            $slideId = (int)($row['slide_id'] ?? 0);
+            if ($slideId <= 0) {
+                continue;
+            }
+
+            $settings = json_decode((string)($row['settings_json'] ?? ''), true);
+            if (!is_array($settings)) {
+                continue;
+            }
+
+            foreach ($this->mediaAssetIdsInPluginSettings($settings, $assetLookup) as $assetId) {
+                $usageByAsset[$assetId][$slideId] = true;
+            }
+        }
+
+        $counts = [];
+        foreach ($usageByAsset as $assetId => $slideIds) {
+            $counts[$assetId] = count($slideIds);
+        }
+
+        return $counts;
+    }
+
+    private function mediaAssetIdsInPluginSettings(mixed $value, array $assetLookup, bool $insideMediaAsset = false): array
+    {
+        $matches = [];
+        if (!is_array($value)) {
+            return $matches;
+        }
+
+        foreach ($value as $key => $child) {
+            $keyText = is_string($key) ? $key : '';
+            if ($keyText !== '' && $this->pluginSettingKeyReferencesMediaAssetId($keyText)) {
+                foreach ($this->mediaAssetIdsInValue($child, $assetLookup) as $assetId) {
+                    $matches[$assetId] = true;
+                }
+                continue;
+            }
+
+            $nextInsideMediaAsset = $insideMediaAsset || ($keyText !== '' && $this->pluginSettingKeyMayContainMediaAsset($keyText));
+            if ($insideMediaAsset && $keyText === '' && !is_array($child)) {
+                foreach ($this->mediaAssetIdsInValue($child, $assetLookup) as $assetId) {
+                    $matches[$assetId] = true;
+                }
+                continue;
+            }
+
+            if ($nextInsideMediaAsset && $this->normalizedPluginSettingKey($keyText) === 'id') {
+                foreach ($this->mediaAssetIdsInValue($child, $assetLookup) as $assetId) {
+                    $matches[$assetId] = true;
+                }
+                continue;
+            }
+
+            foreach ($this->mediaAssetIdsInPluginSettings($child, $assetLookup, $nextInsideMediaAsset) as $assetId) {
+                $matches[$assetId] = true;
+            }
+        }
+
+        return array_map('intval', array_keys($matches));
+    }
+
+    private function mediaAssetIdsInValue(mixed $value, array $assetLookup): array
+    {
+        $matches = [];
+        if (is_array($value)) {
+            foreach ($value as $child) {
+                foreach ($this->mediaAssetIdsInValue($child, $assetLookup) as $assetId) {
+                    $matches[$assetId] = true;
+                }
+            }
+            return array_map('intval', array_keys($matches));
+        }
+
+        if (is_int($value) || (is_string($value) && ctype_digit($value))) {
+            $assetId = (int)$value;
+            if (isset($assetLookup[$assetId])) {
+                $matches[$assetId] = true;
+            }
+        }
+
+        return array_map('intval', array_keys($matches));
+    }
+
+    private function pluginSettingKeyReferencesMediaAssetId(string $key): bool
+    {
+        $normalized = $this->normalizedPluginSettingKey($key);
+        return str_contains($normalized, 'mediaassetid');
+    }
+
+    private function pluginSettingKeyMayContainMediaAsset(string $key): bool
+    {
+        $normalized = $this->normalizedPluginSettingKey($key);
+        return str_contains($normalized, 'mediaasset');
+    }
+
+    private function normalizedPluginSettingKey(string $key): string
+    {
+        return strtolower((string)preg_replace('/[^a-zA-Z0-9]+/', '', $key));
     }
 
     private function loadBrandingSettings(): array

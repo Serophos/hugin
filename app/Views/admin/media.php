@@ -22,7 +22,6 @@ $prevPageUrl = $baseMediaUrl . ($kind !== '' ? '?kind=' . rawurlencode($kind) . 
 $nextPageUrl = $baseMediaUrl . ($kind !== '' ? '?kind=' . rawurlencode($kind) . '&page=' . ($page + 1) : '?page=' . ($page + 1));
 ?>
 
-<div class="media-summary"><?= e(__('media.showing_assets', ['count' => count($media), 'total' => $totalCount])) ?></div>
 
 <div class="grid-2">
     <div class="card">
@@ -76,24 +75,44 @@ $nextPageUrl = $baseMediaUrl . ($kind !== '' ? '?kind=' . rawurlencode($kind) . 
             </thead>
             <tbody>
             <?php foreach ($media as $asset): ?>
-                <tr>
+                <?php
+                $assetUrl = url($asset['file_path']);
+                $assetKind = (string)$asset['media_kind'];
+                $assetTypeLabel = enum_label('slide_types', $assetKind, $assetKind);
+                $assetSize = format_bytes((int)$asset['file_size']);
+                $assetUploadedBy = $asset['uploaded_by'] ?? __('common.unknown', [], 'Unknown');
+                ?>
+                <tr
+                    data-media-preview-row
+                    data-media-url="<?= e($assetUrl) ?>"
+                    data-media-kind="<?= e($assetKind) ?>"
+                    data-media-name="<?= e($asset['name']) ?>"
+                    data-media-original="<?= e($asset['original_name']) ?>"
+                    data-media-type="<?= e($assetTypeLabel) ?>"
+                    data-media-mime="<?= e($asset['mime_type']) ?>"
+                    data-media-size="<?= e($assetSize) ?>"
+                    data-media-usage="<?= e((string)$asset['usage_count']) ?>"
+                    data-media-uploaded-by="<?= e($assetUploadedBy) ?>"
+                >
                     <td class="preview-cell">
-                        <?php if ($asset['media_kind'] === 'image'): ?>
-                            <img class="thumb" src="<?= e(url($asset['file_path'])) ?>" alt="<?= e($asset['name']) ?>">
+                        <button type="button" class="media-thumb-button" data-media-preview-open aria-label="<?= e(__('media.open_preview_for', ['name' => $asset['name']], 'Preview :name')) ?>">
+                        <?php if ($assetKind === 'image'): ?>
+                            <img class="thumb" src="<?= e($assetUrl) ?>" alt="<?= e($asset['name']) ?>">
                         <?php else: ?>
-                            <video class="thumb" src="<?= e(url($asset['file_path'])) ?>" muted></video>
+                            <video class="thumb" src="<?= e($assetUrl) ?>" muted preload="metadata"></video>
                         <?php endif; ?>
+                        </button>
                     </td>
                     <td class="media-name-cell">
                         <strong class="break-word"><?= e($asset['name']) ?></strong><br>
                         <span class="muted break-word"><?= e($asset['original_name']) ?></span>
                     </td>
-                    <td class="break-word"><?= e(enum_label('slide_types', $asset['media_kind'], $asset['media_kind'])) ?><br><span class="muted break-word"><?= e($asset['mime_type']) ?></span></td>
-                    <td><?= e(format_bytes((int)$asset['file_size'])) ?></td>
+                    <td class="break-word"><?= e($assetTypeLabel) ?><br><span class="muted break-word"><?= e($asset['mime_type']) ?></span></td>
+                    <td><?= e($assetSize) ?></td>
                     <td><?= e((string)$asset['usage_count']) ?></td>
-                    <td class="break-word"><?= e($asset['uploaded_by'] ?? __('common.unknown', [], 'Unknown')) ?></td>
+                    <td class="break-word"><?= e($assetUploadedBy) ?></td>
                     <td class="actions">
-                        <a class="button button--normal button--small" href="<?= e(url($asset['file_path'])) ?>" target="_blank"><?= admin_icon('open') ?><span><?= e(__('common.open')) ?></span></a>
+                        <button type="button" class="button button--normal button--small" data-media-preview-open><?= admin_icon('open') ?><span><?= e(__('common.open')) ?></span></button>
                         <?php if (in_array(current_user_role(), ['admin', 'editor'], true)): ?>
                             <form method="post" action="<?= e(url('/admin/media/' . $asset['id'] . '/delete')) ?>" class="inline-form" onsubmit="return confirm(<?= json_encode(__('media.delete_confirm')) ?>);">
                                 <?= csrf_field() ?>
@@ -105,6 +124,8 @@ $nextPageUrl = $baseMediaUrl . ($kind !== '' ? '?kind=' . rawurlencode($kind) . 
             <?php endforeach; ?>
             </tbody>
         </table>
+        <div class="media-summary"><?= e(__('media.showing_assets', ['count' => count($media), 'total' => $totalCount])) ?></div>
+
     </div>
 
     <div class="pagination">
@@ -121,4 +142,229 @@ $nextPageUrl = $baseMediaUrl . ($kind !== '' ? '?kind=' . rawurlencode($kind) . 
         </div>
     </div>
 </div>
+<dialog class="media-preview-dialog" data-media-preview-dialog aria-labelledby="media-preview-title">
+    <div class="media-preview-shell">
+        <div class="media-preview-stage" data-media-preview-stage tabindex="-1">
+            <img class="media-preview-asset" data-media-preview-image alt="" hidden>
+            <video class="media-preview-asset" data-media-preview-video controls playsinline preload="metadata" hidden></video>
+        </div>
+        <aside class="media-preview-details">
+            <div class="media-preview-details__head">
+                <div>
+                    <p class="media-preview-kind" data-media-preview-kind></p>
+                    <h2 id="media-preview-title" data-media-preview-title></h2>
+                </div>
+                <button type="button" class="button button--normal button--small button--icon-only" data-media-preview-close aria-label="<?= e(__('common.close')) ?>">
+                    <?= admin_icon('cancel') ?>
+                </button>
+            </div>
+            <dl class="media-preview-meta">
+                <div>
+                    <dt><?= e(__('media.original_file', [], 'Original file')) ?></dt>
+                    <dd data-media-preview-original></dd>
+                </div>
+                <div>
+                    <dt><?= e(__('common.type')) ?></dt>
+                    <dd data-media-preview-type></dd>
+                </div>
+                <div>
+                    <dt><?= e(__('media.dimensions', [], 'Dimensions')) ?></dt>
+                    <dd data-media-preview-dimensions><?= e(__('media.metadata_loading', [], 'Loading...')) ?></dd>
+                </div>
+                <div>
+                    <dt><?= e(__('media.aspect_ratio', [], 'Aspect ratio')) ?></dt>
+                    <dd data-media-preview-aspect-ratio><?= e(__('media.metadata_loading', [], 'Loading...')) ?></dd>
+                </div>
+                <div>
+                    <dt><?= e(__('common.size', [], 'Size')) ?></dt>
+                    <dd data-media-preview-size></dd>
+                </div>
+                <div data-media-preview-duration-row hidden>
+                    <dt><?= e(__('common.duration')) ?></dt>
+                    <dd data-media-preview-duration><?= e(__('media.metadata_loading', [], 'Loading...')) ?></dd>
+                </div>
+                <div>
+                    <dt><?= e(__('media.used_by_slides')) ?></dt>
+                    <dd data-media-preview-usage></dd>
+                </div>
+                <div>
+                    <dt><?= e(__('media.uploaded_by')) ?></dt>
+                    <dd data-media-preview-uploaded-by></dd>
+                </div>
+            </dl>
+        </aside>
+    </div>
+</dialog>
+<script>
+(() => {
+    const dialog = document.querySelector('[data-media-preview-dialog]');
+    if (!dialog) return;
+
+    const image = dialog.querySelector('[data-media-preview-image]');
+    const video = dialog.querySelector('[data-media-preview-video]');
+    const stage = dialog.querySelector('[data-media-preview-stage]');
+    const durationRow = dialog.querySelector('[data-media-preview-duration-row]');
+    let activeKind = '';
+    const fields = {
+        title: dialog.querySelector('[data-media-preview-title]'),
+        kind: dialog.querySelector('[data-media-preview-kind]'),
+        original: dialog.querySelector('[data-media-preview-original]'),
+        type: dialog.querySelector('[data-media-preview-type]'),
+        dimensions: dialog.querySelector('[data-media-preview-dimensions]'),
+        aspectRatio: dialog.querySelector('[data-media-preview-aspect-ratio]'),
+        size: dialog.querySelector('[data-media-preview-size]'),
+        duration: dialog.querySelector('[data-media-preview-duration]'),
+        usage: dialog.querySelector('[data-media-preview-usage]'),
+        uploadedBy: dialog.querySelector('[data-media-preview-uploaded-by]'),
+    };
+    const labels = {
+        loading: <?= json_encode(__('media.metadata_loading', [], 'Loading...')) ?>,
+        unknown: <?= json_encode(__('common.unknown', [], 'Unknown')) ?>,
+    };
+
+    const setText = (node, value) => {
+        if (node) node.textContent = value || labels.unknown;
+    };
+
+    const knownResolutions = new Map([
+        ['1280x720', 'HD'],
+        ['1366x768', 'WXGA'],
+        ['1600x900', 'HD+'],
+        ['1920x1080', 'Full HD'],
+        ['1920x1200', 'WUXGA'],
+        ['2560x1080', 'Ultrawide Full HD'],
+        ['2560x1440', 'QHD'],
+        ['3440x1440', 'UWQHD'],
+        ['3840x2160', '4K UHD'],
+        ['4096x2160', 'DCI 4K'],
+        ['5120x2880', '5K'],
+        ['7680x4320', '8K UHD'],
+    ]);
+
+    const gcd = (left, right) => {
+        left = Math.abs(left);
+        right = Math.abs(right);
+        while (right) {
+            const next = right;
+            right = left % right;
+            left = next;
+        }
+        return left || 1;
+    };
+
+    const findKnownResolution = (width, height) => {
+        const landscapeWidth = Math.max(width, height);
+        const landscapeHeight = Math.min(width, height);
+        return knownResolutions.get(`${landscapeWidth}x${landscapeHeight}`) || '';
+    };
+
+    const setMediaGeometry = (width, height) => {
+        if (width <= 0 || height <= 0) {
+            setText(fields.dimensions, labels.unknown);
+            setText(fields.aspectRatio, labels.unknown);
+            return;
+        }
+
+        const divisor = gcd(width, height);
+        const knownResolution = findKnownResolution(width, height);
+        setText(fields.dimensions, knownResolution ? `${width} x ${height} (${knownResolution})` : `${width} x ${height}`);
+        setText(fields.aspectRatio, `${width / divisor}:${height / divisor}`);
+    };
+
+    const formatDuration = (seconds) => {
+        if (!Number.isFinite(seconds) || seconds <= 0) return labels.unknown;
+        const total = Math.round(seconds);
+        const hours = Math.floor(total / 3600);
+        const minutes = Math.floor((total % 3600) / 60);
+        const remainder = total % 60;
+        const two = (value) => String(value).padStart(2, '0');
+        return hours > 0 ? `${hours}:${two(minutes)}:${two(remainder)}` : `${minutes}:${two(remainder)}`;
+    };
+
+    const clearPreview = () => {
+        activeKind = '';
+        image.hidden = true;
+        video.hidden = true;
+        image.removeAttribute('src');
+        video.pause();
+        video.removeAttribute('src');
+        video.load();
+    };
+
+    const closePreview = () => {
+        if (typeof dialog.close === 'function' && dialog.open) {
+            dialog.close();
+            return;
+        }
+        dialog.removeAttribute('open');
+        clearPreview();
+    };
+
+    const openPreview = (row) => {
+        const media = row.dataset;
+        clearPreview();
+        setText(fields.title, media.mediaName);
+        setText(fields.kind, media.mediaType);
+        setText(fields.original, media.mediaOriginal);
+        setText(fields.type, media.mediaMime ? `${media.mediaType} - ${media.mediaMime}` : media.mediaType);
+        setText(fields.dimensions, labels.loading);
+        setText(fields.aspectRatio, labels.loading);
+        setText(fields.size, media.mediaSize);
+        setText(fields.usage, media.mediaUsage);
+        setText(fields.uploadedBy, media.mediaUploadedBy);
+
+        const isVideo = media.mediaKind === 'video';
+        activeKind = isVideo ? 'video' : 'image';
+        durationRow.hidden = !isVideo;
+        setText(fields.duration, labels.loading);
+
+        if (isVideo) {
+            video.hidden = false;
+            video.src = media.mediaUrl;
+            video.load();
+        } else {
+            image.hidden = false;
+            image.alt = media.mediaName || '';
+            image.src = media.mediaUrl;
+        }
+
+        if (typeof dialog.showModal === 'function') {
+            dialog.showModal();
+        } else {
+            dialog.setAttribute('open', '');
+        }
+        stage?.focus?.();
+    };
+
+    image.addEventListener('load', () => {
+        if (activeKind === 'image') setMediaGeometry(image.naturalWidth, image.naturalHeight);
+    });
+    image.addEventListener('error', () => {
+        if (activeKind === 'image') setMediaGeometry(0, 0);
+    });
+    video.addEventListener('loadedmetadata', () => {
+        if (activeKind !== 'video') return;
+        setMediaGeometry(video.videoWidth, video.videoHeight);
+        setText(fields.duration, formatDuration(video.duration));
+    });
+    video.addEventListener('error', () => {
+        if (activeKind !== 'video') return;
+        setMediaGeometry(0, 0);
+        setText(fields.duration, labels.unknown);
+    });
+
+    document.addEventListener('click', (event) => {
+        const target = event.target instanceof Element ? event.target : null;
+        const trigger = target?.closest('[data-media-preview-open]');
+        if (!trigger) return;
+        const row = trigger.closest('[data-media-preview-row]');
+        if (!row) return;
+        event.preventDefault();
+        openPreview(row);
+    });
+
+    dialog.querySelector('[data-media-preview-close]')?.addEventListener('click', closePreview);
+    dialog.addEventListener('close', clearPreview);
+})();
+</script>
 <?php require __DIR__ . '/../layouts/admin_footer.php'; ?>
