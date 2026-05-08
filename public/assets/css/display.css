@@ -374,6 +374,16 @@ html, body {
     right: 6vw;
 }
 
+.text-slide-qr--top-right {
+    top: 6vh;
+    right: 3vw;
+}
+
+.text-slide-qr--top-left {
+    top: 6vh;
+    left: 6vw;
+}
+
 .text-slide-qr--bottom-left {
     bottom: 6vh;
     left: 6vw;
