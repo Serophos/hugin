@@ -2,7 +2,7 @@
 $formId = 'slide';
 $fieldPrefix = 'plugin_settings.' . $plugin->getName() . '.';
 ?>
-<div class="plugin-settings-card">
+<div class="plugin-settings-card tl1menu-slide-settings">
     <h3><?= e(__('plugins.tl-1menu.config.title')) ?></h3>
     <p class="muted"><?= e(__('plugins.tl-1menu.config.intro')) ?></p>
 
@@ -10,7 +10,7 @@ $fieldPrefix = 'plugin_settings.' . $plugin->getName() . '.';
         <select name="plugin_settings[<?= e($plugin->getName()) ?>][mensa]"<?= field_attrs($fieldPrefix . 'mensa', $formId) ?>>
             <?php foreach ($mensen as $mensaKey): ?>
                 <option value="<?= e($mensaKey) ?>" <?= selected($settings['mensa'], $mensaKey) ?>>
-                    <?= e(__('plugins.tl-1menu.locations.' . $mensaKey, [], $mensaKey)) ?>
+                    <?= e($plugin->getMenuService()->getMensaLabel($mensaKey)) ?>
                 </option>
             <?php endforeach; ?>
         </select>
@@ -81,7 +81,7 @@ $fieldPrefix = 'plugin_settings.' . $plugin->getName() . '.';
                     <?php foreach ($foodTypes as $typeId => $typeKey): ?>
                         <label class="checkbox-row">
                             <input type="checkbox" name="plugin_settings[<?= e($plugin->getName()) ?>][exclude_types][]" value="<?= e((string)$typeId) ?>" <?= in_array((int)$typeId, $selectedTypes, true) ? 'checked' : '' ?>>
-                            <span><?= e($plugin->getMenuService()->getFoodTypeLabel((int)$typeId, (string)$typeKey)) ?> (<?= e((string)$typeId) ?>)</span>
+                            <span><?= e($plugin->getMenuService()->getFoodTypeLabel((int)$typeId, (string)$typeKey, current_locale())) ?> (<?= e((string)$typeId) ?>)</span>
                         </label>
                     <?php endforeach; ?>
                 </div>

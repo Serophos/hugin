@@ -45,9 +45,9 @@ final class MenuService
     {
         $types = is_array($this->config['food_types'] ?? null) ? $this->config['food_types'] : [];
         $normalized = [];
-        foreach ($types as $id => $key) {
+        foreach ($types as $id => $typeConfig) {
             if (is_numeric((string)$id)) {
-                $normalized[(int)$id] = (string)$key;
+                $normalized[(int)$id] = $this->foodTypeKey($typeConfig, (int)$id);
             }
         }
         ksort($normalized);
@@ -62,26 +62,66 @@ final class MenuService
 
     public function getMensaLabel(string $mensaKey): string
     {
-        $transKey = 'plugins.tl-1menu.locations.' . $mensaKey;
-        if (trans_has($transKey)) {
-            return __($transKey);
+        $mensen = is_array($this->config['mensen'] ?? null) ? $this->config['mensen'] : [];
+        $mensaConfig = $mensen[$mensaKey] ?? null;
+
+        if (is_array($mensaConfig)) {
+            foreach (['label', 'name'] as $key) {
+                $label = trim((string)($mensaConfig[$key] ?? ''));
+                if ($label !== '') {
+                    return $label;
+                }
+            }
         }
+
+        $locationIds = $this->normalizeLocationIds($mensaConfig);
+        if (count($locationIds) === 1) {
+            $standortNames = is_array($this->config['standort_namen'] ?? null) ? $this->config['standort_namen'] : [];
+            $label = trim((string)($standortNames[$locationIds[0]] ?? ''));
+            if ($label !== '') {
+                return $label;
+            }
+        }
+
         return $mensaKey;
     }
 
-    public function getCategoryLabel(string $classification): string
+    public function getCategoryLabel(string $classification, ?string $language = null): string
     {
-        return __('plugins.tl-1menu.categories.' . $classification, [], ucfirst($classification));
+        $category = $this->getCategoryConfig($classification);
+        $label = $this->localizedConfigLabel($category, $language);
+
+        return $label ?? $this->humanizeKey($classification);
     }
 
-    public function getFoodTypeLabel(int $typeId, ?string $fallbackKey = null): string
+    /** @return array{icon: string, label: string}|null */
+    public function getCategoryDisplayData(string $classification, ?string $language = null): ?array
     {
+        $category = $this->getCategoryConfig($classification);
+        if ($category === null) {
+            return null;
+        }
+
+        $icon = is_array($category) ? trim((string)($category['icon'] ?? '')) : '';
+
+        return [
+            'icon' => $icon !== '' ? $icon : '🏷',
+            'label' => $this->getCategoryLabel($classification, $language),
+        ];
+    }
+
+    public function getFoodTypeLabel(int $typeId, ?string $fallbackKey = null, ?string $language = null): string
+    {
+        $foodTypes = is_array($this->config['food_types'] ?? null) ? $this->config['food_types'] : [];
+        $typeConfig = $foodTypes[$typeId] ?? null;
+        $label = $this->localizedConfigLabel($typeConfig, $language);
+        if ($label !== null) {
+            return $label;
+        }
+
         $translationKey = $fallbackKey ?? ($this->getFoodTypes()[$typeId] ?? null);
-        if ($translationKey !== null) {
-            $trans = 'plugins.tl-1menu.food_types.' . $translationKey;
-            if (trans_has($trans)) {
-                return __($trans);
-            }
+        if ($translationKey !== null && trim($translationKey) !== '') {
+            return $this->humanizeKey($translationKey);
         }
 
         return (string)$typeId;
@@ -137,5 +177,117 @@ final class MenuService
     public function getEnvironmentGradeLabel(?string $grade): string
     {
         return $grade ?: '–';
+    }
+
+    /** @return list<int> */
+    private function normalizeLocationIds(mixed $mensaConfig): array
+    {
+        if (is_array($mensaConfig)) {
+            foreach (['locations', 'location_ids', 'standorte', 'ids', 'id', 'location_id'] as $key) {
+                if (array_key_exists($key, $mensaConfig)) {
+                    return $this->normalizeIntList($mensaConfig[$key]);
+                }
+            }
+            return [];
+        }
+
+        return $this->normalizeIntList($mensaConfig);
+    }
+
+    /** @return list<int> */
+    private function normalizeIntList(mixed $value): array
+    {
+        $rawValues = is_array($value) ? $value : explode(',', (string)$value);
+        $ids = [];
+        foreach ($rawValues as $rawValue) {
+            $rawValue = trim((string)$rawValue);
+            if ($rawValue !== '' && is_numeric($rawValue)) {
+                $ids[] = (int)$rawValue;
+            }
+        }
+
+        return array_values(array_unique($ids));
+    }
+
+    private function getCategoryConfig(string $classification): mixed
+    {
+        $categories = is_array($this->config['categories'] ?? null) ? $this->config['categories'] : [];
+        if (array_key_exists($classification, $categories)) {
+            return $categories[$classification];
+        }
+
+        $legacyDisplay = is_array($this->config['category_display'] ?? null) ? $this->config['category_display'] : [];
+        if (array_key_exists($classification, $legacyDisplay)) {
+            return $legacyDisplay[$classification];
+        }
+
+        return null;
+    }
+
+    private function localizedConfigLabel(mixed $config, ?string $language = null): ?string
+    {
+        if (is_string($config)) {
+            $label = trim($config);
+            return $label !== '' ? $label : null;
+        }
+
+        if (!is_array($config)) {
+            return null;
+        }
+
+        $localeCandidates = [];
+        foreach (array_filter([
+            $language !== null ? trim($language) : null,
+            current_locale(),
+            trim((string)($this->config['default_language'] ?? '')),
+            'de',
+            'en',
+        ]) as $locale) {
+            $localeCandidates[] = $locale;
+            $baseLocale = preg_split('/[_-]/', $locale)[0] ?? '';
+            if ($baseLocale !== '') {
+                $localeCandidates[] = $baseLocale;
+            }
+        }
+        $localeCandidates = array_values(array_unique($localeCandidates));
+
+        $labels = is_array($config['labels'] ?? null) ? $config['labels'] : [];
+        foreach ($localeCandidates as $locale) {
+            $label = trim((string)($labels[$locale] ?? ''));
+            if ($label !== '') {
+                return $label;
+            }
+        }
+
+        foreach (['label', 'name', 'title', 'key'] as $key) {
+            $label = trim((string)($config[$key] ?? ''));
+            if ($label !== '') {
+                return $key === 'key' ? $this->humanizeKey($label) : $label;
+            }
+        }
+
+        return null;
+    }
+
+    private function humanizeKey(string $key): string
+    {
+        $label = trim(str_replace(['_', '-'], ' ', $key));
+        return $label !== '' ? ucwords($label) : $key;
+    }
+
+    private function foodTypeKey(mixed $typeConfig, int $typeId): string
+    {
+        if (is_array($typeConfig)) {
+            $key = trim((string)($typeConfig['key'] ?? ''));
+            if ($key !== '') {
+                return $key;
+            }
+        }
+
+        if (is_string($typeConfig) && trim($typeConfig) !== '') {
+            return trim($typeConfig);
+        }
+
+        return (string)$typeId;
     }
 }

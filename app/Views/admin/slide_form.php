@@ -6,6 +6,8 @@ $title = $slide ? __('slide.edit_title') : __('slide.create_title');
 $textSlideLayouts = text_slide_layout_options();
 $textSlideAnimations = text_slide_animation_options();
 $textSlideQrPositions = text_slide_qr_position_options();
+$textBoxWidthPercentValue = (string)old('text_box_width_percent', $slide['text_box_width_percent'] ?? '76', $formId);
+$qrSizePercentValue = (string)old('qr_size_percent', $slide['qr_size_percent'] ?? '15', $formId);
 $pluginCss = null;
 if (!in_array($selectedSlideType, ['image', 'video', 'website', 'text'])) {
     foreach ($pluginDefinitions as $p) {
@@ -23,20 +25,22 @@ require __DIR__ . '/../layouts/admin_header.php';
     <form method="post" enctype="multipart/form-data" action="<?= e(($slide && isset($slide['id'])) ? url('/admin/slides/' . $slide['id'] . '/edit') : url('/admin/slides/create')) ?>" class="form-grid" id="slide-form">
         <?= csrf_field() ?>
         <input type="hidden" name="return_to" value="<?= e($returnToPath) ?>">
-        <fieldset class="full-width">
+        <fieldset class="channel-assignment-group full-width">
             <legend><?= e(__('slide.assigned_channels')) ?></legend>
-            <?php foreach ($channels as $channel): ?>
-                <?php
-                $channelLabel = (string)$channel['label'];
-                if (isset($channel['is_active']) && (int)$channel['is_active'] !== 1) {
-                    $channelLabel .= ' (' . __('common.inactive') . ')';
-                }
-                ?>
-                <label class="checkbox-row">
-                    <input type="checkbox" name="channel_ids[]" value="<?= e((string)$channel['id']) ?>" <?= in_array((int)$channel['id'], $assignedChannelIds ?? [], true) ? 'checked' : '' ?>>
-                    <?= e($channelLabel) ?>
-                </label>
-            <?php endforeach; ?>
+            <div class="channel-assignment-grid">
+                <?php foreach ($channels as $channel): ?>
+                    <?php
+                    $channelLabel = (string)$channel['label'];
+                    if (isset($channel['is_active']) && (int)$channel['is_active'] !== 1) {
+                        $channelLabel .= ' (' . __('common.inactive') . ')';
+                    }
+                    ?>
+                    <label class="checkbox-row channel-assignment-option">
+                        <input type="checkbox" name="channel_ids[]" value="<?= e((string)$channel['id']) ?>" <?= in_array((int)$channel['id'], $assignedChannelIds ?? [], true) ? 'checked' : '' ?>>
+                        <?= e($channelLabel) ?>
+                    </label>
+                <?php endforeach; ?>
+            </div>
             <?= field_error_html('channel_ids', $formId) ?>
         </fieldset>
         <label><?= e(__('common.name')) ?>
@@ -98,124 +102,161 @@ require __DIR__ . '/../layouts/admin_header.php';
             </label>
         </div>
 
-        <div id="text-slide-fields" class="form-grid full-width" style="display:none;">
-            <label class="full-width"><?= e(__('slide.text_markup')) ?>
-                <textarea name="text_markup" rows="12" placeholder="<?= e(__('slide.text_markup_placeholder')) ?>"<?= field_attrs('text_markup', $formId) ?>><?= e((string)old('text_markup', $slide['text_markup'] ?? '', $formId)) ?></textarea>
-                <?= field_error_html('text_markup', $formId) ?>
-            </label>
-            <label><?= e(__('slide.background_color')) ?>
-                <input type="color" name="background_color" value="<?= e((string)old('background_color', $slide['background_color'] ?? '#0f172a', $formId)) ?>"<?= field_attrs('background_color', $formId) ?>>
-                <?= field_error_html('background_color', $formId) ?>
-            </label>
-            <label><?= e(__('slide.background_media')) ?>
-                <select name="background_media_asset_id"<?= field_attrs('background_media_asset_id', $formId) ?>>
-                    <option value=""><?= e(__('common.none')) ?></option>
-                    <?php foreach (($backgroundMediaAssets ?? $imageMediaAssets ?? []) as $asset): ?>
-                        <option value="<?= e((string)$asset['id']) ?>" <?= old_selected('background_media_asset_id', $asset['id'], $slide['background_media_asset_id'] ?? '', $formId) ?>><?= e($asset['name']) ?> · <?= e($asset['original_name']) ?> (<?= e(enum_label('slide_types', (string)$asset['media_kind'], (string)$asset['media_kind'])) ?>)</option>
-                    <?php endforeach; ?>
-                </select>
-                <?= field_error_html('background_media_asset_id', $formId) ?>
-            </label>
-            <label class="full-width"><?= e(__('slide.background_upload')) ?>
-                <input type="file" name="background_uploaded_file" accept="image/*,video/*"<?= field_attrs('background_uploaded_file', $formId) ?>>
-                <?= field_error_html('background_uploaded_file', $formId) ?>
-                <small class="field-note"><?= e(__('forms.file_reselect_hint')) ?></small>
-            </label>
-            <label><?= e(__('slide.text_color')) ?>
-                <span class="rgba-control" data-rgba-control data-default-color="#f8fafc" data-default-alpha="1">
-                    <input type="color" value="#f8fafc" data-rgba-color>
-                    <span class="rgba-control__alpha">
-                        <span class="rgba-control__alpha-head"><span><?= e(__('slide.color_opacity')) ?></span><output data-rgba-output>100%</output></span>
-                        <input type="range" min="0" max="1" step="0.05" value="1" data-rgba-alpha>
-                    </span>
-                    <input type="hidden" name="text_color" value="<?= e((string)old('text_color', $slide['text_color'] ?? '', $formId)) ?>" data-rgba-value<?= field_attrs('text_color', $formId) ?>>
-                </span>
-                <?= field_error_html('text_color', $formId) ?>
-            </label>
-            <label><?= e(__('slide.text_box_background_color')) ?>
-                <span class="rgba-control" data-rgba-control data-default-color="#0f172a" data-default-alpha="0.68">
-                    <input type="color" value="#0f172a" data-rgba-color>
-                    <span class="rgba-control__alpha">
-                        <span class="rgba-control__alpha-head"><span><?= e(__('slide.color_opacity')) ?></span><output data-rgba-output>68%</output></span>
-                        <input type="range" min="0" max="1" step="0.05" value="0.68" data-rgba-alpha>
-                    </span>
-                    <input type="hidden" name="text_box_background_color" value="<?= e((string)old('text_box_background_color', $slide['text_box_background_color'] ?? '', $formId)) ?>" data-rgba-value<?= field_attrs('text_box_background_color', $formId) ?>>
-                </span>
-                <?= field_error_html('text_box_background_color', $formId) ?>
-            </label>
-            <label><?= e(__('slide.text_box_layout')) ?>
-                <select name="text_box_layout"<?= field_attrs('text_box_layout', $formId) ?>>
-                    <?php foreach ($textSlideLayouts as $layout): ?>
-                        <option value="<?= e($layout) ?>" <?= old_selected('text_box_layout', $layout, $slide['text_box_layout'] ?? 'center', $formId) ?>><?= e(enum_label('text_slide_layouts', $layout, $layout)) ?></option>
-                    <?php endforeach; ?>
-                </select>
-                <?= field_error_html('text_box_layout', $formId) ?>
-            </label>
-            <label><?= e(__('slide.text_box_animation')) ?>
-                <select name="text_box_animation"<?= field_attrs('text_box_animation', $formId) ?>>
-                    <?php foreach ($textSlideAnimations as $animation): ?>
-                        <option value="<?= e($animation) ?>" <?= old_selected('text_box_animation', $animation, $slide['text_box_animation'] ?? 'none', $formId) ?>><?= e(enum_label('text_slide_animations', $animation, $animation)) ?></option>
-                    <?php endforeach; ?>
-                </select>
-                <?= field_error_html('text_box_animation', $formId) ?>
-            </label>
-            <label><?= e(__('slide.text_box_animation_duration_ms')) ?>
-                <input type="number" name="text_box_animation_duration_ms" min="300" max="800" step="50" value="<?= e((string)old('text_box_animation_duration_ms', $slide['text_box_animation_duration_ms'] ?? '600', $formId)) ?>"<?= field_attrs('text_box_animation_duration_ms', $formId) ?>>
-                <?= field_error_html('text_box_animation_duration_ms', $formId) ?>
-            </label>
-            <label><?= e(__('slide.text_box_animation_delay_ms')) ?>
-                <input type="number" name="text_box_animation_delay_ms" min="0" max="5000" step="50" value="<?= e((string)old('text_box_animation_delay_ms', $slide['text_box_animation_delay_ms'] ?? '0', $formId)) ?>"<?= field_attrs('text_box_animation_delay_ms', $formId) ?>>
-                <?= field_error_html('text_box_animation_delay_ms', $formId) ?>
-            </label>
-            <label><?= e(__('slide.text_box_width_percent')) ?>
-                <input type="number" name="text_box_width_percent" min="25" max="95" step="1" value="<?= e((string)old('text_box_width_percent', $slide['text_box_width_percent'] ?? '76', $formId)) ?>"<?= field_attrs('text_box_width_percent', $formId) ?>>
-                <?= field_error_html('text_box_width_percent', $formId) ?>
-            </label>
-            <label class="checkbox-row">
-                <input type="checkbox" name="text_box_blur_enabled" value="1" <?= old_checked('text_box_blur_enabled', $slide['text_box_blur_enabled'] ?? 1, $formId) ?>>
-                <span><?= e(__('slide.text_box_blur_enabled')) ?></span>
-            </label>
-            <label class="full-width"><?= e(__('slide.qr_url')) ?>
-                <input type="url" name="qr_url" maxlength="270" value="<?= e((string)old('qr_url', $slide['source_url'] ?? '', $formId)) ?>" placeholder="<?= e(__('slide.qr_url_placeholder')) ?>"<?= field_attrs('qr_url', $formId) ?>>
-                <?= field_error_html('qr_url', $formId) ?>
-                <small class="field-note"><?= e(__('slide.qr_url_help')) ?></small>
-            </label>
-            <label><?= e(__('slide.qr_size_percent')) ?>
-                <input type="number" min="8" max="40" step="1" name="qr_size_percent" value="<?= e((string)old('qr_size_percent', $slide['qr_size_percent'] ?? '15', $formId)) ?>" placeholder="15"<?= field_attrs('qr_size_percent', $formId) ?>>
-                <?= field_error_html('qr_size_percent', $formId) ?>
-                <small class="field-note"><?= e(__('slide.qr_size_percent_help')) ?></small>
-            </label>
-            <label><?= e(__('slide.qr_position')) ?>
-                <select name="qr_position"<?= field_attrs('qr_position', $formId) ?>>
-                    <?php foreach ($textSlideQrPositions as $position): ?>
-                        <option value="<?= e($position) ?>" <?= old_selected('qr_position', $position, $slide['qr_position'] ?? 'bottom-right', $formId) ?>><?= e(enum_label('text_slide_layouts', $position, $position)) ?></option>
-                    <?php endforeach; ?>
-                </select>
-                <?= field_error_html('qr_position', $formId) ?>
-            </label>
-            <label><?= e(__('slide.qr_foreground_color')) ?>
-                <span class="rgba-control" data-rgba-control data-default-color="#0f172a" data-default-alpha="1">
-                    <input type="color" value="#0f172a" data-rgba-color>
-                    <span class="rgba-control__alpha">
-                        <span class="rgba-control__alpha-head"><span><?= e(__('slide.color_opacity')) ?></span><output data-rgba-output>100%</output></span>
-                        <input type="range" min="0" max="1" step="0.05" value="1" data-rgba-alpha>
-                    </span>
-                    <input type="hidden" name="qr_foreground_color" value="<?= e((string)old('qr_foreground_color', $slide['qr_foreground_color'] ?? '', $formId)) ?>" data-rgba-value<?= field_attrs('qr_foreground_color', $formId) ?>>
-                </span>
-                <?= field_error_html('qr_foreground_color', $formId) ?>
-            </label>
-            <label><?= e(__('slide.qr_background_color')) ?>
-                <span class="rgba-control" data-rgba-control data-default-color="#ffffff" data-default-alpha="1">
-                    <input type="color" value="#ffffff" data-rgba-color>
-                    <span class="rgba-control__alpha">
-                        <span class="rgba-control__alpha-head"><span><?= e(__('slide.color_opacity')) ?></span><output data-rgba-output>100%</output></span>
-                        <input type="range" min="0" max="1" step="0.05" value="1" data-rgba-alpha>
-                    </span>
-                    <input type="hidden" name="qr_background_color" value="<?= e((string)old('qr_background_color', $slide['qr_background_color'] ?? '', $formId)) ?>" data-rgba-value<?= field_attrs('qr_background_color', $formId) ?>>
-                </span>
-                <?= field_error_html('qr_background_color', $formId) ?>
-            </label>
-            <p class="field-note full-width"><?= e(__('slide.text_markup_help')) ?></p>
+        <div id="text-slide-fields" class="form-grid full-width text-slide-settings" style="display:none;">
+            <fieldset class="text-slide-group full-width">
+                <legend><?= e(__('slide.text_slide_content')) ?></legend>
+                <div class="text-slide-group__grid">
+                    <label class="full-width"><?= e(__('slide.text_markup')) ?>
+                        <textarea name="text_markup" rows="12" placeholder="<?= e(__('slide.text_markup_placeholder')) ?>"<?= field_attrs('text_markup', $formId) ?>><?= e((string)old('text_markup', $slide['text_markup'] ?? '', $formId)) ?></textarea>
+                        <?= field_error_html('text_markup', $formId) ?>
+                        <small class="field-note"><?= e(__('slide.text_markup_help')) ?></small>
+                    </label>
+                </div>
+            </fieldset>
+
+            <fieldset class="text-slide-group full-width">
+                <legend><?= e(__('slide.text_slide_background')) ?></legend>
+                <div class="text-slide-group__grid">
+                    <label><?= e(__('slide.background_color')) ?>
+                        <input type="color" name="background_color" value="<?= e((string)old('background_color', $slide['background_color'] ?? '#0f172a', $formId)) ?>"<?= field_attrs('background_color', $formId) ?>>
+                        <?= field_error_html('background_color', $formId) ?>
+                    </label>
+                    <label><?= e(__('slide.background_media')) ?>
+                        <select name="background_media_asset_id"<?= field_attrs('background_media_asset_id', $formId) ?>>
+                            <option value=""><?= e(__('common.none')) ?></option>
+                            <?php foreach (($backgroundMediaAssets ?? $imageMediaAssets ?? []) as $asset): ?>
+                                <option value="<?= e((string)$asset['id']) ?>" <?= old_selected('background_media_asset_id', $asset['id'], $slide['background_media_asset_id'] ?? '', $formId) ?>><?= e($asset['name']) ?> · <?= e($asset['original_name']) ?> (<?= e(enum_label('slide_types', (string)$asset['media_kind'], (string)$asset['media_kind'])) ?>)</option>
+                            <?php endforeach; ?>
+                        </select>
+                        <?= field_error_html('background_media_asset_id', $formId) ?>
+                    </label>
+                    <label class="full-width"><?= e(__('slide.background_upload')) ?>
+                        <input type="file" name="background_uploaded_file" accept="image/*,video/*"<?= field_attrs('background_uploaded_file', $formId) ?>>
+                        <?= field_error_html('background_uploaded_file', $formId) ?>
+                        <small class="field-note"><?= e(__('forms.file_reselect_hint')) ?></small>
+                    </label>
+                </div>
+            </fieldset>
+
+            <fieldset class="text-slide-group full-width">
+                <legend><?= e(__('slide.text_slide_text_box')) ?></legend>
+                <div class="text-slide-group__grid text-slide-group__grid--compact">
+                    <label><?= e(__('slide.text_color')) ?>
+                        <span class="rgba-control" data-rgba-control data-default-color="#f8fafc" data-default-alpha="1">
+                            <input type="color" value="#f8fafc" data-rgba-color>
+                            <span class="rgba-control__alpha">
+                                <span class="rgba-control__alpha-head"><span><?= e(__('slide.color_opacity')) ?></span><output data-rgba-output>100%</output></span>
+                                <input type="range" min="0" max="1" step="0.05" value="1" data-rgba-alpha>
+                            </span>
+                            <input type="hidden" name="text_color" value="<?= e((string)old('text_color', $slide['text_color'] ?? '', $formId)) ?>" data-rgba-value<?= field_attrs('text_color', $formId) ?>>
+                        </span>
+                        <?= field_error_html('text_color', $formId) ?>
+                    </label>
+                    <label><?= e(__('slide.text_box_background_color')) ?>
+                        <span class="rgba-control" data-rgba-control data-default-color="#0f172a" data-default-alpha="0.68">
+                            <input type="color" value="#0f172a" data-rgba-color>
+                            <span class="rgba-control__alpha">
+                                <span class="rgba-control__alpha-head"><span><?= e(__('slide.color_opacity')) ?></span><output data-rgba-output>68%</output></span>
+                                <input type="range" min="0" max="1" step="0.05" value="0.68" data-rgba-alpha>
+                            </span>
+                            <input type="hidden" name="text_box_background_color" value="<?= e((string)old('text_box_background_color', $slide['text_box_background_color'] ?? '', $formId)) ?>" data-rgba-value<?= field_attrs('text_box_background_color', $formId) ?>>
+                        </span>
+                        <?= field_error_html('text_box_background_color', $formId) ?>
+                    </label>
+                    <label><?= e(__('slide.text_box_layout')) ?>
+                        <select name="text_box_layout"<?= field_attrs('text_box_layout', $formId) ?>>
+                            <?php foreach ($textSlideLayouts as $layout): ?>
+                                <option value="<?= e($layout) ?>" <?= old_selected('text_box_layout', $layout, $slide['text_box_layout'] ?? 'center', $formId) ?>><?= e(enum_label('text_slide_layouts', $layout, $layout)) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                        <?= field_error_html('text_box_layout', $formId) ?>
+                    </label>
+                    <label class="range-field">
+                        <span class="range-field__head">
+                            <span><?= e(__('slide.text_box_width_percent')) ?></span>
+                            <output data-range-output><?= e($textBoxWidthPercentValue) ?>%</output>
+                        </span>
+                        <input type="range" name="text_box_width_percent" min="25" max="95" step="1" value="<?= e($textBoxWidthPercentValue) ?>" data-range-input data-range-unit="%"<?= field_attrs('text_box_width_percent', $formId) ?>>
+                        <?= field_error_html('text_box_width_percent', $formId) ?>
+                    </label>
+                    <label class="checkbox-row text-slide-checkbox">
+                        <input type="checkbox" name="text_box_blur_enabled" value="1" <?= old_checked('text_box_blur_enabled', $slide['text_box_blur_enabled'] ?? 1, $formId) ?>>
+                        <span><?= e(__('slide.text_box_blur_enabled')) ?></span>
+                    </label>
+                </div>
+            </fieldset>
+
+            <fieldset class="text-slide-group full-width">
+                <legend><?= e(__('slide.text_slide_animation')) ?></legend>
+                <div class="text-slide-group__grid text-slide-group__grid--compact">
+                    <label><?= e(__('slide.text_box_animation')) ?>
+                        <select name="text_box_animation"<?= field_attrs('text_box_animation', $formId) ?>>
+                            <?php foreach ($textSlideAnimations as $animation): ?>
+                                <option value="<?= e($animation) ?>" <?= old_selected('text_box_animation', $animation, $slide['text_box_animation'] ?? 'none', $formId) ?>><?= e(enum_label('text_slide_animations', $animation, $animation)) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                        <?= field_error_html('text_box_animation', $formId) ?>
+                    </label>
+                    <label><?= e(__('slide.text_box_animation_duration_ms')) ?>
+                        <input type="number" name="text_box_animation_duration_ms" min="300" max="800" step="50" value="<?= e((string)old('text_box_animation_duration_ms', $slide['text_box_animation_duration_ms'] ?? '600', $formId)) ?>"<?= field_attrs('text_box_animation_duration_ms', $formId) ?>>
+                        <?= field_error_html('text_box_animation_duration_ms', $formId) ?>
+                    </label>
+                    <label><?= e(__('slide.text_box_animation_delay_ms')) ?>
+                        <input type="number" name="text_box_animation_delay_ms" min="0" max="5000" step="50" value="<?= e((string)old('text_box_animation_delay_ms', $slide['text_box_animation_delay_ms'] ?? '0', $formId)) ?>"<?= field_attrs('text_box_animation_delay_ms', $formId) ?>>
+                        <?= field_error_html('text_box_animation_delay_ms', $formId) ?>
+                    </label>
+                </div>
+            </fieldset>
+
+            <fieldset class="text-slide-group full-width">
+                <legend><?= e(__('slide.text_slide_qr')) ?></legend>
+                <div class="text-slide-group__grid text-slide-group__grid--compact">
+                    <label class="full-width"><?= e(__('slide.qr_url')) ?>
+                        <input type="url" name="qr_url" maxlength="270" value="<?= e((string)old('qr_url', $slide['source_url'] ?? '', $formId)) ?>" placeholder="<?= e(__('slide.qr_url_placeholder')) ?>"<?= field_attrs('qr_url', $formId) ?>>
+                        <?= field_error_html('qr_url', $formId) ?>
+                        <small class="field-note"><?= e(__('slide.qr_url_help')) ?></small>
+                    </label>
+                    <label class="range-field">
+                        <span class="range-field__head">
+                            <span><?= e(__('slide.qr_size_percent')) ?></span>
+                            <output data-range-output><?= e($qrSizePercentValue) ?>%</output>
+                        </span>
+                        <input type="range" min="8" max="40" step="1" name="qr_size_percent" value="<?= e($qrSizePercentValue) ?>" data-range-input data-range-unit="%"<?= field_attrs('qr_size_percent', $formId) ?>>
+                        <?= field_error_html('qr_size_percent', $formId) ?>
+                        <small class="field-note"><?= e(__('slide.qr_size_percent_help')) ?></small>
+                    </label>
+                    <label><?= e(__('slide.qr_position')) ?>
+                        <select name="qr_position"<?= field_attrs('qr_position', $formId) ?>>
+                            <?php foreach ($textSlideQrPositions as $position): ?>
+                                <option value="<?= e($position) ?>" <?= old_selected('qr_position', $position, $slide['qr_position'] ?? 'bottom-right', $formId) ?>><?= e(enum_label('text_slide_layouts', $position, $position)) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                        <?= field_error_html('qr_position', $formId) ?>
+                    </label>
+                    <label><?= e(__('slide.qr_foreground_color')) ?>
+                        <span class="rgba-control" data-rgba-control data-default-color="#0f172a" data-default-alpha="1">
+                            <input type="color" value="#0f172a" data-rgba-color>
+                            <span class="rgba-control__alpha">
+                                <span class="rgba-control__alpha-head"><span><?= e(__('slide.color_opacity')) ?></span><output data-rgba-output>100%</output></span>
+                                <input type="range" min="0" max="1" step="0.05" value="1" data-rgba-alpha>
+                            </span>
+                            <input type="hidden" name="qr_foreground_color" value="<?= e((string)old('qr_foreground_color', $slide['qr_foreground_color'] ?? '', $formId)) ?>" data-rgba-value<?= field_attrs('qr_foreground_color', $formId) ?>>
+                        </span>
+                        <?= field_error_html('qr_foreground_color', $formId) ?>
+                    </label>
+                    <label><?= e(__('slide.qr_background_color')) ?>
+                        <span class="rgba-control" data-rgba-control data-default-color="#ffffff" data-default-alpha="1">
+                            <input type="color" value="#ffffff" data-rgba-color>
+                            <span class="rgba-control__alpha">
+                                <span class="rgba-control__alpha-head"><span><?= e(__('slide.color_opacity')) ?></span><output data-rgba-output>100%</output></span>
+                                <input type="range" min="0" max="1" step="0.05" value="1" data-rgba-alpha>
+                            </span>
+                            <input type="hidden" name="qr_background_color" value="<?= e((string)old('qr_background_color', $slide['qr_background_color'] ?? '', $formId)) ?>" data-rgba-value<?= field_attrs('qr_background_color', $formId) ?>>
+                        </span>
+                        <?= field_error_html('qr_background_color', $formId) ?>
+                    </label>
+                </div>
+            </fieldset>
         </div>
 
         <div class="full-width plugin-settings-wrapper">
@@ -324,6 +365,19 @@ function initRgbaControl(control) {
     sync();
 }
 
+function initRangeInput(input) {
+    const output = input.closest('.range-field')?.querySelector('[data-range-output]');
+    const unit = input.dataset.rangeUnit || '';
+    const sync = () => {
+        if (output) {
+            output.textContent = `${input.value}${unit}`;
+        }
+    };
+
+    input.addEventListener('input', sync);
+    sync();
+}
+
 function filterMediaByType(slideType) {
     const mediaSelect = document.querySelector('select[name="media_asset_id"]');
     const uploadInput = document.getElementById('uploaded_file');
@@ -415,6 +469,7 @@ function updateSlideTypeUi() {
 document.getElementById('slide_type').addEventListener('change', updateSlideTypeUi);
 document.getElementById('source_mode').addEventListener('change', updateSlideTypeUi);
 document.querySelectorAll('[data-rgba-control]').forEach(initRgbaControl);
+document.querySelectorAll('[data-range-input]').forEach(initRangeInput);
 updateSlideTypeUi();
 </script>
 <?php require __DIR__ . '/../layouts/admin_footer.php'; ?>

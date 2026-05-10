@@ -15,30 +15,194 @@ return [
     'default_display_rainforest' => false,
     'default_show_header' => true,
     'default_background_color' => '#f1f5f9',
-    'food_types' => [
-        48 => 'mensa_tipp_vegan_legacy',
-        49 => 'vegan',
-        100 => 'eintopf',
-        101 => 'eintopf_vegan',
-        102 => 'eintopf_vegetarian',
-        103 => 'eintopf_no_price',
-        104 => 'main_1',
-        105 => 'main_1_vegan',
-        106 => 'main_1_vegetarian',
-        107 => 'main_1_no_price',
+    'pseudo_allergen_category_map' => [
+        'STF' => 'streetfood',
+        'SHT' => 'sh_teller',
+        'KK' => 'kuechenklassiker',
+        'YF' => 'your_favorite',
+        'AGS' => 'pork_higher_welfare',
+        'S' => 'pork',
+        'AGF' => 'fish_higher_welfare',
+        'G' => 'poultry',
+        'AGR' => 'beef_higher_welfare',
+        'R' => 'beef',
+        'MV' => 'mensa_vital',
+        'INTERNATIONAL' => 'international',
     ],
     'mensen' => [
-        'mensa' => '111',
-        'cafeteria' => '112',
+        'mensa' => [
+            'label' => 'Mensa',
+            'locations' => [111],
+        ],
+        'cafeteria' => [
+            'label' => 'Cafeteria',
+            'locations' => [112],
+        ],
     ],
     'standort_namen' => [
         111 => 'Mensa',
         112 => 'Cafeteria',
     ],
-    'category_display' => [
-        'vegan' => 'vegan',
-        'vegetarian' => 'vegetarian',
-        'fish' => 'fish',
-        'meat' => 'meat',
-     ],
+    'categories' => [
+        'vegan' => [
+            'icon' => '🌿',
+            'labels' => [
+                'de' => 'Vegan',
+                'en' => 'Vegan',
+            ],
+        ],
+        'vegetarian' => [
+            'icon' => '🥕',
+            'labels' => [
+                'de' => 'Vegetarisch',
+                'en' => 'Vegetarian',
+            ],
+        ],
+        'fish' => [
+            'icon' => '🐟',
+            'labels' => [
+                'de' => 'Fisch',
+                'en' => 'Fish',
+            ],
+        ],
+        'meat' => [
+            'icon' => '🍖',
+            'labels' => [
+                'de' => 'Fleisch',
+                'en' => 'Meat',
+            ],
+        ],
+        'streetfood' => [
+            'icon' => '🍔',
+            'labels' => [
+                'de' => 'Streetfood',
+                'en' => 'Streetfood',
+            ],
+        ],
+        'sh_teller' => [
+            'icon' => '🍽',
+            'labels' => [
+                'de' => 'SH Teller',
+                'en' => 'SH Teller',
+            ],
+        ],
+        'kuechenklassiker' => [
+            'icon' => '👨‍🍳',
+            'labels' => [
+                'de' => 'Küchenklassiker',
+                'en' => 'Kitchen classic',
+            ],
+        ],
+        'your_favorite' => [
+            'icon' => '⭐',
+            'labels' => [
+                'de' => 'Your Favorite',
+                'en' => 'Your Favorite',
+            ],
+        ],
+        'pork_higher_welfare' => [
+            'icon' => '🐖',
+            'labels' => [
+                'de' => 'Schwein aus artgerechter Haltung',
+                'en' => 'Pork from higher-welfare farming',
+            ],
+        ],
+        'pork' => [
+            'icon' => '🐖',
+            'labels' => [
+                'de' => 'Schwein',
+                'en' => 'Pork',
+            ],
+        ],
+        'fish_higher_welfare' => [
+            'icon' => '🐟',
+            'labels' => [
+                'de' => 'Fisch aus artgerechter Haltung',
+                'en' => 'Fish from higher-welfare sourcing',
+            ],
+        ],
+        'poultry' => [
+            'icon' => '🐔',
+            'labels' => [
+                'de' => 'Geflügel',
+                'en' => 'Poultry',
+            ],
+        ],
+        'beef_higher_welfare' => [
+            'icon' => '🐄',
+            'labels' => [
+                'de' => 'Rind aus artgerechter Haltung',
+                'en' => 'Beef from higher-welfare farming',
+            ],
+        ],
+        'beef' => [
+            'icon' => '🐄',
+            'labels' => [
+                'de' => 'Rind',
+                'en' => 'Beef',
+            ],
+        ],
+        'mensa_vital' => [
+            'icon' => '💚',
+            'labels' => [
+                'de' => 'Mensa Vital',
+                'en' => 'Mensa Vital',
+            ],
+        ],
+        'international' => [
+            'icon' => '🌍',
+            'labels' => [
+                'de' => 'International',
+                'en' => 'International',
+            ],
+        ],
+        'bio' => [
+            'icon' => '🌱',
+            'labels' => [
+                'de' => 'Bio',
+                'en' => 'Organic',
+            ],
+        ],
+    ],
+    'food_types' => [
+        48 => [
+            'key' => 'mensa_tipp_vegan_legacy',
+            'categories' => ['vegan'],
+            'labels' => [
+                'de' => 'Mensa-Tipp vegan (alt)',
+                'en' => 'Mensa tip vegan (legacy)',
+            ],
+        ],
+        49 => [
+            'key' => 'vegan',
+            'categories' => ['vegan'],
+            'labels' => [
+                'de' => 'Vegan',
+                'en' => 'Vegan',
+            ],
+        ],
+        100 => [
+            'key' => 'eintopf',
+            'labels' => [
+                'de' => 'Eintopf',
+                'en' => 'Stew',
+            ],
+        ],
+        101 => [
+            'key' => 'eintopf_vegan',
+            'categories' => ['vegan'],
+            'labels' => [
+                'de' => 'Eintopf vegan',
+                'en' => 'Stew vegan',
+            ],
+        ],
+        102 => [
+            'key' => 'eintopf_vegetarian',
+            'categories' => ['vegetarian'],
+            'labels' => [
+                'de' => 'Eintopf vegetarisch',
+                'en' => 'Stew vegetarian',
+            ],
+        ],
+    ],
 ];

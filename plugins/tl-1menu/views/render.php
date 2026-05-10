@@ -39,25 +39,6 @@ if (!empty($backgroundImageUrl)) {
     $safeBackgroundImageUrl = str_replace(["\\", "\"", "\n", "\r"], ['%5C', '%22', '', ''], (string)$backgroundImageUrl);
     $styleParts[] = '--tl1menu-bg-image:url("' . $safeBackgroundImageUrl . '")';
 }
-$categoryIcons = [
-    'vegan' => '🌿',
-    'vegetarian' => '🥕',
-    'fish' => '🐟',
-    'meat' => '🍖',
-    'streetfood' => '🍔',
-    'sh_teller' => '🍽',
-    'kuechenklassiker' => '👨‍🍳',
-    'your_favorite' => '⭐',
-    'pork_higher_welfare' => '🐖',
-    'pork' => '🐖',
-    'fish_higher_welfare' => '🐟',
-    'poultry' => '🐔',
-    'beef_higher_welfare' => '🐄',
-    'beef' => '🐄',
-    'mensa_vital' => '💚',
-    'international' => '🌍',
-    'bio' => '🌱',
-];
 ?>
 <div class="tl1menu tl1menu--<?= e($gridClass) ?><?= !empty($backgroundImageUrl) ? ' tl1menu--with-image' : '' ?>" style="<?= e(implode(';', $styleParts)) ?>">
     <?php if ($showHeader): ?>
@@ -92,13 +73,11 @@ $categoryIcons = [
                 $additives = implode(', ', array_values($item->additives));
                 $displayCategories = [];
                 foreach ($item->categories as $categoryKey) {
-                    if (!trans_has('plugins.tl-1menu.categories.' . $categoryKey)) {
+                    $categoryData = $service->getCategoryDisplayData($categoryKey, $language);
+                    if ($categoryData === null) {
                         continue;
                     }
-                    $displayCategories[$categoryKey] = [
-                        'icon' => $categoryIcons[$categoryKey] ?? '🏷',
-                        'label' => __('plugins.tl-1menu.categories.' . $categoryKey),
-                    ];
+                    $displayCategories[$categoryKey] = $categoryData;
                 }
                 ?>
                 <article class="tl1menu__card tl1menu__card--<?= e($classification) ?>">

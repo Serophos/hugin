@@ -24,20 +24,11 @@ final class MensaXmlParser
     /** @var list<int> */
     private array $defaultExcludedTypes = [];
     /** @var array<string, string> */
-    private array $pseudoAllergenCategoryMap = [
-        'STF' => 'streetfood',
-        'SHT' => 'sh_teller',
-        'KK' => 'kuechenklassiker',
-        'YF' => 'your_favorite',
-        'AGS' => 'pork_higher_welfare',
-        'S' => 'pork',
-        'AGF' => 'fish_higher_welfare',
-        'G' => 'poultry',
-        'AGR' => 'beef_higher_welfare',
-        'R' => 'beef',
-        'MV' => 'mensa_vital',
-        'INTERNATIONAL' => 'international',
-    ];
+    private array $pseudoAllergenCategoryMap = [];
+    /** @var array<int, list<string>> */
+    private array $foodTypeCategoryMap = [];
+    /** @var array<int, string> */
+    private array $foodTypeNames = [];
 
     /**
      * @param array<string, mixed> $config
@@ -48,6 +39,9 @@ final class MensaXmlParser
         $this->standortNames = $this->normalizeStandortNames($config['standort_namen'] ?? []);
         $this->mensaLocations = $this->normalizeMensaMappings($config['mensen'] ?? []);
         $this->defaultExcludedTypes = array_map('intval', is_array($config['default_exclude'] ?? null) ? $config['default_exclude'] : []);
+        $this->pseudoAllergenCategoryMap = $this->normalizeStringMap($config['pseudo_allergen_category_map'] ?? []);
+        $this->foodTypeCategoryMap = $this->normalizeFoodTypeCategoryMap($config['food_types'] ?? [], $config['food_type_categories'] ?? []);
+        $this->foodTypeNames = $this->normalizeFoodTypeNames($config['food_types'] ?? []);
     }
 
     /**
@@ -270,16 +264,152 @@ final class MensaXmlParser
             return $normalized;
         }
         foreach ($mensen as $key => $value) {
-            $ids = [];
-            foreach (explode(',', (string)$value) as $part) {
-                $part = trim($part);
-                if ($part !== '' && is_numeric($part)) {
-                    $ids[] = (int)$part;
-                }
-            }
-            $normalized[(string)$key] = array_values(array_unique($ids));
+            $normalized[(string)$key] = $this->normalizeLocationIds($value);
         }
         return $normalized;
+    }
+
+    /** @return list<int> */
+    private function normalizeLocationIds(mixed $mensaConfig): array
+    {
+        if (is_array($mensaConfig)) {
+            foreach (['locations', 'location_ids', 'standorte', 'ids', 'id', 'location_id'] as $key) {
+                if (array_key_exists($key, $mensaConfig)) {
+                    return $this->normalizeIntList($mensaConfig[$key]);
+                }
+            }
+            return [];
+        }
+
+        return $this->normalizeIntList($mensaConfig);
+    }
+
+    /** @return list<int> */
+    private function normalizeIntList(mixed $value): array
+    {
+        $rawValues = is_array($value) ? $value : explode(',', (string)$value);
+        $ids = [];
+        foreach ($rawValues as $rawValue) {
+            $rawValue = trim((string)$rawValue);
+            if ($rawValue !== '' && is_numeric($rawValue)) {
+                $ids[] = (int)$rawValue;
+            }
+        }
+
+        return array_values(array_unique($ids));
+    }
+
+    /** @return array<string, string> */
+    private function normalizeStringMap(mixed $map): array
+    {
+        $normalized = [];
+        if (!is_array($map)) {
+            return $normalized;
+        }
+
+        foreach ($map as $key => $value) {
+            $normalizedKey = strtoupper(trim((string)$key));
+            $normalizedValue = trim((string)$value);
+            if ($normalizedKey !== '' && $normalizedValue !== '') {
+                $normalized[$normalizedKey] = $normalizedValue;
+            }
+        }
+
+        return $normalized;
+    }
+
+    /** @return array<int, list<string>> */
+    private function normalizeFoodTypeCategoryMap(mixed $foodTypes, mixed $foodTypeCategories): array
+    {
+        $normalized = [];
+        if (is_array($foodTypes)) {
+            foreach ($foodTypes as $typeId => $typeConfig) {
+                if (!is_numeric((string)$typeId) || !is_array($typeConfig)) {
+                    continue;
+                }
+                $categories = $this->normalizeStringList($typeConfig['categories'] ?? []);
+                if ($categories !== []) {
+                    $normalized[(int)$typeId] = $categories;
+                }
+            }
+        }
+
+        if (is_array($foodTypeCategories)) {
+            foreach ($foodTypeCategories as $category => $typeIds) {
+                $category = trim((string)$category);
+                if ($category === '') {
+                    continue;
+                }
+                foreach ($this->normalizeIntList($typeIds) as $typeId) {
+                    $normalized[$typeId][] = $category;
+                }
+            }
+        }
+
+        foreach ($normalized as $typeId => $categories) {
+            $normalized[$typeId] = array_values(array_unique($categories));
+        }
+
+        return $normalized;
+    }
+
+    /** @return array<int, string> */
+    private function normalizeFoodTypeNames(mixed $foodTypes): array
+    {
+        $normalized = [];
+        if (!is_array($foodTypes)) {
+            return $normalized;
+        }
+
+        foreach ($foodTypes as $typeId => $typeConfig) {
+            if (!is_numeric((string)$typeId)) {
+                continue;
+            }
+
+            if (is_array($typeConfig)) {
+                foreach (['name', 'label'] as $key) {
+                    $name = trim((string)($typeConfig[$key] ?? ''));
+                    if ($name !== '') {
+                        $normalized[(int)$typeId] = $name;
+                        continue 2;
+                    }
+                }
+
+                $labels = is_array($typeConfig['labels'] ?? null) ? $typeConfig['labels'] : [];
+                $defaultLanguage = trim((string)($this->config['default_language'] ?? ''));
+                foreach (array_values(array_unique(array_filter([$defaultLanguage, 'de', 'en']))) as $language) {
+                    $name = trim((string)($labels[$language] ?? ''));
+                    if ($name !== '') {
+                        $normalized[(int)$typeId] = $name;
+                        continue 2;
+                    }
+                }
+
+                $key = trim((string)($typeConfig['key'] ?? ''));
+                if ($key !== '') {
+                    $normalized[(int)$typeId] = $key;
+                }
+            } elseif (is_string($typeConfig) && trim($typeConfig) !== '') {
+                $normalized[(int)$typeId] = trim($typeConfig);
+            }
+        }
+
+        return $normalized;
+    }
+
+    /** @return list<string> */
+    private function normalizeStringList(mixed $value): array
+    {
+        $rawValues = is_array($value) ? $value : explode(',', (string)$value);
+        $strings = [];
+        foreach ($rawValues as $rawValue) {
+            $string = trim((string)$rawValue);
+            if ($string !== '') {
+                $strings[] = $string;
+            }
+        }
+
+        return array_values(array_unique($strings));
     }
 
     /** @return list<int> */
@@ -425,9 +555,10 @@ final class MensaXmlParser
     private function detectFlags(array $lines, array $attributes, ?int $typeId): array
     {
         $haystack = strtolower(implode(' ', $lines) . ' ' . implode(' ', $attributes));
+        $typeCategories = $typeId !== null ? ($this->foodTypeCategoryMap[$typeId] ?? []) : [];
         return [
-            'vegan' => str_contains($haystack, 'vegan') || str_contains($haystack, '(ve') || in_array($typeId, [48, 49, 101, 105, 109, 113, 118, 130, 200, 205, 208], true),
-            'vegetarian' => str_contains($haystack, 'vegetar') || str_contains($haystack, '(vn') || in_array($typeId, [102, 106, 110, 114, 116, 201, 209], true),
+            'vegan' => str_contains($haystack, 'vegan') || str_contains($haystack, '(ve') || in_array('vegan', $typeCategories, true),
+            'vegetarian' => str_contains($haystack, 'vegetar') || str_contains($haystack, '(vn') || in_array('vegetarian', $typeCategories, true),
             'fish' => str_contains($haystack, 'fisch') || array_key_exists('Fi', $this->parseZusatzstoffeAndAllergene($attributes['ZSNUMMERN'] ?? '', $attributes['ZSNAMEN'] ?? '')['allergens']),
             'bio' => str_contains($haystack, 'bio'),
         ];
@@ -474,11 +605,10 @@ final class MensaXmlParser
             }
         }
 
-        if ($typeId !== null && in_array($typeId, [48, 49, 101, 105, 109, 113, 118, 130, 200, 205, 208], true)) {
-            $categories[] = 'vegan';
-        }
-        if ($typeId !== null && in_array($typeId, [102, 106, 110, 114, 116, 201, 209], true)) {
-            $categories[] = 'vegetarian';
+        if ($typeId !== null) {
+            foreach ($this->foodTypeCategoryMap[$typeId] ?? [] as $category) {
+                $categories[] = $category;
+            }
         }
 
         if (in_array('fish', $categories, true)) {
@@ -525,6 +655,6 @@ final class MensaXmlParser
         if ($typeId === null) {
             return null;
         }
-        return 'Type ' . $typeId;
+        return $this->foodTypeNames[$typeId] ?? 'Type ' . $typeId;
     }
 }
