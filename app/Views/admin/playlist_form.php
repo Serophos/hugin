@@ -94,7 +94,7 @@ require __DIR__ . '/../layouts/admin_header.php';
 <?php if ($channel): ?>
 <div class="card">
     <h2><?= e(__('slide.playlist_slides', ['playlist' => $channel['name']])) ?></h2>
-    <div class="playlist-slides-toolbar">
+    <div class="form-actions playlist-slides-toolbar">
         <button type="button" class="button button--normal" id="add-existing-slide">
             <?= admin_icon('add') ?><span><?= e(__('slide.add_existing_to_playlist')) ?></span>
         </button>
@@ -106,51 +106,53 @@ require __DIR__ . '/../layouts/admin_header.php';
     <?php if ($slides === []): ?>
         <p class="muted playlist-empty-state"><?= e(__('slide.playlist_empty')) ?></p>
     <?php else: ?>
-        <table class="playlist-slides-table">
-            <thead>
-                <tr>
-                    <th class="handle-col"></th>
-                    <th><?= e(__('common.name')) ?></th>
-                    <th><?= e(__('common.type')) ?></th>
-                    <th><?= e(__('common.source')) ?></th>
-                    <th><?= e(__('common.duration')) ?></th>
-                    <th><?= e(__('common.status')) ?></th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody class="sortable-list" data-sort-endpoint="<?= e(url('/admin/sort/slides')) ?>" data-extra-name="channel_id" data-extra-value="<?= e((string)$channel['id']) ?>">
-            <?php foreach ($slides as $slide): ?>
-                <tr draggable="true" data-id="<?= e((string)$slide['id']) ?>">
-                    <td class="handle">↕</td>
-                    <td><?= e($slide['name']) ?></td>
-                    <td><?= e($pluginLabels[$slide['slide_type']] ?? enum_label('slide_types', $slide['slide_type'], $slide['slide_type'])) ?></td>
-                    <td class="truncate">
-                        <?php if (!empty($slide['media_name'])): ?>
-                            <?= e($slide['media_name']) ?>
-                        <?php elseif (!empty($slide['source_url'])): ?>
-                            <a href="<?= e($slide['source_url']) ?>" target="_blank"><?= e(__('slide.open_source')) ?></a>
-                        <?php else: ?>
-                            —
-                        <?php endif; ?>
-                    </td>
-                    <td><?= e((string)($slide['duration_seconds'] ?? __('common.default'))) ?></td>
-                    <td><?= e($slide['is_active'] ? __('common.active') : __('common.inactive')) ?></td>
-                    <td class="actions">
-                        <a class="button button--normal button--small" href="<?= e(url('/admin/slides/' . $slide['id'] . '/edit?return_to=' . rawurlencode('/admin/playlists/' . $channel['id'] . '/edit'))) ?>">
-                            <?= admin_icon('edit') ?><span><?= e(__('slide.edit_content')) ?></span>
-                        </a>
-                        <form method="post" action="<?= e(url('/admin/playlists/' . $channel['id'] . '/slides/' . $slide['id'] . '/remove')) ?>" class="inline-form" data-confirm-submit data-confirm-title="<?= e(__('slide.remove_from_playlist')) ?>" data-confirm-message="<?= e(__('slide.remove_from_playlist_confirm', ['slide' => $slide['name'], 'playlist' => $channel['name']])) ?>" data-confirm-accept="<?= e(__('slide.remove_from_playlist')) ?>">
-                            <?= csrf_field() ?>
-                            <input type="hidden" name="return_to" value="<?= e('/admin/playlists/' . $channel['id'] . '/edit') ?>">
-                            <button type="submit" class="button button--danger button--small">
-                                <?= admin_icon('remove') ?><span><?= e(__('slide.remove_from_playlist')) ?></span>
-                            </button>
-                        </form>
-                    </td>
-                </tr>
-            <?php endforeach; ?>
-            </tbody>
-        </table>
+        <div class="table-scroll">
+            <table class="playlist-slides-table">
+                <thead>
+                    <tr>
+                        <th class="handle-col"></th>
+                        <th><?= e(__('common.name')) ?></th>
+                        <th><?= e(__('common.type')) ?></th>
+                        <th><?= e(__('common.source')) ?></th>
+                        <th><?= e(__('common.duration')) ?></th>
+                        <th><?= e(__('common.status')) ?></th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody class="sortable-list" data-sort-endpoint="<?= e(url('/admin/sort/slides')) ?>" data-extra-name="channel_id" data-extra-value="<?= e((string)$channel['id']) ?>">
+                <?php foreach ($slides as $slide): ?>
+                    <tr draggable="true" data-id="<?= e((string)$slide['id']) ?>">
+                        <td class="handle">↕</td>
+                        <td><?= e($slide['name']) ?></td>
+                        <td><?= e($pluginLabels[$slide['slide_type']] ?? enum_label('slide_types', $slide['slide_type'], $slide['slide_type'])) ?></td>
+                        <td class="truncate">
+                            <?php if (!empty($slide['media_name'])): ?>
+                                <?= e($slide['media_name']) ?>
+                            <?php elseif (!empty($slide['source_url'])): ?>
+                                <a href="<?= e($slide['source_url']) ?>" target="_blank"><?= e(__('slide.open_source')) ?></a>
+                            <?php else: ?>
+                                —
+                            <?php endif; ?>
+                        </td>
+                        <td><?= e((string)($slide['duration_seconds'] ?? __('common.default'))) ?></td>
+                        <td><?= e($slide['is_active'] ? __('common.active') : __('common.inactive')) ?></td>
+                        <td class="actions">
+                            <a class="button button--normal button--small" href="<?= e(url('/admin/slides/' . $slide['id'] . '/edit?return_to=' . rawurlencode('/admin/playlists/' . $channel['id'] . '/edit'))) ?>">
+                                <?= admin_icon('edit') ?><span><?= e(__('slide.edit_content')) ?></span>
+                            </a>
+                            <form method="post" action="<?= e(url('/admin/playlists/' . $channel['id'] . '/slides/' . $slide['id'] . '/remove')) ?>" class="inline-form" data-confirm-submit data-confirm-title="<?= e(__('slide.remove_from_playlist')) ?>" data-confirm-message="<?= e(__('slide.remove_from_playlist_confirm', ['slide' => $slide['name'], 'playlist' => $channel['name']])) ?>" data-confirm-accept="<?= e(__('slide.remove_from_playlist')) ?>">
+                                <?= csrf_field() ?>
+                                <input type="hidden" name="return_to" value="<?= e('/admin/playlists/' . $channel['id'] . '/edit') ?>">
+                                <button type="submit" class="button button--danger button--small">
+                                    <?= admin_icon('remove') ?><span><?= e(__('slide.remove_from_playlist')) ?></span>
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
     <?php endif; ?>
 </div>
 

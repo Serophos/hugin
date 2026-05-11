@@ -42,6 +42,7 @@ CREATE TABLE displays (
     slide_duration_seconds INT UNSIGNED NOT NULL DEFAULT 8,
     timezone VARCHAR(64) NOT NULL DEFAULT 'UTC',
     orientation ENUM('landscape', 'vertical') NOT NULL DEFAULT 'landscape',
+    icon_file VARCHAR(120) NOT NULL DEFAULT 'display_16_9.png',
     sort_order INT NOT NULL DEFAULT 0,
     is_active TINYINT(1) NOT NULL DEFAULT 1,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -278,9 +279,9 @@ INSERT INTO display_groups (location_id, name, description, sort_order, sync_ena
 (1, 'Arrival Lounge Screens', 'Displays welcoming guests and showing general Hugin demo content.', 1, 0, 'independent'),
 (1, 'Dining Deck Screens', 'Displays for scheduled messages, morning content, and visual announcements.', 2, 0, 'independent');
 
-INSERT INTO displays (name, slug, description, transition_effect, slide_duration_seconds, timezone, orientation, sort_order, is_active) VALUES
-('Arrival Lounge Display', 'arrival-lounge-display', 'Demo display in the Milliways arrival lounge.', 'fade', 8, 'Europe/Berlin', 'landscape', 1, 1),
-('Dining Deck Display', 'dining-deck-display', 'Demo display on the Milliways dining deck.', 'slide-left', 8, 'Europe/Berlin', 'landscape', 2, 1);
+INSERT INTO displays (name, slug, description, transition_effect, slide_duration_seconds, timezone, orientation, icon_file, sort_order, is_active) VALUES
+('Arrival Lounge Display', 'arrival-lounge-display', 'Demo display in the Milliways arrival lounge.', 'fade', 8, 'Europe/Berlin', 'landscape', 'display_16_9.png', 1, 1),
+('Dining Deck Display', 'dining-deck-display', 'Demo display on the Milliways dining deck.', 'slide-left', 8, 'Europe/Berlin', 'landscape', 'display_16_9.png', 2, 1);
 
 INSERT INTO display_group_memberships (display_id, group_id, layout_x, layout_y, layout_width, layout_height, layout_rotation_degrees, bezel_top, bezel_right, bezel_bottom, bezel_left, sort_order) VALUES
 (1, 1, 0, 0, NULL, NULL, 0, 0, 0, 0, 0, 1),

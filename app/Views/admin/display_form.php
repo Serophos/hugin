@@ -1,6 +1,16 @@
 <?php
 $formId = 'display';
 $title = $display ? __('display.edit_title') : __('display.create_title');
+$displayIcons = $displayIcons ?? [];
+$defaultDisplayIcon = $defaultDisplayIcon ?? 'display_16_9.png';
+$selectedDisplayIcon = (string)old('icon_file', $display['icon_file'] ?? $defaultDisplayIcon, $formId);
+if (!isset($displayIcons[$selectedDisplayIcon])) {
+    $selectedDisplayIcon = isset($displayIcons[$defaultDisplayIcon])
+        ? $defaultDisplayIcon
+        : ($displayIcons === [] ? $defaultDisplayIcon : (string)array_key_first($displayIcons));
+}
+$selectedDisplayIconUrl = (string)($displayIcons[$selectedDisplayIcon]['url'] ?? '');
+$selectedDisplayIconLabel = (string)($displayIcons[$selectedDisplayIcon]['label'] ?? __('display.icon'));
 require __DIR__ . '/../layouts/admin_header.php';
 ?>
 <h1><?= e($title) ?></h1>
@@ -33,6 +43,29 @@ require __DIR__ . '/../layouts/admin_header.php';
                 </select>
                 <?= field_error_html('orientation', $formId) ?>
             </label>
+            <?php if ($displayIcons !== []): ?>
+                <fieldset class="display-icon-field full-width">
+                    <legend><?= e(__('display.icon')) ?></legend>
+                    <div class="display-icon-selector" role="radiogroup" aria-label="<?= e(__('display.icon')) ?>">
+                        <?php foreach ($displayIcons as $icon): ?>
+                            <label class="display-icon-option">
+                                <input
+                                    type="radio"
+                                    name="icon_file"
+                                    value="<?= e($icon['file']) ?>"
+                                    data-icon-url="<?= e($icon['url']) ?>"
+                                    data-icon-label="<?= e($icon['label']) ?>"
+                                    <?= checked($selectedDisplayIcon === $icon['file']) ?>
+                                >
+                                <span class="display-icon-option__image"><img src="<?= e($icon['url']) ?>" alt="" loading="lazy"></span>
+                                <span class="display-icon-option__name"><?= e($icon['label']) ?></span>
+                            </label>
+                        <?php endforeach; ?>
+                    </div>
+                    <small class="field-note"><?= e(__('display.icon_help')) ?></small>
+                    <?= field_error_html('icon_file', $formId) ?>
+                </fieldset>
+            <?php endif; ?>
             <label><?= e(__('display.default_slide_duration')) ?>
                 <input type="number" min="1" name="slide_duration_seconds" value="<?= e((string)old('slide_duration_seconds', $display['slide_duration_seconds'] ?? 8, $formId)) ?>" placeholder="<?= e(__('display.duration_placeholder')) ?>" required<?= field_attrs('slide_duration_seconds', $formId) ?>>
                 <?= field_error_html('slide_duration_seconds', $formId) ?>
@@ -55,6 +88,12 @@ require __DIR__ . '/../layouts/admin_header.php';
     </div>
 
     <aside class="card heartbeat-sidebar">
+        <?php if ($selectedDisplayIconUrl !== ''): ?>
+            <div class="display-sidebar-icon" data-display-icon-preview>
+                <img src="<?= e($selectedDisplayIconUrl) ?>" alt="" data-display-icon-preview-img>
+                <span data-display-icon-preview-label><?= e($selectedDisplayIconLabel) ?></span>
+            </div>
+        <?php endif; ?>
         <h2><?= e(__('display.heartbeat_title')) ?></h2>
         <?php if ($display): ?>
             <form method="post" action="<?= e(url('/admin/displays/' . $display['id'] . '/reload')) ?>" class="form-actions">
@@ -126,6 +165,18 @@ require __DIR__ . '/../layouts/admin_header.php';
     if (!slugTouched && nameInput.value.trim() !== '') {
         slugInput.value = slugify(nameInput.value);
     }
+
+    const iconPreviewImg = document.querySelector('[data-display-icon-preview-img]');
+    const iconPreviewLabel = document.querySelector('[data-display-icon-preview-label]');
+    document.querySelectorAll('input[name="icon_file"]').forEach(input => {
+        input.addEventListener('change', () => {
+            if (!input.checked || !iconPreviewImg) return;
+            iconPreviewImg.src = input.dataset.iconUrl || iconPreviewImg.src;
+            if (iconPreviewLabel) {
+                iconPreviewLabel.textContent = input.dataset.iconLabel || '';
+            }
+        });
+    });
 })();
 </script>
 <?php require __DIR__ . '/../layouts/admin_footer.php'; ?>

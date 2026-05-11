@@ -193,6 +193,8 @@ return [
         'timezone_placeholder' => 'e.g. Europe/Berlin',
         'sort_order_placeholder' => 'e.g. 10',
         'description_placeholder' => 'e.g. Entrance display near reception',
+        'icon' => 'Display type icon',
+        'icon_help' => 'PNG icons are loaded automatically from the display icon asset folder.',
         'default_slide_duration' => 'Default slide duration (seconds)',
         'heartbeat_title' => 'Client heartbeat',
         'heartbeat_save_first' => 'Save the display first to see client metadata from the heartbeat.',

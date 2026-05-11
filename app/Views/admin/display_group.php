@@ -59,21 +59,22 @@ require __DIR__ . '/../layouts/admin_header.php';
                         (int)$display['layout_width'],
                         (int)$display['layout_height']
                     );
+                    $tileTitle = trim($display['name'] . ' - ' . ($display['resolution_label'] ?? '') . ' - ' . ($display['monitoring_label'] ?? ''));
+                    $iconUrl = (string)($display['display_icon_url'] ?? '');
                     ?>
                     <article
                         class="display-tile display-tile--<?= e($display['orientation']) ?>"
                         data-display-tile
                         data-display-id="<?= e((string)$display['id']) ?>"
                         data-rotation="<?= e((string)$display['layout_rotation_degrees']) ?>"
+                        aria-label="<?= e($tileTitle) ?>"
+                        title="<?= e($tileTitle) ?>"
                         style="<?= e($tileStyle) ?>"
                     >
-                        <div class="display-tile__top">
-                            <span class="orientation-mark orientation-mark--<?= e($display['orientation']) ?>"></span>
-                            <span class="status-dot status-<?= e($display['monitoring_status']) ?>"></span>
-                        </div>
-                        <strong><?= e($display['name']) ?></strong>
-                        <small><?= e($display['resolution_label']) ?></small>
-                        <small><?= e($display['monitoring_label']) ?><?php if ($display['minutes_since_seen'] !== null): ?> &middot; <?= e(__('dashboard.min_ago', ['minutes' => $display['minutes_since_seen']])) ?><?php endif; ?></small>
+                        <?php if ($iconUrl !== ''): ?>
+                            <img class="display-tile__icon" src="<?= e($iconUrl) ?>" alt="" draggable="false">
+                        <?php endif; ?>
+                        <span class="display-tile__label"><?= e($display['name']) ?></span>
                     </article>
                 <?php endforeach; ?>
             </div>

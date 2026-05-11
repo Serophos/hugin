@@ -14,6 +14,11 @@ class AdminController
 {
     private const MEDIA_PAGE_SIZE = 20;
     private const BRANDING_SETTINGS_NAMESPACE = 'branding';
+    private const DEFAULT_DISPLAY_ICON = 'display_16_9.png';
+    private const DISPLAY_ICON_PUBLIC_DIRS = [
+        '/assets/img/display',
+        '/assets/img/displays',
+    ];
 
     public function __construct(
         private Database $db,
@@ -316,8 +321,11 @@ class AdminController
             );
         }
 
+        $displayIcons = $this->displayIcons();
         $this->view->render('admin/display_form', [
             'display' => $display,
+            'displayIcons' => $displayIcons,
+            'defaultDisplayIcon' => $this->defaultDisplayIcon($displayIcons),
             'heartbeat' => $heartbeat,
             'error' => flash('error'),
         ]);
@@ -336,6 +344,7 @@ class AdminController
         $slugRaw = (string)$this->request->input('slug', $nameRaw);
         $durationRaw = trim((string)$this->request->input('slide_duration_seconds', '8'));
         $sortOrderRaw = trim((string)$this->request->input('sort_order', '0'));
+        $displayIcons = $this->displayIcons();
         $name = trim($nameRaw);
         $slug = slugify($slugRaw !== '' ? $slugRaw : $name);
         $description = trim((string)$this->request->input('description'));
@@ -344,6 +353,7 @@ class AdminController
         $timezone = trim((string)$this->request->input('timezone', 'UTC')) ?: 'UTC';
         $sortOrder = max(0, (int)$sortOrderRaw);
         $orientation = $this->sanitizeOrientation((string)$this->request->input('orientation', 'landscape'));
+        $iconFile = $this->normalizeDisplayIcon((string)$this->request->input('icon_file', ''), $displayIcons);
         $isActive = $this->request->input('is_active') ? 1 : 0;
         $old = [
             'name' => $nameRaw,
@@ -354,6 +364,7 @@ class AdminController
             'timezone' => (string)$this->request->input('timezone', 'UTC'),
             'sort_order' => $sortOrderRaw,
             'orientation' => $orientation,
+            'icon_file' => $iconFile,
             'is_active' => $isActive,
         ];
         $errors = [];
@@ -398,15 +409,15 @@ class AdminController
 
         if ($id) {
             $this->db->execute(
-                'UPDATE displays SET name = ?, slug = ?, description = ?, transition_effect = ?, slide_duration_seconds = ?, timezone = ?, sort_order = ?, orientation = ?, is_active = ? WHERE id = ?',
-                [$name, $slug, $description, $effect, $duration, $timezone, $sortOrder, $orientation, $isActive, $id]
+                'UPDATE displays SET name = ?, slug = ?, description = ?, transition_effect = ?, slide_duration_seconds = ?, timezone = ?, sort_order = ?, orientation = ?, icon_file = ?, is_active = ? WHERE id = ?',
+                [$name, $slug, $description, $effect, $duration, $timezone, $sortOrder, $orientation, $iconFile, $isActive, $id]
             );
             flash('success', __('display.updated'));
         } else {
             $nextSort = $sortOrder ?: ((int)($this->db->one('SELECT COALESCE(MAX(sort_order), 0) + 1 AS next_sort FROM displays')['next_sort'] ?? 1));
             $this->db->execute(
-                'INSERT INTO displays (name, slug, description, transition_effect, slide_duration_seconds, timezone, sort_order, orientation, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                [$name, $slug, $description, $effect, $duration, $timezone, $nextSort, $orientation, $isActive]
+                'INSERT INTO displays (name, slug, description, transition_effect, slide_duration_seconds, timezone, sort_order, orientation, icon_file, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                [$name, $slug, $description, $effect, $duration, $timezone, $nextSort, $orientation, $iconFile, $isActive]
             );
             flash('success', __('display.created'));
         }
@@ -2356,7 +2367,7 @@ class AdminController
 
     private function getDisplayOrganizationRows(string $where = '', array $params = []): array
     {
-        $sql = 'SELECT d.id, d.name, d.slug, d.description, d.orientation, d.is_active, d.sort_order,
+        $sql = 'SELECT d.id, d.name, d.slug, d.description, d.orientation, d.icon_file, d.is_active, d.sort_order,
                        dgm.group_id, dgm.layout_x, dgm.layout_y, dgm.layout_width, dgm.layout_height,
                        dgm.layout_rotation_degrees, dgm.bezel_top, dgm.bezel_right, dgm.bezel_bottom,
                        dgm.bezel_left, dgm.sort_order AS group_sort_order,
@@ -2382,7 +2393,10 @@ class AdminController
                          d.name ASC';
 
         $rows = $this->db->all($sql, $params);
+        $displayIcons = $this->displayIcons();
         foreach ($rows as &$row) {
+            $row['display_icon_file'] = $this->normalizeDisplayIcon((string)($row['icon_file'] ?? ''), $displayIcons);
+            $row['display_icon_url'] = $this->displayIconUrl($row['display_icon_file'], $displayIcons);
             $row['monitoring_status'] = $this->displayMonitoringStatus((int)$row['is_active'], $row['last_seen_at'] ?? null);
             $row['monitoring_label'] = $this->displayMonitoringLabel($row['monitoring_status']);
             $row['minutes_since_seen'] = $this->minutesSinceSeen($row['last_seen_at'] ?? null);
@@ -2391,6 +2405,71 @@ class AdminController
         unset($row);
 
         return $rows;
+    }
+
+    private function displayIcons(): array
+    {
+        static $icons = null;
+        if ($icons !== null) {
+            return $icons;
+        }
+
+        $icons = [];
+        $publicRoot = rtrim((string)app_config('paths.public', dirname(__DIR__, 2) . '/public'), '/');
+        foreach (self::DISPLAY_ICON_PUBLIC_DIRS as $publicDir) {
+            $diskDir = $publicRoot . $publicDir;
+            if (!is_dir($diskDir)) {
+                continue;
+            }
+
+            foreach (scandir($diskDir) ?: [] as $file) {
+                if (isset($icons[$file]) || !preg_match('/\A[A-Za-z0-9_.:-]+\.png\z/i', $file)) {
+                    continue;
+                }
+
+                $path = $diskDir . '/' . $file;
+                if (!is_file($path)) {
+                    continue;
+                }
+
+                $label = pathinfo($file, PATHINFO_FILENAME);
+                $label = preg_replace('/[_:-]+/', ' ', $label) ?? $label;
+                $label = trim(preg_replace('/\s+/', ' ', $label) ?? $label);
+                $icons[$file] = [
+                    'file' => $file,
+                    'label' => ucwords($label),
+                    'url' => url($publicDir . '/' . $file),
+                ];
+            }
+        }
+
+        uasort($icons, static fn(array $a, array $b): int => strnatcasecmp($a['label'], $b['label']));
+        return $icons;
+    }
+
+    private function defaultDisplayIcon(array $displayIcons): string
+    {
+        if (isset($displayIcons[self::DEFAULT_DISPLAY_ICON])) {
+            return self::DEFAULT_DISPLAY_ICON;
+        }
+
+        return $displayIcons === [] ? self::DEFAULT_DISPLAY_ICON : (string)array_key_first($displayIcons);
+    }
+
+    private function normalizeDisplayIcon(string $value, array $displayIcons): string
+    {
+        $file = basename(trim($value));
+        if ($file !== '' && isset($displayIcons[$file])) {
+            return $file;
+        }
+
+        return $this->defaultDisplayIcon($displayIcons);
+    }
+
+    private function displayIconUrl(string $file, array $displayIcons): string
+    {
+        $file = $this->normalizeDisplayIcon($file, $displayIcons);
+        return (string)($displayIcons[$file]['url'] ?? '');
     }
 
     private function defaultLayoutSize(array $display): array
