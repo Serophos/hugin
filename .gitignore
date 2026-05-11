@@ -4,7 +4,7 @@ config/config.php
 plugins/tl-1menu/config.php
 
 #ignore database migrations
-db-migrations/*
+#db-migrations/*
 
 # Storage
 storage/

@@ -1,0 +1,8 @@
+CREATE TABLE IF NOT EXISTS app_settings (
+    namespace VARCHAR(100) NOT NULL,
+    setting_key VARCHAR(100) NOT NULL,
+    setting_value LONGTEXT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (namespace, setting_key)
+);
