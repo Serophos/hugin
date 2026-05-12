@@ -16,7 +16,6 @@ class AdminController
     private const BRANDING_SETTINGS_NAMESPACE = 'branding';
     private const DEFAULT_DISPLAY_ICON = 'display_16_9.png';
     private const DISPLAY_ICON_PUBLIC_DIRS = [
-        '/assets/img/display',
         '/assets/img/displays',
     ];
 
