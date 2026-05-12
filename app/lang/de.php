@@ -478,7 +478,7 @@ return [
         'remove_from_playlist' => 'Aus Playlist entfernen',
         'remove_from_playlist_confirm' => '":slide" aus Playlist ":playlist" entfernen? Die Slide bleibt in der Slide-Bibliothek und in anderen Playlists erhalten.',
         'add_existing_to_playlist' => 'Vorhandene Slide zur Playlist hinzufügen',
-        'create_in_playlist' => 'Neue Slide in Playlist erstellen',
+        'create_in_playlist' => 'Neuen Slide in Playlist erstellen',
     ],
     'media' => [
         'title' => 'Medienbibliothek',
