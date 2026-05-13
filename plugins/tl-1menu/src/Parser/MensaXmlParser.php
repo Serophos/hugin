@@ -554,13 +554,23 @@ final class MensaXmlParser
     /** @param list<string> $lines @param array<string,string> $attributes @return array<string,bool> */
     private function detectFlags(array $lines, array $attributes, ?int $typeId): array
     {
-        $haystack = strtolower(implode(' ', $lines) . ' ' . implode(' ', $attributes));
         $typeCategories = $typeId !== null ? ($this->foodTypeCategoryMap[$typeId] ?? []) : [];
+        $primaryHaystack = $this->normalizeSearchText(implode(' ', array_filter([
+            $lines[0] ?? '',
+            $attributes['SPEISE'] ?? '',
+        ])));
+        $fullHaystack = $this->normalizeSearchText(implode(' ', array_filter([
+            implode(' ', $lines),
+            $attributes['AUSGABETEXT'] ?? '',
+            $attributes['SPEISE'] ?? '',
+            $attributes['ZSNAMEN'] ?? '',
+        ])));
+
         return [
-            'vegan' => str_contains($haystack, 'vegan') || str_contains($haystack, '(ve') || in_array('vegan', $typeCategories, true),
-            'vegetarian' => str_contains($haystack, 'vegetar') || str_contains($haystack, '(vn') || in_array('vegetarian', $typeCategories, true),
-            'fish' => str_contains($haystack, 'fisch') || array_key_exists('Fi', $this->parseZusatzstoffeAndAllergene($attributes['ZSNUMMERN'] ?? '', $attributes['ZSNAMEN'] ?? '')['allergens']),
-            'bio' => str_contains($haystack, 'bio'),
+            'vegan' => $this->hasVeganMarker($primaryHaystack) || in_array('vegan', $typeCategories, true),
+            'vegetarian' => $this->hasVegetarianMarker($primaryHaystack) || in_array('vegetarian', $typeCategories, true),
+            'fish' => preg_match('/\b(fisch|fish)\b/u', $fullHaystack) === 1 || array_key_exists('Fi', $this->parseZusatzstoffeAndAllergene($attributes['ZSNUMMERN'] ?? '', $attributes['ZSNAMEN'] ?? '')['allergens']),
+            'bio' => preg_match('/\bbio\b/u', $fullHaystack) === 1,
         ];
     }
 
@@ -575,17 +585,17 @@ final class MensaXmlParser
             $categories[] = 'vegetarian';
         }
 
-        $haystack = strtolower(implode(' ', $attributes));
+        $haystack = $this->normalizeSearchText(implode(' ', $attributes));
         if ($flags['fish']) {
             $categories[] = 'fish';
         }
-        if (preg_match('/(rind|beef|cow)/u', $haystack) === 1) {
+        if (preg_match('/\b(rind|beef|cow)\b/u', $haystack) === 1) {
             $categories[] = 'beef';
         }
-        if (preg_match('/(schwein|pork|pig)/u', $haystack) === 1) {
+        if (preg_match('/\b(schwein|schweinefleisch|pork|pig)\b/u', $haystack) === 1) {
             $categories[] = 'pork';
         }
-        if (preg_match('/(geflügel|gefluegel|huhn|chicken|poultry)/u', $haystack) === 1) {
+        if (preg_match('/\b(geflügel|gefluegel|huhn|chicken|poultry)\b/u', $haystack) === 1) {
             $categories[] = 'poultry';
         }
         if (isset($allergens['Fi'])) {
@@ -618,22 +628,59 @@ final class MensaXmlParser
             $categories[] = 'meat';
         }
 
-        return array_values(array_unique($categories));
+        return $this->normalizeDetectedCategories($categories);
     }
 
     /** @param list<string> $categories */
     private function classifyDish(array $categories): string
     {
+        if (count(array_intersect($categories, ['fish_higher_welfare', 'fish'])) > 0) {
+            return 'fish';
+        }
+        if (count(array_intersect($categories, ['meat', 'pork_higher_welfare', 'pork', 'poultry', 'beef_higher_welfare', 'beef'])) > 0) {
+            return 'meat';
+        }
         if (in_array('vegan', $categories, true)) {
             return 'vegan';
         }
         if (in_array('vegetarian', $categories, true)) {
             return 'vegetarian';
         }
-        if (in_array('fish', $categories, true)) {
-            return 'fish';
-        }
         return 'meat';
+    }
+
+    private function normalizeSearchText(string $value): string
+    {
+        return strtolower(str_replace("\xc2\xa0", ' ', $value));
+    }
+
+    private function hasVeganMarker(string $haystack): bool
+    {
+        return preg_match('/\bvegan(?:e[rs]?|en)?\b/u', $haystack) === 1
+            || preg_match('/\((vn|vegan)\b/u', $haystack) === 1;
+    }
+
+    private function hasVegetarianMarker(string $haystack): bool
+    {
+        return preg_match('/\bvegetar(?:isch(?:e[rs]?|en)?|ian)?\b/u', $haystack) === 1
+            || preg_match('/\((ve|vegetarian|vegetarisch)\b/u', $haystack) === 1;
+    }
+
+    /** @param list<string> $categories @return list<string> */
+    private function normalizeDetectedCategories(array $categories): array
+    {
+        $categories = array_values(array_unique($categories));
+        $animalCategories = ['fish_higher_welfare', 'fish', 'meat', 'pork_higher_welfare', 'pork', 'poultry', 'beef_higher_welfare', 'beef'];
+
+        if (count(array_intersect($categories, $animalCategories)) > 0) {
+            return array_values(array_filter($categories, static fn (string $category): bool => !in_array($category, ['vegan', 'vegetarian'], true)));
+        }
+
+        if (in_array('vegan', $categories, true)) {
+            return array_values(array_filter($categories, static fn (string $category): bool => $category !== 'vegetarian'));
+        }
+
+        return $categories;
     }
 
     /** @param list<string> $lines */

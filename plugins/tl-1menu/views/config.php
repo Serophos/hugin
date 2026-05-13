@@ -25,6 +25,14 @@ $fieldPrefix = 'plugin_settings.' . $plugin->getName() . '.';
         <?= field_error_html($fieldPrefix . 'language', $formId) ?>
     </label>
 
+    <label class="full-width"><?= e(__('plugins.tl-1menu.config.layout')) ?>
+        <select name="plugin_settings[<?= e($plugin->getName()) ?>][layout]"<?= field_attrs($fieldPrefix . 'layout', $formId) ?>>
+            <option value="card" <?= selected($settings['layout'] ?? 'card', 'card') ?>><?= e(__('plugins.tl-1menu.config.layout_card')) ?></option>
+            <option value="list" <?= selected($settings['layout'] ?? 'card', 'list') ?>><?= e(__('plugins.tl-1menu.config.layout_list')) ?></option>
+        </select>
+        <?= field_error_html($fieldPrefix . 'layout', $formId) ?>
+    </label>
+
     <fieldset class="full-width">
         <legend><?= e(__('plugins.tl-1menu.config.environment_title')) ?></legend>
         <div class="tl1menu-admin-checklist">

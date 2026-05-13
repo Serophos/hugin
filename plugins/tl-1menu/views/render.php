@@ -11,6 +11,8 @@ usort($items, static function ($a, $b): int {
 
 $itemCount = count($items);
 $gridClass = 'count-' . max(0, min(8, $itemCount));
+$layout = in_array((string)($settings['layout'] ?? 'card'), ['card', 'list'], true) ? (string)($settings['layout'] ?? 'card') : 'card';
+$isListLayout = $layout === 'list';
 $showCo2 = !empty($settings['display_co2']);
 $showWater = !empty($settings['display_water']);
 $showAnimalWelfare = !empty($settings['display_animal_welfare']);
@@ -28,27 +30,150 @@ $headerTextColor = readable_text_color($backgroundColor);
 $headerMutedColor = $isLightBackground ? '#334155' : '#e2e8f0';
 $headerSurfaceColor = $isLightBackground ? 'rgba(255, 255, 255, 0.78)' : 'rgba(15, 23, 42, 0.72)';
 $headerBorderColor = $isLightBackground ? 'rgba(15, 23, 42, 0.10)' : 'rgba(255, 255, 255, 0.18)';
+$textColor = $headerTextColor;
+$mutedTextColor = $isLightBackground ? '#334155' : '#e2e8f0';
+$subtleTextColor = $isLightBackground ? '#64748b' : '#cbd5e1';
+$ruleColor = $isLightBackground ? 'rgba(15, 23, 42, 0.24)' : 'rgba(248, 250, 252, 0.34)';
+$softRuleColor = $isLightBackground ? 'rgba(15, 23, 42, 0.14)' : 'rgba(248, 250, 252, 0.22)';
+$listDensity = 'short';
+$listColumnCount = 1;
+$showListImage = false;
+$listColumns = [];
+
+if ($isListLayout && $itemCount > 0) {
+    if ($itemCount <= 4) {
+        $listDensity = 'short';
+        $listColumnCount = 1;
+        $showListImage = !empty($backgroundImageUrl);
+    } elseif ($itemCount <= 9) {
+        $listDensity = 'medium';
+        $listColumnCount = 2;
+        $showListImage = !empty($backgroundImageUrl);
+    } elseif ($itemCount <= 14) {
+        $listDensity = 'dense';
+        $listColumnCount = 3;
+    } else {
+        $listDensity = 'extra';
+        $listColumnCount = 3;
+    }
+
+    $listCategoryOrder = [
+        'vegan' => 10,
+        'vegetarian' => 20,
+        'fish' => 30,
+        'meat' => 40,
+    ];
+    $listGroups = [];
+    foreach ($items as $item) {
+        $categoryKey = is_object($item) && isset($item->classification) ? trim((string)$item->classification) : '';
+        if ($categoryKey === '' && is_object($item) && isset($item->categories) && is_array($item->categories) && $item->categories !== []) {
+            $categoryKey = trim((string)$item->categories[0]);
+        }
+        if ($categoryKey === '') {
+            $categoryKey = 'meat';
+        }
+        if (!isset($listGroups[$categoryKey])) {
+            $categoryData = $service->getCategoryDisplayData($categoryKey, $language);
+            $listGroups[$categoryKey] = [
+                'key' => $categoryKey,
+                'label' => $categoryData['label'] ?? $service->getCategoryLabel($categoryKey, $language),
+                'icon' => $categoryData['icon'] ?? '',
+                'order' => $listCategoryOrder[$categoryKey] ?? 100,
+                'items' => [],
+            ];
+        }
+        $listGroups[$categoryKey]['items'][] = $item;
+    }
+    uasort($listGroups, static function (array $a, array $b): int {
+        return [(int)$a['order'], (string)$a['label']] <=> [(int)$b['order'], (string)$b['label']];
+    });
+
+    $listColumns = array_fill(0, $listColumnCount, []);
+    $targetItemsPerColumn = max(1, (int)ceil($itemCount / $listColumnCount));
+    $currentColumn = 0;
+    $currentColumnItems = 0;
+    foreach ($listGroups as $group) {
+        $groupItemCount = count($group['items']);
+        if (
+            $currentColumn < $listColumnCount - 1
+            && $currentColumnItems > 0
+            && $groupItemCount <= $targetItemsPerColumn
+            && $currentColumnItems + $groupItemCount > $targetItemsPerColumn
+        ) {
+            $currentColumn++;
+            $currentColumnItems = 0;
+        }
+        foreach ($group['items'] as $item) {
+            if ($currentColumn < $listColumnCount - 1 && $currentColumnItems >= $targetItemsPerColumn) {
+                $currentColumn++;
+                $currentColumnItems = 0;
+            }
+            $lastGroupIndex = count($listColumns[$currentColumn]) - 1;
+            if ($lastGroupIndex < 0 || $listColumns[$currentColumn][$lastGroupIndex]['key'] !== $group['key']) {
+                $listColumns[$currentColumn][] = [
+                    'key' => $group['key'],
+                    'label' => $group['label'],
+                    'icon' => $group['icon'],
+                    'items' => [],
+                ];
+                $lastGroupIndex = count($listColumns[$currentColumn]) - 1;
+            }
+            $listColumns[$currentColumn][$lastGroupIndex]['items'][] = $item;
+            $currentColumnItems++;
+        }
+    }
+}
+
 $styleParts = [
     '--tl1menu-bg-color:' . $backgroundColor,
     '--tl1menu-header-fg:' . $headerTextColor,
     '--tl1menu-header-muted:' . $headerMutedColor,
     '--tl1menu-header-surface:' . $headerSurfaceColor,
     '--tl1menu-header-border:' . $headerBorderColor,
+    '--tl1menu-fg:' . $textColor,
+    '--tl1menu-muted:' . $mutedTextColor,
+    '--tl1menu-subtle:' . $subtleTextColor,
+    '--tl1menu-rule:' . $ruleColor,
+    '--tl1menu-rule-soft:' . $softRuleColor,
 ];
 if (!empty($backgroundImageUrl)) {
     $safeBackgroundImageUrl = str_replace(["\\", "\"", "\n", "\r"], ['%5C', '%22', '', ''], (string)$backgroundImageUrl);
     $styleParts[] = '--tl1menu-bg-image:url("' . $safeBackgroundImageUrl . '")';
 }
+if ($isListLayout) {
+    $styleParts[] = '--tl1menu-list-data-columns:' . $listColumnCount;
+}
+
+$rootClasses = ['tl1menu'];
+if ($isListLayout) {
+    $rootClasses[] = 'tl1menu--layout-list';
+    $rootClasses[] = 'tl1menu--list-' . $listDensity;
+} else {
+    $rootClasses[] = 'tl1menu--' . $gridClass;
+    if (!empty($backgroundImageUrl)) {
+        $rootClasses[] = 'tl1menu--with-image';
+    }
+}
 ?>
-<div class="tl1menu tl1menu--<?= e($gridClass) ?><?= !empty($backgroundImageUrl) ? ' tl1menu--with-image' : '' ?>" style="<?= e(implode(';', $styleParts)) ?>">
+<div class="<?= e(implode(' ', $rootClasses)) ?>" style="<?= e(implode(';', $styleParts)) ?>">
     <?php if ($showHeader): ?>
-        <header class="tl1menu__header">
-            <div>
-                <div class="tl1menu__eyebrow"><?= e(__('plugins.tl-1menu.frontend.eyebrow')) ?></div>
-                <h2 class="tl1menu__title"><?= e($mensaLabel) ?></h2>
-            </div>
-            <div class="tl1menu__date"><?= e($formattedDate) ?></div>
-        </header>
+        <?php if ($isListLayout): ?>
+            <header class="tl1menu-list__header">
+                <div>
+                    <div class="tl1menu-list__eyebrow"><?= e(__('plugins.tl-1menu.frontend.eyebrow')) ?></div>
+                    <h2 class="tl1menu-list__title"><?= e($mensaLabel) ?></h2>
+                </div>
+                <div class="tl1menu-list__date"><?= e($formattedDate) ?></div>
+            </header>
+        <?php else: ?>
+            <header class="tl1menu__header">
+                <div>
+                    <div class="tl1menu__eyebrow"><?= e(__('plugins.tl-1menu.frontend.eyebrow')) ?></div>
+                    <h2 class="tl1menu__title"><?= e($mensaLabel) ?></h2>
+                </div>
+                <div class="tl1menu__date"><?= e($formattedDate) ?></div>
+            </header>
+        <?php endif; ?>
     <?php endif; ?>
 
     <?php if ($errorMessage !== null): ?>
@@ -60,6 +185,125 @@ if (!empty($backgroundImageUrl)) {
         <div class="tl1menu__empty">
             <div class="tl1menu__empty-icon">🍽</div>
             <p><?= e(__('plugins.tl-1menu.frontend.no_data_message', ['mensa' => $mensaLabel, 'date' => $formattedDate])) ?></p>
+        </div>
+    <?php elseif ($isListLayout): ?>
+        <div class="tl1menu-list-board tl1menu-list-board--<?= e($listDensity) ?><?= $showListImage ? ' tl1menu-list-board--has-image' : '' ?>">
+            <?php if ($showListImage): ?>
+                <div class="tl1menu-list__image" aria-hidden="true"></div>
+            <?php endif; ?>
+
+            <?php foreach ($listColumns as $column): ?>
+                <div class="tl1menu-list__column">
+                    <?php foreach ($column as $group): ?>
+                        <section class="tl1menu-list__group tl1menu-list__group--<?= e((string)$group['key']) ?>">
+                            <h3 class="tl1menu-list__group-title">
+                                <?php if ((string)$group['icon'] !== ''): ?>
+                                    <span class="tl1menu-list__group-icon" aria-hidden="true"><?= e((string)$group['icon']) ?></span>
+                                <?php endif; ?>
+                                <span><?= e((string)$group['label']) ?></span>
+                            </h3>
+
+                            <div class="tl1menu-list__meals">
+                                <?php foreach ($group['items'] as $item): ?>
+                                    <?php
+                                    $classification = $item->classification;
+                                    $title = $item->getLocalizedTitle($language);
+                                    $description = $item->getLocalizedDescription($language);
+                                    $hasZeroPrice = $item->hasZeroPrice();
+                                    $allergens = implode(', ', array_values($item->allergens));
+                                    $additives = implode(', ', array_values($item->additives));
+                                    $displayCategoryLabels = [];
+                                    foreach ($item->categories as $categoryKey) {
+                                        $categoryData = $service->getCategoryDisplayData($categoryKey, $language);
+                                        if ($categoryData === null) {
+                                            continue;
+                                        }
+                                        $displayCategoryLabels[$categoryKey] = $categoryData['label'];
+                                    }
+                                    if ($displayCategoryLabels === []) {
+                                        $displayCategoryLabels[$classification] = $service->getCategoryLabel($classification, $language);
+                                    }
+                                    $categories = implode(', ', array_values($displayCategoryLabels));
+                                    ?>
+                                    <article class="tl1menu-list__meal tl1menu-list__meal--<?= e($classification) ?>">
+                                        <div class="tl1menu-list__meal-main">
+                                            <h4 class="tl1menu-list__meal-title"><?= e($title) ?></h4>
+                                            <?php if ($description !== ''): ?>
+                                                <p class="tl1menu-list__description"><?= e($description) ?></p>
+                                            <?php endif; ?>
+
+                                            <div class="tl1menu-list__details">
+                                                <div class="tl1menu-list__detail">
+                                                    <span><?= e(__('plugins.tl-1menu.frontend.categories')) ?></span>
+                                                    <strong><?= e($categories !== '' ? $categories : __('plugins.tl-1menu.frontend.none')) ?></strong>
+                                                </div>
+                                                <div class="tl1menu-list__detail">
+                                                    <span><?= e(__('plugins.tl-1menu.frontend.allergens')) ?></span>
+                                                    <strong><?= e($allergens !== '' ? $allergens : __('plugins.tl-1menu.frontend.none')) ?></strong>
+                                                </div>
+                                                <div class="tl1menu-list__detail">
+                                                    <span><?= e(__('plugins.tl-1menu.frontend.additives')) ?></span>
+                                                    <strong><?= e($additives !== '' ? $additives : __('plugins.tl-1menu.frontend.none')) ?></strong>
+                                                </div>
+                                            </div>
+
+                                            <?php if ($showAnyEco): ?>
+                                                <div class="tl1menu-list__eco">
+                                                    <?php if ($showCo2): ?>
+                                                        <div class="tl1menu-list__eco-item">
+                                                            <span><?= e(__('plugins.tl-1menu.frontend.co2')) ?></span>
+                                                            <strong><?= e($service->formatEnvironmentalValue(isset($item->environment['co2_value']) && is_numeric($item->environment['co2_value']) ? (float)$item->environment['co2_value'] : null, 'co2', $language) ?? '–') ?></strong>
+                                                            <em class="tl1menu-list__grade tl1menu-list__grade--<?= e(strtolower((string)($item->environment['co2_rating'] ?? ''))) ?>"><?= e((string)($item->environment['co2_rating'] ?? '–')) ?></em>
+                                                        </div>
+                                                    <?php endif; ?>
+                                                    <?php if ($showWater): ?>
+                                                        <div class="tl1menu-list__eco-item">
+                                                            <span><?= e(__('plugins.tl-1menu.frontend.water')) ?></span>
+                                                            <strong><?= e($service->formatEnvironmentalValue(isset($item->environment['water_value']) && is_numeric($item->environment['water_value']) ? (float)$item->environment['water_value'] : null, 'water', $language) ?? '–') ?></strong>
+                                                            <em class="tl1menu-list__grade tl1menu-list__grade--<?= e(strtolower((string)($item->environment['water_rating'] ?? ''))) ?>"><?= e((string)($item->environment['water_rating'] ?? '–')) ?></em>
+                                                        </div>
+                                                    <?php endif; ?>
+                                                    <?php if ($showAnimalWelfare): ?>
+                                                        <div class="tl1menu-list__eco-item">
+                                                            <span><?= e(__('plugins.tl-1menu.frontend.animal_welfare')) ?></span>
+                                                            <strong>–</strong>
+                                                            <em class="tl1menu-list__grade tl1menu-list__grade--<?= e(strtolower((string)($item->environment['animal_welfare'] ?? ''))) ?>"><?= e((string)($item->environment['animal_welfare'] ?? '–')) ?></em>
+                                                        </div>
+                                                    <?php endif; ?>
+                                                    <?php if ($showRainforest): ?>
+                                                        <div class="tl1menu-list__eco-item">
+                                                            <span><?= e(__('plugins.tl-1menu.frontend.rainforest')) ?></span>
+                                                            <strong>–</strong>
+                                                            <em class="tl1menu-list__grade tl1menu-list__grade--<?= e(strtolower((string)($item->environment['rainforest'] ?? ''))) ?>"><?= e((string)($item->environment['rainforest'] ?? '–')) ?></em>
+                                                        </div>
+                                                    <?php endif; ?>
+                                                </div>
+                                            <?php endif; ?>
+                                        </div>
+
+                                        <?php if ($showAnyPrice): ?>
+                                            <div class="tl1menu-list__prices tl1menu-list__prices--count-<?= e((string)$visiblePriceCount) ?>">
+                                                <?php if ($showStudentPrice): ?>
+                                                    <div class="tl1menu-list__price"><span><?= e(__('plugins.tl-1menu.frontend.student')) ?></span><strong><?= e($service->formatPrice($item->getPrice('student'), $language)) ?></strong></div>
+                                                <?php endif; ?>
+                                                <?php if ($showEmployeePrice): ?>
+                                                    <div class="tl1menu-list__price"><span><?= e(__('plugins.tl-1menu.frontend.staff')) ?></span><strong><?= e($service->formatPrice($item->getPrice('staff'), $language)) ?></strong></div>
+                                                <?php endif; ?>
+                                                <?php if ($showGuestPrice): ?>
+                                                    <div class="tl1menu-list__price"><span><?= e(__('plugins.tl-1menu.frontend.guest')) ?></span><strong><?= e($service->formatPrice($item->getPrice('guest'), $language)) ?></strong></div>
+                                                <?php endif; ?>
+                                                <?php if ($hasZeroPrice): ?>
+                                                    <div class="tl1menu-list__price-note"><?= e(__('plugins.tl-1menu.frontend.price_at_counter')) ?></div>
+                                                <?php endif; ?>
+                                            </div>
+                                        <?php endif; ?>
+                                    </article>
+                                <?php endforeach; ?>
+                            </div>
+                        </section>
+                    <?php endforeach; ?>
+                </div>
+            <?php endforeach; ?>
         </div>
     <?php else: ?>
         <div class="tl1menu__grid">

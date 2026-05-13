@@ -37,6 +37,7 @@ class Plugin extends AbstractSlidePlugin
             'display_animal_welfare' => (bool)($config['default_display_animal_welfare'] ?? false),
             'display_rainforest' => (bool)($config['default_display_rainforest'] ?? false),
             'show_header' => (bool)($config['default_show_header'] ?? true),
+            'layout' => 'card',
         ];
     }
 
@@ -136,6 +137,10 @@ class Plugin extends AbstractSlidePlugin
         if (!in_array($language, ['de', 'en'], true)) {
             throw new RuntimeException(__('plugins.tl-1menu.errors.invalid_language'));
         }
+        $layout = trim((string)($input['layout'] ?? $existingSettings['layout'] ?? $defaults['layout']));
+        if (!in_array($layout, ['card', 'list'], true)) {
+            throw new RuntimeException(__('plugins.tl-1menu.errors.invalid_layout'));
+        }
 
         return [
             'mensa' => $mensa,
@@ -149,6 +154,7 @@ class Plugin extends AbstractSlidePlugin
             'display_animal_welfare' => !empty($input['display_animal_welfare']),
             'display_rainforest' => !empty($input['display_rainforest']),
             'show_header' => !empty($input['show_header']),
+            'layout' => $layout,
         ];
     }
 
@@ -206,6 +212,7 @@ class Plugin extends AbstractSlidePlugin
             'display_animal_welfare' => (bool)$settings['display_animal_welfare'],
             'display_rainforest' => (bool)$settings['display_rainforest'],
             'show_header' => (bool)$settings['show_header'],
+            'layout' => in_array((string)$settings['layout'], ['card', 'list'], true) ? (string)$settings['layout'] : 'card',
             'global' => array_replace($this->getDefaultGlobalSettings(), $api->loadGlobalSettings($this->getName())),
         ];
     }
