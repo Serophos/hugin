@@ -16,6 +16,9 @@ return [
     'default_show_header' => true,
     'default_background_color' => '#f1f5f9',
     'pseudo_allergen_category_map' => [
+        'VE' => 'vegetarian',
+        'VN' => 'vegan',
+        'Fi' => 'fish',
         'STF' => 'streetfood',
         'SHT' => 'sh_teller',
         'KK' => 'kuechenklassiker',
