@@ -15,6 +15,13 @@ return [
     'default_display_rainforest' => false,
     'default_show_header' => true,
     'default_background_color' => '#f1f5f9',
+    // Plugin-relative paths or absolute URLs. Symbol sprites should include the #icon fragment.
+    'environment_rating_icons' => [
+        'co2' => 'assets/img/eco-leaf.svg#icon',
+        'water' => 'assets/img/eco-drop.svg#icon',
+        'animal_welfare' => 'assets/img/eco-heart.svg#icon',
+        'rainforest' => 'assets/img/eco-tree.svg#icon',
+    ],
     'pseudo_allergen_category_map' => [
         'VE' => 'vegetarian',
         'VN' => 'vegan',

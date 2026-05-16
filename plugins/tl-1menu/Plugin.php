@@ -167,6 +167,7 @@ class Plugin extends AbstractSlidePlugin
         $service = $this->getMenuService();
         $mensaKey = (string)$settings['mensa'];
         $mensaLabel = $service->getMensaLabel($mensaKey);
+        $environmentIndicators = $this->resolveEnvironmentalIndicatorAssets($service->getEnvironmentalIndicatorDefinitions(), $api);
         $errorMessage = null;
 
         try {
@@ -187,6 +188,7 @@ class Plugin extends AbstractSlidePlugin
             'errorMessage' => $errorMessage,
             'service' => $service,
             'globalSettings' => $globalSettings,
+            'environmentIndicators' => $environmentIndicators,
             'backgroundImageUrl' => $api->mediaAssetUrl($this->normalizeOptionalId($globalSettings['background_media_asset_id'] ?? null)),
         ]);
     }
@@ -240,6 +242,39 @@ class Plugin extends AbstractSlidePlugin
             $this->service = new MenuService($repository, $config);
         }
         return $this->service;
+    }
+
+    /**
+     * @param array<string, array<string, mixed>> $definitions
+     * @return array<string, array<string, mixed>>
+     */
+    private function resolveEnvironmentalIndicatorAssets(array $definitions, PluginApi $api): array
+    {
+        foreach ($definitions as $key => $definition) {
+            $iconPath = trim((string)($definition['icon_path'] ?? ''));
+            $definition['icon_url'] = $this->resolvePluginAssetReference($iconPath, $api);
+            $definitions[$key] = $definition;
+        }
+
+        return $definitions;
+    }
+
+    private function resolvePluginAssetReference(string $reference, PluginApi $api): string
+    {
+        $reference = trim($reference);
+        if ($reference === '') {
+            return '';
+        }
+
+        if (
+            preg_match('#^(?:https?:)?//#i', $reference) === 1
+            || str_starts_with($reference, '/')
+            || str_starts_with($reference, 'data:')
+        ) {
+            return $reference;
+        }
+
+        return $api->pluginAssetUrl($this->getName(), $reference);
     }
 
     private function resolveEffectiveDate(): string

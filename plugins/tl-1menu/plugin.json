@@ -4,6 +4,7 @@
   "version": "1.2.0",
   "description": "Displays today's TL1 menu for a selected mensa or cafeteria with prices, categories, allergens, additives, and sustainability information.",
   "slide_type": "tl-1menu",
+  "icon": "assets/img/slide_tl1menu.png",
   "api_version": 2,
   "main": "Plugin.php",
   "class": "Plugins\\Tl1Menu\\Plugin"

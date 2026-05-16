@@ -9,6 +9,25 @@ use Plugins\Tl1Menu\Infrastructure\MenuRepository;
 
 final class MenuService
 {
+    private const ENVIRONMENT_INDICATORS = [
+        'co2' => [
+            'label_key' => 'plugins.tl-1menu.frontend.co2',
+            'icon_path' => 'assets/img/eco-leaf.svg#icon',
+        ],
+        'water' => [
+            'label_key' => 'plugins.tl-1menu.frontend.water',
+            'icon_path' => 'assets/img/eco-drop.svg#icon',
+        ],
+        'animal_welfare' => [
+            'label_key' => 'plugins.tl-1menu.frontend.animal_welfare',
+            'icon_path' => 'assets/img/eco-heart.svg#icon',
+        ],
+        'rainforest' => [
+            'label_key' => 'plugins.tl-1menu.frontend.rainforest',
+            'icon_path' => 'assets/img/eco-tree.svg#icon',
+        ],
+    ];
+
     /** @param array<string, mixed> $config */
     public function __construct(private readonly MenuRepository $repository, private readonly array $config)
     {
@@ -107,6 +126,63 @@ final class MenuService
         return [
             'icon' => $icon !== '' ? $icon : '🏷',
             'label' => $this->getCategoryLabel($classification, $language),
+        ];
+    }
+
+    /** @return array<string, array{key: string, label: string, icon_path: string, css_class: string}> */
+    public function getEnvironmentalIndicatorDefinitions(): array
+    {
+        $iconOverrides = is_array($this->config['environment_rating_icons'] ?? null) ? $this->config['environment_rating_icons'] : [];
+        $definitions = [];
+
+        foreach (self::ENVIRONMENT_INDICATORS as $key => $definition) {
+            $configuredIconPath = trim((string)($iconOverrides[$key] ?? ''));
+            $iconPath = $configuredIconPath !== '' ? $configuredIconPath : $definition['icon_path'];
+
+            $definitions[$key] = [
+                'key' => $key,
+                'label' => __($definition['label_key']),
+                'icon_path' => $iconPath,
+                'css_class' => $this->cssClassSuffix($key),
+            ];
+        }
+
+        return $definitions;
+    }
+
+    /**
+     * @param array{key?: string, label?: string, icon_path?: string, icon_url?: string, css_class?: string} $definition
+     * @return array{key: string, label: string, icon_url: string, css_class: string, rating: string|null, filled_count: int, is_available: bool, aria_label: string}|null
+     */
+    public function getEnvironmentalRatingDisplayData(MenuItem $item, string $indicator, array $definition): ?array
+    {
+        if (!isset(self::ENVIRONMENT_INDICATORS[$indicator])) {
+            return null;
+        }
+
+        $label = trim((string)($definition['label'] ?? ''));
+        if ($label === '') {
+            $label = __(self::ENVIRONMENT_INDICATORS[$indicator]['label_key']);
+        }
+
+        $iconUrl = trim((string)($definition['icon_url'] ?? $definition['icon_path'] ?? ''));
+        if ($iconUrl === '') {
+            return null;
+        }
+
+        $rating = $item->getEnvironmentalRating($indicator);
+        $filledCount = $item->getEnvironmentalRatingFillCount($indicator);
+        $isAvailable = $filledCount !== null;
+
+        return [
+            'key' => $indicator,
+            'label' => $label,
+            'icon_url' => $iconUrl,
+            'css_class' => trim((string)($definition['css_class'] ?? '')) ?: $this->cssClassSuffix($indicator),
+            'rating' => $rating,
+            'filled_count' => $filledCount ?? 0,
+            'is_available' => $isAvailable,
+            'aria_label' => $isAvailable ? $label . ': ' . ($filledCount ?? 0) . ' / 3' : $label . ': ' . __('plugins.tl-1menu.frontend.none'),
         ];
     }
 
@@ -273,6 +349,13 @@ final class MenuService
     {
         $label = trim(str_replace(['_', '-'], ' ', $key));
         return $label !== '' ? ucwords($label) : $key;
+    }
+
+    private function cssClassSuffix(string $value): string
+    {
+        $suffix = preg_replace('/[^a-z0-9_-]+/', '-', strtolower(str_replace('_', '-', $value)));
+
+        return trim((string)$suffix, '-') ?: 'item';
     }
 
     private function foodTypeKey(mixed $typeConfig, int $typeId): string

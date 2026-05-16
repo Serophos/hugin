@@ -9,7 +9,7 @@
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
-    font-family: var(--hugin-font-text, Inter, Arial, sans-serif);
+    font-family: var(--hugin-font-text, Arial, sans-serif);
     display: flex;
     flex-direction: column;
     gap: clamp(0.7rem, 1vw, 1.35rem);
@@ -262,12 +262,14 @@
     line-height: 1;
     white-space: nowrap;
 }
-.tl1menu--layout-card .tl1menu__eco-rating--drop,
-.tl1menu--layout-list .tl1menu-list__eco-rating--drop { color: #0284c7; }
-.tl1menu--layout-card .tl1menu__eco-rating--heart,
-.tl1menu--layout-list .tl1menu-list__eco-rating--heart { color: #db2777; }
-.tl1menu--layout-card .tl1menu__eco-rating--tree,
-.tl1menu--layout-list .tl1menu-list__eco-rating--tree { color: #166534; }
+.tl1menu--layout-card .tl1menu__eco-rating--water,
+.tl1menu--layout-list .tl1menu-list__eco-rating--water { color: #0284c7; }
+.tl1menu--layout-card .tl1menu__eco-rating--animal-welfare,
+.tl1menu--layout-list .tl1menu-list__eco-rating--animal-welfare { color: #db2777; }
+.tl1menu--layout-card .tl1menu__eco-rating--rainforest,
+.tl1menu--layout-list .tl1menu-list__eco-rating--rainforest { color: #166534; }
+.tl1menu--layout-card .tl1menu__eco-rating--none,
+.tl1menu--layout-list .tl1menu-list__eco-rating--none { color: #64748b; }
 .tl1menu--layout-card .tl1menu__eco-symbol,
 .tl1menu--layout-list .tl1menu-list__eco-symbol {
     display: inline-flex;
@@ -290,30 +292,22 @@
     height: 100%;
     overflow: visible;
 }
-.tl1menu .tl1menu-eco-icon__fill {
+.tl1menu--layout-card .tl1menu__eco-symbol svg,
+.tl1menu--layout-card .tl1menu__eco-symbol use,
+.tl1menu--layout-list .tl1menu-list__eco-symbol svg,
+.tl1menu--layout-list .tl1menu-list__eco-symbol use {
     fill: currentColor;
     stroke: currentColor;
-    stroke-width: 1.8;
-    stroke-linejoin: round;
-}
-.tl1menu .tl1menu-eco-icon__line {
-    fill: none;
-    stroke: rgba(255, 255, 255, 0.72);
-    stroke-width: 1.8;
-    stroke-linecap: round;
-    stroke-linejoin: round;
 }
 .tl1menu--layout-card .tl1menu__eco-symbol--empty,
 .tl1menu--layout-list .tl1menu-list__eco-symbol--empty {
     opacity: 0.42;
 }
-.tl1menu--layout-card .tl1menu__eco-symbol--empty .tl1menu-eco-icon__fill,
-.tl1menu--layout-list .tl1menu-list__eco-symbol--empty .tl1menu-eco-icon__fill {
+.tl1menu--layout-card .tl1menu__eco-symbol--empty svg,
+.tl1menu--layout-card .tl1menu__eco-symbol--empty use,
+.tl1menu--layout-list .tl1menu-list__eco-symbol--empty svg,
+.tl1menu--layout-list .tl1menu-list__eco-symbol--empty use {
     fill: transparent;
-    stroke: currentColor;
-}
-.tl1menu--layout-card .tl1menu__eco-symbol--empty .tl1menu-eco-icon__line,
-.tl1menu--layout-list .tl1menu-list__eco-symbol--empty .tl1menu-eco-icon__line {
     stroke: currentColor;
 }
 .tl1menu--layout-card .tl1menu__empty {

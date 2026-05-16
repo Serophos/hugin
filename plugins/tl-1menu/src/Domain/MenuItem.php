@@ -6,6 +6,13 @@ namespace Plugins\Tl1Menu\Domain;
 
 final class MenuItem
 {
+    private const ENVIRONMENT_RATING_FIELDS = [
+        'co2' => 'co2_rating',
+        'water' => 'water_rating',
+        'animal_welfare' => 'animal_welfare',
+        'rainforest' => 'rainforest',
+    ];
+
     public function __construct(
         public readonly string $id,
         public readonly string $date,
@@ -99,5 +106,38 @@ final class MenuItem
         }
 
         return false;
+    }
+
+    public function getEnvironmentalRating(string $indicator): ?string
+    {
+        $field = self::ENVIRONMENT_RATING_FIELDS[$indicator] ?? null;
+        if ($field === null) {
+            return null;
+        }
+
+        return self::normalizeEnvironmentalRating($this->environment[$field] ?? null);
+    }
+
+    public function getEnvironmentalRatingFillCount(string $indicator): ?int
+    {
+        return self::environmentalRatingFillCount($this->getEnvironmentalRating($indicator));
+    }
+
+    public static function normalizeEnvironmentalRating(mixed $rating): ?string
+    {
+        $normalized = strtoupper(trim((string)($rating ?? '')));
+
+        return in_array($normalized, ['A', 'B', 'C', 'D', 'E'], true) ? $normalized : null;
+    }
+
+    public static function environmentalRatingFillCount(?string $rating): ?int
+    {
+        return match (self::normalizeEnvironmentalRating($rating)) {
+            'A' => 3,
+            'B', 'C' => 2,
+            'D' => 1,
+            'E' => 0,
+            default => null,
+        };
     }
 }

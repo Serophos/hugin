@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+    <symbol id="icon" viewBox="0 0 24 24">
+        <path d="M12 3.2 5.4 11.6h3.2l-3.8 5h14.4l-3.8-5h3.2L12 3.2Z" fill="inherit" stroke="inherit" stroke-width="1.8" stroke-linejoin="round"/>
+        <path d="M12 16.6v4.2" fill="none" stroke="inherit" stroke-width="1.8" stroke-linecap="round"/>
+    </symbol>
+    <use href="#icon" fill="currentColor" stroke="currentColor"/>
+</svg>

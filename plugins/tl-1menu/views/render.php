@@ -18,43 +18,18 @@ $showWater = !empty($settings['display_water']);
 $showAnimalWelfare = !empty($settings['display_animal_welfare']);
 $showRainforest = !empty($settings['display_rainforest']);
 $showAnyEco = $showCo2 || $showWater || $showAnimalWelfare || $showRainforest;
+$environmentIndicators = is_array($environmentIndicators ?? null) ? $environmentIndicators : [];
+$ecoIndicatorVisibility = [
+    'co2' => $showCo2,
+    'water' => $showWater,
+    'animal_welfare' => $showAnimalWelfare,
+    'rainforest' => $showRainforest,
+];
 $showStudentPrice = !empty($settings['display_student_price']);
 $showEmployeePrice = !empty($settings['display_employee_price']);
 $showGuestPrice = !empty($settings['display_guest_price']);
 $visiblePriceCount = ($showStudentPrice ? 1 : 0) + ($showEmployeePrice ? 1 : 0) + ($showGuestPrice ? 1 : 0);
 $showAnyPrice = $visiblePriceCount > 0;
-$ecoIconPaths = [
-    'leaf' => '<path class="tl1menu-eco-icon__fill" d="M20.5 3.5C13.5 3.7 6 7.7 6 14.2A5.8 5.8 0 0 0 11.8 20c6.6 0 8.5-8.4 8.7-16.5Z"/><path class="tl1menu-eco-icon__line" d="M6.8 17.2c2.2-4.4 5.5-7.5 10-9.4"/>',
-    'drop' => '<path class="tl1menu-eco-icon__fill" d="M12 3.2c3.7 4.2 5.6 7.5 5.6 10.1a5.6 5.6 0 1 1-11.2 0c0-2.6 1.9-5.9 5.6-10.1Z"/><path class="tl1menu-eco-icon__line" d="M9.2 13.6c.2 1.7 1.4 2.9 3 3.1"/>',
-    'heart' => '<path class="tl1menu-eco-icon__fill" d="M12 20.4s-7.5-4.6-9.3-9A5.1 5.1 0 0 1 12 6.3a5.1 5.1 0 0 1 9.3 5.1c-1.8 4.4-9.3 9-9.3 9Z"/>',
-    'tree' => '<path class="tl1menu-eco-icon__fill" d="M12 3.2 5.4 11.6h3.2l-3.8 5h14.4l-3.8-5h3.2L12 3.2Z"/><path class="tl1menu-eco-icon__line" d="M12 16.6v4.2"/>',
-];
-$renderEcoRating = static function ($rating, string $iconKey, string $classPrefix, string $label) use ($ecoIconPaths): string {
-    $normalizedRating = strtoupper(trim((string)($rating ?? '')));
-    $filledCount = match ($normalizedRating) {
-        'A' => 3,
-        'B', 'C' => 2,
-        'D' => 1,
-        'E' => 0,
-        default => null,
-    };
-    $ratingClass = in_array($normalizedRating, ['A', 'B', 'C', 'D', 'E'], true) ? strtolower($normalizedRating) : 'none';
-    $visibleFilledCount = $filledCount ?? 0;
-    $ariaLabel = $filledCount === null
-        ? $label . ': ' . __('plugins.tl-1menu.frontend.none')
-        : $label . ': ' . $visibleFilledCount . ' / 3';
-    $iconPath = $ecoIconPaths[$iconKey] ?? $ecoIconPaths['leaf'];
-    $html = '<span class="' . e($classPrefix . '__eco-rating ' . $classPrefix . '__eco-rating--' . $ratingClass . ' ' . $classPrefix . '__eco-rating--' . $iconKey) . '" aria-label="' . e($ariaLabel) . '">';
-
-    for ($index = 1; $index <= 3; $index++) {
-        $state = $index <= $visibleFilledCount ? 'filled' : 'empty';
-        $html .= '<span class="' . e($classPrefix . '__eco-symbol ' . $classPrefix . '__eco-symbol--' . $state) . '" aria-hidden="true">';
-        $html .= '<svg viewBox="0 0 24 24" focusable="false">' . $iconPath . '</svg>';
-        $html .= '</span>';
-    }
-
-    return $html . '</span>';
-};
 $showHeader = !empty($settings['show_header']);
 $backgroundColor = normalize_hex_color((string)($globalSettings['background_color'] ?? '#f1f5f9'), '#f1f5f9');
 $isLightBackground = color_luminance($backgroundColor) > 0.42;
@@ -266,10 +241,6 @@ if ($isListLayout) {
                                             <?php endif; ?>
 
                                             <div class="tl1menu-list__details">
-                                                <!--div class="tl1menu-list__detail">
-                                                    <span><?= e(__('plugins.tl-1menu.frontend.categories')) ?></span>
-                                                    <strong><?= e($categories !== '' ? $categories : __('plugins.tl-1menu.frontend.none')) ?></strong>
-                                                </div-->
                                                 <div class="tl1menu-list__detail">
                                                     <span><?= e(__('plugins.tl-1menu.frontend.allergens')) ?></span>
                                                     <strong><?= e($allergens !== '' ? $allergens : __('plugins.tl-1menu.frontend.none')) ?></strong>
@@ -282,30 +253,32 @@ if ($isListLayout) {
 
                                             <?php if ($showAnyEco): ?>
                                                 <div class="tl1menu-list__eco">
-                                                    <?php if ($showCo2): ?>
+                                                    <?php foreach ($ecoIndicatorVisibility as $indicatorKey => $isVisible): ?>
+                                                        <?php
+                                                        if (!$isVisible) {
+                                                            continue;
+                                                        }
+                                                        $ecoDisplay = $service->getEnvironmentalRatingDisplayData(
+                                                            $item,
+                                                            $indicatorKey,
+                                                            is_array($environmentIndicators[$indicatorKey] ?? null) ? $environmentIndicators[$indicatorKey] : []
+                                                        );
+                                                        if ($ecoDisplay === null) {
+                                                            continue;
+                                                        }
+                                                        ?>
                                                         <div class="tl1menu-list__eco-item">
-                                                            <span class="tl1menu-list__eco-label"><?= e(__('plugins.tl-1menu.frontend.co2')) ?></span>
-                                                            <?= $renderEcoRating($item->environment['co2_rating'] ?? null, 'leaf', 'tl1menu-list', __('plugins.tl-1menu.frontend.co2')) ?>
+                                                            <span class="tl1menu-list__eco-label"><?= e($ecoDisplay['label']) ?></span>
+                                                            <span class="<?= e('tl1menu-list__eco-rating tl1menu-list__eco-rating--' . $ecoDisplay['css_class'] . (!$ecoDisplay['is_available'] ? ' tl1menu-list__eco-rating--none' : '')) ?>" aria-label="<?= e($ecoDisplay['aria_label']) ?>">
+                                                                <?php for ($symbolIndex = 1; $symbolIndex <= 3; $symbolIndex++): ?>
+                                                                    <?php $symbolState = $symbolIndex <= (int)$ecoDisplay['filled_count'] ? 'filled' : 'empty'; ?>
+                                                                    <span class="<?= e('tl1menu-list__eco-symbol tl1menu-list__eco-symbol--' . $symbolState) ?>" aria-hidden="true">
+                                                                        <svg viewBox="0 0 24 24" focusable="false"><use href="<?= e($ecoDisplay['icon_url']) ?>"></use></svg>
+                                                                    </span>
+                                                                <?php endfor; ?>
+                                                            </span>
                                                         </div>
-                                                    <?php endif; ?>
-                                                    <?php if ($showWater): ?>
-                                                        <div class="tl1menu-list__eco-item">
-                                                            <span class="tl1menu-list__eco-label"><?= e(__('plugins.tl-1menu.frontend.water')) ?></span>
-                                                            <?= $renderEcoRating($item->environment['water_rating'] ?? null, 'drop', 'tl1menu-list', __('plugins.tl-1menu.frontend.water')) ?>
-                                                        </div>
-                                                    <?php endif; ?>
-                                                    <?php if ($showAnimalWelfare): ?>
-                                                        <div class="tl1menu-list__eco-item">
-                                                            <span class="tl1menu-list__eco-label"><?= e(__('plugins.tl-1menu.frontend.animal_welfare')) ?></span>
-                                                            <?= $renderEcoRating($item->environment['animal_welfare'] ?? null, 'heart', 'tl1menu-list', __('plugins.tl-1menu.frontend.animal_welfare')) ?>
-                                                        </div>
-                                                    <?php endif; ?>
-                                                    <?php if ($showRainforest): ?>
-                                                        <div class="tl1menu-list__eco-item">
-                                                            <span class="tl1menu-list__eco-label"><?= e(__('plugins.tl-1menu.frontend.rainforest')) ?></span>
-                                                            <?= $renderEcoRating($item->environment['rainforest'] ?? null, 'tree', 'tl1menu-list', __('plugins.tl-1menu.frontend.rainforest')) ?>
-                                                        </div>
-                                                    <?php endif; ?>
+                                                    <?php endforeach; ?>
                                                 </div>
                                             <?php endif; ?>
                                         </div>
@@ -402,30 +375,32 @@ if ($isListLayout) {
 
                     <?php if ($showAnyEco): ?>
                         <div class="tl1menu__eco">
-                            <?php if ($showCo2): ?>
+                            <?php foreach ($ecoIndicatorVisibility as $indicatorKey => $isVisible): ?>
+                                <?php
+                                if (!$isVisible) {
+                                    continue;
+                                }
+                                $ecoDisplay = $service->getEnvironmentalRatingDisplayData(
+                                    $item,
+                                    $indicatorKey,
+                                    is_array($environmentIndicators[$indicatorKey] ?? null) ? $environmentIndicators[$indicatorKey] : []
+                                );
+                                if ($ecoDisplay === null) {
+                                    continue;
+                                }
+                                ?>
                                 <div class="tl1menu__eco-item">
-                                    <span class="tl1menu__eco-label"><?= e(__('plugins.tl-1menu.frontend.co2')) ?></span>
-                                    <?= $renderEcoRating($item->environment['co2_rating'] ?? null, 'leaf', 'tl1menu', __('plugins.tl-1menu.frontend.co2')) ?>
+                                    <span class="tl1menu__eco-label"><?= e($ecoDisplay['label']) ?></span>
+                                    <span class="<?= e('tl1menu__eco-rating tl1menu__eco-rating--' . $ecoDisplay['css_class'] . (!$ecoDisplay['is_available'] ? ' tl1menu__eco-rating--none' : '')) ?>" aria-label="<?= e($ecoDisplay['aria_label']) ?>">
+                                        <?php for ($symbolIndex = 1; $symbolIndex <= 3; $symbolIndex++): ?>
+                                            <?php $symbolState = $symbolIndex <= (int)$ecoDisplay['filled_count'] ? 'filled' : 'empty'; ?>
+                                            <span class="<?= e('tl1menu__eco-symbol tl1menu__eco-symbol--' . $symbolState) ?>" aria-hidden="true">
+                                                <svg viewBox="0 0 24 24" focusable="false"><use href="<?= e($ecoDisplay['icon_url']) ?>"></use></svg>
+                                            </span>
+                                        <?php endfor; ?>
+                                    </span>
                                 </div>
-                            <?php endif; ?>
-                            <?php if ($showWater): ?>
-                                <div class="tl1menu__eco-item">
-                                    <span class="tl1menu__eco-label"><?= e(__('plugins.tl-1menu.frontend.water')) ?></span>
-                                    <?= $renderEcoRating($item->environment['water_rating'] ?? null, 'drop', 'tl1menu', __('plugins.tl-1menu.frontend.water')) ?>
-                                </div>
-                            <?php endif; ?>
-                            <?php if ($showAnimalWelfare): ?>
-                                <div class="tl1menu__eco-item">
-                                    <span class="tl1menu__eco-label"><?= e(__('plugins.tl-1menu.frontend.animal_welfare')) ?></span>
-                                    <?= $renderEcoRating($item->environment['animal_welfare'] ?? null, 'heart', 'tl1menu', __('plugins.tl-1menu.frontend.animal_welfare')) ?>
-                                </div>
-                            <?php endif; ?>
-                            <?php if ($showRainforest): ?>
-                                <div class="tl1menu__eco-item">
-                                    <span class="tl1menu__eco-label"><?= e(__('plugins.tl-1menu.frontend.rainforest')) ?></span>
-                                    <?= $renderEcoRating($item->environment['rainforest'] ?? null, 'tree', 'tl1menu', __('plugins.tl-1menu.frontend.rainforest')) ?>
-                                </div>
-                            <?php endif; ?>
+                            <?php endforeach; ?>
                         </div>
                     <?php endif; ?>
                 </article>
