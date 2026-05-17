@@ -21,6 +21,7 @@ require __DIR__ . '/../layouts/admin_header.php';
 <?php if ($flash): ?><div class="alert success"><?= e($flash) ?></div><?php endif; ?>
 <?php if ($error): ?><div class="alert error"><?= e($error) ?></div><?php endif; ?>
 <div class="card">
+    <div class="table-scroll">
     <table class="admin-table schedule-table" data-admin-table>
         <thead>
         <tr>
@@ -76,5 +77,6 @@ require __DIR__ . '/../layouts/admin_header.php';
         <?php endforeach; ?>
         </tbody>
     </table>
+    </div>
 </div>
 <?php require __DIR__ . '/../layouts/admin_footer.php'; ?>

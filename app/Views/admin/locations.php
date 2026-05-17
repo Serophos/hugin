@@ -28,7 +28,7 @@ require __DIR__ . '/../layouts/admin_header.php';
                 <p class="muted"><?= e(__('locations.none')) ?></p>
             <?php else: ?>
                 <div class="table-scroll">
-                    <table class="admin-table" data-admin-table>
+                    <table class="admin-table admin-table--locations" data-admin-table>
                         <thead>
                         <tr>
                             <th aria-sort="none"><button type="button" class="slide-library-sort" data-admin-sort="name" data-sort-type="text" aria-label="<?= e(__('slide.sort_by_column', ['column' => __('common.name')])) ?>"><?= e(__('common.name')) ?></button></th>

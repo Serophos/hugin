@@ -215,10 +215,14 @@ h3 {
 }
 
 .button-icon {
+    display: inline-block;
     width: 1.05em;
     height: 1.05em;
     flex: 0 0 auto;
+    background: currentColor;
     pointer-events: none;
+    -webkit-mask: var(--button-icon-url) center / contain no-repeat;
+    mask: var(--button-icon-url) center / contain no-repeat;
 }
 
 .form-grid {
@@ -506,6 +510,8 @@ td.actions {
 td.actions > .button,
 td.actions > .inline-form,
 td.actions > span {
+    display: inline-flex;
+    align-items: center;
     margin: 0.15rem 0 0.15rem 0.35rem;
     max-width: 100%;
     vertical-align: middle;
@@ -518,17 +524,21 @@ td.actions > :first-child {
 td.actions .inline-form {
     display: inline-flex;
     max-width: 100%;
+    min-width: 0;
+    white-space: normal;
 }
 
 td.actions .button {
     max-width: 100%;
     min-width: 0;
     white-space: normal;
+    line-height: 1.15;
 }
 
 td.actions .button span {
     min-width: 0;
     overflow-wrap: anywhere;
+    word-break: normal;
 }
 
 .inline-form {
@@ -621,8 +631,9 @@ td.actions .button span {
 }
 
 .table-scroll {
-    overflow: auto;
-    -webkit-overflow-scrolling: touch;
+    width: 100%;
+    max-width: 100%;
+    overflow: visible;
 }
 
 .media-table th,
@@ -631,8 +642,8 @@ td.actions .button span {
 }
 
 .media-table td.media-name-cell {
-    max-width: 18rem;
-    min-width: 14rem;
+    max-width: none;
+    min-width: 0;
 }
 
 .media-table td.break-word,
@@ -661,11 +672,17 @@ td.actions .button span {
 }
 
 .schedule-table .schedule-rules-col {
-    width: 24%;
+    width: 28%;
 }
 
-.schedule-table .schedule-actions-col {
-    width: clamp(9rem, 18vw, 15rem);
+.schedule-table th:nth-child(4),
+.schedule-table td:nth-child(4) {
+    width: 10%;
+}
+
+.schedule-table .schedule-actions-col,
+.schedule-table td.actions {
+    width: 22%;
 }
 
 .schedule-table .schedule-rules-cell {
@@ -697,8 +714,9 @@ td.actions .button span {
 }
 
 .thumb {
-    width: 96px;
-    height: 56px;
+    width: min(96px, 100%);
+    height: auto;
+    aspect-ratio: 12 / 7;
     object-fit: cover;
     border-radius: 8px;
     border: 1px solid var(--border);
@@ -893,7 +911,7 @@ td.actions .button span {
 
 .slide-group__body {
     border-top: 1px solid var(--border);
-    overflow: auto;
+    overflow: visible;
 }
 
 .playlist-display-group {
@@ -1092,67 +1110,161 @@ td.actions .button span {
 
 .admin-table {
     table-layout: fixed;
+    width: 100%;
     min-width: 0;
+    max-width: 100%;
 }
 
 .admin-table th,
 .admin-table td {
     min-width: 0;
+    max-width: 100%;
+    white-space: normal;
     overflow-wrap: anywhere;
     word-break: normal;
 }
 
+.admin-table th > *,
+.admin-table td > * {
+    max-width: 100%;
+}
+
+.admin-table a {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
 .admin-table th:last-child,
 .admin-table td.actions {
-    width: clamp(10rem, 22vw, 18rem);
+    width: 18%;
 }
 
 .admin-table .handle-col,
 .admin-table .handle {
-    width: 36px;
+    width: 2.5rem;
 }
 
 .admin-table tbody tr[hidden] {
     display: none;
 }
 
+.admin-table--users th:nth-child(3),
+.admin-table--users td:nth-child(3) {
+    width: 14%;
+}
+
+.admin-table--users th:nth-child(4),
+.admin-table--users td:nth-child(4) {
+    width: 12%;
+}
+
+.admin-table--users th:nth-child(5),
+.admin-table--users td:nth-child(5) {
+    width: 18%;
+}
+
+.admin-table--users th:last-child,
+.admin-table--users td.actions {
+    width: 24%;
+}
+
+.admin-table--locations th:nth-child(2),
+.admin-table--locations td:nth-child(2),
+.admin-table--locations th:nth-child(3),
+.admin-table--locations td:nth-child(3),
+.admin-table--display-groups th:nth-child(2),
+.admin-table--display-groups td:nth-child(2) {
+    width: 14%;
+}
+
+.admin-table--locations th:last-child,
+.admin-table--locations td.actions,
+.admin-table--display-groups th:last-child,
+.admin-table--display-groups td.actions {
+    width: 28%;
+}
+
 .admin-table--playlists th:nth-child(4),
 .admin-table--playlists td:nth-child(4),
 .admin-table--playlists th:nth-child(6),
-.admin-table--playlists td:nth-child(6),
-.admin-table--displays th:nth-child(6),
-.admin-table--displays td:nth-child(6),
-.schedule-table th:nth-child(4),
-.schedule-table td:nth-child(4) {
-    width: 6rem;
+.admin-table--playlists td:nth-child(6) {
+    width: 8%;
+}
+
+.admin-table--playlists th:nth-child(5),
+.admin-table--playlists td:nth-child(5) {
+    width: 12%;
+}
+
+.admin-table--playlists th:nth-child(7),
+.admin-table--playlists td:nth-child(7) {
+    width: 10%;
+}
+
+.admin-table--playlists th:last-child,
+.admin-table--playlists td.actions {
+    width: 20%;
 }
 
 .admin-table--displays th:nth-child(2),
-.admin-table--displays td:nth-child(2) {
-    width: 12rem;
+.admin-table--displays td:nth-child(2),
+.admin-table--displays th:nth-child(3),
+.admin-table--displays td:nth-child(3) {
+    width: 14%;
+}
+
+.admin-table--displays th:nth-child(6),
+.admin-table--displays td:nth-child(6) {
+    width: 7%;
+}
+
+.admin-table--displays th:nth-child(7),
+.admin-table--displays td:nth-child(7) {
+    width: 8%;
 }
 
 .admin-table--displays th:last-child,
 .admin-table--displays td.actions {
-    width: clamp(14rem, 24vw, 20rem);
+    width: 28%;
 }
 
 .admin-table--plugins th:nth-child(3),
-.admin-table--plugins td:nth-child(3),
+.admin-table--plugins td:nth-child(3) {
+    width: 8%;
+}
+
 .admin-table--plugins th:nth-child(5),
-.admin-table--plugins td:nth-child(5),
-.media-table th:nth-child(4),
-.media-table td:nth-child(4),
-.media-table th:nth-child(5),
-.media-table td:nth-child(5),
-.playlist-slides-table th:nth-child(5),
-.playlist-slides-table td:nth-child(5) {
-    width: 7rem;
+.admin-table--plugins td:nth-child(5) {
+    width: 12%;
+}
+
+.admin-table--plugins th:last-child,
+.admin-table--plugins td.actions {
+    width: 22%;
 }
 
 .media-table th:first-child,
 .media-table td.preview-cell {
-    width: 8rem;
+    width: 13%;
+}
+
+.media-table th:nth-child(3),
+.media-table td:nth-child(3),
+.media-table th:nth-child(6),
+.media-table td:nth-child(6) {
+    width: 14%;
+}
+
+.media-table th:nth-child(4),
+.media-table td:nth-child(4),
+.media-table th:nth-child(5),
+.media-table td:nth-child(5) {
+    width: 9%;
+}
+
+.media-table th:last-child,
+.media-table td.actions {
+    width: 20%;
 }
 
 .admin-table.media-table td.media-name-cell {
@@ -1163,17 +1275,29 @@ td.actions .button span {
 .admin-table .truncate {
     max-width: none;
     overflow: visible;
-    text-overflow: clip;
     white-space: normal;
 }
 
-.slide-library-table {
-    min-width: 980px;
+.playlist-slides-table th:nth-child(5),
+.playlist-slides-table td:nth-child(5),
+.playlist-slides-table th:nth-child(6),
+.playlist-slides-table td:nth-child(6) {
+    width: 10%;
+}
+
+.playlist-slides-table th:last-child,
+.playlist-slides-table td.actions {
+    width: 24%;
 }
 
 .slide-library-table th:nth-child(4),
 .slide-library-table td:nth-child(4) {
-    width: 6.5rem;
+    width: 9%;
+}
+
+.slide-library-table th:nth-child(5),
+.slide-library-table td:nth-child(5) {
+    width: 10%;
 }
 
 .slide-library-table thead tr:first-child th,
@@ -1183,12 +1307,7 @@ td.actions .button span {
 
 .slide-library-table th:last-child,
 .slide-library-table td.actions {
-    width: 20rem;
-    white-space: nowrap;
-}
-
-.slide-library-table td.actions .button {
-    white-space: nowrap;
+    width: 30%;
 }
 
 .slide-library-sort {
@@ -1197,6 +1316,9 @@ td.actions .button span {
     align-items: center;
     gap: 0.4rem;
     width: 100%;
+    min-width: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
     padding: 0;
     border: 0;
     background: transparent;

@@ -11,6 +11,7 @@
 </div>
 <?php if ($flash): ?><div class="alert success"><?= e($flash) ?></div><?php endif; ?>
 <div class="card">
+    <div class="table-scroll">
     <table class="admin-table admin-table--displays" data-admin-table>
         <thead>
         <tr>
@@ -63,7 +64,7 @@
                     <form method="post" action="<?= e(url('/admin/displays/' . $display['id'] . '/reload')) ?>" class="inline-form">
                         <?= csrf_field() ?>
                         <input type="hidden" name="return_to" value="/admin/displays">
-                        <button type="submit" class="button button--normal button--small"><?= admin_icon('reload') ?><span><?= e(__('display.reload_slideshow')) ?></span></button>
+                        <button type="submit" class="button button--normal button--small" aria-label="<?= e(__('display.reload_slideshow')) ?>"><?= admin_icon('reload') ?><span><?= e(__('common.reload')) ?></span></button>
                     </form>
                     <form method="post" action="<?= e(url('/admin/displays/' . $display['id'] . '/delete')) ?>" class="inline-form" data-confirm-submit data-confirm-title="<?= e(__('common.delete')) ?>" data-confirm-message="<?= e(__('display.delete_confirm', [], 'Delete display?')) ?>" data-confirm-accept="<?= e(__('common.delete')) ?>">
                         <?= csrf_field() ?>
@@ -74,5 +75,6 @@
         <?php endforeach; ?>
         </tbody>
     </table>
+    </div>
 </div>
 <?php require __DIR__ . '/../layouts/admin_footer.php'; ?>

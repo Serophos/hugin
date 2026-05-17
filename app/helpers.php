@@ -245,8 +245,8 @@ function admin_icon(string $name): string
         return '';
     }
 
-    $href = url('/assets/icons/admin/' . rawurlencode($name) . '.svg#icon');
-    return '<svg class="button-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="' . e($href) . '"></use></svg>';
+    $href = url('/assets/icons/admin/' . rawurlencode($name) . '.svg');
+    return '<span class="button-icon" aria-hidden="true" style="--button-icon-url: url(&quot;' . e($href) . '&quot;)"></span>';
 }
 
 function require_csrf(): void

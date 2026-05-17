@@ -29,12 +29,12 @@ require __DIR__ . '/../layouts/admin_header.php';
 <?php if ($flash): ?><div class="alert success"><?= e($flash) ?></div><?php endif; ?>
 
 <section class="slide-workspace-section">
-    <div class="section-head">
+    <!--div class="section-head">
         <div>
             <h2><?= e(__('slide.library')) ?></h2>
             <p class="muted"><?= e(__('slide.library_hint')) ?></p>
         </div>
-    </div>
+    </div-->
     <details class="card slide-group" open>
         <summary>
             <span class="slide-group__title">

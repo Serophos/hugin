@@ -82,8 +82,8 @@ if (!$isUnused) {
         <?php if (!$isUnused): ?>
             <span class="playlist-display-group__actions">
                 <a class="button button--normal button--small" href="<?= e(url($previewPath)) ?>" target="_blank" rel="noopener noreferrer"><?= admin_icon('preview') ?><span><?= e(__('common.preview')) ?></span></a>
-                <button type="button" class="button button--normal button--small" data-playlist-add-open data-display-id="<?= e((string)$display['id']) ?>"><?= admin_icon('add') ?><span><?= e(__('channel.add_existing_playlist')) ?></span></button>
-                <a class="button button--default button--small" href="<?= e(url($createPlaylistPath)) ?>"><?= admin_icon('add') ?><span><?= e(__('channel.add_new_playlist')) ?></span></a>
+                <button type="button" class="button button--normal button--small" data-playlist-add-open data-display-id="<?= e((string)$display['id']) ?>" aria-label="<?= e(__('channel.add_existing_playlist')) ?>"><?= admin_icon('add') ?><span><?= e(__('channel.add_existing_playlist_short')) ?></span></button>
+                <a class="button button--default button--small" href="<?= e(url($createPlaylistPath)) ?>" aria-label="<?= e(__('channel.add_new_playlist')) ?>"><?= admin_icon('add') ?><span><?= e(__('channel.add_new_playlist_short')) ?></span></a>
             </span>
         <?php endif; ?>
     </summary>

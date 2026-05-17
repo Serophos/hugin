@@ -21,6 +21,7 @@ require __DIR__ . '/../layouts/admin_header.php';
     <?php if (!$plugins): ?>
         <p class="muted"><?= e(__('plugins.none_discovered')) ?></p>
     <?php else: ?>
+        <div class="table-scroll">
         <table class="admin-table admin-table--plugins" data-admin-table>
             <thead>
             <tr>
@@ -82,6 +83,7 @@ require __DIR__ . '/../layouts/admin_header.php';
             <?php endforeach; ?>
             </tbody>
         </table>
+        </div>
     <?php endif; ?>
 </div>
 

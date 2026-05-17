@@ -8,7 +8,8 @@
 </div>
 <?php if ($flash): ?><div class="alert success"><?= e($flash) ?></div><?php endif; ?>
 <div class="card">
-    <table class="admin-table" data-admin-table>
+    <div class="table-scroll">
+    <table class="admin-table admin-table--users" data-admin-table>
         <thead>
         <tr>
             <th aria-sort="none"><button type="button" class="slide-library-sort" data-admin-sort="username" data-sort-type="text" aria-label="<?= e(__('slide.sort_by_column', ['column' => __('auth.username')])) ?>"><?= e(__('auth.username')) ?></button></th>
@@ -57,5 +58,6 @@
         <?php endforeach; ?>
         </tbody>
     </table>
+    </div>
 </div>
 <?php require __DIR__ . '/../layouts/admin_footer.php'; ?>
