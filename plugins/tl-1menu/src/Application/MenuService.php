@@ -151,8 +151,39 @@ final class MenuService
         if ($timestamp === false) {
             return $date;
         }
-        $format = $language === 'en' ? 'l, F j, Y' : 'l, d.m.Y';
-        return date($format, $timestamp);
+
+        $locale = $language === 'en' ? 'en_US' : 'de_DE';
+        if (class_exists('IntlDateFormatter')) {
+            $formatter = new \IntlDateFormatter(
+                $locale,
+                \IntlDateFormatter::FULL,
+                \IntlDateFormatter::NONE,
+                date_default_timezone_get(),
+                \IntlDateFormatter::GREGORIAN,
+                $language === 'en' ? 'EEEE, MMMM d, y' : 'EEEE, dd.MM.y'
+            );
+            $formatted = $formatter->format($timestamp);
+            if (is_string($formatted) && trim($formatted) !== '') {
+                return $formatted;
+            }
+        }
+
+        if ($language === 'en') {
+            return date('l, F j, Y', $timestamp);
+        }
+
+        $weekdays = [
+            1 => 'Montag',
+            2 => 'Dienstag',
+            3 => 'Mittwoch',
+            4 => 'Donnerstag',
+            5 => 'Freitag',
+            6 => 'Samstag',
+            7 => 'Sonntag',
+        ];
+        $weekday = $weekdays[(int)date('N', $timestamp)] ?? '';
+
+        return trim($weekday . ', ' . date('d.m.Y', $timestamp), ', ');
     }
 
     public function formatEnvironmentalValue(?float $value, string $kind, string $language): ?string

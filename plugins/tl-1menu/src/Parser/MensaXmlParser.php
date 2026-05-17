@@ -123,8 +123,7 @@ final class MensaXmlParser
         $typeId = $this->toNullableInt($attributes['TYP'] ?? '');
         $parsedDate = $this->parseGermanDate($attributes['DATUM'] ?? '');
         $tokenInfo = $this->parseZusatzstoffeAndAllergene($attributes['ZSNUMMERN'] ?? '', $attributes['ZSNAMEN'] ?? '');
-        $flags = $this->detectFlags($textLinesDe, $attributes, $typeId);
-        $categories = $this->detectCategories($typeId, $tokenInfo['allergens'], $tokenInfo['pseudo_categories'], $attributes, $flags);
+        $categories = $this->detectCategories($typeId, $tokenInfo['pseudo_categories']);
         $classification = $this->classifyDish($categories);
 
         $prices = [
@@ -489,7 +488,7 @@ final class MensaXmlParser
     private function normalizeRating(string $value): ?string
     {
         $value = strtoupper(trim($value));
-        return in_array($value, ['A', 'B', 'C', 'D', 'E'], true) ? $value : null;
+        return in_array($value, ['A', 'B', 'C', 'D', 'E', 'F'], true) ? $value : null;
     }
 
     private function stripInlineMeta(string $value): string
@@ -528,13 +527,13 @@ final class MensaXmlParser
             if ($name === '') {
                 $name = $code;
             }
-            $all[$code] = $name;
-
             $normalizedCode = strtoupper(trim($code));
             if (isset($this->pseudoAllergenCategoryMap[$normalizedCode])) {
                 $pseudoCategories[] = $this->pseudoAllergenCategoryMap[$normalizedCode];
                 continue;
             }
+
+            $all[$code] = $name;
 
             if (preg_match('/^\d+[a-z]?$/i', $code) === 1) {
                 $additives[$code] = $name;
@@ -551,59 +550,10 @@ final class MensaXmlParser
         ];
     }
 
-    /** @param list<string> $lines @param array<string,string> $attributes @return array<string,bool> */
-    private function detectFlags(array $lines, array $attributes, ?int $typeId): array
-    {
-        $haystack = strtolower(implode(' ', $lines) . ' ' . implode(' ', $attributes));
-        $typeCategories = $typeId !== null ? ($this->foodTypeCategoryMap[$typeId] ?? []) : [];
-        return [
-            'vegan' => str_contains($haystack, 'vegan') || str_contains($haystack, '(ve') || in_array('vegan', $typeCategories, true),
-            'vegetarian' => str_contains($haystack, 'vegetar') || str_contains($haystack, '(vn') || in_array('vegetarian', $typeCategories, true),
-            'fish' => str_contains($haystack, 'fisch') || array_key_exists('Fi', $this->parseZusatzstoffeAndAllergene($attributes['ZSNUMMERN'] ?? '', $attributes['ZSNAMEN'] ?? '')['allergens']),
-            'bio' => str_contains($haystack, 'bio'),
-        ];
-    }
-
-    /** @param array<string,string> $allergens @param list<string> $pseudoCategories @param array<string,string> $attributes @param array<string,bool> $flags @return list<string> */
-    private function detectCategories(?int $typeId, array $allergens, array $pseudoCategories, array $attributes, array $flags): array
+    /** @param list<string> $pseudoCategories @return list<string> */
+    private function detectCategories(?int $typeId, array $pseudoCategories): array
     {
         $categories = [];
-
-        if ($flags['vegan']) {
-            $categories[] = 'vegan';
-        } elseif ($flags['vegetarian']) {
-            $categories[] = 'vegetarian';
-        }
-
-        $haystack = strtolower(implode(' ', $attributes));
-        if ($flags['fish']) {
-            $categories[] = 'fish';
-        }
-        if (preg_match('/(rind|beef|cow)/u', $haystack) === 1) {
-            $categories[] = 'beef';
-        }
-        if (preg_match('/(schwein|pork|pig)/u', $haystack) === 1) {
-            $categories[] = 'pork';
-        }
-        if (preg_match('/(geflügel|gefluegel|huhn|chicken|poultry)/u', $haystack) === 1) {
-            $categories[] = 'poultry';
-        }
-        if (isset($allergens['Fi'])) {
-            $categories[] = 'fish';
-        }
-        if (!empty($flags['bio'])) {
-            $categories[] = 'bio';
-        }
-
-        foreach ($pseudoCategories as $category) {
-            $categories[] = $category;
-            if ($category === 'fish_higher_welfare') {
-                $categories[] = 'fish';
-            }
-            if (in_array($category, ['pork_higher_welfare', 'pork', 'poultry', 'beef_higher_welfare', 'beef'], true)) {
-                $categories[] = 'meat';
-            }
-        }
 
         if ($typeId !== null) {
             foreach ($this->foodTypeCategoryMap[$typeId] ?? [] as $category) {
@@ -611,11 +561,8 @@ final class MensaXmlParser
             }
         }
 
-        if (in_array('fish', $categories, true)) {
-            $categories[] = 'fish';
-        }
-        if (count(array_intersect($categories, ['pork_higher_welfare', 'pork', 'poultry', 'beef_higher_welfare', 'beef'])) > 0) {
-            $categories[] = 'meat';
+        foreach ($pseudoCategories as $category) {
+            $categories[] = $category;
         }
 
         return array_values(array_unique($categories));
@@ -630,7 +577,7 @@ final class MensaXmlParser
         if (in_array('vegetarian', $categories, true)) {
             return 'vegetarian';
         }
-        if (in_array('fish', $categories, true)) {
+        if (count(array_intersect($categories, ['fish', 'fish_higher_welfare'])) > 0) {
             return 'fish';
         }
         return 'meat';

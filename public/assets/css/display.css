@@ -194,7 +194,6 @@ html, body {
     height: 100%;
     border: 0;
     object-fit: cover;
-    background: #000;
 }
 
 .effect-none .slide { transition: none; }

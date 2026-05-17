@@ -1,7 +1,6 @@
 <?php
 $title = __('slide.plural');
 $allSlides = $allSlides ?? [];
-$groups = $groups ?? [];
 $pluginLabels = $pluginLabels ?? [];
 $slideTypeDefinitions = array_values($slideTypeDefinitions ?? []);
 $fallbackSlideType = [
@@ -14,126 +13,20 @@ $fallbackSlideType = [
 $slideTypeDefinitions = $slideTypeDefinitions ?: [$fallbackSlideType];
 $firstSlideType = $slideTypeDefinitions[0] ?? $fallbackSlideType;
 $firstSlideTypeCreateUrl = url('/admin/slides/create?slide_type=' . rawurlencode((string)$firstSlideType['slide_type']) . '&return_to=' . rawurlencode('/admin/slides'));
-$sourceLabel = static function (array $slide, array $pluginLabels): string {
-    if (isset($pluginLabels[$slide['slide_type']])) {
-        return __('slide.plugin_configuration');
-    }
-    if (!empty($slide['media_name'])) {
-        return (string)$slide['media_name'];
-    }
-    if (!empty($slide['source_url'])) {
-        return (string)$slide['source_url'];
-    }
-    return '—';
-};
-$slidePickerItems = array_map(static function (array $slide) use ($pluginLabels, $sourceLabel): array {
-    return [
-        'id' => (int)$slide['id'],
-        'name' => (string)$slide['name'],
-        'type' => $pluginLabels[$slide['slide_type']] ?? enum_label('slide_types', (string)$slide['slide_type'], (string)$slide['slide_type']),
-        'source' => $sourceLabel($slide, $pluginLabels),
-        'channels' => (string)($slide['channel_names'] ?: __('slide.no_channels')),
-        'is_active' => (int)$slide['is_active'] === 1,
-        'status' => (int)$slide['is_active'] === 1 ? __('common.active') : __('common.inactive'),
-    ];
-}, $allSlides);
+$slideTypeOptions = [];
+foreach ($allSlides as $slide) {
+    $typeLabel = $pluginLabels[$slide['slide_type']] ?? enum_label('slide_types', (string)$slide['slide_type'], (string)$slide['slide_type']);
+    $slideTypeOptions[$typeLabel] = $typeLabel;
+}
+natcasesort($slideTypeOptions);
 
 require __DIR__ . '/../layouts/admin_header.php';
 ?>
 <div class="page-head">
-    <div><h1><?= e(__('slide.plural')) ?></h1><p class="muted"><?= e(__('slide.overview_hint')) ?></p></div>
+    <div><h1><?= e(__('slide.plural')) ?></h1><p class="muted"><?= e(__('slide.library_hint')) ?></p></div>
     <a class="button button--default" href="<?= e($firstSlideTypeCreateUrl) ?>" data-open-slide-type-dialog data-create-url="<?= e(url('/admin/slides/create')) ?>" data-return-to="/admin/slides" aria-haspopup="dialog"><?= admin_icon('add') ?><span><?= e(__('slide.new')) ?></span></a>
 </div>
 <?php if ($flash): ?><div class="alert success"><?= e($flash) ?></div><?php endif; ?>
-
-<section class="slide-workspace-section">
-    <div class="section-head">
-        <div>
-            <h2><?= e(__('slide.channel_playlists')) ?></h2>
-            <p class="muted"><?= e(__('slide.channel_playlists_hint')) ?></p>
-        </div>
-    </div>
-
-    <div class="slide-groups">
-    <?php if ($groups === []): ?>
-        <div class="card">
-            <p class="muted"><?= e(__('slide.no_channels_configured')) ?></p>
-            <a class="button button--default" href="<?= e(url('/admin/playlists/create')) ?>"><?= admin_icon('add') ?><span><?= e(__('channel.new')) ?></span></a>
-        </div>
-    <?php endif; ?>
-    <?php foreach ($groups as $group): ?>
-    <?php
-        $channelAnchor = 'channel-' . (int)$group['channel_id'];
-        $returnTo = '/admin/slides#' . $channelAnchor;
-        $createUrl = '/admin/slides/create?channel_id=' . (int)$group['channel_id'] . '&return_to=' . rawurlencode($returnTo);
-    ?>
-    <details class="card slide-group" id="<?= e($channelAnchor) ?>">
-        <summary>
-            <span class="slide-group__title">
-                <span class="slide-group__chevron" aria-hidden="true"></span>
-                <span>
-                    <h2><?= e($group['channel_name']) ?></h2>
-                    <small><?= e(__('slide.slide_count', ['count' => count($group['slides'])])) ?></small>
-                    <?php if (isset($group['is_active']) && (int)$group['is_active'] !== 1): ?>
-                        <small><?= e(__('common.inactive')) ?></small>
-                    <?php endif; ?>
-                </span>
-            </span>
-        </summary>
-        <div class="slide-group__body">
-            <div class="slide-group__toolbar">
-                <button
-                    type="button"
-                    class="button button--normal button--small"
-                    data-open-slide-picker
-                    data-channel-id="<?= e((string)$group['channel_id']) ?>"
-                    data-channel-name="<?= e($group['channel_name']) ?>"
-                    data-action="<?= e(url('/admin/playlists/' . $group['channel_id'] . '/slides/add')) ?>"
-                    data-return-to="<?= e($returnTo) ?>"
-                    data-assigned-slide-ids="<?= e(json_encode(array_values(array_unique($group['slide_ids'] ?? [])), JSON_UNESCAPED_SLASHES)) ?>"
-                ><?= admin_icon('add') ?><span><?= e(__('slide.add_existing_to_channel')) ?></span></button>
-                <a class="button button--default button--small" href="<?= e(url($createUrl)) ?>"><?= admin_icon('add') ?><span><?= e(__('slide.create_in_channel')) ?></span></a>
-            </div>
-            <?php if ($group['slides'] === []): ?>
-                <p class="muted slide-group__empty"><?= e(__('slide.channel_empty')) ?></p>
-            <?php else: ?>
-                <table>
-                    <thead><tr><th class="handle-col"></th><th><?= e(__('common.name')) ?></th><th><?= e(__('common.type')) ?></th><th><?= e(__('common.source')) ?></th><th><?= e(__('common.duration')) ?></th><th><?= e(__('common.status')) ?></th><th></th></tr></thead>
-                    <tbody class="sortable-list" data-sort-endpoint="<?= e(url('/admin/sort/slides')) ?>" data-extra-name="channel_id" data-extra-value="<?= e((string)$group['channel_id']) ?>">
-                    <?php foreach ($group['slides'] as $slide): ?>
-                        <tr draggable="true" data-id="<?= e((string)$slide['id']) ?>">
-                            <td class="handle">↕</td>
-                            <td><?= e($slide['name']) ?></td>
-                            <td><?= e($pluginLabels[$slide['slide_type']] ?? enum_label('slide_types', $slide['slide_type'], $slide['slide_type'])) ?></td>
-                            <td class="truncate"><?php $renderSourceCell($slide, $pluginLabels); ?></td>
-                            <td><?= e((string)($slide['duration_seconds'] ?? __('common.default'))) ?></td>
-                            <td><?= e($slide['is_active'] ? __('common.active') : __('common.inactive')) ?></td>
-                            <td class="actions">
-                                <a class="button button--normal button--small" href="<?= e(url('/admin/slides/' . $slide['id'] . '/edit?return_to=' . rawurlencode($returnTo))) ?>"><?= admin_icon('edit') ?><span><?= e(__('slide.edit_content')) ?></span></a>
-                                <form
-                                    method="post"
-                                    action="<?= e(url('/admin/playlists/' . $group['channel_id'] . '/slides/' . $slide['id'] . '/remove')) ?>"
-                                    class="inline-form"
-                                    data-confirm-submit
-                                    data-confirm-title="<?= e(__('slide.remove_from_channel')) ?>"
-                                    data-confirm-message="<?= e(__('slide.remove_from_channel_confirm', ['slide' => $slide['name'], 'channel' => $group['channel_name']])) ?>"
-                                    data-confirm-accept="<?= e(__('slide.remove_from_channel')) ?>"
-                                >
-                                    <?= csrf_field() ?>
-                                    <input type="hidden" name="return_to" value="<?= e($returnTo) ?>">
-                                    <button type="submit" class="button button--danger button--small"><?= admin_icon('remove') ?><span><?= e(__('slide.remove_from_channel')) ?></span></button>
-                                </form>
-                            </td>
-                        </tr>
-                    <?php endforeach; ?>
-                    </tbody>
-                </table>
-            <?php endif; ?>
-        </div>
-    </details>
-    <?php endforeach; ?>
-    </div>
-</section>
 
 <section class="slide-workspace-section">
     <div class="section-head">
@@ -162,30 +55,30 @@ require __DIR__ . '/../layouts/admin_header.php';
                     <button type="button" class="button button--normal button--small" data-slide-library-reset hidden><?= e(__('slide.clear_filters')) ?></button>
                 </div>
                 <div class="table-scroll">
-                    <table class="slide-library-table" data-slide-library-table>
+                    <table class="admin-table slide-library-table" data-admin-table data-slide-library-table>
                         <thead>
                             <tr>
-                                <th aria-sort="none"><button type="button" class="slide-library-sort" data-sort-key="name" data-sort-type="text" aria-label="<?= e(__('slide.sort_by_column', ['column' => __('common.name')])) ?>"><?= e(__('common.name')) ?></button></th>
-                                <th aria-sort="none"><button type="button" class="slide-library-sort" data-sort-key="type" data-sort-type="text" aria-label="<?= e(__('slide.sort_by_column', ['column' => __('common.type')])) ?>"><?= e(__('common.type')) ?></button></th>
-                                <th aria-sort="none"><button type="button" class="slide-library-sort" data-sort-key="channels" data-sort-type="text" aria-label="<?= e(__('slide.sort_by_column', ['column' => __('slide.assigned_channel_names')])) ?>"><?= e(__('slide.assigned_channel_names')) ?></button></th>
-                                <th aria-sort="none"><button type="button" class="slide-library-sort" data-sort-key="duration" data-sort-type="number" aria-label="<?= e(__('slide.sort_by_column', ['column' => __('common.duration')])) ?>"><?= e(__('common.duration')) ?></button></th>
-                                <th aria-sort="none"><button type="button" class="slide-library-sort" data-sort-key="status" data-sort-type="text" aria-label="<?= e(__('slide.sort_by_column', ['column' => __('common.status')])) ?>"><?= e(__('common.status')) ?></button></th>
+                                <th aria-sort="none"><button type="button" class="slide-library-sort" data-admin-sort="name" data-sort-type="text" aria-label="<?= e(__('slide.sort_by_column', ['column' => __('common.name')])) ?>"><?= e(__('common.name')) ?></button></th>
+                                <th aria-sort="none"><button type="button" class="slide-library-sort" data-admin-sort="type" data-sort-type="text" aria-label="<?= e(__('slide.sort_by_column', ['column' => __('common.type')])) ?>"><?= e(__('common.type')) ?></button></th>
+                                <th aria-sort="none"><button type="button" class="slide-library-sort" data-admin-sort="channels" data-sort-type="text" aria-label="<?= e(__('slide.sort_by_column', ['column' => __('slide.assigned_channel_names')])) ?>"><?= e(__('slide.assigned_channel_names')) ?></button></th>
+                                <th aria-sort="none"><button type="button" class="slide-library-sort" data-admin-sort="duration" data-sort-type="number" aria-label="<?= e(__('slide.sort_by_column', ['column' => __('common.duration')])) ?>"><?= e(__('common.duration')) ?></button></th>
+                                <th aria-sort="none"><button type="button" class="slide-library-sort" data-admin-sort="status" data-sort-type="text" aria-label="<?= e(__('slide.sort_by_column', ['column' => __('common.status')])) ?>"><?= e(__('common.status')) ?></button></th>
                                 <th><?= e(__('common.actions')) ?></th>
                             </tr>
                             <tr class="slide-library-filter-row">
-                                <th><input type="search" data-filter-key="name" aria-label="<?= e(__('slide.filter_column', ['column' => __('common.name')])) ?>" placeholder="<?= e(__('common.name')) ?>"></th>
+                                <th><input type="search" data-admin-filter="name" aria-label="<?= e(__('slide.filter_column', ['column' => __('common.name')])) ?>" placeholder="<?= e(__('common.name')) ?>"></th>
                                 <th>
-                                    <select data-filter-key="type" aria-label="<?= e(__('slide.filter_column', ['column' => __('common.type')])) ?>">
+                                    <select data-admin-filter="type" aria-label="<?= e(__('slide.filter_column', ['column' => __('common.type')])) ?>">
                                         <option value=""><?= e(__('slide.filter_all_types')) ?></option>
                                         <?php foreach ($slideTypeOptions as $typeLabel): ?>
                                             <option value="<?= e($typeLabel) ?>"><?= e($typeLabel) ?></option>
                                         <?php endforeach; ?>
                                     </select>
                                 </th>
-                                <th><input type="search" data-filter-key="channels" aria-label="<?= e(__('slide.filter_column', ['column' => __('slide.assigned_channel_names')])) ?>" placeholder="<?= e(__('slide.assigned_channel_names')) ?>"></th>
-                                <th><input type="search" data-filter-key="duration" aria-label="<?= e(__('slide.filter_column', ['column' => __('common.duration')])) ?>" placeholder="<?= e(__('common.duration')) ?>"></th>
+                                <th><input type="search" data-admin-filter="channels" aria-label="<?= e(__('slide.filter_column', ['column' => __('slide.assigned_channel_names')])) ?>" placeholder="<?= e(__('slide.assigned_channel_names')) ?>"></th>
+                                <th><input type="search" data-admin-filter="duration" aria-label="<?= e(__('slide.filter_column', ['column' => __('common.duration')])) ?>" placeholder="<?= e(__('common.duration')) ?>"></th>
                                 <th>
-                                    <select data-filter-key="status" aria-label="<?= e(__('slide.filter_column', ['column' => __('common.status')])) ?>">
+                                    <select data-admin-filter="status" aria-label="<?= e(__('slide.filter_column', ['column' => __('common.status')])) ?>">
                                         <option value=""><?= e(__('slide.filter_all_statuses')) ?></option>
                                         <option value="active"><?= e(__('common.active')) ?></option>
                                         <option value="inactive"><?= e(__('common.inactive')) ?></option>
@@ -204,12 +97,12 @@ require __DIR__ . '/../layouts/admin_header.php';
                             $statusValue = $slide['is_active'] ? 'active' : 'inactive';
                             $statusLabel = $slide['is_active'] ? __('common.active') : __('common.inactive');
                             ?>
-                            <tr data-slide-library-row>
-                                <td data-library-cell="name" data-sort-value="<?= e((string)$slide['name']) ?>" data-filter-value="<?= e((string)$slide['name']) ?>"><?= e($slide['name']) ?></td>
-                                <td data-library-cell="type" data-sort-value="<?= e($typeLabel) ?>" data-filter-value="<?= e($typeLabel) ?>"><?= e($typeLabel) ?></td>
-                                <td data-library-cell="channels" data-sort-value="<?= e($channelLabel) ?>" data-filter-value="<?= e($channelLabel) ?>"><?= e($channelLabel) ?></td>
-                                <td data-library-cell="duration" data-sort-value="<?= e((string)$durationSort) ?>" data-filter-value="<?= e($durationLabel) ?>"><?= e($durationLabel) ?></td>
-                                <td data-library-cell="status" data-sort-value="<?= e($statusLabel) ?>" data-filter-value="<?= e($statusValue) ?>"><?= e($statusLabel) ?></td>
+                            <tr data-admin-row>
+                                <td data-admin-cell="name" data-sort-value="<?= e((string)$slide['name']) ?>" data-filter-value="<?= e((string)$slide['name']) ?>"><?= e($slide['name']) ?></td>
+                                <td data-admin-cell="type" data-sort-value="<?= e($typeLabel) ?>" data-filter-value="<?= e($typeLabel) ?>"><?= e($typeLabel) ?></td>
+                                <td data-admin-cell="channels" data-sort-value="<?= e($channelLabel) ?>" data-filter-value="<?= e($channelLabel) ?>"><?= e($channelLabel) ?></td>
+                                <td data-admin-cell="duration" data-sort-value="<?= e((string)$durationSort) ?>" data-filter-value="<?= e($durationLabel) ?>"><?= e($durationLabel) ?></td>
+                                <td data-admin-cell="status" data-sort-value="<?= e($statusLabel) ?>" data-filter-value="<?= e($statusValue) ?>"><?= e($statusLabel) ?></td>
                                 <td class="actions">
                                     <a class="button button--normal button--small" href="<?= e(url('/admin/slides/' . $slide['id'] . '/edit')) ?>"><?= admin_icon('edit') ?><span><?= e(__('common.edit')) ?></span></a>
                                     <form
@@ -288,33 +181,8 @@ require __DIR__ . '/../layouts/admin_header.php';
     </form>
 </dialog>
 
-<dialog class="admin-dialog slide-picker-dialog" data-slide-picker-dialog>
-    <form method="post" class="admin-dialog__panel form-grid" data-slide-picker-form>
-        <?= csrf_field() ?>
-        <input type="hidden" name="return_to" data-slide-picker-return-to>
-        <div class="section-head">
-            <div>
-                <h2 data-slide-picker-title></h2>
-                <p class="muted"><?= e(__('slide.add_existing_hint')) ?></p>
-            </div>
-            <button type="button" class="button button--normal button--small" data-slide-picker-close><?= admin_icon('cancel') ?><span><?= e(__('common.cancel')) ?></span></button>
-        </div>
-        <label class="full-width"><?= e(__('common.name')) ?>
-            <input type="search" data-slide-picker-search placeholder="<?= e(__('slide.search_library_placeholder')) ?>">
-        </label>
-        <div class="slide-picker-list" data-slide-picker-list></div>
-        <p class="muted" data-slide-picker-empty hidden><?= e(__('slide.add_existing_empty')) ?></p>
-        <div class="form-actions">
-            <button type="button" class="button button--normal" data-slide-picker-close><?= admin_icon('cancel') ?><span><?= e(__('common.cancel')) ?></span></button>
-            <button type="submit" class="button button--default" data-slide-picker-submit><?= admin_icon('add') ?><span><?= e(__('slide.add_selected_to_channel')) ?></span></button>
-        </div>
-    </form>
-</dialog>
-
 <script>
 (() => {
-    const slideLibrary = <?= json_encode($slidePickerItems, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
-
     const slideTypeDialog = document.querySelector('[data-slide-type-dialog]');
     const openSlideTypeDialog = document.querySelector('[data-open-slide-type-dialog]');
     if (slideTypeDialog && openSlideTypeDialog && typeof slideTypeDialog.showModal === 'function') {
@@ -385,90 +253,51 @@ require __DIR__ . '/../layouts/admin_header.php';
         });
     }
 
-    const pickerDialog = document.querySelector('[data-slide-picker-dialog]');
-    if (!pickerDialog || typeof pickerDialog.showModal !== 'function') return;
+    const libraryTable = document.querySelector('[data-slide-library-table]');
+    if (libraryTable) {
+        const rows = Array.from(libraryTable.querySelectorAll('[data-admin-row]'));
+        const filterControls = Array.from(libraryTable.querySelectorAll('[data-admin-filter]'));
+        const resetFilters = document.querySelector('[data-slide-library-reset]');
+        const count = document.querySelector('[data-slide-library-count]');
+        const empty = document.querySelector('[data-slide-library-empty]');
+        const total = rows.length;
+        const normalize = (value) => String(value || '').trim();
 
-    const pickerForm = pickerDialog.querySelector('[data-slide-picker-form]');
-    const pickerTitle = pickerDialog.querySelector('[data-slide-picker-title]');
-    const pickerReturnTo = pickerDialog.querySelector('[data-slide-picker-return-to]');
-    const pickerSearch = pickerDialog.querySelector('[data-slide-picker-search]');
-    const pickerList = pickerDialog.querySelector('[data-slide-picker-list]');
-    const pickerEmpty = pickerDialog.querySelector('[data-slide-picker-empty]');
-    const pickerSubmit = pickerDialog.querySelector('[data-slide-picker-submit]');
-    if (!pickerForm || !pickerReturnTo || !pickerList || !pickerEmpty) return;
-    let currentAvailableSlides = [];
-
-    function updatePickerSubmit() {
-        if (!pickerSubmit) return;
-        pickerSubmit.disabled = !pickerList.querySelector('input[type="checkbox"]:checked');
-    }
-
-    function renderPickerList() {
-        const query = (pickerSearch?.value || '').trim().toLowerCase();
-        const visibleSlides = currentAvailableSlides.filter((slide) => {
-            const haystack = `${slide.name} ${slide.type} ${slide.source} ${slide.channels}`.toLowerCase();
-            return haystack.includes(query);
-        });
-
-        pickerList.innerHTML = '';
-        pickerEmpty.hidden = visibleSlides.length > 0;
-        updatePickerSubmit();
-        visibleSlides.forEach((slide) => {
-            const label = document.createElement('label');
-            label.className = 'slide-picker-item';
-
-            const checkbox = document.createElement('input');
-            checkbox.type = 'checkbox';
-            checkbox.name = 'slide_ids[]';
-            checkbox.value = String(slide.id);
-
-            const copy = document.createElement('span');
-            copy.className = 'slide-picker-item__copy';
-            const title = document.createElement('strong');
-            title.textContent = slide.name;
-            const meta = document.createElement('small');
-            meta.textContent = `${slide.type} · ${slide.channels} · ${slide.status}`;
-            const source = document.createElement('small');
-            source.textContent = slide.source;
-            copy.append(title, meta, source);
-
-            label.append(checkbox, copy);
-            pickerList.appendChild(label);
-        });
-        updatePickerSubmit();
-    }
-
-    document.querySelectorAll('[data-open-slide-picker]').forEach((button) => {
-        button.addEventListener('click', () => {
-            let assignedSlideIds = [];
-            try {
-                assignedSlideIds = JSON.parse(button.dataset.assignedSlideIds || '[]');
-            } catch {
-                assignedSlideIds = [];
+        function updateLibrarySummary() {
+            const visible = rows.filter((row) => !row.hidden).length;
+            if (count) {
+                const template = count.dataset.template || '__VISIBLE__ / __TOTAL__';
+                count.textContent = template.replace('__VISIBLE__', String(visible)).replace('__TOTAL__', String(total));
             }
-            const assigned = new Set(assignedSlideIds.map(String));
-            currentAvailableSlides = slideLibrary.filter((slide) => !assigned.has(String(slide.id)));
-            pickerForm.action = button.dataset.action || '';
-            pickerReturnTo.value = button.dataset.returnTo || '/admin/slides';
-            if (pickerTitle) pickerTitle.textContent = <?= json_encode(__('slide.add_existing_title'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>.replace(':channel', button.dataset.channelName || '');
-            if (pickerSearch) pickerSearch.value = '';
-            renderPickerList();
-            pickerDialog.showModal();
-            pickerSearch?.focus();
-        });
-    });
-
-    pickerSearch?.addEventListener('input', renderPickerList);
-    pickerList.addEventListener('change', updatePickerSubmit);
-    pickerForm.addEventListener('submit', (event) => {
-        if (!pickerList.querySelector('input[type="checkbox"]:checked')) {
-            event.preventDefault();
-            updatePickerSubmit();
+            if (empty) {
+                empty.hidden = visible > 0;
+            }
+            if (resetFilters) {
+                resetFilters.hidden = !filterControls.some((control) => normalize(control.value) !== '');
+            }
         }
-    });
-    pickerDialog.querySelectorAll('[data-slide-picker-close]').forEach((button) => {
-        button.addEventListener('click', () => pickerDialog.close());
-    });
+
+        function scheduleLibrarySummaryUpdate() {
+            window.requestAnimationFrame(updateLibrarySummary);
+        }
+
+        filterControls.forEach((control) => {
+            control.addEventListener('input', scheduleLibrarySummaryUpdate);
+            control.addEventListener('change', scheduleLibrarySummaryUpdate);
+        });
+
+        resetFilters?.addEventListener('click', () => {
+            filterControls.forEach((control) => {
+                control.value = '';
+                control.dispatchEvent(new Event('input', { bubbles: true }));
+            });
+            scheduleLibrarySummaryUpdate();
+            filterControls[0]?.focus();
+        });
+
+        updateLibrarySummary();
+    }
+
 })();
 </script>
 <?php require __DIR__ . '/../layouts/admin_footer.php'; ?>

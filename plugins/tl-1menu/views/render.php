@@ -22,7 +22,7 @@ $showGuestPrice = !empty($settings['display_guest_price']);
 $visiblePriceCount = ($showStudentPrice ? 1 : 0) + ($showEmployeePrice ? 1 : 0) + ($showGuestPrice ? 1 : 0);
 $showAnyPrice = $visiblePriceCount > 0;
 $showHeader = !empty($settings['show_header']);
-$backgroundColor = normalize_hex_color((string)($globalSettings['background_color'] ?? '#f1f5f9'), '#f1f5f9');
+$backgroundColor = normalize_hex_color((string)($backgroundColor ?? ($globalSettings['background_color'] ?? '#f1f5f9')), '#f1f5f9');
 $isLightBackground = color_luminance($backgroundColor) > 0.42;
 $headerTextColor = readable_text_color($backgroundColor);
 $headerMutedColor = $isLightBackground ? '#334155' : '#e2e8f0';
@@ -130,36 +130,44 @@ if (!empty($backgroundImageUrl)) {
                     <?php if ($showAnyEco): ?>
                         <div class="tl1menu__eco">
                             <?php if ($showCo2): ?>
-                                <div class="tl1menu__eco-item">
-                                    <span class="tl1menu__eco-icon" aria-hidden="true">☁</span>
-                                    <span class="tl1menu__eco-label"><?= e(__('plugins.tl-1menu.frontend.co2')) ?></span>
-                                    <strong><?= e($service->formatEnvironmentalValue(isset($item->environment['co2_value']) && is_numeric($item->environment['co2_value']) ? (float)$item->environment['co2_value'] : null, 'co2', $language) ?? '–') ?></strong>
-                                    <span class="tl1menu__grade tl1menu__grade--<?= e(strtolower((string)($item->environment['co2_rating'] ?? ''))) ?>"><?= e((string)($item->environment['co2_rating'] ?? '–')) ?></span>
-                                </div>
+                                <?php
+                                $environmentVariant = 'card';
+                                $metricKey = 'co2';
+                                $metricLabel = __('plugins.tl-1menu.frontend.co2');
+                                $metricValue = $service->formatEnvironmentalValue(isset($item->environment['co2_value']) && is_numeric($item->environment['co2_value']) ? (float)$item->environment['co2_value'] : null, 'co2', $language) ?? '-';
+                                $metricRating = (string)($item->environment['co2_rating'] ?? '');
+                                require __DIR__ . '/partials/environment_metric.php';
+                                ?>
                             <?php endif; ?>
                             <?php if ($showWater): ?>
-                                <div class="tl1menu__eco-item">
-                                    <span class="tl1menu__eco-icon" aria-hidden="true">💧</span>
-                                    <span class="tl1menu__eco-label"><?= e(__('plugins.tl-1menu.frontend.water')) ?></span>
-                                    <strong><?= e($service->formatEnvironmentalValue(isset($item->environment['water_value']) && is_numeric($item->environment['water_value']) ? (float)$item->environment['water_value'] : null, 'water', $language) ?? '–') ?></strong>
-                                    <span class="tl1menu__grade tl1menu__grade--<?= e(strtolower((string)($item->environment['water_rating'] ?? ''))) ?>"><?= e((string)($item->environment['water_rating'] ?? '–')) ?></span>
-                                </div>
+                                <?php
+                                $environmentVariant = 'card';
+                                $metricKey = 'water';
+                                $metricLabel = __('plugins.tl-1menu.frontend.water');
+                                $metricValue = $service->formatEnvironmentalValue(isset($item->environment['water_value']) && is_numeric($item->environment['water_value']) ? (float)$item->environment['water_value'] : null, 'water', $language) ?? '-';
+                                $metricRating = (string)($item->environment['water_rating'] ?? '');
+                                require __DIR__ . '/partials/environment_metric.php';
+                                ?>
                             <?php endif; ?>
                             <?php if ($showAnimalWelfare): ?>
-                                <div class="tl1menu__eco-item">
-                                    <span class="tl1menu__eco-icon" aria-hidden="true">🐾</span>
-                                    <span class="tl1menu__eco-label"><?= e(__('plugins.tl-1menu.frontend.animal_welfare')) ?></span>
-                                    <strong>–</strong>
-                                    <span class="tl1menu__grade tl1menu__grade--<?= e(strtolower((string)($item->environment['animal_welfare'] ?? ''))) ?>"><?= e((string)($item->environment['animal_welfare'] ?? '–')) ?></span>
-                                </div>
+                                <?php
+                                $environmentVariant = 'card';
+                                $metricKey = 'animal_welfare';
+                                $metricLabel = __('plugins.tl-1menu.frontend.animal_welfare');
+                                $metricValue = '-';
+                                $metricRating = (string)($item->environment['animal_welfare'] ?? '');
+                                require __DIR__ . '/partials/environment_metric.php';
+                                ?>
                             <?php endif; ?>
                             <?php if ($showRainforest): ?>
-                                <div class="tl1menu__eco-item">
-                                    <span class="tl1menu__eco-icon" aria-hidden="true">🌳</span>
-                                    <span class="tl1menu__eco-label"><?= e(__('plugins.tl-1menu.frontend.rainforest')) ?></span>
-                                    <strong>–</strong>
-                                    <span class="tl1menu__grade tl1menu__grade--<?= e(strtolower((string)($item->environment['rainforest'] ?? ''))) ?>"><?= e((string)($item->environment['rainforest'] ?? '–')) ?></span>
-                                </div>
+                                <?php
+                                $environmentVariant = 'card';
+                                $metricKey = 'rainforest';
+                                $metricLabel = __('plugins.tl-1menu.frontend.rainforest');
+                                $metricValue = '-';
+                                $metricRating = (string)($item->environment['rainforest'] ?? '');
+                                require __DIR__ . '/partials/environment_metric.php';
+                                ?>
                             <?php endif; ?>
                         </div>
                     <?php endif; ?>

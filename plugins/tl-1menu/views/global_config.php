@@ -8,6 +8,17 @@ $formId = 'plugin_settings';
     <p class="muted"><?= e(__('plugins.tl-1menu.global_config.intro')) ?></p>
 
     <fieldset class="full-width">
+        <legend><?= e(__('plugins.tl-1menu.global_config.environment_display_style')) ?></legend>
+        <label class="full-width"><?= e(__('plugins.tl-1menu.global_config.environment_display_style_help')) ?>
+            <select name="plugin_global_settings[<?= e($plugin->getName()) ?>][environment_display_style]"<?= field_attrs('environment_display_style', $formId) ?>>
+                <option value="symbols" <?= selected($settings['environment_display_style'] ?? 'symbols', 'symbols') ?>><?= e(__('plugins.tl-1menu.config.environment_display_styles.symbols')) ?></option>
+                <option value="values" <?= selected($settings['environment_display_style'] ?? 'symbols', 'values') ?>><?= e(__('plugins.tl-1menu.config.environment_display_styles.values')) ?></option>
+            </select>
+            <?= field_error_html('environment_display_style', $formId) ?>
+        </label>
+    </fieldset>
+
+    <fieldset class="full-width">
         <legend><?= e(__('plugins.tl-1menu.global_config.background_color')) ?></legend>
         <label class="tl1menu-color-control"><?= e(__('plugins.tl-1menu.global_config.color_picker')) ?>
             <input type="color" name="plugin_global_settings[<?= e($plugin->getName()) ?>][background_color]" value="<?= e($backgroundColor) ?>"<?= field_attrs('background_color', $formId) ?>>

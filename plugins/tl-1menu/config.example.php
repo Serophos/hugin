@@ -15,6 +15,7 @@ return [
     'default_display_rainforest' => false,
     'default_show_header' => true,
     'default_background_color' => '#f1f5f9',
+    'default_environment_display_style' => 'symbols',
     'pseudo_allergen_category_map' => [
         'STF' => 'streetfood',
         'SHT' => 'sh_teller',

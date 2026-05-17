@@ -10,6 +10,7 @@
     "de": "Zeigt das aktuelle Wetter für einen ausgewählten Ort mit aktuellen Open-Meteo-Wetterdaten an."
   },
   "slide_type": "weather",
+  "icon": "assets/img/slide_weather.png",
   "api_version": 2,
   "main": "Plugin.php",
   "class": "Plugins\\Weather\\Plugin"

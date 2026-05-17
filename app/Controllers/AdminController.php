@@ -1364,17 +1364,6 @@ class AdminController
     {
         $this->auth->requireLogin();
 
-        $channels = $this->db->all('SELECT id, name, is_active FROM channels ORDER BY name ASC');
-        $rows = $this->db->all(
-            'SELECT c.id AS channel_id, c.name AS channel_name, s.id, s.name, s.slide_type, s.source_url, s.duration_seconds, s.is_active,
-                    csa.sort_order, m.original_name AS media_name
-             FROM channel_slide_assignments csa
-             INNER JOIN channels c ON c.id = csa.channel_id
-             INNER JOIN slides s ON s.id = csa.slide_id
-             LEFT JOIN media_assets m ON m.id = s.media_asset_id
-             ORDER BY c.name ASC, csa.sort_order ASC, s.name ASC'
-        );
-
         $allSlides = $this->db->all(
             'SELECT s.id, s.name, s.slide_type, s.source_url, s.duration_seconds, s.is_active,
                     m.original_name AS media_name,
@@ -1393,33 +1382,7 @@ class AdminController
         }
         $allSlides = array_values($uniqueSlides);
 
-        $groups = [];
-        foreach ($channels as $channel) {
-            $groups[(int)$channel['id']] = [
-                'channel_name' => $channel['name'],
-                'channel_id' => (int)$channel['id'],
-                'is_active' => (int)$channel['is_active'],
-                'slide_ids' => [],
-                'slides' => [],
-            ];
-        }
-        foreach ($rows as $row) {
-            $key = (int)$row['channel_id'];
-            if (!isset($groups[$key])) {
-                $groups[$key] = [
-                    'channel_name' => $row['channel_name'],
-                    'channel_id' => $key,
-                    'is_active' => 1,
-                    'slide_ids' => [],
-                    'slides' => [],
-                ];
-            }
-            $groups[$key]['slide_ids'][] = (int)$row['id'];
-            $groups[$key]['slides'][] = $row;
-        }
-
         $this->view->render('admin/slides', [
-            'groups' => $groups,
             'allSlides' => $allSlides,
             'flash' => flash('success'),
             'pluginLabels' => $this->plugins->getPluginLabelMap(),
