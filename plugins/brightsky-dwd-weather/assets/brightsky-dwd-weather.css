@@ -11,6 +11,47 @@
 
 .brightsky-weather-slide * { box-sizing: border-box; }
 
+.brightsky-weather-slide::before,
+.brightsky-weather-slide::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    opacity: 0;
+    background-repeat: repeat;
+    will-change: transform, background-position, opacity;
+}
+
+.brightsky-weather-slide.theme-rain::before,
+.brightsky-weather-slide.theme-storm::before,
+.brightsky-weather-slide.theme-rain::after,
+.brightsky-weather-slide.theme-storm::after {
+    background-image: url("img/weather-rain-droplets.svg");
+}
+
+.brightsky-weather-slide.theme-rain::before,
+.brightsky-weather-slide.theme-storm::before {
+    opacity: 0.2;
+    background-size: 47rem 31rem;
+    animation: brightsky-weather-rain-glass-near 29s ease-in-out infinite alternate;
+}
+
+.brightsky-weather-slide.theme-rain::after,
+.brightsky-weather-slide.theme-storm::after {
+    opacity: 0.28;
+    background-size: 33rem 21rem;
+    animation: brightsky-weather-rain-glass-far 43s ease-in-out infinite alternate-reverse;
+}
+
+.brightsky-weather-slide.theme-snow::after,
+.brightsky-weather-slide.theme-sleet::after {
+    opacity: 0.34;
+    background-image: url("img/weather-snow-flurries.svg");
+    background-size: 36rem 24rem;
+    animation: brightsky-weather-snow-drift 30s linear infinite;
+}
+
 .brightsky-weather-bg {
     position: absolute;
     inset: -12%;
@@ -249,9 +290,63 @@
     50% { transform: translate3d(0, -1.1rem, 0) scale(1.025); }
 }
 
+@keyframes brightsky-weather-rain-glass-near {
+    0% {
+        transform: translate3d(-0.9%, -0.5%, 0) scale(1.02);
+        background-position: 0.7rem 1.1rem;
+        opacity: 0.16;
+    }
+    37% {
+        transform: translate3d(0.3%, 0.7%, 0) scale(1.04);
+        background-position: 5.2rem 7.8rem;
+        opacity: 0.24;
+    }
+    71% {
+        transform: translate3d(0.8%, -0.1%, 0) scale(1.03);
+        background-position: 2.4rem 13.1rem;
+        opacity: 0.2;
+    }
+    100% {
+        transform: translate3d(1.1%, 0.9%, 0) scale(1.05);
+        background-position: 8.6rem 18.4rem;
+        opacity: 0.26;
+    }
+}
+
+@keyframes brightsky-weather-rain-glass-far {
+    0% {
+        transform: translate3d(0.6%, -0.3%, 0) scale(1.01);
+        background-position: 12.2rem 3.4rem;
+        opacity: 0.22;
+    }
+    43% {
+        transform: translate3d(-0.5%, 0.6%, 0) scale(1.025);
+        background-position: 17.7rem 10.9rem;
+        opacity: 0.32;
+    }
+    100% {
+        transform: translate3d(-1%, 1.2%, 0) scale(1.02);
+        background-position: 9.8rem 19.6rem;
+        opacity: 0.26;
+    }
+}
+
+@keyframes brightsky-weather-snow-drift {
+    0% {
+        transform: translate3d(-0.4%, -1%, 0);
+        background-position: 0 -24rem;
+    }
+    100% {
+        transform: translate3d(0.7%, 1%, 0);
+        background-position: 4rem 24rem;
+    }
+}
+
 @media (prefers-reduced-motion: reduce) {
     .brightsky-weather-bg,
-    .brightsky-weather-icon {
+    .brightsky-weather-icon,
+    .brightsky-weather-slide::before,
+    .brightsky-weather-slide::after {
         animation: none;
     }
 }

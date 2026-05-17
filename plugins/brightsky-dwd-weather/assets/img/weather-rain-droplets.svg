@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 420" aria-hidden="true">
+  <defs>
+    <linearGradient id="drop" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.52"/>
+      <stop offset="0.62" stop-color="#d7f2ff" stop-opacity="0.26"/>
+      <stop offset="1" stop-color="#7eb7d2" stop-opacity="0.16"/>
+    </linearGradient>
+    <filter id="soft" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="0.6"/>
+    </filter>
+  </defs>
+  <g fill="url(#drop)" filter="url(#soft)">
+    <ellipse cx="72" cy="84" rx="9" ry="18" transform="rotate(16 72 84)"/>
+    <ellipse cx="198" cy="42" rx="6" ry="13" transform="rotate(-18 198 42)" opacity="0.64"/>
+    <ellipse cx="326" cy="120" rx="8" ry="17" transform="rotate(10 326 120)" opacity="0.78"/>
+    <ellipse cx="536" cy="70" rx="10" ry="21" transform="rotate(-11 536 70)" opacity="0.66"/>
+    <ellipse cx="112" cy="246" rx="7" ry="16" transform="rotate(-8 112 246)" opacity="0.58"/>
+    <ellipse cx="268" cy="300" rx="11" ry="22" transform="rotate(13 268 300)" opacity="0.72"/>
+    <ellipse cx="456" cy="226" rx="7" ry="15" transform="rotate(-16 456 226)" opacity="0.62"/>
+    <ellipse cx="596" cy="322" rx="9" ry="20" transform="rotate(9 596 322)" opacity="0.7"/>
+    <ellipse cx="34" cy="370" rx="5" ry="12" transform="rotate(18 34 370)" opacity="0.48"/>
+    <ellipse cx="392" cy="386" rx="6" ry="14" transform="rotate(-12 392 386)" opacity="0.52"/>
+  </g>
+</svg>
