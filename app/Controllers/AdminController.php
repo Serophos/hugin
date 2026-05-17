@@ -19,6 +19,10 @@ class AdminController
         '/assets/img/display',
         '/assets/img/displays',
     ];
+    private const BUILT_IN_SLIDE_TYPES = ['image', 'video', 'website', 'text'];
+    private const SLIDE_ICON_PUBLIC_DIR = '/assets/img/slides';
+    private const SLIDE_ICON_FILE_PATTERNS = ['slides_%s.png', 'slide_%s.png'];
+    private const SLIDE_ICON_FALLBACK_FILES = ['slides_generic.png', 'slide_generic.png'];
 
     public function __construct(
         private Database $db,
@@ -66,6 +70,8 @@ class AdminController
         $this->view->render('admin/about', [
             'software' => [
                 'name' => __('app.name', [], 'Hugin'),
+                'version' => (string)app_manifest('version', '0.8'),
+                'release_date' => (string)app_manifest('release_date', ''),
                 'type' => __('about.software_type'),
                 'stack' => __('about.software_stack'),
                 'features' => [
@@ -91,9 +97,15 @@ class AdminController
     {
         $this->auth->requireRole('admin');
         $this->plugins->syncRegistry();
+        $plugins = array_map(function (array $plugin): array {
+            $plugin['affected_slides'] = $this->slidesForPluginType((string)$plugin['slide_type']);
+            return $plugin;
+        }, $this->plugins->listForAdmin());
+
         $this->view->render('admin/plugins', [
-            'plugins' => $this->plugins->listForAdmin(),
+            'plugins' => $plugins,
             'flash' => flash('success'),
+            'error' => flash('error'),
         ]);
     }
 
@@ -107,7 +119,33 @@ class AdminController
         }
 
         $enable = $this->request->input('enable') ? true : false;
-        $this->plugins->setEnabled($pluginName, $enable);
+        $affectedSlides = $enable ? [] : $this->slidesForPluginType($plugin->getSlideType());
+        if (!$enable && $affectedSlides !== [] && !$this->request->input('confirm_slide_deactivation')) {
+            flash('error', __('plugins.disable_requires_confirmation', ['count' => count($affectedSlides)]));
+            redirect('/admin/plugins');
+        }
+
+        $pdo = $this->db->pdo();
+        $pdo->beginTransaction();
+        try {
+            if (!$enable && $affectedSlides !== []) {
+                $this->db->execute('UPDATE slides SET is_active = 0 WHERE slide_type = ?', [$plugin->getSlideType()]);
+            }
+            $this->plugins->setEnabled($pluginName, $enable);
+            $pdo->commit();
+        } catch (\Throwable $e) {
+            $pdo->rollBack();
+            throw $e;
+        }
+
+        if (!$enable && $affectedSlides !== []) {
+            flash('success', __('plugins.disabled_message_with_slides', [
+                'plugin' => $plugin->getDisplayName(),
+                'count' => count($affectedSlides),
+            ]));
+            redirect('/admin/plugins');
+        }
+
         flash('success', __($enable ? 'plugins.enabled_message' : 'plugins.disabled_message', ['plugin' => $plugin->getDisplayName()]));
         redirect('/admin/plugins');
     }
@@ -868,30 +906,100 @@ class AdminController
     {
         $this->auth->requireLogin();
 
+        $displayIcons = $this->displayIcons();
+        $defaultScheduleId = $this->defaultChannelScheduleId();
         $rows = $this->db->all(
-            'SELECT d.id AS display_id, d.name AS display_name, d.slug AS display_slug,
+            'SELECT d.id AS display_id, d.name AS display_name, d.slug AS display_slug, d.icon_file AS display_icon_file,
+                    g.name AS group_name, l.name AS location_name,
                     c.id AS channel_id, c.name AS channel_name, c.transition_effect, c.is_active,
                     cdsa.id AS assignment_id, cdsa.priority, cdsa.is_active AS assignment_is_active,
                     s.name AS schedule_name, s.type AS schedule_type,
                     (SELECT COUNT(*) FROM channel_slide_assignments csa WHERE csa.channel_id = c.id) AS slide_count
              FROM channel_display_schedule_assignments cdsa
              INNER JOIN displays d ON d.id = cdsa.display_id
+             LEFT JOIN display_group_memberships dgm ON dgm.display_id = d.id
+             LEFT JOIN display_groups g ON g.id = dgm.group_id
+             LEFT JOIN display_locations l ON l.id = g.location_id
              INNER JOIN channels c ON c.id = cdsa.channel_id
              INNER JOIN schedules s ON s.id = cdsa.schedule_id
-             ORDER BY d.sort_order ASC, cdsa.priority ASC, c.name ASC, s.name ASC'
+             ORDER BY COALESCE(l.sort_order, 999999) ASC,
+                      l.name ASC,
+                      COALESCE(g.sort_order, 999999) ASC,
+                      g.name ASC,
+                      d.name ASC,
+                      cdsa.priority ASC,
+                      c.name ASC,
+                      s.name ASC'
         );
 
         $groups = [];
+        $assignedChannelIds = [];
+        $assignedChannelIdsByDisplay = [];
         foreach ($rows as $row) {
-            $groups[$row['display_id']]['display'] = [
-                'id' => $row['display_id'],
-                'name' => $row['display_name'],
-                'slug' => $row['display_slug'],
-            ];
-            $groups[$row['display_id']]['channels'][] = $row;
+            $displayId = (int)$row['display_id'];
+            $channelId = (int)$row['channel_id'];
+            $key = 'display-' . $displayId;
+            if (!isset($groups[$key])) {
+                $iconFile = $this->normalizeDisplayIcon((string)($row['display_icon_file'] ?? ''), $displayIcons);
+                $groups[$key]['display'] = [
+                    'id' => $displayId,
+                    'name' => $row['display_name'],
+                    'slug' => $row['display_slug'],
+                    'icon_url' => $this->displayIconUrl($iconFile, $displayIcons),
+                    'location_name' => $row['location_name'] ?: __('locations.unassigned'),
+                    'group_name' => $row['group_name'] ?: __('locations.unassigned'),
+                    'is_unused' => false,
+                ];
+            }
+            $assignedChannelIds[$channelId] = true;
+            $assignedChannelIdsByDisplay[$displayId][$channelId] = true;
+            $groups[$key]['channels'][] = $row;
         }
 
-        $this->view->render('admin/playlists', ['groups' => $groups, 'flash' => flash('success')]);
+        $allChannels = $this->db->all(
+            'SELECT c.id AS channel_id, c.name AS channel_name, c.transition_effect, c.is_active,
+                    NULL AS assignment_id, NULL AS priority, NULL AS assignment_is_active,
+                    NULL AS schedule_name, NULL AS schedule_type,
+                    (SELECT COUNT(*) FROM channel_slide_assignments csa WHERE csa.channel_id = c.id) AS slide_count
+             FROM channels c
+             ORDER BY c.name ASC'
+        );
+
+        foreach ($groups as &$group) {
+            $displayId = (int)$group['display']['id'];
+            $group['available_channels'] = array_values(array_filter(
+                $allChannels,
+                static fn(array $channel): bool => !isset($assignedChannelIdsByDisplay[$displayId][(int)$channel['channel_id']])
+            ));
+        }
+        unset($group);
+
+        $unusedChannels = array_values(array_filter(
+            $allChannels,
+            static fn(array $channel): bool => !isset($assignedChannelIds[(int)$channel['channel_id']])
+        ));
+
+        if ($unusedChannels !== []) {
+            $groups['unused'] = [
+                'display' => [
+                    'id' => 0,
+                    'name' => __('channel.unused_playlist'),
+                    'slug' => '',
+                    'icon_url' => '',
+                    'location_name' => __('common.none'),
+                    'group_name' => __('common.none'),
+                    'is_unused' => true,
+                ],
+                'channels' => $unusedChannels,
+                'available_channels' => [],
+            ];
+        }
+
+        $this->view->render('admin/playlists', [
+            'groups' => $groups,
+            'defaultScheduleId' => $defaultScheduleId,
+            'flash' => flash('success'),
+        ]);
     }
 
     public function playlistForm(?int $id = null): void
@@ -922,6 +1030,7 @@ class AdminController
                 [$id]
             );
         }
+        $prefillAssignment = $this->prefillChannelAssignment($id, $assignments);
 
         // Fetch slides for this playlist if editing
         $slides = [];
@@ -956,6 +1065,7 @@ class AdminController
             'channel' => $channel,
             'displays' => $displays,
             'assignments' => $assignments,
+            'prefillAssignment' => $prefillAssignment,
             'schedules' => $schedules,
             'slides' => $slides,
             'allSlides' => $allSlides,
@@ -1010,9 +1120,6 @@ class AdminController
             $assignmentErrors
         );
         $errors = array_replace($errors, $assignmentErrors);
-        if (!$assignmentRows) {
-            $errors['assignment_display_id.0'] = $errors['assignment_display_id.0'] ?? __('channel.assignment_required');
-        }
         if ($errors !== []) {
             $this->redirectWithForm(
                 $id ? '/admin/playlists/' . $id . '/edit' : '/admin/playlists/create',
@@ -1317,6 +1424,7 @@ class AdminController
             'allSlides' => $allSlides,
             'flash' => flash('success'),
             'pluginLabels' => $this->plugins->getPluginLabelMap(),
+            'slideTypeDefinitions' => $this->slideTypeDefinitions(),
         ]);
     }
 
@@ -1346,12 +1454,23 @@ class AdminController
             $assignedChannelIds = array_map(static fn(mixed $id): int => (int)$id, $oldSlideInput['channel_ids']);
         }
         $oldPluginSettings = is_array($oldSlideInput['plugin_settings'] ?? null) ? $oldSlideInput['plugin_settings'] : [];
+        $selectedCreateSlideType = 'image';
+        if (!$id) {
+            $requestedSlideType = trim((string)$this->request->input('slide_type', ''));
+            if (
+                $requestedSlideType !== ''
+                && ($this->isBuiltInSlideType($requestedSlideType) || $this->plugins->getPluginBySlideType($requestedSlideType, true) !== null)
+            ) {
+                $selectedCreateSlideType = $requestedSlideType;
+            }
+        }
 
         $brandingSettings = $this->loadBrandingSettings();
         if (!$id) {
             $slide = array_replace([
                 'background_color' => $brandingSettings['default_background_color'],
                 'text_color' => $brandingSettings['default_text_color'],
+                'slide_type' => $selectedCreateSlideType,
             ], $slide ?? []);
         }
 
@@ -1366,7 +1485,7 @@ class AdminController
                 'name' => $plugin->getName(),
                 'slide_type' => $plugin->getSlideType(),
                 'display_name' => $plugin->getDisplayName(),
-                'description' => (string)($plugin->getManifest()['description'] ?? ''),
+                'description' => $plugin->getDescription(),
             ];
             $pluginForms[$plugin->getName()] = $plugin->renderAdminSettings($slide ?? [], $settings, $this->plugins->buildApi(null, null, null, $this->auth->id()));
         }
@@ -2633,7 +2752,68 @@ class AdminController
 
     private function isBuiltInSlideType(string $slideType): bool
     {
-        return in_array($slideType, ['image', 'video', 'website', 'text'], true);
+        return in_array($slideType, self::BUILT_IN_SLIDE_TYPES, true);
+    }
+
+    private function slideTypeDefinitions(): array
+    {
+        $fallbackIconUrl = $this->slideIconFallbackUrl();
+        $definitions = [];
+
+        foreach (self::BUILT_IN_SLIDE_TYPES as $slideType) {
+            $definitions[] = [
+                'slide_type' => $slideType,
+                'label' => enum_label('slide_types', $slideType, $slideType),
+                'description' => __('slide.type_descriptions.' . $slideType, [], ''),
+                'icon_url' => $this->slideIconUrl($slideType),
+                'icon_fallback_url' => $fallbackIconUrl,
+                'is_plugin' => false,
+            ];
+        }
+
+        foreach ($this->plugins->getEnabledPlugins() as $plugin) {
+            $manifest = $plugin->getManifest();
+            $icon = trim((string)($manifest['icon'] ?? ''));
+            $description = trim($plugin->getDescription());
+            $definitions[] = [
+                'slide_type' => $plugin->getSlideType(),
+                'label' => $plugin->getDisplayName(),
+                'description' => $description !== '' ? $description : __('slide.type_description_unavailable'),
+                'icon_url' => $icon !== '' ? url('/plugin-assets/' . rawurlencode($plugin->getName()) . '/' . ltrim($icon, '/')) : $fallbackIconUrl,
+                'icon_fallback_url' => $fallbackIconUrl,
+                'is_plugin' => true,
+            ];
+        }
+
+        return $definitions;
+    }
+
+    private function slideIconUrl(string $slideType): string
+    {
+        $safeSlideType = preg_replace('/[^a-z0-9_-]+/i', '', strtolower($slideType)) ?: 'generic';
+        $publicRoot = rtrim((string)app_config('paths.public', dirname(__DIR__, 2) . '/public'), '/');
+
+        foreach (self::SLIDE_ICON_FILE_PATTERNS as $pattern) {
+            $file = sprintf($pattern, $safeSlideType);
+            if (is_file($publicRoot . self::SLIDE_ICON_PUBLIC_DIR . '/' . $file)) {
+                return url(self::SLIDE_ICON_PUBLIC_DIR . '/' . $file);
+            }
+        }
+
+        return $this->slideIconFallbackUrl();
+    }
+
+    private function slideIconFallbackUrl(): string
+    {
+        $publicRoot = rtrim((string)app_config('paths.public', dirname(__DIR__, 2) . '/public'), '/');
+
+        foreach (self::SLIDE_ICON_FALLBACK_FILES as $file) {
+            if (is_file($publicRoot . self::SLIDE_ICON_PUBLIC_DIR . '/' . $file)) {
+                return url(self::SLIDE_ICON_PUBLIC_DIR . '/' . $file);
+            }
+        }
+
+        return url(self::SLIDE_ICON_PUBLIC_DIR . '/slide_generic.png');
     }
 
     private function sanitizeOrientation(string $value): string
@@ -2716,6 +2896,65 @@ class AdminController
                 [$index + 1, (int)$row['slide_id'], $channelId]
             );
         }
+    }
+
+    private function prefillChannelAssignment(?int $channelId, array $assignments): ?array
+    {
+        $displayRaw = $this->request->input('prefill_display_id', '');
+        if (!is_scalar($displayRaw) || !$this->isPositiveInteger((string)$displayRaw)) {
+            return null;
+        }
+
+        $displayId = (int)$displayRaw;
+        if (!$this->db->one('SELECT id FROM displays WHERE id = ?', [$displayId])) {
+            return null;
+        }
+
+        if ($channelId !== null) {
+            foreach ($assignments as $assignment) {
+                if ((int)($assignment['display_id'] ?? 0) === $displayId) {
+                    return null;
+                }
+            }
+        }
+
+        $scheduleId = $this->defaultChannelScheduleId();
+        $scheduleRaw = $this->request->input('prefill_schedule_id', '');
+        if (is_scalar($scheduleRaw) && $this->isPositiveInteger((string)$scheduleRaw)) {
+            $requestedScheduleId = (int)$scheduleRaw;
+            if ($this->db->one('SELECT id FROM schedules WHERE id = ?', [$requestedScheduleId])) {
+                $scheduleId = $requestedScheduleId;
+            }
+        }
+
+        if ($scheduleId <= 0) {
+            return null;
+        }
+
+        return [
+            'display_id' => $displayId,
+            'schedule_id' => $scheduleId,
+            'priority' => '',
+            'is_prefill' => true,
+        ];
+    }
+
+    private function defaultChannelScheduleId(): int
+    {
+        foreach ([
+            ['SELECT id FROM schedules WHERE is_system = 1 AND type = ? ORDER BY id ASC LIMIT 1', ['fulltime']],
+            ['SELECT id FROM schedules WHERE type = ? ORDER BY is_system DESC, id ASC LIMIT 1', ['fulltime']],
+            ['SELECT id FROM schedules WHERE is_active = 1 ORDER BY is_system DESC, name ASC LIMIT 1', []],
+            ['SELECT id FROM schedules ORDER BY is_system DESC, name ASC LIMIT 1', []],
+        ] as [$sql, $params]) {
+            $row = $this->db->one($sql, $params);
+            $id = (int)($row['id'] ?? 0);
+            if ($id > 0) {
+                return $id;
+            }
+        }
+
+        return 0;
     }
 
     private function normalizeChannelAssignmentInput(array $displayValues, array $scheduleValues, array $priorityValues, array &$fieldErrors = []): array
@@ -2858,6 +3097,22 @@ class AdminController
         }
 
         return sprintf('%02d:%02d:00', $hour, $minute);
+    }
+
+    private function slidesForPluginType(string $slideType): array
+    {
+        return $this->db->all(
+            'SELECT s.id, s.name, s.slide_type, s.is_active,
+                    GROUP_CONCAT(DISTINCT c.name ORDER BY c.name ASC SEPARATOR ", ") AS channel_names,
+                    COUNT(DISTINCT c.id) AS channel_count
+             FROM slides s
+             LEFT JOIN channel_slide_assignments csa ON csa.slide_id = s.id
+             LEFT JOIN channels c ON c.id = csa.channel_id
+             WHERE s.slide_type = ?
+             GROUP BY s.id, s.name, s.slide_type, s.is_active
+             ORDER BY s.name ASC',
+            [$slideType]
+        );
     }
 
     private function normalizeIds(mixed $value): array

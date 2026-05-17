@@ -1,0 +1,310 @@
+.brightsky-weather-slide {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    min-height: 100%;
+    overflow: hidden;
+    color: #fff;
+    font-family: Inter, Arial, sans-serif;
+    background: linear-gradient(135deg, #305f82 0%, #5c8daa 56%, #c6d8df 100%);
+}
+
+.brightsky-weather-slide * { box-sizing: border-box; }
+
+.brightsky-weather-bg {
+    position: absolute;
+    inset: -12%;
+    pointer-events: none;
+    will-change: transform, opacity;
+}
+
+.brightsky-weather-bg-1 {
+    opacity: 0.34;
+    background:
+        linear-gradient(110deg, transparent 0 42%, rgba(255,255,255,0.28) 42% 43%, transparent 43% 100%),
+        linear-gradient(150deg, transparent 0 58%, rgba(255,255,255,0.18) 58% 59%, transparent 59% 100%);
+    background-size: 115% 115%, 130% 130%;
+    animation: brightsky-weather-bg-parallax-near 38s ease-in-out infinite alternate;
+}
+
+.brightsky-weather-bg-2 {
+    opacity: 0.22;
+    background: repeating-linear-gradient(112deg, transparent 0 38px, rgba(255,255,255,0.22) 39px, transparent 41px);
+    background-size: 180% 180%;
+    animation: brightsky-weather-bg-parallax-far 64s ease-in-out infinite alternate;
+}
+
+.brightsky-weather-slide.theme-clear-day { background: linear-gradient(135deg, #1673c8 0%, #63b8d9 54%, #f5d37b 100%); }
+.brightsky-weather-slide.theme-clear-night { background: linear-gradient(135deg, #09172d 0%, #1e3157 58%, #596987 100%); }
+.brightsky-weather-slide.theme-partly-cloudy-day { background: linear-gradient(135deg, #2e86b8 0%, #8ab7c5 56%, #d9c893 100%); }
+.brightsky-weather-slide.theme-partly-cloudy-night { background: linear-gradient(135deg, #17233d 0%, #465a77 55%, #9ba8b4 100%); }
+.brightsky-weather-slide.theme-cloudy { background: linear-gradient(135deg, #566677 0%, #86929c 55%, #c9d1d7 100%); }
+.brightsky-weather-slide.theme-fog { background: linear-gradient(135deg, #737d82 0%, #a7afb1 58%, #d5d9d8 100%); color: #162033; }
+.brightsky-weather-slide.theme-wind { background: linear-gradient(135deg, #365565 0%, #77909a 52%, #d2d9ce 100%); }
+.brightsky-weather-slide.theme-rain { background: linear-gradient(135deg, #143650 0%, #397084 54%, #91aeb6 100%); }
+.brightsky-weather-slide.theme-sleet { background: linear-gradient(135deg, #314a62 0%, #8297a5 56%, #d5e0e2 100%); }
+.brightsky-weather-slide.theme-snow { background: linear-gradient(135deg, #8ca7ba 0%, #c9d8e2 56%, #f6fbff 100%); color: #142536; }
+.brightsky-weather-slide.theme-hail { background: linear-gradient(135deg, #4d6474 0%, #95a7b3 58%, #eef4f6 100%); color: #142536; }
+.brightsky-weather-slide.theme-storm { background: linear-gradient(135deg, #141b29 0%, #3e465a 52%, #8d8790 100%); }
+.brightsky-weather-slide.theme-neutral { background: linear-gradient(135deg, #305f82 0%, #5c8daa 56%, #c6d8df 100%); }
+
+.brightsky-weather-content {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    width: 100%;
+    height: 100%;
+    padding: 3rem;
+    gap: 1.5rem;
+}
+
+.brightsky-weather-header,
+.brightsky-weather-main,
+.brightsky-weather-details,
+.brightsky-weather-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.5rem;
+}
+
+.brightsky-weather-header { align-items: flex-start; }
+
+.brightsky-weather-location {
+    max-width: 24ch;
+    font-size: 3.15rem;
+    line-height: 1.05;
+    font-weight: 750;
+}
+
+.brightsky-weather-condition {
+    margin-top: 0.45rem;
+    font-size: 1.25rem;
+    line-height: 1.25;
+    opacity: 0.9;
+}
+
+.brightsky-weather-clock {
+    flex: 0 0 auto;
+    text-align: right;
+}
+
+.brightsky-weather-date {
+    font-size: 1rem;
+    line-height: 1.3;
+    opacity: 0.86;
+}
+
+.brightsky-weather-time {
+    margin-top: 0.15rem;
+    font-size: 2rem;
+    line-height: 1;
+    font-weight: 750;
+}
+
+.brightsky-weather-main {
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+.brightsky-weather-temp-wrap {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.brightsky-weather-temp {
+    font-size: 6.6rem;
+    line-height: 0.95;
+    font-weight: 800;
+}
+
+.brightsky-weather-updated {
+    margin-top: 0.75rem;
+    font-size: 1.25rem;
+    line-height: 1.25;
+    opacity: 0.88;
+}
+
+.brightsky-weather-icon-wrap {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: min(28rem, 36%);
+    aspect-ratio: 1;
+}
+
+.brightsky-weather-icon {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    filter: drop-shadow(0 1.2rem 1.8rem rgba(0, 0, 0, 0.2));
+    transform-origin: center;
+    animation: brightsky-weather-icon-float 7.5s ease-in-out infinite;
+}
+
+.brightsky-weather-slide img.brightsky-weather-icon {
+    background: none;
+}
+
+.brightsky-weather-details {
+    align-items: stretch;
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.brightsky-weather-detail {
+    min-width: 0;
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 8px;
+    background: rgba(255,255,255,0.14);
+    padding: 1rem;
+    backdrop-filter: blur(8px);
+}
+
+.theme-fog .brightsky-weather-detail,
+.theme-snow .brightsky-weather-detail,
+.theme-hail .brightsky-weather-detail {
+    border-color: rgba(20,37,54,0.14);
+    background: rgba(255,255,255,0.42);
+}
+
+.brightsky-weather-detail span {
+    display: block;
+    font-size: 0.95rem;
+    line-height: 1.2;
+    opacity: 0.78;
+    text-transform: uppercase;
+}
+
+.brightsky-weather-detail strong {
+    display: block;
+    margin-top: 0.4rem;
+    overflow-wrap: anywhere;
+    font-size: 1.45rem;
+    line-height: 1.1;
+}
+
+.brightsky-weather-footer {
+    font-size: 1rem;
+    line-height: 1.25;
+    opacity: 0.78;
+}
+
+.brightsky-weather-footer span:last-child {
+    text-align: right;
+}
+
+.brightsky-weather-error {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.75rem;
+    font-size: 2rem;
+    line-height: 1.2;
+    max-width: 42rem;
+}
+
+.brightsky-weather-error small {
+    font-size: 1rem;
+    line-height: 1.35;
+    opacity: 0.78;
+}
+
+@keyframes brightsky-weather-bg-parallax-near {
+    0% {
+        transform: translate3d(-2%, -1.2%, 0) scale(1.03);
+        background-position: 18% 22%, 72% 34%;
+        opacity: 0.3;
+    }
+    50% {
+        transform: translate3d(1%, 0.8%, 0) scale(1.06);
+        background-position: 24% 28%, 66% 40%;
+        opacity: 0.38;
+    }
+    100% {
+        transform: translate3d(2.2%, 1.4%, 0) scale(1.08);
+        background-position: 30% 20%, 60% 48%;
+        opacity: 0.42;
+    }
+}
+
+@keyframes brightsky-weather-bg-parallax-far {
+    0% {
+        transform: translate3d(1.5%, 0.4%, 0) scale(1.01);
+        background-position: 0% 50%;
+    }
+    100% {
+        transform: translate3d(-1.5%, -0.8%, 0) scale(1.04);
+        background-position: 100% 50%;
+    }
+}
+
+@keyframes brightsky-weather-icon-float {
+    0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+    50% { transform: translate3d(0, -1.1rem, 0) scale(1.025); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .brightsky-weather-bg,
+    .brightsky-weather-icon {
+        animation: none;
+    }
+}
+
+@media (max-width: 900px), (max-aspect-ratio: 1/1) {
+    .brightsky-weather-content {
+        padding: 1.5rem;
+    }
+
+    .brightsky-weather-header,
+    .brightsky-weather-main,
+    .brightsky-weather-footer {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .brightsky-weather-clock,
+    .brightsky-weather-footer span:last-child {
+        text-align: left;
+    }
+
+    .brightsky-weather-location {
+        font-size: 2.35rem;
+    }
+
+    .brightsky-weather-temp {
+        font-size: 4.5rem;
+    }
+
+    .brightsky-weather-icon-wrap {
+        width: min(18rem, 68%);
+    }
+
+    .brightsky-weather-details {
+        width: 100%;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .brightsky-weather-detail span {
+        font-size: 0.85rem;
+    }
+
+    .brightsky-weather-detail strong {
+        font-size: 1.25rem;
+    }
+
+    .brightsky-weather-footer {
+        font-size: 0.9rem;
+    }
+}
+
+@media (max-width: 520px) {
+    .brightsky-weather-details {
+        grid-template-columns: 1fr;
+    }
+}

@@ -9,7 +9,10 @@
     </section>
 
     <section class="card">
-        <h1><?= e(__('app.name', [], 'Hugin')) ?></h1>
+        <div class="about-title">
+            <h1><?= e(__('app.name', [], 'Hugin')) ?></h1>
+            <span class="about-version"><?= e(__('common.version', [], 'Version')) ?> <?= e($software['version']) ?></span>
+        </div>
         <h2><?= e(__('about.software_information')) ?></h2>
         <div class="about-meta">
             <div class="about-meta-row">
@@ -17,8 +20,19 @@
                 <strong><?= e($software['name']) ?></strong>
             </div>
             <div class="about-meta-row">
+                <span><?= e(__('common.version', [], 'Version')) ?></span>
+                <div><?= e($software['version']) ?></div>
+            </div>
+            <?php if ($software['release_date'] !== ''): ?>
+                <div class="about-meta-row">
+                    <span><?= e(__('about.release_date')) ?></span>
+                    <div><?= e($software['release_date']) ?></div>
+                </div>
+            <?php endif; ?>
+            <div class="about-meta-row">
                 <span>Copyright</span>
                 <div>&copy; 2026 Thees Christian Winkler</div>
+            </div>
             <div class="about-meta-row">
                 <span><?= e(__('about.purpose')) ?></span>
                 <div><?= e($software['type']) ?></div>

@@ -1,8 +1,14 @@
 {
   "name": "weather",
-  "display_name": "Weather",
+  "display_name": {
+    "en": "Weather",
+    "de": "Wetter"
+  },
   "version": "1.1.0",
-  "description": "Displays current weather for a selected location using Open-Meteo current weather data.",
+  "description": {
+    "en": "Displays current weather for a selected location using Open-Meteo current weather data.",
+    "de": "Zeigt das aktuelle Wetter für einen ausgewählten Ort mit aktuellen Open-Meteo-Wetterdaten an."
+  },
   "slide_type": "weather",
   "api_version": 2,
   "main": "Plugin.php",

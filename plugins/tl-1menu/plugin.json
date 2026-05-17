@@ -1,8 +1,14 @@
 {
   "name": "tl-1menu",
-  "display_name": "TL-1 Menu",
+  "display_name": {
+    "en": "TL-1 Menu",
+    "de": "TL-1 Speiseplan"
+  },
   "version": "1.2.0",
-  "description": "Displays today's TL1 menu for a selected mensa or cafeteria with prices, categories, allergens, additives, and sustainability information.",
+  "description": {
+    "en": "Displays today's TL1 menu for a selected mensa or cafeteria with prices, allergens, additives, categories, and sustainability data.",
+    "de": "Zeigt den heutigen TL1-Speiseplan für eine ausgewählte Mensa oder Cafeteria mit Preisen, Allergenen, Zusatzstoffen, Kategorien und Nachhaltigkeitsdaten an."
+  },
   "slide_type": "tl-1menu",
   "api_version": 2,
   "main": "Plugin.php",

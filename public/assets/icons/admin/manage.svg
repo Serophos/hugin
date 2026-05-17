@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg">
+  <symbol id="icon" viewBox="0 0 24 24">
+    <path d="M4 5h7v7H4z"></path><path d="M13 5h7v7h-7z"></path><path d="M4 14h7v5H4z"></path><path d="M13 14h7v5h-7z"></path>
+  </symbol>
+</svg>

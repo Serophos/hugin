@@ -104,6 +104,8 @@ plugins/
 
 Set `api_version` to `2` for plugins that use the global settings, media-library, or storage helpers.
 
+`display_name` and `description` may be plain strings or locale maps in the manifest, for example `{ "en": "Weather", "de": "Wetter" }`. Locale maps are resolved with the configured locale, fallback locale, base language, then English.
+
 ### Plugin class hooks
 
 Plugins usually extend `App\Core\AbstractSlidePlugin`. The v2 hooks are:

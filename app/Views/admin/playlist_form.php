@@ -1,6 +1,7 @@
 <?php
 $formId = 'channel';
 $title = $channel ? __('channel.edit_title') : __('channel.create_title');
+$prefillAssignment = is_array($prefillAssignment ?? null) ? $prefillAssignment : null;
 if (form_has_old($formId)) {
     $displayValues = old_array('assignment_display_id', [], $formId);
     $scheduleValues = old_array('assignment_schedule_id', [], $formId);
@@ -15,7 +16,13 @@ if (form_has_old($formId)) {
         ];
     }
 } else {
-    $assignmentRows = $assignments ?: [['display_id' => '', 'schedule_id' => '', 'priority' => '']];
+    $assignmentRows = $assignments ?: [];
+    if ($prefillAssignment !== null) {
+        $assignmentRows[] = $prefillAssignment;
+    }
+    if ($assignmentRows === []) {
+        $assignmentRows = [['display_id' => '', 'schedule_id' => '', 'priority' => '']];
+    }
 }
 require __DIR__ . '/../layouts/admin_header.php';
 ?>
@@ -48,9 +55,16 @@ require __DIR__ . '/../layouts/admin_header.php';
 
         <div class="full-width plugin-settings-card">
             <h3><?= e(__('channel.display_schedule_assignments')) ?></h3>
+            <p class="muted"><?= e(__('channel.assignment_optional_hint')) ?></p>
             <div id="assignment-list" class="assignment-list">
                 <?php foreach ($assignmentRows as $index => $assignment): ?>
-                    <div class="assignment-row">
+                    <?php
+                    $assignmentRowClasses = ['assignment-row'];
+                    if (!empty($assignment['is_prefill'])) {
+                        $assignmentRowClasses[] = 'assignment-row--highlight';
+                    }
+                    ?>
+                    <div class="<?= e(implode(' ', $assignmentRowClasses)) ?>">
                         <label><?= e(__('channel.display_monitor')) ?>
                             <select name="assignment_display_id[]"<?= field_attrs('assignment_display_id.' . $index, $formId) ?>>
                                 <option value=""><?= e(__('channel.display_placeholder')) ?></option>
@@ -107,44 +121,67 @@ require __DIR__ . '/../layouts/admin_header.php';
         <p class="muted playlist-empty-state"><?= e(__('slide.playlist_empty')) ?></p>
     <?php else: ?>
         <div class="table-scroll">
-            <table class="playlist-slides-table">
+            <table class="admin-table playlist-slides-table" data-admin-table>
                 <thead>
                     <tr>
                         <th class="handle-col"></th>
-                        <th><?= e(__('common.name')) ?></th>
-                        <th><?= e(__('common.type')) ?></th>
-                        <th><?= e(__('common.source')) ?></th>
-                        <th><?= e(__('common.duration')) ?></th>
-                        <th><?= e(__('common.status')) ?></th>
+                        <th aria-sort="none"><button type="button" class="slide-library-sort" data-admin-sort="name" data-sort-type="text" aria-label="<?= e(__('slide.sort_by_column', ['column' => __('common.name')])) ?>"><?= e(__('common.name')) ?></button></th>
+                        <th aria-sort="none"><button type="button" class="slide-library-sort" data-admin-sort="type" data-sort-type="text" aria-label="<?= e(__('slide.sort_by_column', ['column' => __('common.type')])) ?>"><?= e(__('common.type')) ?></button></th>
+                        <th aria-sort="none"><button type="button" class="slide-library-sort" data-admin-sort="source" data-sort-type="text" aria-label="<?= e(__('slide.sort_by_column', ['column' => __('common.source')])) ?>"><?= e(__('common.source')) ?></button></th>
+                        <th aria-sort="none"><button type="button" class="slide-library-sort" data-admin-sort="duration" data-sort-type="number" aria-label="<?= e(__('slide.sort_by_column', ['column' => __('common.duration')])) ?>"><?= e(__('common.duration')) ?></button></th>
+                        <th aria-sort="none"><button type="button" class="slide-library-sort" data-admin-sort="status" data-sort-type="text" aria-label="<?= e(__('slide.sort_by_column', ['column' => __('common.status')])) ?>"><?= e(__('common.status')) ?></button></th>
+                        <th><?= e(__('common.actions')) ?></th>
+                    </tr>
+                    <tr class="slide-library-filter-row">
+                        <th></th>
+                        <th><input type="search" data-admin-filter="name" aria-label="<?= e(__('slide.filter_column', ['column' => __('common.name')])) ?>" placeholder="<?= e(__('common.name')) ?>"></th>
+                        <th><input type="search" data-admin-filter="type" aria-label="<?= e(__('slide.filter_column', ['column' => __('common.type')])) ?>" placeholder="<?= e(__('common.type')) ?>"></th>
+                        <th><input type="search" data-admin-filter="source" aria-label="<?= e(__('slide.filter_column', ['column' => __('common.source')])) ?>" placeholder="<?= e(__('common.source')) ?>"></th>
+                        <th><input type="search" data-admin-filter="duration" aria-label="<?= e(__('slide.filter_column', ['column' => __('common.duration')])) ?>" placeholder="<?= e(__('common.duration')) ?>"></th>
+                        <th>
+                            <select data-admin-filter="status" aria-label="<?= e(__('slide.filter_column', ['column' => __('common.status')])) ?>">
+                                <option value=""><?= e(__('slide.filter_all_statuses')) ?></option>
+                                <option value="active"><?= e(__('common.active')) ?></option>
+                                <option value="inactive"><?= e(__('common.inactive')) ?></option>
+                            </select>
+                        </th>
                         <th></th>
                     </tr>
                 </thead>
                 <tbody class="sortable-list" data-sort-endpoint="<?= e(url('/admin/sort/slides')) ?>" data-extra-name="channel_id" data-extra-value="<?= e((string)$channel['id']) ?>">
                 <?php foreach ($slides as $slide): ?>
-                    <tr draggable="true" data-id="<?= e((string)$slide['id']) ?>">
+                    <?php
+                    $typeLabel = $pluginLabels[$slide['slide_type']] ?? enum_label('slide_types', $slide['slide_type'], $slide['slide_type']);
+                    $sourceLabel = !empty($slide['media_name']) ? (string)$slide['media_name'] : (!empty($slide['source_url']) ? (string)$slide['source_url'] : '-');
+                    $durationValue = $slide['duration_seconds'] ?? '';
+                    $durationLabel = $durationValue !== '' && $durationValue !== null ? (string)$durationValue : __('common.default');
+                    $statusValue = $slide['is_active'] ? 'active' : 'inactive';
+                    $statusLabel = $slide['is_active'] ? __('common.active') : __('common.inactive');
+                    ?>
+                    <tr draggable="true" data-id="<?= e((string)$slide['id']) ?>" data-admin-row>
                         <td class="handle">↕</td>
-                        <td><?= e($slide['name']) ?></td>
-                        <td><?= e($pluginLabels[$slide['slide_type']] ?? enum_label('slide_types', $slide['slide_type'], $slide['slide_type'])) ?></td>
-                        <td class="truncate">
+                        <td data-admin-cell="name" data-sort-value="<?= e((string)$slide['name']) ?>" data-filter-value="<?= e((string)$slide['name']) ?>"><?= e($slide['name']) ?></td>
+                        <td data-admin-cell="type" data-sort-value="<?= e($typeLabel) ?>" data-filter-value="<?= e($typeLabel) ?>"><?= e($typeLabel) ?></td>
+                        <td class="truncate" data-admin-cell="source" data-sort-value="<?= e($sourceLabel) ?>" data-filter-value="<?= e($sourceLabel) ?>">
                             <?php if (!empty($slide['media_name'])): ?>
                                 <?= e($slide['media_name']) ?>
                             <?php elseif (!empty($slide['source_url'])): ?>
                                 <a href="<?= e($slide['source_url']) ?>" target="_blank"><?= e(__('slide.open_source')) ?></a>
                             <?php else: ?>
-                                —
+                                -
                             <?php endif; ?>
                         </td>
-                        <td><?= e((string)($slide['duration_seconds'] ?? __('common.default'))) ?></td>
-                        <td><?= e($slide['is_active'] ? __('common.active') : __('common.inactive')) ?></td>
+                        <td data-admin-cell="duration" data-sort-value="<?= e((string)$durationValue) ?>" data-filter-value="<?= e($durationLabel) ?>"><?= e($durationLabel) ?></td>
+                        <td data-admin-cell="status" data-sort-value="<?= e($statusLabel) ?>" data-filter-value="<?= e($statusValue) ?>"><?= e($statusLabel) ?></td>
                         <td class="actions">
                             <a class="button button--normal button--small" href="<?= e(url('/admin/slides/' . $slide['id'] . '/edit?return_to=' . rawurlencode('/admin/playlists/' . $channel['id'] . '/edit'))) ?>">
-                                <?= admin_icon('edit') ?><span><?= e(__('slide.edit_content')) ?></span>
+                                <?= admin_icon('edit') ?><span><?= e(__('common.edit')) ?></span>
                             </a>
-                            <form method="post" action="<?= e(url('/admin/playlists/' . $channel['id'] . '/slides/' . $slide['id'] . '/remove')) ?>" class="inline-form" data-confirm-submit data-confirm-title="<?= e(__('slide.remove_from_playlist')) ?>" data-confirm-message="<?= e(__('slide.remove_from_playlist_confirm', ['slide' => $slide['name'], 'playlist' => $channel['name']])) ?>" data-confirm-accept="<?= e(__('slide.remove_from_playlist')) ?>">
+                            <form method="post" action="<?= e(url('/admin/playlists/' . $channel['id'] . '/slides/' . $slide['id'] . '/remove')) ?>" class="inline-form" data-confirm-submit data-confirm-title="<?= e(__('common.remove')) ?>" data-confirm-message="<?= e(__('slide.remove_from_playlist_confirm', ['slide' => $slide['name'], 'playlist' => $channel['name']])) ?>" data-confirm-accept="<?= e(__('common.remove')) ?>">
                                 <?= csrf_field() ?>
                                 <input type="hidden" name="return_to" value="<?= e('/admin/playlists/' . $channel['id'] . '/edit') ?>">
                                 <button type="submit" class="button button--danger button--small">
-                                    <?= admin_icon('remove') ?><span><?= e(__('slide.remove_from_playlist')) ?></span>
+                                    <?= admin_icon('remove') ?><span><?= e(__('common.remove')) ?></span>
                                 </button>
                             </form>
                         </td>
@@ -187,21 +224,6 @@ require __DIR__ . '/../layouts/admin_header.php';
     </form>
 </dialog>
 
-<!-- Confirmation Dialog -->
-<dialog class="admin-dialog" data-confirm-dialog>
-    <form method="dialog" class="admin-dialog__panel">
-        <h2 data-confirm-dialog-title></h2>
-        <p class="muted" data-confirm-dialog-message></p>
-        <div class="form-actions">
-            <button type="button" class="button button--normal" data-confirm-cancel>
-                <?= admin_icon('cancel') ?><span><?= e(__('common.no')) ?></span>
-            </button>
-            <button type="button" class="button button--danger" data-confirm-accept>
-                <?= admin_icon('delete') ?><span><?= e(__('common.yes')) ?></span>
-            </button>
-        </div>
-    </form>
-</dialog>
 <?php endif; ?>
 
 <script>
@@ -293,48 +315,6 @@ require __DIR__ . '/../layouts/admin_header.php';
         button.addEventListener('click', () => pickerDialog.close());
     });
 
-    // Confirmation dialog functionality
-    const confirmDialog = document.querySelector('[data-confirm-dialog]');
-    let pendingConfirmForm = null;
-    if (confirmDialog && typeof confirmDialog.showModal === 'function') {
-        const title = confirmDialog.querySelector('[data-confirm-dialog-title]');
-        const message = confirmDialog.querySelector('[data-confirm-dialog-message]');
-        const accept = confirmDialog.querySelector('[data-confirm-accept]');
-        const acceptLabel = accept?.querySelector('span');
-        const cancelButtons = confirmDialog.querySelectorAll('[data-confirm-cancel]');
-
-        document.querySelectorAll('[data-confirm-submit]').forEach((form) => {
-            form.addEventListener('submit', (event) => {
-                if (form.dataset.confirmed === '1') return;
-                event.preventDefault();
-                pendingConfirmForm = form;
-                if (title) title.textContent = form.dataset.confirmTitle || '';
-                if (message) message.textContent = form.dataset.confirmMessage || '';
-                if (acceptLabel) acceptLabel.textContent = form.dataset.confirmAccept || <?= json_encode(__('common.yes'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
-                confirmDialog.showModal();
-            });
-        });
-
-        cancelButtons.forEach((button) => {
-            button.addEventListener('click', () => {
-                pendingConfirmForm = null;
-                confirmDialog.close();
-            });
-        });
-        accept?.addEventListener('click', () => {
-            if (!pendingConfirmForm) return;
-            pendingConfirmForm.dataset.confirmed = '1';
-            pendingConfirmForm.submit();
-        });
-    } else {
-        document.querySelectorAll('[data-confirm-submit]').forEach((form) => {
-            form.addEventListener('submit', (event) => {
-                if (!window.confirm(form.dataset.confirmMessage || '')) {
-                    event.preventDefault();
-                }
-            });
-        });
-    }
     <?php endif; ?>
 })();
 
@@ -464,6 +444,11 @@ require __DIR__ . '/../layouts/admin_header.php';
     document.addEventListener('click', (event) => {
         if (!list.contains(event.target)) closeHelpPopovers();
     });
+
+    const highlightedAssignment = document.querySelector('.assignment-row--highlight');
+    if (highlightedAssignment) {
+        window.setTimeout(() => highlightedAssignment.scrollIntoView({block: 'center', behavior: 'smooth'}), 80);
+    }
 })();
 </script>
 <?php require __DIR__ . '/../layouts/admin_footer.php'; ?>

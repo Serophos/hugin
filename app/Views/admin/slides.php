@@ -3,24 +3,17 @@ $title = __('slide.plural');
 $allSlides = $allSlides ?? [];
 $groups = $groups ?? [];
 $pluginLabels = $pluginLabels ?? [];
-$renderSourceCell = static function (array $slide, array $pluginLabels): void {
-    if (isset($pluginLabels[$slide['slide_type']])) {
-        echo e(__('slide.plugin_configuration'));
-        return;
-    }
-
-    if (!empty($slide['media_name'])) {
-        echo e($slide['media_name']);
-        return;
-    }
-
-    if (!empty($slide['source_url'])) {
-        ?><a href="<?= e($slide['source_url']) ?>" target="_blank"><?= e(__('slide.open_source')) ?></a><?php
-        return;
-    }
-
-    echo '—';
-};
+$slideTypeDefinitions = array_values($slideTypeDefinitions ?? []);
+$fallbackSlideType = [
+    'slide_type' => 'image',
+    'label' => enum_label('slide_types', 'image', 'image'),
+    'description' => __('slide.type_descriptions.image'),
+    'icon_url' => url('/assets/img/slides/slide_generic.png'),
+    'icon_fallback_url' => url('/assets/img/slides/slide_generic.png'),
+];
+$slideTypeDefinitions = $slideTypeDefinitions ?: [$fallbackSlideType];
+$firstSlideType = $slideTypeDefinitions[0] ?? $fallbackSlideType;
+$firstSlideTypeCreateUrl = url('/admin/slides/create?slide_type=' . rawurlencode((string)$firstSlideType['slide_type']) . '&return_to=' . rawurlencode('/admin/slides'));
 $sourceLabel = static function (array $slide, array $pluginLabels): string {
     if (isset($pluginLabels[$slide['slide_type']])) {
         return __('slide.plugin_configuration');
@@ -49,7 +42,7 @@ require __DIR__ . '/../layouts/admin_header.php';
 ?>
 <div class="page-head">
     <div><h1><?= e(__('slide.plural')) ?></h1><p class="muted"><?= e(__('slide.overview_hint')) ?></p></div>
-    <a class="button button--default" href="<?= e(url('/admin/slides/create')) ?>"><?= admin_icon('add') ?><span><?= e(__('slide.new')) ?></span></a>
+    <a class="button button--default" href="<?= e($firstSlideTypeCreateUrl) ?>" data-open-slide-type-dialog data-create-url="<?= e(url('/admin/slides/create')) ?>" data-return-to="/admin/slides" aria-haspopup="dialog"><?= admin_icon('add') ?><span><?= e(__('slide.new')) ?></span></a>
 </div>
 <?php if ($flash): ?><div class="alert success"><?= e($flash) ?></div><?php endif; ?>
 
@@ -164,48 +157,133 @@ require __DIR__ . '/../layouts/admin_header.php';
             <?php if ($allSlides === []): ?>
                 <p class="muted slide-group__empty"><?= e(__('slide.no_slides')) ?></p>
             <?php else: ?>
-                <table>
-                    <thead><tr><th><?= e(__('common.name')) ?></th><th><?= e(__('common.type')) ?></th><th><?= e(__('slide.assigned_channel_names')) ?></th><th><?= e(__('common.source')) ?></th><th><?= e(__('common.duration')) ?></th><th><?= e(__('common.status')) ?></th><th></th></tr></thead>
-                    <tbody>
-                    <?php foreach ($allSlides as $slide): ?>
-                        <tr>
-                            <td><?= e($slide['name']) ?></td>
-                            <td><?= e($pluginLabels[$slide['slide_type']] ?? enum_label('slide_types', $slide['slide_type'], $slide['slide_type'])) ?></td>
-                            <td><?= e($slide['channel_names'] ?: __('slide.no_channels')) ?></td>
-                            <td class="truncate"><?php $renderSourceCell($slide, $pluginLabels); ?></td>
-                            <td><?= e((string)($slide['duration_seconds'] ?? __('common.default'))) ?></td>
-                            <td><?= e($slide['is_active'] ? __('common.active') : __('common.inactive')) ?></td>
-                            <td class="actions">
-                                <a class="button button--normal button--small" href="<?= e(url('/admin/slides/' . $slide['id'] . '/edit')) ?>"><?= admin_icon('edit') ?><span><?= e(__('slide.edit_content')) ?></span></a>
-                                <form
-                                    method="post"
-                                    action="<?= e(url('/admin/slides/' . $slide['id'] . '/delete')) ?>"
-                                    class="inline-form"
-                                    data-confirm-submit
-                                    data-confirm-title="<?= e(__('slide.delete_everywhere')) ?>"
-                                    data-confirm-message="<?= e(__('slide.delete_everywhere_confirm', ['slide' => $slide['name'], 'count' => (int)($slide['channel_count'] ?? 0)])) ?>"
-                                    data-confirm-accept="<?= e(__('slide.delete_everywhere')) ?>"
-                                >
-                                    <?= csrf_field() ?>
-                                    <button type="submit" class="button button--danger button--small"><?= admin_icon('delete') ?><span><?= e(__('slide.delete_everywhere')) ?></span></button>
-                                </form>
-                            </td>
-                        </tr>
-                    <?php endforeach; ?>
-                    </tbody>
-                </table>
+                <div class="slide-library-toolbar">
+                    <span class="slide-library-toolbar__meta" data-slide-library-count data-template="<?= e(__('slide.library_filter_count', ['visible' => '__VISIBLE__', 'total' => '__TOTAL__'])) ?>" aria-live="polite"></span>
+                    <button type="button" class="button button--normal button--small" data-slide-library-reset hidden><?= e(__('slide.clear_filters')) ?></button>
+                </div>
+                <div class="table-scroll">
+                    <table class="slide-library-table" data-slide-library-table>
+                        <thead>
+                            <tr>
+                                <th aria-sort="none"><button type="button" class="slide-library-sort" data-sort-key="name" data-sort-type="text" aria-label="<?= e(__('slide.sort_by_column', ['column' => __('common.name')])) ?>"><?= e(__('common.name')) ?></button></th>
+                                <th aria-sort="none"><button type="button" class="slide-library-sort" data-sort-key="type" data-sort-type="text" aria-label="<?= e(__('slide.sort_by_column', ['column' => __('common.type')])) ?>"><?= e(__('common.type')) ?></button></th>
+                                <th aria-sort="none"><button type="button" class="slide-library-sort" data-sort-key="channels" data-sort-type="text" aria-label="<?= e(__('slide.sort_by_column', ['column' => __('slide.assigned_channel_names')])) ?>"><?= e(__('slide.assigned_channel_names')) ?></button></th>
+                                <th aria-sort="none"><button type="button" class="slide-library-sort" data-sort-key="duration" data-sort-type="number" aria-label="<?= e(__('slide.sort_by_column', ['column' => __('common.duration')])) ?>"><?= e(__('common.duration')) ?></button></th>
+                                <th aria-sort="none"><button type="button" class="slide-library-sort" data-sort-key="status" data-sort-type="text" aria-label="<?= e(__('slide.sort_by_column', ['column' => __('common.status')])) ?>"><?= e(__('common.status')) ?></button></th>
+                                <th><?= e(__('common.actions')) ?></th>
+                            </tr>
+                            <tr class="slide-library-filter-row">
+                                <th><input type="search" data-filter-key="name" aria-label="<?= e(__('slide.filter_column', ['column' => __('common.name')])) ?>" placeholder="<?= e(__('common.name')) ?>"></th>
+                                <th>
+                                    <select data-filter-key="type" aria-label="<?= e(__('slide.filter_column', ['column' => __('common.type')])) ?>">
+                                        <option value=""><?= e(__('slide.filter_all_types')) ?></option>
+                                        <?php foreach ($slideTypeOptions as $typeLabel): ?>
+                                            <option value="<?= e($typeLabel) ?>"><?= e($typeLabel) ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </th>
+                                <th><input type="search" data-filter-key="channels" aria-label="<?= e(__('slide.filter_column', ['column' => __('slide.assigned_channel_names')])) ?>" placeholder="<?= e(__('slide.assigned_channel_names')) ?>"></th>
+                                <th><input type="search" data-filter-key="duration" aria-label="<?= e(__('slide.filter_column', ['column' => __('common.duration')])) ?>" placeholder="<?= e(__('common.duration')) ?>"></th>
+                                <th>
+                                    <select data-filter-key="status" aria-label="<?= e(__('slide.filter_column', ['column' => __('common.status')])) ?>">
+                                        <option value=""><?= e(__('slide.filter_all_statuses')) ?></option>
+                                        <option value="active"><?= e(__('common.active')) ?></option>
+                                        <option value="inactive"><?= e(__('common.inactive')) ?></option>
+                                    </select>
+                                </th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        <?php foreach ($allSlides as $slide): ?>
+                            <?php
+                            $typeLabel = $pluginLabels[$slide['slide_type']] ?? enum_label('slide_types', (string)$slide['slide_type'], (string)$slide['slide_type']);
+                            $channelLabel = $slide['channel_names'] ?: __('slide.no_channels');
+                            $durationSort = $slide['duration_seconds'] ?? '';
+                            $durationLabel = (string)($slide['duration_seconds'] ?? __('common.default'));
+                            $statusValue = $slide['is_active'] ? 'active' : 'inactive';
+                            $statusLabel = $slide['is_active'] ? __('common.active') : __('common.inactive');
+                            ?>
+                            <tr data-slide-library-row>
+                                <td data-library-cell="name" data-sort-value="<?= e((string)$slide['name']) ?>" data-filter-value="<?= e((string)$slide['name']) ?>"><?= e($slide['name']) ?></td>
+                                <td data-library-cell="type" data-sort-value="<?= e($typeLabel) ?>" data-filter-value="<?= e($typeLabel) ?>"><?= e($typeLabel) ?></td>
+                                <td data-library-cell="channels" data-sort-value="<?= e($channelLabel) ?>" data-filter-value="<?= e($channelLabel) ?>"><?= e($channelLabel) ?></td>
+                                <td data-library-cell="duration" data-sort-value="<?= e((string)$durationSort) ?>" data-filter-value="<?= e($durationLabel) ?>"><?= e($durationLabel) ?></td>
+                                <td data-library-cell="status" data-sort-value="<?= e($statusLabel) ?>" data-filter-value="<?= e($statusValue) ?>"><?= e($statusLabel) ?></td>
+                                <td class="actions">
+                                    <a class="button button--normal button--small" href="<?= e(url('/admin/slides/' . $slide['id'] . '/edit')) ?>"><?= admin_icon('edit') ?><span><?= e(__('common.edit')) ?></span></a>
+                                    <form
+                                        method="post"
+                                        action="<?= e(url('/admin/slides/' . $slide['id'] . '/delete')) ?>"
+                                        class="inline-form"
+                                        data-confirm-submit
+                                        data-confirm-title="<?= e(__('common.delete')) ?>"
+                                        data-confirm-message="<?= e(__('slide.delete_everywhere_confirm', ['slide' => $slide['name'], 'count' => (int)($slide['channel_count'] ?? 0)])) ?>"
+                                        data-confirm-accept="<?= e(__('common.delete')) ?>"
+                                    >
+                                        <?= csrf_field() ?>
+                                        <button type="submit" class="button button--danger button--small"><?= admin_icon('delete') ?><span><?= e(__('common.delete')) ?></span></button>
+                                    </form>
+                                    <a class="button button--normal button--small" target="_blank" rel="noopener noreferrer" href="<?= e(url('/preview-slide/' . $slide['id'])) ?>"><?= admin_icon('preview') ?><span><?= e(__('common.preview')) ?></span></a>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+                <p class="muted slide-group__empty" data-slide-library-empty hidden><?= e(__('slide.library_filter_empty')) ?></p>
             <?php endif; ?>
         </div>
     </details>
 </section>
 
-<dialog class="admin-dialog" data-confirm-dialog>
-    <form method="dialog" class="admin-dialog__panel">
-        <h2 data-confirm-dialog-title></h2>
-        <p class="muted" data-confirm-dialog-message></p>
+<dialog class="admin-dialog slide-type-dialog" data-slide-type-dialog>
+    <form method="dialog" class="admin-dialog__panel slide-type-dialog__panel">
+        <div class="section-head">
+            <div>
+                <h2><?= e(__('slide.choose_type_title')) ?></h2>
+                <p class="muted"><?= e(__('slide.choose_type_hint')) ?></p>
+            </div>
+            <button type="button" class="button button--normal button--small" data-slide-type-close><?= admin_icon('cancel') ?><span><?= e(__('common.cancel')) ?></span></button>
+        </div>
+        <div class="slide-type-dialog__layout">
+            <div class="slide-type-grid" data-slide-type-options>
+                <?php foreach ($slideTypeDefinitions as $index => $slideType): ?>
+                    <?php
+                    $description = trim((string)($slideType['description'] ?? ''));
+                    if ($description === '') {
+                        $description = __('slide.type_description_unavailable');
+                    }
+                    ?>
+                    <button
+                        type="button"
+                        class="slide-type-card"
+                        data-slide-type-option
+                        data-slide-type="<?= e((string)$slideType['slide_type']) ?>"
+                        data-label="<?= e((string)$slideType['label']) ?>"
+                        data-description="<?= e($description) ?>"
+                        data-icon="<?= e((string)$slideType['icon_url']) ?>"
+                        data-fallback-icon="<?= e((string)$slideType['icon_fallback_url']) ?>"
+                        aria-pressed="<?= $index === 0 ? 'true' : 'false' ?>"
+                    >
+                        <span class="slide-type-card__icon">
+                            <img src="<?= e((string)$slideType['icon_url']) ?>" data-fallback-icon="<?= e((string)$slideType['icon_fallback_url']) ?>" alt="">
+                        </span>
+                        <span class="slide-type-card__name"><?= e((string)$slideType['label']) ?></span>
+                    </button>
+                <?php endforeach; ?>
+            </div>
+            <aside class="slide-type-detail" data-slide-type-detail>
+                <img class="slide-type-detail__icon" src="<?= e((string)$firstSlideType['icon_url']) ?>" data-slide-type-detail-icon data-fallback-icon="<?= e((string)$firstSlideType['icon_fallback_url']) ?>" alt="">
+                <div>
+                    <h3 data-slide-type-detail-title><?= e((string)$firstSlideType['label']) ?></h3>
+                    <p class="muted" data-slide-type-detail-description><?= e((string)(($firstSlideType['description'] ?? '') ?: __('slide.type_description_unavailable'))) ?></p>
+                </div>
+            </aside>
+        </div>
         <div class="form-actions">
-            <button type="button" class="button button--normal" data-confirm-cancel><?= admin_icon('cancel') ?><span><?= e(__('common.no')) ?></span></button>
-            <button type="button" class="button button--danger" data-confirm-accept><?= admin_icon('delete') ?><span><?= e(__('common.yes')) ?></span></button>
+            <button type="button" class="button button--normal" data-slide-type-close><?= admin_icon('cancel') ?><span><?= e(__('common.cancel')) ?></span></button>
+            <a class="button button--default" href="<?= e($firstSlideTypeCreateUrl) ?>" data-slide-type-continue><?= admin_icon('add') ?><span><?= e(__('slide.create_selected_type')) ?></span></a>
         </div>
     </form>
 </dialog>
@@ -237,45 +315,73 @@ require __DIR__ . '/../layouts/admin_header.php';
 (() => {
     const slideLibrary = <?= json_encode($slidePickerItems, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
 
-    const confirmDialog = document.querySelector('[data-confirm-dialog]');
-    let pendingConfirmForm = null;
-    if (confirmDialog && typeof confirmDialog.showModal === 'function') {
-        const title = confirmDialog.querySelector('[data-confirm-dialog-title]');
-        const message = confirmDialog.querySelector('[data-confirm-dialog-message]');
-        const accept = confirmDialog.querySelector('[data-confirm-accept]');
-        const acceptLabel = accept?.querySelector('span');
-        const cancelButtons = confirmDialog.querySelectorAll('[data-confirm-cancel]');
+    const slideTypeDialog = document.querySelector('[data-slide-type-dialog]');
+    const openSlideTypeDialog = document.querySelector('[data-open-slide-type-dialog]');
+    if (slideTypeDialog && openSlideTypeDialog && typeof slideTypeDialog.showModal === 'function') {
+        const slideTypeOptions = Array.from(slideTypeDialog.querySelectorAll('[data-slide-type-option]'));
+        const detailIcon = slideTypeDialog.querySelector('[data-slide-type-detail-icon]');
+        const detailTitle = slideTypeDialog.querySelector('[data-slide-type-detail-title]');
+        const detailDescription = slideTypeDialog.querySelector('[data-slide-type-detail-description]');
+        const continueLink = slideTypeDialog.querySelector('[data-slide-type-continue]');
+        const fallbackDescription = <?= json_encode(__('slide.type_description_unavailable'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
+        let selectedSlideTypeOption = slideTypeOptions.find((option) => option.getAttribute('aria-pressed') === 'true') || slideTypeOptions[0] || null;
 
-        document.querySelectorAll('[data-confirm-submit]').forEach((form) => {
-            form.addEventListener('submit', (event) => {
-                if (form.dataset.confirmed === '1') return;
-                event.preventDefault();
-                pendingConfirmForm = form;
-                if (title) title.textContent = form.dataset.confirmTitle || '';
-                if (message) message.textContent = form.dataset.confirmMessage || '';
-                if (acceptLabel) acceptLabel.textContent = form.dataset.confirmAccept || <?= json_encode(__('common.yes'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
-                confirmDialog.showModal();
-            });
-        });
+        function buildSlideTypeUrl(slideType) {
+            const target = new URL(openSlideTypeDialog.dataset.createUrl || openSlideTypeDialog.href, window.location.href);
+            target.searchParams.set('slide_type', slideType);
+            target.searchParams.set('return_to', openSlideTypeDialog.dataset.returnTo || '/admin/slides');
+            return target.toString();
+        }
 
-        cancelButtons.forEach((button) => {
-            button.addEventListener('click', () => {
-                pendingConfirmForm = null;
-                confirmDialog.close();
+        function useFallbackIcon(event) {
+            const image = event.currentTarget;
+            if (image.dataset.fallbackApplied === '1' || !image.dataset.fallbackIcon) return;
+            image.dataset.fallbackApplied = '1';
+            image.src = image.dataset.fallbackIcon;
+        }
+
+        function selectSlideType(option) {
+            if (!option) return;
+            selectedSlideTypeOption = option;
+            slideTypeOptions.forEach((item) => {
+                item.setAttribute('aria-pressed', item === option ? 'true' : 'false');
+            });
+
+            const label = option.dataset.label || option.textContent.trim();
+            const description = option.dataset.description || fallbackDescription;
+            const icon = option.dataset.icon || option.dataset.fallbackIcon || '';
+            const fallbackIcon = option.dataset.fallbackIcon || '';
+
+            if (detailTitle) detailTitle.textContent = label;
+            if (detailDescription) detailDescription.textContent = description;
+            if (detailIcon && icon) {
+                delete detailIcon.dataset.fallbackApplied;
+                detailIcon.dataset.fallbackIcon = fallbackIcon;
+                detailIcon.src = icon;
+            }
+            if (continueLink) {
+                continueLink.href = buildSlideTypeUrl(option.dataset.slideType || 'image');
+            }
+        }
+
+        slideTypeDialog.querySelectorAll('img[data-fallback-icon]').forEach((image) => {
+            image.addEventListener('error', useFallbackIcon);
+        });
+        slideTypeOptions.forEach((option) => {
+            option.addEventListener('click', () => selectSlideType(option));
+            option.addEventListener('dblclick', () => {
+                selectSlideType(option);
+                if (continueLink) window.location.href = continueLink.href;
             });
         });
-        accept?.addEventListener('click', () => {
-            if (!pendingConfirmForm) return;
-            pendingConfirmForm.dataset.confirmed = '1';
-            pendingConfirmForm.submit();
+        openSlideTypeDialog.addEventListener('click', (event) => {
+            event.preventDefault();
+            selectSlideType(selectedSlideTypeOption);
+            slideTypeDialog.showModal();
+            selectedSlideTypeOption?.focus();
         });
-    } else {
-        document.querySelectorAll('[data-confirm-submit]').forEach((form) => {
-            form.addEventListener('submit', (event) => {
-                if (!window.confirm(form.dataset.confirmMessage || '')) {
-                    event.preventDefault();
-                }
-            });
+        slideTypeDialog.querySelectorAll('[data-slide-type-close]').forEach((button) => {
+            button.addEventListener('click', () => slideTypeDialog.close());
         });
     }
 

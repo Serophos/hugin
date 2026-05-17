@@ -273,7 +273,7 @@ require __DIR__ . '/../layouts/admin_header.php';
             <button type="submit" name="save_action" value="save_and_close" class="button button--default"><?= admin_icon('save') ?><span><?= e(__('slide.save_and_close')) ?></span></button>
             <button type="submit" name="save_action" value="save" class="button button--normal"><?= admin_icon('save') ?><span><?= e(__('common.save')) ?></span></button>
             <?php if ($slide && isset($slide['id'])): ?>
-                <a class="button button--normal" target="_blank" rel="noopener noreferrer" href="<?= e(url('/preview-slide/' . $slide['id'])) ?>"><?= admin_icon('open') ?><span><?= e(__('common.preview')) ?></span></a>
+                <a class="button button--normal" target="_blank" rel="noopener noreferrer" href="<?= e(url('/preview-slide/' . $slide['id'])) ?>"><?= admin_icon('preview') ?><span><?= e(__('common.preview')) ?></span></a>
             <?php endif; ?>
             <a class="button button--normal" href="<?= e(url($returnToPath)) ?>"><?= admin_icon('cancel') ?><span><?= e(__('common.cancel')) ?></span></a>
         </div>

@@ -28,24 +28,30 @@ require __DIR__ . '/../layouts/admin_header.php';
                 <p class="muted"><?= e(__('locations.none')) ?></p>
             <?php else: ?>
                 <div class="table-scroll">
-                    <table>
+                    <table class="admin-table" data-admin-table>
                         <thead>
                         <tr>
-                            <th><?= e(__('common.name')) ?></th>
-                            <th><?= e(__('display_groups.plural')) ?></th>
-                            <th><?= e(__('display.plural')) ?></th>
+                            <th aria-sort="none"><button type="button" class="slide-library-sort" data-admin-sort="name" data-sort-type="text" aria-label="<?= e(__('slide.sort_by_column', ['column' => __('common.name')])) ?>"><?= e(__('common.name')) ?></button></th>
+                            <th aria-sort="none"><button type="button" class="slide-library-sort" data-admin-sort="groups" data-sort-type="number" aria-label="<?= e(__('slide.sort_by_column', ['column' => __('display_groups.plural')])) ?>"><?= e(__('display_groups.plural')) ?></button></th>
+                            <th aria-sort="none"><button type="button" class="slide-library-sort" data-admin-sort="displays" data-sort-type="number" aria-label="<?= e(__('slide.sort_by_column', ['column' => __('display.plural')])) ?>"><?= e(__('display.plural')) ?></button></th>
                             <th><?= e(__('common.actions')) ?></th>
+                        </tr>
+                        <tr class="slide-library-filter-row">
+                            <th><input type="search" data-admin-filter="name" aria-label="<?= e(__('slide.filter_column', ['column' => __('common.name')])) ?>" placeholder="<?= e(__('common.name')) ?>"></th>
+                            <th><input type="search" data-admin-filter="groups" aria-label="<?= e(__('slide.filter_column', ['column' => __('display_groups.plural')])) ?>" placeholder="<?= e(__('display_groups.plural')) ?>"></th>
+                            <th><input type="search" data-admin-filter="displays" aria-label="<?= e(__('slide.filter_column', ['column' => __('display.plural')])) ?>" placeholder="<?= e(__('display.plural')) ?>"></th>
+                            <th></th>
                         </tr>
                         </thead>
                         <tbody>
                         <?php foreach ($locations as $location): ?>
-                            <tr>
-                                <td><strong><?= e($location['name']) ?></strong></td>
-                                <td><?= e((string)$location['group_count']) ?></td>
-                                <td><?= e((string)$location['display_count']) ?></td>
+                            <tr data-admin-row>
+                                <td data-admin-cell="name" data-sort-value="<?= e((string)$location['name']) ?>" data-filter-value="<?= e((string)$location['name']) ?>"><strong><?= e($location['name']) ?></strong></td>
+                                <td data-admin-cell="groups" data-sort-value="<?= e((string)$location['group_count']) ?>" data-filter-value="<?= e((string)$location['group_count']) ?>"><?= e((string)$location['group_count']) ?></td>
+                                <td data-admin-cell="displays" data-sort-value="<?= e((string)$location['display_count']) ?>" data-filter-value="<?= e((string)$location['display_count']) ?>"><?= e((string)$location['display_count']) ?></td>
                                 <td class="actions">
                                     <a class="button button--normal button--small" href="<?= e(url('/admin/locations/' . $location['id'] . '/edit')) ?>"><?= admin_icon('edit') ?><span><?= e(__('common.edit')) ?></span></a>
-                                    <form method="post" action="<?= e(url('/admin/locations/' . $location['id'] . '/delete')) ?>" class="inline-form" onsubmit="return confirm(<?= e(json_encode(__('locations.delete_confirm'))) ?>);">
+                                    <form method="post" action="<?= e(url('/admin/locations/' . $location['id'] . '/delete')) ?>" class="inline-form" data-confirm-submit data-confirm-title="<?= e(__('common.delete')) ?>" data-confirm-message="<?= e(__('locations.delete_confirm')) ?>" data-confirm-accept="<?= e(__('common.delete')) ?>">
                                         <?= csrf_field() ?>
                                         <button type="submit" class="button button--danger button--small"><?= admin_icon('delete') ?><span><?= e(__('common.delete')) ?></span></button>
                                     </form>

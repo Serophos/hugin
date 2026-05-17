@@ -11,39 +11,61 @@
 </div>
 <?php if ($flash): ?><div class="alert success"><?= e($flash) ?></div><?php endif; ?>
 <div class="card">
-    <table>
+    <table class="admin-table admin-table--displays" data-admin-table>
         <thead>
         <tr>
             <th class="handle-col"></th>
-            <th><?= e(__('common.name')) ?></th>
-            <th><?= e(__('display.url_label')) ?></th>
-            <th><?= e(__('locations.singular')) ?></th>
-            <th><?= e(__('display_groups.singular')) ?></th>
-            <th><?= e(__('common.effect')) ?></th>
-            <th><?= e(__('display.channels_count')) ?></th>
-            <th><?= e(__('common.status')) ?></th>
+            <th aria-sort="none"><button type="button" class="slide-library-sort" data-admin-sort="name" data-sort-type="text" aria-label="<?= e(__('slide.sort_by_column', ['column' => __('common.name')])) ?>"><?= e(__('common.name')) ?></button></th>
+            <th aria-sort="none"><button type="button" class="slide-library-sort" data-admin-sort="url" data-sort-type="text" aria-label="<?= e(__('slide.sort_by_column', ['column' => __('display.url_label')])) ?>"><?= e(__('display.url_label')) ?></button></th>
+            <th aria-sort="none"><button type="button" class="slide-library-sort" data-admin-sort="location" data-sort-type="text" aria-label="<?= e(__('slide.sort_by_column', ['column' => __('locations.singular')])) ?>"><?= e(__('locations.singular')) ?></button></th>
+            <th aria-sort="none"><button type="button" class="slide-library-sort" data-admin-sort="group" data-sort-type="text" aria-label="<?= e(__('slide.sort_by_column', ['column' => __('display_groups.singular')])) ?>"><?= e(__('display_groups.singular')) ?></button></th>
+            <th aria-sort="none"><button type="button" class="slide-library-sort" data-admin-sort="channels" data-sort-type="number" aria-label="<?= e(__('slide.sort_by_column', ['column' => __('display.channels_count')])) ?>"><?= e(__('display.channels_count')) ?></button></th>
+            <th aria-sort="none"><button type="button" class="slide-library-sort" data-admin-sort="status" data-sort-type="text" aria-label="<?= e(__('slide.sort_by_column', ['column' => __('common.status')])) ?>"><?= e(__('common.status')) ?></button></th>
+            <th><?= e(__('common.actions')) ?></th>
+        </tr>
+        <tr class="slide-library-filter-row">
+            <th></th>
+            <th><input type="search" data-admin-filter="name" aria-label="<?= e(__('slide.filter_column', ['column' => __('common.name')])) ?>" placeholder="<?= e(__('common.name')) ?>"></th>
+            <th><input type="search" data-admin-filter="url" aria-label="<?= e(__('slide.filter_column', ['column' => __('display.url_label')])) ?>" placeholder="<?= e(__('display.url_label')) ?>"></th>
+            <th><input type="search" data-admin-filter="location" aria-label="<?= e(__('slide.filter_column', ['column' => __('locations.singular')])) ?>" placeholder="<?= e(__('locations.singular')) ?>"></th>
+            <th><input type="search" data-admin-filter="group" aria-label="<?= e(__('slide.filter_column', ['column' => __('display_groups.singular')])) ?>" placeholder="<?= e(__('display_groups.singular')) ?>"></th>
+            <th><input type="search" data-admin-filter="channels" aria-label="<?= e(__('slide.filter_column', ['column' => __('display.channels_count')])) ?>" placeholder="<?= e(__('display.channels_count')) ?>"></th>
+            <th>
+                <select data-admin-filter="status" aria-label="<?= e(__('slide.filter_column', ['column' => __('common.status')])) ?>">
+                    <option value=""><?= e(__('slide.filter_all_statuses')) ?></option>
+                    <option value="active"><?= e(__('common.active')) ?></option>
+                    <option value="inactive"><?= e(__('common.inactive')) ?></option>
+                </select>
+            </th>
             <th></th>
         </tr>
         </thead>
         <tbody class="sortable-list" data-sort-endpoint="<?= e(url('/admin/sort/displays')) ?>">
         <?php foreach ($displays as $display): ?>
-            <tr draggable="true" data-id="<?= e((string)$display['id']) ?>">
+            <?php
+            $displayUrl = '/display/' . $display['slug'];
+            $locationLabel = $display['location_name'] ?: __('locations.unassigned');
+            $groupLabel = $display['group_name'] ?: __('locations.unassigned');
+            $statusValue = $display['is_active'] ? 'active' : 'inactive';
+            $statusLabel = $display['is_active'] ? __('common.active') : __('common.inactive');
+            ?>
+            <tr draggable="true" data-id="<?= e((string)$display['id']) ?>" data-admin-row>
                 <td class="handle">↕</td>
-                <td><?= e($display['name']) ?></td>
-                <td><a href="<?= e(url('/display/' . $display['slug'])) ?>" target="_blank"><?= e('/display/' . $display['slug']) ?></a></td>
-                <td><?= e($display['location_name'] ?: __('locations.unassigned')) ?></td>
-                <td><?= e($display['group_name'] ?: __('locations.unassigned')) ?></td>
-                <td><?= e(enum_label('effects', $display['transition_effect'], $display['transition_effect'])) ?> · <?= e((string)$display['slide_duration_seconds']) ?>s</td>
-                <td><?= e((string)$display['channel_count']) ?></td>
-                <td><?= e($display['is_active'] ? __('common.active') : __('common.inactive')) ?></td>
+                <td data-admin-cell="name" data-sort-value="<?= e((string)$display['name']) ?>" data-filter-value="<?= e((string)$display['name']) ?>"><?= e($display['name']) ?></td>
+                <td data-admin-cell="url" data-sort-value="<?= e($displayUrl) ?>" data-filter-value="<?= e($displayUrl) ?>"><a href="<?= e(url($displayUrl)) ?>" target="_blank"><?= e($displayUrl) ?></a></td>
+                <td data-admin-cell="location" data-sort-value="<?= e($locationLabel) ?>" data-filter-value="<?= e($locationLabel) ?>"><?= e($locationLabel) ?></td>
+                <td data-admin-cell="group" data-sort-value="<?= e($groupLabel) ?>" data-filter-value="<?= e($groupLabel) ?>"><?= e($groupLabel) ?></td>
+                <td data-admin-cell="channels" data-sort-value="<?= e((string)$display['channel_count']) ?>" data-filter-value="<?= e((string)$display['channel_count']) ?>"><?= e((string)$display['channel_count']) ?></td>
+                <td data-admin-cell="status" data-sort-value="<?= e($statusLabel) ?>" data-filter-value="<?= e($statusValue) ?>"><?= e($statusLabel) ?></td>
                 <td class="actions">
+                    <a class="button button--normal button--small" href="<?= e(url($displayUrl)) ?>" target="_blank" rel="noopener noreferrer"><?= admin_icon('preview') ?><span><?= e(__('common.preview')) ?></span></a>
                     <a class="button button--normal button--small" href="<?= e(url('/admin/displays/' . $display['id'] . '/edit')) ?>"><?= admin_icon('edit') ?><span><?= e(__('common.edit')) ?></span></a>
                     <form method="post" action="<?= e(url('/admin/displays/' . $display['id'] . '/reload')) ?>" class="inline-form">
                         <?= csrf_field() ?>
                         <input type="hidden" name="return_to" value="/admin/displays">
                         <button type="submit" class="button button--normal button--small"><?= admin_icon('reload') ?><span><?= e(__('display.reload_slideshow')) ?></span></button>
                     </form>
-                    <form method="post" action="<?= e(url('/admin/displays/' . $display['id'] . '/delete')) ?>" class="inline-form" onsubmit="return confirm(<?= json_encode(__('display.delete_confirm', [], 'Delete display?')) ?>);">
+                    <form method="post" action="<?= e(url('/admin/displays/' . $display['id'] . '/delete')) ?>" class="inline-form" data-confirm-submit data-confirm-title="<?= e(__('common.delete')) ?>" data-confirm-message="<?= e(__('display.delete_confirm', [], 'Delete display?')) ?>" data-confirm-accept="<?= e(__('common.delete')) ?>">
                         <?= csrf_field() ?>
                         <button type="submit" class="button button--danger button--small"><?= admin_icon('delete') ?><span><?= e(__('common.delete')) ?></span></button>
                     </form>

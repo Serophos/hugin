@@ -21,23 +21,52 @@ require __DIR__ . '/../layouts/admin_header.php';
 <?php if ($flash): ?><div class="alert success"><?= e($flash) ?></div><?php endif; ?>
 <?php if ($error): ?><div class="alert error"><?= e($error) ?></div><?php endif; ?>
 <div class="card">
-    <table class="schedule-table">
-        <thead><tr><th><?= e(__('common.name')) ?></th><th><?= e(__('common.type')) ?></th><th class="schedule-rules-col"><?= e(__('schedule.rules')) ?></th><th><?= e(__('schedule.assignment_count')) ?></th><th><?= e(__('common.status')) ?></th><th class="schedule-actions-col"></th></tr></thead>
+    <table class="admin-table schedule-table" data-admin-table>
+        <thead>
+        <tr>
+            <th aria-sort="none"><button type="button" class="slide-library-sort" data-admin-sort="name" data-sort-type="text" aria-label="<?= e(__('slide.sort_by_column', ['column' => __('common.name')])) ?>"><?= e(__('common.name')) ?></button></th>
+            <th aria-sort="none"><button type="button" class="slide-library-sort" data-admin-sort="type" data-sort-type="text" aria-label="<?= e(__('slide.sort_by_column', ['column' => __('common.type')])) ?>"><?= e(__('common.type')) ?></button></th>
+            <th class="schedule-rules-col" aria-sort="none"><button type="button" class="slide-library-sort" data-admin-sort="rules" data-sort-type="text" aria-label="<?= e(__('slide.sort_by_column', ['column' => __('schedule.rules')])) ?>"><?= e(__('schedule.rules')) ?></button></th>
+            <th aria-sort="none"><button type="button" class="slide-library-sort" data-admin-sort="assignments" data-sort-type="number" aria-label="<?= e(__('slide.sort_by_column', ['column' => __('schedule.assignment_count')])) ?>"><?= e(__('schedule.assignment_count')) ?></button></th>
+            <th aria-sort="none"><button type="button" class="slide-library-sort" data-admin-sort="status" data-sort-type="text" aria-label="<?= e(__('slide.sort_by_column', ['column' => __('common.status')])) ?>"><?= e(__('common.status')) ?></button></th>
+            <th class="schedule-actions-col"><?= e(__('common.actions')) ?></th>
+        </tr>
+        <tr class="slide-library-filter-row">
+            <th><input type="search" data-admin-filter="name" aria-label="<?= e(__('slide.filter_column', ['column' => __('common.name')])) ?>" placeholder="<?= e(__('common.name')) ?>"></th>
+            <th><input type="search" data-admin-filter="type" aria-label="<?= e(__('slide.filter_column', ['column' => __('common.type')])) ?>" placeholder="<?= e(__('common.type')) ?>"></th>
+            <th><input type="search" data-admin-filter="rules" aria-label="<?= e(__('slide.filter_column', ['column' => __('schedule.rules')])) ?>" placeholder="<?= e(__('schedule.rules')) ?>"></th>
+            <th><input type="search" data-admin-filter="assignments" aria-label="<?= e(__('slide.filter_column', ['column' => __('schedule.assignment_count')])) ?>" placeholder="<?= e(__('schedule.assignment_count')) ?>"></th>
+            <th>
+                <select data-admin-filter="status" aria-label="<?= e(__('slide.filter_column', ['column' => __('common.status')])) ?>">
+                    <option value=""><?= e(__('slide.filter_all_statuses')) ?></option>
+                    <option value="active"><?= e(__('common.active')) ?></option>
+                    <option value="inactive"><?= e(__('common.inactive')) ?></option>
+                </select>
+            </th>
+            <th></th>
+        </tr>
+        </thead>
         <tbody>
         <?php foreach ($schedules as $schedule): ?>
-            <?php $summary = $ruleSummary($rulesBySchedule[(int)$schedule['id']] ?? []); ?>
-            <tr>
-                <td><strong><?= e($schedule['name']) ?></strong><?php if (!empty($schedule['is_system'])): ?><br><span class="muted small"><?= e(__('schedule.system_label')) ?></span><?php endif; ?></td>
-                <td><?= e(__($schedule['type'] === 'fulltime' ? 'schedule.type_fulltime' : 'schedule.type_weekly')) ?></td>
-                <td class="schedule-rules-cell" title="<?= e($summary) ?>"><?= e($summary) ?></td>
-                <td><?= e((string)$schedule['assignment_count']) ?></td>
-                <td><?= e($schedule['is_active'] ? __('common.active') : __('common.inactive')) ?></td>
+            <?php
+            $summary = $ruleSummary($rulesBySchedule[(int)$schedule['id']] ?? []);
+            $typeLabel = __($schedule['type'] === 'fulltime' ? 'schedule.type_fulltime' : 'schedule.type_weekly');
+            $statusValue = $schedule['is_active'] ? 'active' : 'inactive';
+            $statusLabel = $schedule['is_active'] ? __('common.active') : __('common.inactive');
+            $nameFilter = trim((string)$schedule['name'] . ' ' . (!empty($schedule['is_system']) ? __('schedule.system_label') : ''));
+            ?>
+            <tr data-admin-row>
+                <td data-admin-cell="name" data-sort-value="<?= e((string)$schedule['name']) ?>" data-filter-value="<?= e($nameFilter) ?>"><strong><?= e($schedule['name']) ?></strong><?php if (!empty($schedule['is_system'])): ?><br><span class="muted small"><?= e(__('schedule.system_label')) ?></span><?php endif; ?></td>
+                <td data-admin-cell="type" data-sort-value="<?= e($typeLabel) ?>" data-filter-value="<?= e($typeLabel) ?>"><?= e($typeLabel) ?></td>
+                <td class="schedule-rules-cell" data-admin-cell="rules" data-sort-value="<?= e($summary) ?>" data-filter-value="<?= e($summary) ?>" title="<?= e($summary) ?>"><?= e($summary) ?></td>
+                <td data-admin-cell="assignments" data-sort-value="<?= e((string)$schedule['assignment_count']) ?>" data-filter-value="<?= e((string)$schedule['assignment_count']) ?>"><?= e((string)$schedule['assignment_count']) ?></td>
+                <td data-admin-cell="status" data-sort-value="<?= e($statusLabel) ?>" data-filter-value="<?= e($statusValue) ?>"><?= e($statusLabel) ?></td>
                 <td class="actions">
                     <?php if (empty($schedule['is_system'])): ?>
                         <a class="button button--normal button--small" href="<?= e(url('/admin/schedules/' . $schedule['id'] . '/edit')) ?>"><?= admin_icon('edit') ?><span><?= e(__('common.edit')) ?></span></a>
-                        <form method="post" action="<?= e(url('/admin/schedules/' . $schedule['id'] . '/delete')) ?>" class="inline-form" onsubmit="return confirm(<?= json_encode(__('schedule.delete_confirm')) ?>);">
+                        <form method="post" action="<?= e(url('/admin/schedules/' . $schedule['id'] . '/delete')) ?>" class="inline-form" data-confirm-submit data-confirm-title="<?= e(__('common.delete')) ?>" data-confirm-message="<?= e(__('schedule.delete_confirm')) ?>" data-confirm-accept="<?= e(__('common.delete')) ?>">
                             <?= csrf_field() ?>
-                            <button type="submit" class="button button--danger button--small button--icon-only" title="<?= e(__('common.delete')) ?>" aria-label="<?= e(__('common.delete')) ?>"><?= admin_icon('delete') ?></button>
+                            <button type="submit" class="button button--danger button--small"><?= admin_icon('delete') ?><span><?= e(__('common.delete')) ?></span></button>
                         </form>
                     <?php else: ?>
                         <span class="muted small"><?= e(__('schedule.protected_label')) ?></span>

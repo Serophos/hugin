@@ -44,12 +44,12 @@ abstract class AbstractSlidePlugin implements SlidePluginInterface
 
     public function getDisplayName(): string
     {
-        return $this->t('meta.display_name', (string)($this->manifest['display_name'] ?? $this->manifest['name']));
+        return $this->localizedManifestValue('display_name', (string)($this->manifest['name'] ?? ''));
     }
 
     public function getDescription(): string
     {
-        return $this->t('meta.description', (string)($this->manifest['description'] ?? ''));
+        return $this->localizedManifestValue('description', '');
     }
 
     public function getDefaultSettings(): array
@@ -98,5 +98,68 @@ abstract class AbstractSlidePlugin implements SlidePluginInterface
     protected function t(string $key, string $default = ''): string
     {
         return __('plugins.' . $this->getName() . '.' . ltrim($key, '.'), [], $default);
+    }
+
+    protected function localizedManifestValue(string $key, string $default = ''): string
+    {
+        $value = $this->manifest[$key] ?? null;
+        if (is_scalar($value)) {
+            $text = trim((string)$value);
+            return $text !== '' ? $text : $default;
+        }
+
+        if (!is_array($value)) {
+            return $default;
+        }
+
+        foreach ($this->localeCandidates() as $locale) {
+            if (array_key_exists($locale, $value) && is_scalar($value[$locale])) {
+                $text = trim((string)$value[$locale]);
+                if ($text !== '') {
+                    return $text;
+                }
+            }
+        }
+
+        foreach ($value as $text) {
+            if (is_scalar($text) && trim((string)$text) !== '') {
+                return trim((string)$text);
+            }
+        }
+
+        return $default;
+    }
+
+    private function localeCandidates(): array
+    {
+        $locales = [];
+        $i18n = $GLOBALS['i18n'] ?? null;
+        if ($i18n && method_exists($i18n, 'getLocale')) {
+            $locales[] = (string)$i18n->getLocale();
+        } else {
+            $locales[] = current_locale();
+        }
+        if ($i18n && method_exists($i18n, 'getFallbackLocale')) {
+            $locales[] = (string)$i18n->getFallbackLocale();
+        }
+        $locales[] = 'en';
+        $locales[] = 'default';
+
+        $candidates = [];
+        foreach ($locales as $locale) {
+            $locale = trim($locale);
+            if ($locale === '') {
+                continue;
+            }
+            foreach ([$locale, str_replace('-', '_', $locale), str_replace('_', '-', $locale)] as $candidate) {
+                $candidates[] = $candidate;
+                $base = preg_split('/[-_]/', $candidate)[0] ?? '';
+                if ($base !== '') {
+                    $candidates[] = $base;
+                }
+            }
+        }
+
+        return array_values(array_unique($candidates));
     }
 }

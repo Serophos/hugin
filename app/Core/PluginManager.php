@@ -181,6 +181,12 @@ class PluginManager
             ];
         }
 
+        usort(
+            $items,
+            static fn (array $a, array $b): int => strcasecmp((string)$a['display_name'], (string)$b['display_name'])
+                ?: strcasecmp((string)$a['plugin_name'], (string)$b['plugin_name'])
+        );
+
         return $items;
     }
 

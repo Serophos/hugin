@@ -12,6 +12,16 @@ $config['paths'] = [
 
 $GLOBALS['app_config'] = $config;
 
+$manifestFile = __DIR__ . '/../manifest.json';
+$manifest = [];
+if (is_file($manifestFile)) {
+    $decodedManifest = json_decode((string)file_get_contents($manifestFile), true);
+    if (is_array($decodedManifest)) {
+        $manifest = $decodedManifest;
+    }
+}
+$GLOBALS['app_manifest'] = $manifest;
+
 if (session_status() === PHP_SESSION_NONE) {
     session_name($config['app']['session_name'] ?? 'info_display_session');
     session_start();

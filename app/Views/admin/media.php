@@ -61,15 +61,24 @@ $nextPageUrl = $baseMediaUrl . ($kind !== '' ? '?kind=' . rawurlencode($kind) . 
 
 <div class="card">
     <div class="table-scroll">
-        <table class="media-table">
+        <table class="admin-table media-table" data-admin-table>
             <thead>
             <tr>
                 <th><?= e(__('common.preview')) ?></th>
-                <th><?= e(__('common.name')) ?></th>
-                <th><?= e(__('common.type')) ?></th>
-                <th><?= e(__('common.size', [], 'Size')) ?></th>
-                <th><?= e(__('media.used_by_slides')) ?></th>
-                <th><?= e(__('media.uploaded_by')) ?></th>
+                <th aria-sort="none"><button type="button" class="slide-library-sort" data-admin-sort="name" data-sort-type="text" aria-label="<?= e(__('slide.sort_by_column', ['column' => __('common.name')])) ?>"><?= e(__('common.name')) ?></button></th>
+                <th aria-sort="none"><button type="button" class="slide-library-sort" data-admin-sort="type" data-sort-type="text" aria-label="<?= e(__('slide.sort_by_column', ['column' => __('common.type')])) ?>"><?= e(__('common.type')) ?></button></th>
+                <th aria-sort="none"><button type="button" class="slide-library-sort" data-admin-sort="size" data-sort-type="number" aria-label="<?= e(__('slide.sort_by_column', ['column' => __('common.size', [], 'Size')])) ?>"><?= e(__('common.size', [], 'Size')) ?></button></th>
+                <th aria-sort="none"><button type="button" class="slide-library-sort" data-admin-sort="usage" data-sort-type="number" aria-label="<?= e(__('slide.sort_by_column', ['column' => __('media.used_by_slides')])) ?>"><?= e(__('media.used_by_slides')) ?></button></th>
+                <th aria-sort="none"><button type="button" class="slide-library-sort" data-admin-sort="uploaded_by" data-sort-type="text" aria-label="<?= e(__('slide.sort_by_column', ['column' => __('media.uploaded_by')])) ?>"><?= e(__('media.uploaded_by')) ?></button></th>
+                <th><?= e(__('common.actions')) ?></th>
+            </tr>
+            <tr class="slide-library-filter-row">
+                <th></th>
+                <th><input type="search" data-admin-filter="name" aria-label="<?= e(__('slide.filter_column', ['column' => __('common.name')])) ?>" placeholder="<?= e(__('common.name')) ?>"></th>
+                <th><input type="search" data-admin-filter="type" aria-label="<?= e(__('slide.filter_column', ['column' => __('common.type')])) ?>" placeholder="<?= e(__('common.type')) ?>"></th>
+                <th><input type="search" data-admin-filter="size" aria-label="<?= e(__('slide.filter_column', ['column' => __('common.size', [], 'Size')])) ?>" placeholder="<?= e(__('common.size', [], 'Size')) ?>"></th>
+                <th><input type="search" data-admin-filter="usage" aria-label="<?= e(__('slide.filter_column', ['column' => __('media.used_by_slides')])) ?>" placeholder="<?= e(__('media.used_by_slides')) ?>"></th>
+                <th><input type="search" data-admin-filter="uploaded_by" aria-label="<?= e(__('slide.filter_column', ['column' => __('media.uploaded_by')])) ?>" placeholder="<?= e(__('media.uploaded_by')) ?>"></th>
                 <th></th>
             </tr>
             </thead>
@@ -83,6 +92,7 @@ $nextPageUrl = $baseMediaUrl . ($kind !== '' ? '?kind=' . rawurlencode($kind) . 
                 $assetUploadedBy = $asset['uploaded_by'] ?? __('common.unknown', [], 'Unknown');
                 ?>
                 <tr
+                    data-admin-row
                     data-media-preview-row
                     data-media-url="<?= e($assetUrl) ?>"
                     data-media-kind="<?= e($assetKind) ?>"
@@ -103,18 +113,18 @@ $nextPageUrl = $baseMediaUrl . ($kind !== '' ? '?kind=' . rawurlencode($kind) . 
                         <?php endif; ?>
                         </button>
                     </td>
-                    <td class="media-name-cell">
+                    <td class="media-name-cell" data-admin-cell="name" data-sort-value="<?= e((string)$asset['name']) ?>" data-filter-value="<?= e(trim((string)$asset['name'] . ' ' . (string)$asset['original_name'])) ?>">
                         <strong class="break-word"><?= e($asset['name']) ?></strong><br>
                         <span class="muted break-word"><?= e($asset['original_name']) ?></span>
                     </td>
-                    <td class="break-word"><?= e($assetTypeLabel) ?><br><span class="muted break-word"><?= e($asset['mime_type']) ?></span></td>
-                    <td><?= e($assetSize) ?></td>
-                    <td><?= e((string)$asset['usage_count']) ?></td>
-                    <td class="break-word"><?= e($assetUploadedBy) ?></td>
+                    <td class="break-word" data-admin-cell="type" data-sort-value="<?= e($assetTypeLabel) ?>" data-filter-value="<?= e(trim($assetTypeLabel . ' ' . (string)$asset['mime_type'])) ?>"><?= e($assetTypeLabel) ?><br><span class="muted break-word"><?= e($asset['mime_type']) ?></span></td>
+                    <td data-admin-cell="size" data-sort-value="<?= e((string)$asset['file_size']) ?>" data-filter-value="<?= e($assetSize) ?>"><?= e($assetSize) ?></td>
+                    <td data-admin-cell="usage" data-sort-value="<?= e((string)$asset['usage_count']) ?>" data-filter-value="<?= e((string)$asset['usage_count']) ?>"><?= e((string)$asset['usage_count']) ?></td>
+                    <td class="break-word" data-admin-cell="uploaded_by" data-sort-value="<?= e($assetUploadedBy) ?>" data-filter-value="<?= e($assetUploadedBy) ?>"><?= e($assetUploadedBy) ?></td>
                     <td class="actions">
                         <button type="button" class="button button--normal button--small" data-media-preview-open><?= admin_icon('open') ?><span><?= e(__('common.open')) ?></span></button>
                         <?php if (in_array(current_user_role(), ['admin', 'editor'], true)): ?>
-                            <form method="post" action="<?= e(url('/admin/media/' . $asset['id'] . '/delete')) ?>" class="inline-form" onsubmit="return confirm(<?= json_encode(__('media.delete_confirm')) ?>);">
+                            <form method="post" action="<?= e(url('/admin/media/' . $asset['id'] . '/delete')) ?>" class="inline-form" data-confirm-submit data-confirm-title="<?= e(__('common.delete')) ?>" data-confirm-message="<?= e(__('media.delete_confirm')) ?>" data-confirm-accept="<?= e(__('common.delete')) ?>">
                                 <?= csrf_field() ?>
                                 <button type="submit" class="button button--danger button--small"><?= admin_icon('delete') ?><span><?= e(__('common.delete')) ?></span></button>
                             </form>

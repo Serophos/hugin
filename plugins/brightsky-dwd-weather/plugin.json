@@ -1,0 +1,17 @@
+{
+  "name": "brightsky-dwd-weather",
+  "display_name": {
+    "en": "BrightSky DWD Weather",
+    "de": "BrightSky DWD Wetter"
+  },
+  "version": "1.0.0",
+  "description": {
+    "en": "Displays current DWD weather from Bright Sky for a selected weather station.",
+    "de": "Zeigt aktuelles DWD-Wetter von Bright Sky für eine ausgewählte Wetterstation an."
+  },
+  "slide_type": "brightsky-dwd-weather",
+  "icon": "assets/img/slide_brightsky_dwd_weather.svg",
+  "api_version": 2,
+  "main": "Plugin.php",
+  "class": "Plugins\\BrightSkyDwdWeather\\Plugin"
+}
