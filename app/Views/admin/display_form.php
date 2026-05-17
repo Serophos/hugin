@@ -43,6 +43,22 @@ require __DIR__ . '/../layouts/admin_header.php';
                 </select>
                 <?= field_error_html('orientation', $formId) ?>
             </label>
+            <label><?= e(__('display.default_slide_duration')) ?>
+                <input type="number" min="1" name="slide_duration_seconds" value="<?= e((string)old('slide_duration_seconds', $display['slide_duration_seconds'] ?? 8, $formId)) ?>" placeholder="<?= e(__('display.duration_placeholder')) ?>" required<?= field_attrs('slide_duration_seconds', $formId) ?>>
+                <?= field_error_html('slide_duration_seconds', $formId) ?>
+            </label>
+            <label><?= e(__('common.timezone')) ?>
+                <input type="text" name="timezone" value="<?= e((string)old('timezone', $display['timezone'] ?? 'UTC', $formId)) ?>" placeholder="<?= e(__('display.timezone_placeholder')) ?>" required<?= field_attrs('timezone', $formId) ?>>
+                <?= field_error_html('timezone', $formId) ?>
+            </label>
+            <label><?= e(__('common.sort_order')) ?>
+                <input type="number" min="0" name="sort_order" value="<?= e((string)old('sort_order', $display['sort_order'] ?? 0, $formId)) ?>" placeholder="<?= e(__('display.sort_order_placeholder')) ?>"<?= field_attrs('sort_order', $formId) ?>>
+                <?= field_error_html('sort_order', $formId) ?>
+            </label>
+            <label class="full-width"><?= e(__('common.description')) ?>
+                <textarea name="description" rows="4" placeholder="<?= e(__('display.description_placeholder')) ?>"<?= field_attrs('description', $formId) ?>><?= e((string)old('description', $display['description'] ?? '', $formId)) ?></textarea>
+                <?= field_error_html('description', $formId) ?>
+            </label>
             <?php if ($displayIcons !== []): ?>
                 <fieldset class="display-icon-field full-width">
                     <legend><?= e(__('display.icon')) ?></legend>
@@ -66,22 +82,6 @@ require __DIR__ . '/../layouts/admin_header.php';
                     <?= field_error_html('icon_file', $formId) ?>
                 </fieldset>
             <?php endif; ?>
-            <label><?= e(__('display.default_slide_duration')) ?>
-                <input type="number" min="1" name="slide_duration_seconds" value="<?= e((string)old('slide_duration_seconds', $display['slide_duration_seconds'] ?? 8, $formId)) ?>" placeholder="<?= e(__('display.duration_placeholder')) ?>" required<?= field_attrs('slide_duration_seconds', $formId) ?>>
-                <?= field_error_html('slide_duration_seconds', $formId) ?>
-            </label>
-            <label><?= e(__('common.timezone')) ?>
-                <input type="text" name="timezone" value="<?= e((string)old('timezone', $display['timezone'] ?? 'UTC', $formId)) ?>" placeholder="<?= e(__('display.timezone_placeholder')) ?>" required<?= field_attrs('timezone', $formId) ?>>
-                <?= field_error_html('timezone', $formId) ?>
-            </label>
-            <label><?= e(__('common.sort_order')) ?>
-                <input type="number" min="0" name="sort_order" value="<?= e((string)old('sort_order', $display['sort_order'] ?? 0, $formId)) ?>" placeholder="<?= e(__('display.sort_order_placeholder')) ?>"<?= field_attrs('sort_order', $formId) ?>>
-                <?= field_error_html('sort_order', $formId) ?>
-            </label>
-            <label class="full-width"><?= e(__('common.description')) ?>
-                <textarea name="description" rows="4" placeholder="<?= e(__('display.description_placeholder')) ?>"<?= field_attrs('description', $formId) ?>><?= e((string)old('description', $display['description'] ?? '', $formId)) ?></textarea>
-                <?= field_error_html('description', $formId) ?>
-            </label>
             <label class="checkbox-row"><input type="checkbox" name="is_active" value="1" <?= old_checked('is_active', $display['is_active'] ?? 1, $formId) ?>> <?= e(__('common.active')) ?></label>
             <div class="form-actions"><button type="submit" class="button button--default"><?= admin_icon('save') ?><span><?= e(__('common.save')) ?></span></button><a class="button button--normal" href="<?= e(url('/admin/displays')) ?>"><?= admin_icon('cancel') ?><span><?= e(__('common.cancel')) ?></span></a></div>
         </form>
