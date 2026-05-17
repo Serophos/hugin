@@ -20,9 +20,12 @@ $visibility = $weather['visibility'] ?? null;
 $timestamp = $plugin->formatTimestamp((string)($weather['timestamp'] ?? ''));
 $direction = $plugin->compassDirection($windDirection);
 ?>
-<div class="brightsky-weather-slide theme-<?= e($visual['theme'] ?? 'neutral') ?>" data-brightsky-weather-clock="<?= !empty($settings['show_datetime']) ? '1' : '0' ?>">
+<div class="brightsky-weather-slide theme-<?= e($visual['theme'] ?? 'neutral') ?>" data-brightsky-weather-clock="<?= !empty($settings['show_datetime']) ? '1' : '0' ?>" data-brightsky-rain-effect="<?= !empty($rainEffectEnabled) ? '1' : '0' ?>">
     <div class="brightsky-weather-bg brightsky-weather-bg-1"></div>
     <div class="brightsky-weather-bg brightsky-weather-bg-2"></div>
+    <?php if (!empty($rainEffectEnabled)): ?>
+        <canvas class="brightsky-weather-rain-canvas" data-brightsky-rain-canvas aria-hidden="true"></canvas>
+    <?php endif; ?>
     <div class="brightsky-weather-content">
         <header class="brightsky-weather-header">
             <div>

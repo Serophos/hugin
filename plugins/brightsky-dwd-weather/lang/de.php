@@ -19,6 +19,8 @@ return [
         'metric' => 'Metrisch',
         'imperial' => 'Imperial',
         'show_datetime' => 'Datum und Uhrzeit anzeigen',
+        'rain_effect' => 'Regentropfen-auf-Glas-Effekt',
+        'rain_effect_help' => 'Zeigt dezente animierte Regentropfen, wenn Regen gemeldet wird. So gestaltet, dass die Lesbarkeit erhalten bleibt.',
         'no_results' => 'Keine passende DWD-Station gefunden.',
         'loading_failed' => 'Stationsliste konnte nicht geladen werden.',
         'footer_note' => 'Wetterdaten werden serverseitig von Bright Sky geladen und von Hugin zwischengespeichert.',

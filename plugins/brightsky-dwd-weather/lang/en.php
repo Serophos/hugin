@@ -19,6 +19,8 @@ return [
         'metric' => 'Metric',
         'imperial' => 'Imperial',
         'show_datetime' => 'Show date and time',
+        'rain_effect' => 'Rain on glass effect',
+        'rain_effect_help' => 'Shows subtle animated raindrops when rain is reported. Designed to preserve readability.',
         'no_results' => 'No matching DWD station found.',
         'loading_failed' => 'Station list could not be loaded.',
         'footer_note' => 'Weather data is loaded server-side from Bright Sky and cached by Hugin.',

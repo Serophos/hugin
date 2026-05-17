@@ -125,6 +125,11 @@ if ($displayNameValue === '') {
         </label>
     </div>
 
+    <label class="checkbox-row">
+        <input type="checkbox" name="plugin_settings[<?= e($plugin->getName()) ?>][enable_rain_effect]" value="1" <?= checked($settings['enable_rain_effect'] ?? false) ?>> <?= e($strings['rain_effect'] ?? 'Rain on glass effect') ?>
+    </label>
+    <p class="muted small"><?= e($strings['rain_effect_help'] ?? 'Shows subtle animated raindrops when rain is reported. Designed to preserve readability.') ?></p>
+
     <p class="muted small"><?= e($strings['footer_note'] ?? '') ?></p>
 </div>
 
