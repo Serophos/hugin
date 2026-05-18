@@ -12,7 +12,7 @@ $pluginCss = null;
 if (!in_array($selectedSlideType, ['image', 'video', 'website', 'text'])) {
     foreach ($pluginDefinitions as $p) {
         if ($p['slide_type'] === $selectedSlideType) {
-            $pluginCss = url('/plugins/' . $p['name'] . '/assets/' . $p['name'] . '.css');
+            $pluginCss = url('/plugin-assets/' . rawurlencode((string)$p['name']) . '/assets/' . rawurlencode((string)$p['name']) . '.css');
             break;
         }
     }
