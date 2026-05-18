@@ -66,6 +66,33 @@
         });
     };
 
+    const hasSplitItems = root => Array.from(root.querySelectorAll(".tl1menu-list__item")).some(item => item.getClientRects().length > 1);
+
+    const usedFoodColumns = root => {
+        const columns = parseInt(root.dataset.foodColumns || "1", 10) || 1;
+        if (columns <= 1) return columns;
+
+        const flow = root.querySelector(".tl1menu-list__flow");
+        if (!flow) return 0;
+
+        const flowRect = flow.getBoundingClientRect();
+        const columnWidth = flowRect.width / columns;
+        if (columnWidth <= 0) return 0;
+
+        let used = 0;
+        root.querySelectorAll(".tl1menu-list__category-title, .tl1menu-list__item").forEach(element => {
+            const rect = element.getBoundingClientRect();
+            if (rect.width <= 0 || rect.height <= 0) return;
+            const center = rect.left + rect.width / 2;
+            const index = clamp(Math.floor((center - flowRect.left) / columnWidth) + 1, 1, columns);
+            used = Math.max(used, index);
+        });
+
+        return used;
+    };
+
+    const hasLayoutProblems = root => hasOverflow(root) || hasHeadingOrphans(root) || hasSplitItems(root);
+
     const preferredFontRange = (root, rect) => {
         const itemCount = parseInt(root.dataset.itemCount || '0', 10) || 0;
         const shortSide = Math.max(1, Math.min(rect.width, rect.height));
@@ -103,7 +130,7 @@
         } else if (itemCount <= 11) {
             names = portrait ? ['c', 'b', 'a'] : ['b', 'c', 'a'];
         } else {
-            names = ['c', 'b', 'a'];
+            names = hasImage && !portrait ? ['b', 'c', 'a'] : ['c', 'b', 'a'];
         }
 
         const modes = names.map(name => ({ ...MODES.find(mode => mode.name === name) }));
@@ -121,19 +148,40 @@
         if (rect.width < 20 || rect.height < 20) return;
 
         state.fitting = true;
-        root.classList.add('tl1menu-list--measuring');
+        root.classList.add("tl1menu-list--measuring");
 
         const range = preferredFontRange(root, rect);
         const modes = orderedModes(root, rect);
-        let chosen = null;
+        const modeOrder = new Map(modes.map((mode, index) => [mode.name, index]));
+        const candidates = [];
 
-        for (let fontSize = range.max; fontSize >= range.min && chosen === null; fontSize -= 1) {
-            for (const mode of modes) {
+        for (const mode of modes) {
+            for (let fontSize = range.max; fontSize >= range.min; fontSize -= 1) {
                 applyMode(root, mode, fontSize);
-                if (!hasOverflow(root) && !hasHeadingOrphans(root)) {
-                    chosen = { mode, fontSize };
+                if (!hasLayoutProblems(root)) {
+                    candidates.push({ mode, fontSize, usedColumns: usedFoodColumns(root) });
                     break;
                 }
+            }
+        }
+
+        let chosen = null;
+        if (candidates.length > 0) {
+            const bestFont = Math.max(...candidates.map(candidate => candidate.fontSize));
+            const imageTwoColumn = candidates.find(candidate => candidate.mode.name === "b" && candidate.mode.image && root.dataset.hasImage === "1");
+            const compactNoImage = candidates.find(candidate => candidate.mode.name === "c");
+            const compactLeavesEmptyColumn = compactNoImage && compactNoImage.usedColumns < compactNoImage.mode.columns;
+            const preferTwoColumnImage = modes[0]?.name !== "a";
+
+            if (preferTwoColumnImage && imageTwoColumn && (compactLeavesEmptyColumn || imageTwoColumn.fontSize >= bestFont - 2)) {
+                chosen = imageTwoColumn;
+            } else {
+                chosen = candidates.reduce((best, candidate) => {
+                    if (candidate.fontSize !== best.fontSize) {
+                        return candidate.fontSize > best.fontSize ? candidate : best;
+                    }
+                    return (modeOrder.get(candidate.mode.name) || 0) < (modeOrder.get(best.mode.name) || 0) ? candidate : best;
+                });
             }
         }
 
@@ -141,7 +189,7 @@
             const compact = { ...MODES[2], image: false };
             for (let fontSize = range.min - 1; fontSize >= 7 && chosen === null; fontSize -= 1) {
                 applyMode(root, compact, fontSize);
-                if (!hasOverflow(root) && !hasHeadingOrphans(root)) {
+                if (!hasLayoutProblems(root)) {
                     chosen = { mode: compact, fontSize };
                 }
             }
@@ -151,8 +199,8 @@
         }
 
         applyMode(root, chosen.mode, chosen.fontSize);
-        root.classList.toggle('tl1menu-list--overflow-warning', hasOverflow(root) || hasHeadingOrphans(root));
-        root.classList.remove('tl1menu-list--measuring');
+        root.classList.toggle("tl1menu-list--overflow-warning", hasLayoutProblems(root));
+        root.classList.remove("tl1menu-list--measuring");
         state.fitting = false;
     };
 
