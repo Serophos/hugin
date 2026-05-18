@@ -46,7 +46,7 @@ $formId = 'plugin_settings';
             </label>
 
             <?php if (!empty($backgroundImageUrl)): ?>
-                <div class="tl1menu-admin-preview">
+                <div class="tl1menu-admin-preview tl1menu-admin-preview--inline">
                     <div class="tl1menu-admin-preview__label"><?= e(__('plugins.tl-1menu.global_config.current_background_image')) ?></div>
                     <img src="<?= e($backgroundImageUrl) ?>" alt="" class="tl1menu-admin-preview__image">
                 </div>

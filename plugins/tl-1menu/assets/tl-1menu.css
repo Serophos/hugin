@@ -553,6 +553,10 @@
     grid-column: 1 / -1;
 }
 
+.tl1menu-admin-grid > .tl1menu-admin-preview--inline {
+    grid-column: auto;
+}
+
 .tl1menu-admin-grid > [hidden] {
     display: none !important;
 }
