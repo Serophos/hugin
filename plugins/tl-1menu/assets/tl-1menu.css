@@ -725,6 +725,8 @@
 
 .tl1menu-list__category-title {
     display: flex;
+    break-after: avoid-column;
+    page-break-after: avoid;
     align-items: center;
     gap: 0.35em;
     margin: 0 0 0.38em;
@@ -741,6 +743,11 @@
 .tl1menu-list__items {
     display: grid;
     gap: 0.42em;
+}
+
+.tl1menu-list__items > .tl1menu-list__item:first-child {
+    break-before: avoid-column;
+    page-break-before: avoid;
 }
 
 .tl1menu-list__item {
@@ -798,15 +805,18 @@
 
 .tl1menu-list__prices {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 0.26em;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.22em;
     justify-content: end;
-    width: min(22em, 100%);
-    min-width: 0;
+    justify-self: end;
+    width: min(7.5em, 100%);
+    min-width: 6.2em;
 }
 
-.tl1menu-list__prices--count-1 { grid-template-columns: minmax(0, 1fr); }
-.tl1menu-list__prices--count-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.tl1menu-list__prices--count-1,
+.tl1menu-list__prices--count-2 {
+    grid-template-columns: minmax(0, 1fr);
+}
 
 .tl1menu-list__price {
     display: grid;
@@ -975,6 +985,29 @@
     font-weight: 900;
 }
 
+.tl1menu-list .tl1menu-list__header,
+.tl1menu-list .tl1menu-list__image,
+.tl1menu-list .tl1menu-list__food,
+.tl1menu-list .tl1menu-list__category-title,
+.tl1menu-list .tl1menu-list__item,
+.tl1menu-list .tl1menu-list__price,
+.tl1menu-list .tl1menu-list__badge,
+.tl1menu-list .tl1menu-list__price-note,
+.tl1menu-list .tl1menu-list__meta div,
+.tl1menu-list .tl1menu-list__eco > span,
+.tl1menu-list .tl1menu-list__grade,
+.tl1menu-list .tl1menu-list__empty {
+    border-radius: 0;
+}
+
+.tl1menu-list .tl1menu-list__header,
+.tl1menu-list .tl1menu-list__image,
+.tl1menu-list .tl1menu-list__food,
+.tl1menu-list .tl1menu-list__item,
+.tl1menu-list .tl1menu-list__empty {
+    box-shadow: none;
+}
+
 .tl1menu-list--measuring * {
     transition: none !important;
 }
@@ -1013,13 +1046,14 @@
         grid-template-columns: minmax(8rem, 0.28fr) minmax(0, 1fr);
     }
 
-    .tl1menu-list__item-main,
     .tl1menu-list__meta {
         grid-template-columns: 1fr;
     }
 
     .tl1menu-list__prices {
-        justify-content: start;
-        grid-template-columns: repeat(var(--tl1menu-list-food-columns), minmax(0, 1fr));
+        justify-content: end;
+        justify-self: end;
+        grid-template-columns: minmax(0, 1fr);
+        width: min(7.5em, 100%);
     }
 }

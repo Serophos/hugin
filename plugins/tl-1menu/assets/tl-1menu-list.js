@@ -41,6 +41,31 @@
         || element.scrollWidth > element.clientWidth + 2
     ));
 
+    const hasHeadingOrphans = root => {
+        const columns = parseInt(root.dataset.foodColumns || "1", 10) || 1;
+        if (columns <= 1) return false;
+
+        const flow = root.querySelector(".tl1menu-list__flow");
+        if (!flow) return false;
+
+        const flowRect = flow.getBoundingClientRect();
+        const columnWidth = flowRect.width / columns;
+        const tolerance = Math.max(4, columnWidth * 0.08);
+
+        return Array.from(root.querySelectorAll(".tl1menu-list__category")).some(category => {
+            const title = category.querySelector(".tl1menu-list__category-title");
+            const firstItem = category.querySelector(".tl1menu-list__item");
+            if (!title || !firstItem) return false;
+
+            const titleRect = title.getBoundingClientRect();
+            const itemRect = firstItem.getBoundingClientRect();
+            const titleCenter = titleRect.left + titleRect.width / 2;
+            const itemCenter = itemRect.left + itemRect.width / 2;
+
+            return Math.abs(titleCenter - itemCenter) > tolerance;
+        });
+    };
+
     const preferredFontRange = (root, rect) => {
         const itemCount = parseInt(root.dataset.itemCount || '0', 10) || 0;
         const shortSide = Math.max(1, Math.min(rect.width, rect.height));
@@ -105,7 +130,7 @@
         for (let fontSize = range.max; fontSize >= range.min && chosen === null; fontSize -= 1) {
             for (const mode of modes) {
                 applyMode(root, mode, fontSize);
-                if (!hasOverflow(root)) {
+                if (!hasOverflow(root) && !hasHeadingOrphans(root)) {
                     chosen = { mode, fontSize };
                     break;
                 }
@@ -116,7 +141,7 @@
             const compact = { ...MODES[2], image: false };
             for (let fontSize = range.min - 1; fontSize >= 7 && chosen === null; fontSize -= 1) {
                 applyMode(root, compact, fontSize);
-                if (!hasOverflow(root)) {
+                if (!hasOverflow(root) && !hasHeadingOrphans(root)) {
                     chosen = { mode: compact, fontSize };
                 }
             }
@@ -126,7 +151,7 @@
         }
 
         applyMode(root, chosen.mode, chosen.fontSize);
-        root.classList.toggle('tl1menu-list--overflow-warning', hasOverflow(root));
+        root.classList.toggle('tl1menu-list--overflow-warning', hasOverflow(root) || hasHeadingOrphans(root));
         root.classList.remove('tl1menu-list--measuring');
         state.fitting = false;
     };
