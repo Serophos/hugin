@@ -49,15 +49,26 @@
 .brightsky-weather-slide.theme-neutral { background: linear-gradient(135deg, #305f82 0%, #5c8daa 56%, #c6d8df 100%); }
 
 
-.brightsky-weather-rain-canvas {
+.brightsky-weather-lightning-canvas {
     position: absolute;
     inset: 0;
-    z-index: 0;
+    z-index: 2;
     width: 100%;
     height: 100%;
     pointer-events: none;
-    opacity: 0.58;
+    opacity: 0.86;
     mix-blend-mode: screen;
+}
+
+.brightsky-weather-rain-canvas {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    opacity: 0.78;
+    filter: saturate(1.08) contrast(1.08);
 }
 
 .brightsky-weather-content {
@@ -267,7 +278,8 @@
         animation: none;
     }
 
-    .brightsky-weather-rain-canvas {
+    .brightsky-weather-rain-canvas,
+    .brightsky-weather-lightning-canvas {
         display: none;
     }
 }

@@ -1505,9 +1505,11 @@ td.actions .button span {
 }
 
 .slide-type-dialog__panel {
+    grid-template-rows: auto minmax(0, 1fr) auto;
     gap: 1.1rem;
     max-height: calc(100vh - 2rem);
-    overflow: auto;
+    max-height: calc(100dvh - 2rem);
+    overflow: hidden;
 }
 
 .slide-type-dialog__layout {
@@ -1515,6 +1517,7 @@ td.actions .button span {
     grid-template-columns: minmax(0, 1fr) minmax(220px, 0.45fr);
     gap: 1rem;
     align-items: stretch;
+    min-height: 0;
 }
 
 .slide-type-grid {
@@ -1522,6 +1525,9 @@ td.actions .button span {
     grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
     gap: 0.75rem;
     align-content: start;
+    min-height: 0;
+    overflow: auto;
+    padding-right: 0.15rem;
 }
 
 .slide-type-card {

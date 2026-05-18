@@ -106,13 +106,17 @@ require __DIR__ . '/../layouts/admin_header.php';
 </div>
 
 <?php if ($channel): ?>
+<?php
+$slideTypeCreateUrl = url('/admin/slides/create?channel_id=' . rawurlencode((string)$channel['id']));
+$slideTypeReturnTo = '/admin/playlists/' . $channel['id'] . '/edit';
+?>
 <div class="card">
     <h2><?= e(__('slide.playlist_slides', ['playlist' => $channel['name']])) ?></h2>
     <div class="form-actions playlist-slides-toolbar">
         <button type="button" class="button button--normal" id="add-existing-slide">
             <?= admin_icon('add') ?><span><?= e(__('slide.add_existing_to_playlist')) ?></span>
         </button>
-        <a class="button button--default" href="<?= e(url('/admin/slides/create?channel_id=' . $channel['id'] . '&return_to=' . rawurlencode('/admin/playlists/' . $channel['id'] . '/edit'))) ?>">
+        <a class="button button--default" href="<?= e($slideTypeCreateUrl . '&return_to=' . rawurlencode($slideTypeReturnTo)) ?>" data-open-slide-type-dialog data-create-url="<?= e($slideTypeCreateUrl) ?>" data-return-to="<?= e($slideTypeReturnTo) ?>" aria-haspopup="dialog">
             <?= admin_icon('add') ?><span><?= e(__('slide.create_in_playlist')) ?></span>
         </a>
     </div>
@@ -223,6 +227,8 @@ require __DIR__ . '/../layouts/admin_header.php';
         </div>
     </form>
 </dialog>
+
+<?php require __DIR__ . '/partials/slide_type_dialog.php'; ?>
 
 <?php endif; ?>
 

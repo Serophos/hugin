@@ -35,6 +35,7 @@ class Plugin extends AbstractSlidePlugin
             'height_m' => '',
             'unit_system' => 'metric',
             'show_datetime' => true,
+            'enable_weather_animations' => false,
             'enable_rain_effect' => false,
         ];
     }
@@ -94,7 +95,7 @@ class Plugin extends AbstractSlidePlugin
         $settings['dwd_station_id'] = $this->normalizeStationId($settings['dwd_station_id'] ?? '');
         $settings['unit_system'] = (string)($settings['unit_system'] ?? 'metric');
         $settings['show_datetime'] = !empty($settings['show_datetime']);
-        $settings['enable_rain_effect'] = !empty($settings['enable_rain_effect']);
+        $settings['enable_weather_animations'] = !empty($settings['enable_weather_animations']) || !empty($settings['enable_rain_effect']);
 
         if (!in_array($settings['unit_system'], ['metric', 'imperial'], true)) {
             throw new RuntimeException($this->t('errors.invalid_unit_system', 'BrightSky DWD Weather: invalid unit system.'));
@@ -120,7 +121,7 @@ class Plugin extends AbstractSlidePlugin
             'height_m' => (string)($station['height_m'] ?? ''),
             'unit_system' => $settings['unit_system'],
             'show_datetime' => $settings['show_datetime'],
-            'enable_rain_effect' => $settings['enable_rain_effect'],
+            'enable_weather_animations' => $settings['enable_weather_animations'],
         ];
     }
 
@@ -149,6 +150,7 @@ class Plugin extends AbstractSlidePlugin
 
         $visual = $this->resolveVisuals((string)($weather['icon'] ?? ''), (string)($weather['condition'] ?? ''));
         $rainEffectEnabled = $this->shouldRenderRainEffect($settings, $weather, $visual, $error === '');
+        $lightningEffectEnabled = $this->shouldRenderLightningEffect($settings, $weather, $visual, $error === '');
         $unitSystem = (string)($settings['unit_system'] ?? 'metric');
 
         return $this->renderView('views/render.php', [
@@ -160,6 +162,7 @@ class Plugin extends AbstractSlidePlugin
             'error' => $error,
             'visual' => $visual,
             'rainEffectEnabled' => $rainEffectEnabled,
+            'lightningEffectEnabled' => $lightningEffectEnabled,
             'unitSystem' => $unitSystem,
             'iconUrl' => $api->pluginAssetUrl($this->getName(), 'assets/icons/' . $visual['icon'] . '.svg'),
             'strings' => $this->frontendStrings(),
@@ -182,7 +185,7 @@ class Plugin extends AbstractSlidePlugin
             'dwd_station_id' => $settings['dwd_station_id'] ?? null,
             'wmo_station_id' => $settings['wmo_station_id'] ?? null,
             'unit_system' => $settings['unit_system'] ?? null,
-            'enable_rain_effect' => $settings['enable_rain_effect'] ?? null,
+            'enable_weather_animations' => $settings['enable_weather_animations'] ?? ($settings['enable_rain_effect'] ?? null),
         ];
     }
 
@@ -203,8 +206,8 @@ class Plugin extends AbstractSlidePlugin
             'metric' => $this->t('admin.metric', 'Metric'),
             'imperial' => $this->t('admin.imperial', 'Imperial'),
             'show_datetime' => $this->t('admin.show_datetime', 'Show date and time'),
-            'rain_effect' => $this->t('admin.rain_effect', 'Rain on glass effect'),
-            'rain_effect_help' => $this->t('admin.rain_effect_help', 'Shows subtle animated raindrops when rain is reported. Designed to preserve readability.'),
+            'weather_animations' => $this->t('admin.weather_animations', 'Show weather animations'),
+            'weather_animations_help' => $this->t('admin.weather_animations_help', 'Shows subtle animations that match the current weather, such as raindrops or lightning. Designed to preserve readability.'),
             'no_results' => $this->t('admin.no_results', 'No matching DWD station found.'),
             'loading_failed' => $this->t('admin.loading_failed', 'Station list could not be loaded.'),
             'footer_note' => $this->t('admin.footer_note', 'Weather data is loaded server-side from Bright Sky and cached by Hugin.'),
@@ -246,7 +249,15 @@ class Plugin extends AbstractSlidePlugin
 
     public function shouldRenderRainEffect(array $settings, array $weather, array $visual, bool $hasWeather): bool
     {
-        if (!$hasWeather || empty($settings['enable_rain_effect'])) {
+        if (!$hasWeather) {
+            return false;
+        }
+
+        if (!empty($this->config['debug_force_rain_effect'])) {
+            return true;
+        }
+
+        if (empty($settings['enable_weather_animations']) && empty($settings['enable_rain_effect'])) {
             return false;
         }
 
@@ -270,6 +281,29 @@ class Plugin extends AbstractSlidePlugin
         }
 
         return $hasPrecipitation;
+    }
+
+    public function shouldRenderLightningEffect(array $settings, array $weather, array $visual, bool $hasWeather): bool
+    {
+        if (!$hasWeather) {
+            return false;
+        }
+
+        if (!empty($this->config['debug_force_lightning_effect'])) {
+            return true;
+        }
+
+        if (empty($settings['enable_weather_animations']) && empty($settings['enable_rain_effect'])) {
+            return false;
+        }
+
+        $condition = strtolower((string)($weather['condition'] ?? ''));
+        $icon = strtolower((string)($weather['icon'] ?? ''));
+        $visualCondition = strtolower((string)($visual['condition'] ?? ''));
+
+        return in_array($condition, ['thunderstorm'], true)
+            || in_array($icon, ['thunderstorm'], true)
+            || $visualCondition === 'thunderstorm';
     }
 
     public function conditionLabel(array $visual, array $strings): string

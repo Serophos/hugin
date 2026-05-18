@@ -25,8 +25,14 @@ class PluginManager
 {
     private ?array $instances = null;
 
-    public function __construct(private Database $db, private string $pluginsPath, private ?UploadManager $uploadManager = null)
+    public function __construct(
+        private Database $db,
+        private string $pluginsPath,
+        private ?UploadManager $uploadManager = null,
+        private ?GlobalSettingsApi $globalSettings = null
+    )
     {
+        $this->globalSettings ??= new GlobalSettingsApi($this->db);
     }
 
     public function syncRegistry(): void
@@ -255,7 +261,7 @@ class PluginManager
         return new PluginApi($this->db, $this, $display, $channel, $heartbeat, [
             'app_name' => (string)app_config('app.name', __('app.name', [], 'Hugin')),
             'plugin_api_version' => 2,
-        ], $this->uploadManager, $currentUserId);
+        ], $this->uploadManager, $currentUserId, $this->globalSettings);
     }
 
     public function getPluginLabelMap(): array

@@ -32,6 +32,7 @@ class PluginApi
         private ?array $systemMeta = null,
         private ?UploadManager $uploadManager = null,
         private ?int $currentUserId = null,
+        private ?GlobalSettingsApi $globalSettings = null,
     ) {
     }
 
@@ -91,6 +92,20 @@ class PluginApi
         }
 
         return url((string)$asset['file_path']);
+    }
+
+    public function getHuginSetting(string $namespace, string $key, mixed $default = null): mixed
+    {
+        if (!$this->globalSettings) {
+            return $default;
+        }
+
+        return $this->globalSettings->getSetting($namespace, $key, $default);
+    }
+
+    public function getHuginSettings(string $namespace): array
+    {
+        return $this->globalSettings?->getSettings($namespace) ?? [];
     }
 
     public function pluginUploadedFile(string $pluginName, string $field, string $root = 'plugin_settings'): ?array

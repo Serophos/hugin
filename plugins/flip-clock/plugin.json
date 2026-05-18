@@ -1,0 +1,17 @@
+{
+    "name": "flip-clock",
+    "display_name": {
+        "en": "Flip Clock",
+        "de": "Flip Clock"
+    },
+    "version": "1.0.0",
+    "description": {
+        "en": "Displays a responsive split-flap style clock.",
+        "de": "Zeigt eine responsive Uhr im Split-Flap-Stil."
+    },
+    "slide_type": "flip-clock",
+    "api_version": 2,
+    "main": "Plugin.php",
+    "class": "Plugins\\FlipClock\\Plugin",
+    "icon": "assets/img/slide_flip_clock.svg"
+}

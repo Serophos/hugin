@@ -126,9 +126,9 @@ if ($displayNameValue === '') {
     </div>
 
     <label class="checkbox-row">
-        <input type="checkbox" name="plugin_settings[<?= e($plugin->getName()) ?>][enable_rain_effect]" value="1" <?= checked($settings['enable_rain_effect'] ?? false) ?>> <?= e($strings['rain_effect'] ?? 'Rain on glass effect') ?>
+        <input type="checkbox" name="plugin_settings[<?= e($plugin->getName()) ?>][enable_weather_animations]" value="1" <?= checked(($settings['enable_weather_animations'] ?? false) || ($settings['enable_rain_effect'] ?? false)) ?>> <?= e($strings['weather_animations'] ?? 'Show weather animations') ?>
     </label>
-    <p class="muted small"><?= e($strings['rain_effect_help'] ?? 'Shows subtle animated raindrops when rain is reported. Designed to preserve readability.') ?></p>
+    <p class="muted small"><?= e($strings['weather_animations_help'] ?? 'Shows subtle animations that match the current weather, such as raindrops or lightning. Designed to preserve readability.') ?></p>
 
     <p class="muted small"><?= e($strings['footer_note'] ?? '') ?></p>
 </div>

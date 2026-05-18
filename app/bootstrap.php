@@ -41,6 +41,7 @@ require_once __DIR__ . '/Core/Auth.php';
 require_once __DIR__ . '/Core/UploadManager.php';
 require_once __DIR__ . '/Core/SlidePluginInterface.php';
 require_once __DIR__ . '/Core/AbstractSlidePlugin.php';
+require_once __DIR__ . '/Core/GlobalSettingsApi.php';
 require_once __DIR__ . '/Core/PluginApi.php';
 require_once __DIR__ . '/Core/PluginManager.php';
 require_once __DIR__ . '/Services/DisplayStatusService.php';

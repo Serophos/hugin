@@ -19,10 +19,19 @@ $precipitation = $plugin->firstWeatherValue($weather, ['precipitation_60', 'prec
 $visibility = $weather['visibility'] ?? null;
 $timestamp = $plugin->formatTimestamp((string)($weather['timestamp'] ?? ''));
 $direction = $plugin->compassDirection($windDirection);
+$footerStationName = trim((string)(($station['name'] ?? null) ?: ($settings['station_name'] ?? '')));
+$footerStationId = trim((string)($settings['dwd_station_id'] ?? ($station['dwd_station_id'] ?? '')));
+$footerStation = $footerStationName;
+if ($footerStationId !== '') {
+    $footerStation = $footerStationName !== '' ? $footerStationName . ' (' . $footerStationId . ')' : $footerStationId;
+}
 ?>
-<div class="brightsky-weather-slide theme-<?= e($visual['theme'] ?? 'neutral') ?>" data-brightsky-weather-clock="<?= !empty($settings['show_datetime']) ? '1' : '0' ?>" data-brightsky-rain-effect="<?= !empty($rainEffectEnabled) ? '1' : '0' ?>">
+<div class="brightsky-weather-slide theme-<?= e($visual['theme'] ?? 'neutral') ?>" data-brightsky-weather-clock="<?= !empty($settings['show_datetime']) ? '1' : '0' ?>" data-brightsky-rain-effect="<?= !empty($rainEffectEnabled) ? '1' : '0' ?>" data-brightsky-lightning-effect="<?= !empty($lightningEffectEnabled) ? '1' : '0' ?>">
     <div class="brightsky-weather-bg brightsky-weather-bg-1"></div>
     <div class="brightsky-weather-bg brightsky-weather-bg-2"></div>
+    <?php if (!empty($lightningEffectEnabled)): ?>
+        <canvas class="brightsky-weather-lightning-canvas" data-brightsky-lightning-canvas aria-hidden="true"></canvas>
+    <?php endif; ?>
     <?php if (!empty($rainEffectEnabled)): ?>
         <canvas class="brightsky-weather-rain-canvas" data-brightsky-rain-canvas aria-hidden="true"></canvas>
     <?php endif; ?>
@@ -87,7 +96,7 @@ $direction = $plugin->compassDirection($windDirection);
         <?php endif; ?>
 
         <footer class="brightsky-weather-footer">
-            <span><?= e($strings['station'] ?? 'Station') ?> <?= e((string)($settings['dwd_station_id'] ?? ($station['dwd_station_id'] ?? ''))) ?></span>
+            <span><?= e($strings['station'] ?? 'Station') ?>: <?= e($footerStation) ?></span>
             <span><?= e($strings['attribution'] ?? 'Data: Deutscher Wetterdienst (DWD), via Bright Sky') ?></span>
         </footer>
     </div>

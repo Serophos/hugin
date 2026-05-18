@@ -1069,6 +1069,7 @@ class AdminController
             'slides' => $slides,
             'allSlides' => $allSlides,
             'pluginLabels' => $this->plugins->getPluginLabelMap(),
+            'slideTypeDefinitions' => $this->slideTypeDefinitions(),
             'error' => flash('error'),
         ]);
     }
