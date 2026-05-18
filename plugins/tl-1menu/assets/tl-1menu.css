@@ -291,6 +291,12 @@
     height: var(--tl1menu-grade-size);
     object-fit: contain;
 }
+.slide .tl1menu .tl1menu-env__symbol {
+    width: var(--tl1menu-grade-size);
+    height: var(--tl1menu-grade-size);
+    object-fit: contain;
+    background: transparent;
+}
 .tl1menu-env__symbol--outline {
     opacity: 0.72;
 }
@@ -318,6 +324,12 @@
     width: var(--tl1menu-eco-value-size);
     height: var(--tl1menu-eco-value-size);
     object-fit: contain;
+}
+.slide .tl1menu .tl1menu-env__value-icon {
+    width: var(--tl1menu-eco-value-size);
+    height: var(--tl1menu-eco-value-size);
+    object-fit: contain;
+    background: transparent;
 }
 .tl1menu__empty {
     flex: 1 1 auto;
