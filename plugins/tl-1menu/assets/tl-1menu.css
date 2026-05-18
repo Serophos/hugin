@@ -37,6 +37,11 @@
 .tl1menu--with-image {
     background-image: var(--tl1menu-bg-image);
 }
+.tl1menu--with-image:not(.tl1menu-list) {
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+}
 .tl1menu *, .tl1menu *::before, .tl1menu *::after { box-sizing: border-box; }
 .tl1menu__header {
     display: flex;
@@ -289,6 +294,25 @@
 .tl1menu-env__symbol--outline {
     opacity: 0.72;
 }
+.tl1menu-env--card.tl1menu-env--symbols {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: clamp(0.28rem, 0.42vw, 0.62rem);
+    align-items: center;
+}
+.tl1menu-env--card .tl1menu-env__label {
+    line-height: 1.12;
+}
+.tl1menu-env--card .tl1menu-env__symbols {
+    gap: clamp(0.12rem, 0.18vw, 0.24rem);
+}
+.tl1menu-env--card .tl1menu-env__symbol {
+    flex: 0 0 var(--tl1menu-grade-size);
+    width: var(--tl1menu-grade-size);
+    height: var(--tl1menu-grade-size);
+}
+.tl1menu-env--card .tl1menu-env__symbol--outline {
+    opacity: 0.38;
+}
 .tl1menu-env__value-icon {
     display: block;
     width: var(--tl1menu-eco-value-size);
@@ -478,11 +502,14 @@
 }
 
 .tl1menu-admin-preview__image {
+    display: block;
+    width: min(100%, 520px);
+    height: 220px;
     max-width: 100%;
-    max-height: 220px;
     border-radius: 10px;
     border: 1px solid var(--border);
     object-fit: cover;
+    object-position: center;
 }
 
 .tl1menu-slide-settings {
