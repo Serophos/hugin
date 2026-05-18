@@ -417,6 +417,7 @@ return [
         ],
         'name_required' => 'Der Name der Slide ist erforderlich.',
         'slide_type_required' => 'Bitte wählen Sie einen gültigen Slide-Typ aus.',
+        'title' => 'Slide-Titel',
         'title_position' => 'Slide-Titel auf Folie zeigen',
         'duration_optional' => 'Dauer (Sekunden, optional)',
         'duration_placeholder' => 'z. B. 10',

@@ -1463,6 +1463,7 @@ class AdminController
             'pluginDefinitions' => $pluginDefinitions,
             'pluginForms' => $pluginForms,
             'pluginLabels' => $this->plugins->getPluginLabelMap(),
+            'slideTypeDefinitions' => $this->slideTypeDefinitions(),
             'returnTo' => $this->adminReturnPath('/admin/slides'),
             'error' => flash('error'),
         ]);

@@ -8,15 +8,33 @@ $textSlideAnimations = text_slide_animation_options();
 $textSlideQrPositions = text_slide_qr_position_options();
 $textBoxWidthPercentValue = (string)old('text_box_width_percent', $slide['text_box_width_percent'] ?? '76', $formId);
 $qrSizePercentValue = (string)old('qr_size_percent', $slide['qr_size_percent'] ?? '15', $formId);
-$pluginCss = null;
-if (!in_array($selectedSlideType, ['image', 'video', 'website', 'text'])) {
-    foreach ($pluginDefinitions as $p) {
-        if ($p['slide_type'] === $selectedSlideType) {
-            $pluginCss = url('/plugin-assets/' . rawurlencode((string)$p['name']) . '/assets/' . rawurlencode((string)$p['name']) . '.css');
-            break;
-        }
+$pluginCss = [];
+foreach ($pluginDefinitions as $p) {
+    $pluginName = (string)($p['name'] ?? '');
+    if ($pluginName === '') {
+        continue;
     }
+    $pluginCss[] = url('/plugin-assets/' . rawurlencode($pluginName) . '/assets/' . rawurlencode($pluginName) . '.css');
 }
+$pluginCss = array_values(array_unique($pluginCss));
+$slideTypeDefinitions = array_values($slideTypeDefinitions ?? []);
+$slideTypeIconFallbackUrl = url('/assets/img/slides/slide_generic.png');
+$slideTypeIconMap = [];
+foreach ($slideTypeDefinitions as $definition) {
+    $slideType = (string)($definition['slide_type'] ?? '');
+    if ($slideType === '') {
+        continue;
+    }
+    $fallbackIconUrl = (string)(($definition['icon_fallback_url'] ?? '') ?: $slideTypeIconFallbackUrl);
+    $slideTypeIconMap[$slideType] = [
+        'icon_url' => (string)(($definition['icon_url'] ?? '') ?: $fallbackIconUrl),
+        'icon_fallback_url' => $fallbackIconUrl,
+    ];
+}
+$selectedSlideTypeIcon = $slideTypeIconMap[$selectedSlideType] ?? [
+    'icon_url' => $slideTypeIconFallbackUrl,
+    'icon_fallback_url' => $slideTypeIconFallbackUrl,
+];
 require __DIR__ . '/../layouts/admin_header.php';
 ?>
 <h1><?= e($title) ?></h1>
@@ -25,6 +43,39 @@ require __DIR__ . '/../layouts/admin_header.php';
     <form method="post" enctype="multipart/form-data" action="<?= e(($slide && isset($slide['id'])) ? url('/admin/slides/' . $slide['id'] . '/edit') : url('/admin/slides/create')) ?>" class="form-grid" id="slide-form">
         <?= csrf_field() ?>
         <input type="hidden" name="return_to" value="<?= e($returnToPath) ?>">
+        <div class="slide-common-fields full-width">
+            <label class="slide-common-field"><?= e(__('slide.title', [], __('common.name'))) ?>
+                <input type="text" name="name" value="<?= e((string)old('name', $slide['name'] ?? '', $formId)) ?>" placeholder="<?= e(__('slide.name_placeholder')) ?>" required<?= field_attrs('name', $formId) ?>>
+                <?= field_error_html('name', $formId) ?>
+            </label>
+            <label class="slide-common-field"><?= e(__('slide.slide_type')) ?>
+                <select name="slide_type" id="slide_type" required<?= field_attrs('slide_type', $formId) ?>>
+                    <option value="image" <?= selected($selectedSlideType, 'image') ?>><?= e(enum_label('slide_types', 'image')) ?></option>
+                    <option value="video" <?= selected($selectedSlideType, 'video') ?>><?= e(enum_label('slide_types', 'video')) ?></option>
+                    <option value="website" <?= selected($selectedSlideType, 'website') ?>><?= e(enum_label('slide_types', 'website')) ?></option>
+                    <option value="text" <?= selected($selectedSlideType, 'text') ?>><?= e(enum_label('slide_types', 'text')) ?></option>
+                    <?php foreach ($pluginDefinitions as $plugin): ?>
+                        <option value="<?= e($plugin['slide_type']) ?>" <?= selected($selectedSlideType, $plugin['slide_type']) ?>><?= e($plugin['display_name']) ?></option>
+                    <?php endforeach; ?>
+                </select>
+                <?= field_error_html('slide_type', $formId) ?>
+            </label>
+            <div class="slide-common-type-icon" aria-hidden="true">
+                <img src="<?= e((string)$selectedSlideTypeIcon['icon_url']) ?>" data-slide-type-icon data-fallback-icon="<?= e((string)$selectedSlideTypeIcon['icon_fallback_url']) ?>" alt="">
+            </div>
+            <label class="slide-common-field"><?= e(__('slide.title_position')) ?>
+                <select name="title_position"<?= field_attrs('title_position', $formId) ?>>
+                    <?php foreach (['hide','top-left','top-right','bottom-left','bottom-right','center'] as $position): ?>
+                        <option value="<?= e($position) ?>" <?= old_selected('title_position', $position, $slide['title_position'] ?? 'hide', $formId) ?>><?= e(enum_label('title_positions', $position, $position)) ?></option>
+                    <?php endforeach; ?>
+                </select>
+                <?= field_error_html('title_position', $formId) ?>
+            </label>
+            <label class="slide-common-field"><?= e(__('slide.duration_optional')) ?>
+                <input type="number" min="1" name="duration_seconds" value="<?= e((string)old('duration_seconds', $slide['duration_seconds'] ?? '', $formId)) ?>" placeholder="<?= e(__('slide.duration_placeholder')) ?>"<?= field_attrs('duration_seconds', $formId) ?>>
+                <?= field_error_html('duration_seconds', $formId) ?>
+            </label>
+        </div>
         <fieldset class="channel-assignment-group full-width">
             <legend><?= e(__('slide.assigned_channels')) ?></legend>
             <div class="channel-assignment-grid">
@@ -43,34 +94,6 @@ require __DIR__ . '/../layouts/admin_header.php';
             </div>
             <?= field_error_html('channel_ids', $formId) ?>
         </fieldset>
-        <label><?= e(__('common.name')) ?>
-            <input type="text" name="name" value="<?= e((string)old('name', $slide['name'] ?? '', $formId)) ?>" placeholder="<?= e(__('slide.name_placeholder')) ?>" required<?= field_attrs('name', $formId) ?>>
-            <?= field_error_html('name', $formId) ?>
-        </label>
-        <label><?= e(__('slide.slide_type')) ?>
-            <select name="slide_type" id="slide_type" required<?= field_attrs('slide_type', $formId) ?>>
-                <option value="image" <?= selected($selectedSlideType, 'image') ?>><?= e(enum_label('slide_types', 'image')) ?></option>
-                <option value="video" <?= selected($selectedSlideType, 'video') ?>><?= e(enum_label('slide_types', 'video')) ?></option>
-                <option value="website" <?= selected($selectedSlideType, 'website') ?>><?= e(enum_label('slide_types', 'website')) ?></option>
-                <option value="text" <?= selected($selectedSlideType, 'text') ?>><?= e(enum_label('slide_types', 'text')) ?></option>
-                <?php foreach ($pluginDefinitions as $plugin): ?>
-                    <option value="<?= e($plugin['slide_type']) ?>" <?= selected($selectedSlideType, $plugin['slide_type']) ?>><?= e($plugin['display_name']) ?></option>
-                <?php endforeach; ?>
-            </select>
-            <?= field_error_html('slide_type', $formId) ?>
-        </label>
-        <label><?= e(__('slide.title_position')) ?>
-            <select name="title_position"<?= field_attrs('title_position', $formId) ?>>
-                <?php foreach (['hide','top-left','top-right','bottom-left','bottom-right','center'] as $position): ?>
-                    <option value="<?= e($position) ?>" <?= old_selected('title_position', $position, $slide['title_position'] ?? 'hide', $formId) ?>><?= e(enum_label('title_positions', $position, $position)) ?></option>
-                <?php endforeach; ?>
-            </select>
-            <?= field_error_html('title_position', $formId) ?>
-        </label>
-        <label><?= e(__('slide.duration_optional')) ?>
-            <input type="number" min="1" name="duration_seconds" value="<?= e((string)old('duration_seconds', $slide['duration_seconds'] ?? '', $formId)) ?>" placeholder="<?= e(__('slide.duration_placeholder')) ?>"<?= field_attrs('duration_seconds', $formId) ?>>
-            <?= field_error_html('duration_seconds', $formId) ?>
-        </label>
 
         <div id="core-source-fields" class="full-width plugin-settings-card">
             <div class="grid-2 compact-grid">
@@ -281,6 +304,8 @@ require __DIR__ . '/../layouts/admin_header.php';
 </div>
 <script>
 const huginPluginSlideTypes = <?= json_encode(array_column($pluginDefinitions, 'slide_type'), JSON_UNESCAPED_SLASHES) ?>;
+const huginSlideTypeIcons = <?= json_encode($slideTypeIconMap, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
+const huginSlideTypeFallbackIcon = <?= json_encode($slideTypeIconFallbackUrl, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
 
 function clampNumber(value, min, max) {
     return Math.max(min, Math.min(max, value));
@@ -414,8 +439,27 @@ function filterMediaByType(slideType) {
     }
 }
 
+function applySlideTypeFallbackIcon(event) {
+    const image = event.currentTarget;
+    if (image.dataset.fallbackApplied === '1' || !image.dataset.fallbackIcon) return;
+    image.dataset.fallbackApplied = '1';
+    image.src = image.dataset.fallbackIcon;
+}
+
+function updateSlideTypeIcon(slideType) {
+    const image = document.querySelector('[data-slide-type-icon]');
+    if (!image) return;
+
+    const icon = huginSlideTypeIcons[slideType] || {};
+    const fallbackIcon = icon.icon_fallback_url || huginSlideTypeFallbackIcon;
+    image.dataset.fallbackIcon = fallbackIcon;
+    delete image.dataset.fallbackApplied;
+    image.src = icon.icon_url || fallbackIcon;
+}
+
 function updateSlideTypeUi() {
     const slideType = document.getElementById('slide_type').value;
+    updateSlideTypeIcon(slideType);
     const isPlugin = huginPluginSlideTypes.includes(slideType);
     const coreFields = document.getElementById('core-source-fields');
     const sourceMode = document.getElementById('source_mode');
@@ -466,6 +510,7 @@ function updateSlideTypeUi() {
     });
 }
 
+document.querySelector('[data-slide-type-icon]')?.addEventListener('error', applySlideTypeFallbackIcon);
 document.getElementById('slide_type').addEventListener('change', updateSlideTypeUi);
 document.getElementById('source_mode').addEventListener('change', updateSlideTypeUi);
 document.querySelectorAll('[data-rgba-control]').forEach(initRgbaControl);

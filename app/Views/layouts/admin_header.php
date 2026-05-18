@@ -6,9 +6,21 @@
     <title><?= e($title ?? __('app.admin')) ?></title>
     <link rel="icon" type="image/webp" href="<?= e(url('/assets/img/hugin-logo-mini.webp')) ?>">
     <link rel="stylesheet" href="<?= e(url('/assets/css/admin.css')) ?>">
-    <?php if (!empty($pluginCss)): ?>
-        <link rel="stylesheet" href="<?= e($pluginCss) ?>">
-    <?php endif; ?>
+    <?php
+    $pluginCssLinks = [];
+    if (!empty($pluginCss)) {
+        $rawPluginCssLinks = is_array($pluginCss) ? $pluginCss : [$pluginCss];
+        foreach ($rawPluginCssLinks as $cssHref) {
+            $cssHref = trim((string)$cssHref);
+            if ($cssHref !== '' && !in_array($cssHref, $pluginCssLinks, true)) {
+                $pluginCssLinks[] = $cssHref;
+            }
+        }
+    }
+    ?>
+    <?php foreach ($pluginCssLinks as $cssHref): ?>
+        <link rel="stylesheet" href="<?= e($cssHref) ?>">
+    <?php endforeach; ?>
 </head>
 <body>
 <header class="topbar">
