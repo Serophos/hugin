@@ -74,6 +74,11 @@ class Plugin extends AbstractSlidePlugin
             'foodTypes' => $this->getMenuService()->getFoodTypes(),
             'imageMediaAssets' => $api->listMediaAssets('image'),
             'backgroundImageUrl' => $api->mediaAssetUrl($backgroundAsset),
+            'displayModePreviews' => [
+                'card' => $api->pluginAssetUrl($this->getName(), 'assets/img/display-mode-card.svg'),
+                'list' => $api->pluginAssetUrl($this->getName(), 'assets/img/display-mode-list.svg'),
+            ],
+            'environmentIconAssets' => $this->getEnvironmentalIconAssets($api),
         ]);
     }
 
@@ -91,6 +96,7 @@ class Plugin extends AbstractSlidePlugin
             'plugin' => $this,
             'imageMediaAssets' => $api->listMediaAssets('image'),
             'backgroundImageUrl' => $api->mediaAssetUrl($backgroundAsset),
+            'environmentIconAssets' => $this->getEnvironmentalIconAssets($api),
         ]);
     }
 
@@ -314,6 +320,44 @@ class Plugin extends AbstractSlidePlugin
             $this->service = new MenuService($repository, $config);
         }
         return $this->service;
+    }
+
+    /** @return array<int, array{key: string, setting: string, label: string, value: string, rating: string}> */
+    public function getEnvironmentPreviewMetrics(string $language = 'de'): array
+    {
+        $language = in_array($language, ['de', 'en'], true) ? $language : 'de';
+        $service = $this->getMenuService();
+
+        return [
+            [
+                'key' => 'co2',
+                'setting' => 'display_co2',
+                'label' => __('plugins.tl-1menu.frontend.co2'),
+                'value' => $service->formatEnvironmentalValue(620.0, 'co2', $language) ?? '620',
+                'rating' => 'B',
+            ],
+            [
+                'key' => 'water',
+                'setting' => 'display_water',
+                'label' => __('plugins.tl-1menu.frontend.water'),
+                'value' => $service->formatEnvironmentalValue(1.8, 'water', $language) ?? '1.80',
+                'rating' => 'C',
+            ],
+            [
+                'key' => 'animal_welfare',
+                'setting' => 'display_animal_welfare',
+                'label' => __('plugins.tl-1menu.frontend.animal_welfare'),
+                'value' => '-',
+                'rating' => 'A',
+            ],
+            [
+                'key' => 'rainforest',
+                'setting' => 'display_rainforest',
+                'label' => __('plugins.tl-1menu.frontend.rainforest'),
+                'value' => '-',
+                'rating' => 'B',
+            ],
+        ];
     }
 
     private function resolveEffectiveDate(): string

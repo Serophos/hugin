@@ -20,9 +20,11 @@ return [
         'environment_display_style' => 'Nachhaltigkeitsdarstellung',
         'environment_display_styles' => [
             'global' => 'Globalen Standard verwenden',
-            'symbols' => '3-Symbol-Icons',
+            'symbols' => 'Nur Symbole zeigen',
             'values' => 'Datenpunkte und Wertung',
         ],
+        'environment_preview' => 'Vorschau der Nachhaltigkeitsdaten',
+        'environment_preview_empty' => 'Keine Nachhaltigkeitsdaten ausgewählt.',
         'display_co2' => 'CO₂-Wert anzeigen',
         'display_water' => 'Wasserverbrauch anzeigen',
         'display_animal_welfare' => 'Tierwohl-Wertung anzeigen',
@@ -53,8 +55,9 @@ return [
     ],
     'global_config' => [
         'title' => 'TL-1 Speiseplan Standardwerte',
-        'intro' => 'Lege den gemeinsamen Hintergrund fest, den alle TL-1 Speiseplan-Folien verwenden.',
+        'intro' => 'Lege den gemeinsamen Hintergrund und die Nachhaltigkeitsdarstellung für alle TL-1 Speiseplan-Folien fest.',
         'environment_display_style' => 'Globale Nachhaltigkeitsdarstellung',
+        'background_title' => 'Hintergrund',
         'environment_display_style_help' => 'Standarddarstellung für Nachhaltigkeitswertungen',
         'background_color' => 'Globale Hintergrundfarbe',
         'color_picker' => 'Farbauswahl',
