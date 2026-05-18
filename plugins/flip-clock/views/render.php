@@ -23,7 +23,7 @@ $digitCount = !empty($showSeconds) ? 6 : 4;
 ?>
 <div class="flip-clock-slide" data-flip-clock data-flip-show-seconds="<?= !empty($showSeconds) ? '1' : '0' ?>" style="--flip-clock-background: <?= e($backgroundColor) ?>;">
     <?php if (!empty($backgroundImageUrl)): ?>
-        <div class="flip-clock-slide__background" style="background-image: url('<?= e($backgroundImageUrl) ?>');" aria-hidden="true"></div>
+        <div class="flip-clock-slide__background" style="background-image: url('<?= e($backgroundImageUrl) ?>'); background-size: cover; background-position: center center; background-repeat: no-repeat;" aria-hidden="true"></div>
     <?php endif; ?>
     <div class="flip-clock" aria-live="polite" aria-label="">
         <?php for ($i = 0; $i < $digitCount; $i++): ?>
