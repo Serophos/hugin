@@ -1,84 +1,273 @@
 # Hugin
 
-Hugin is a compact PHP/MySQL digital signage application with:
+## 1. What Hugin Is
 
-- public display URLs using human-readable slugs
-- multiple displays
-- reusable channels assignable to one or many displays
-- reusable schedules assigned to display/channel pairs
-- reusable slides assignable to one or many channels
-- built-in slide types for images, videos, and external websites
-- configurable effects: `fade`, `slide-left`, `slide-right`, `slide-up`, `slide-down`, `zoom`, `flip`, `blur`, `none`
-- media uploads and reusable media library
-- drag-and-drop sorting for displays, channels, and slides
-- password protected admin area
-- CSRF protection on all POST actions except the public display heartbeat endpoint
-- role-based users (`admin`, `editor`)
-- root URL redirect to `/admin` for logged-in users or `/admin/login` otherwise
-- automatic display heartbeats for dashboard online/offline statistics
-- plugin system v2 for custom slide types
-- system-wide internationalization (i18n) with language files
+Hugin is an open source PHP/MySQL digital signage system for managing information displays from a browser. It provides public display URLs for screens, an admin backend for content management, reusable media and slides, scheduled playlists, display monitoring, and a plugin API for custom slide types.
 
-## Requirements
+Hugin is designed for simple web-based signage deployments: point a display browser at `/display/<slug>`, manage content in `/admin`, and let Hugin resolve the currently active playlist from the display, schedule, priority, and timezone.
 
-- PHP 8.1+
-- MySQL 8+
-- Apache or Nginx
+Current application metadata:
+
+- Version: `0.8`
+- License: `AGPL-3.0-or-later`
+- Runtime: PHP, MySQL, JavaScript
+- Plugin API version: `2`
+
+## 2. Installation And Configuration
+
+### Requirements
+
+- PHP `8.0+`
+- MySQL or MariaDB compatible with the provided schema
 - Composer
+- Apache with `mod_rewrite` or an equivalent Nginx/PHP-FPM setup
+- A web server document root pointing to `public/`
 
-## Quick start
+### Quick Installation
 
-1. Copy `config/config.example.php` to `config/config.php`
-2. Adjust database settings, optional `app.base_url`, and `app.locale`
-3. Run `composer install` from the project root to install dependencies
-4. Import `database.sql`
-5. Point your web root to the `public/` folder
-6. Make sure `public/uploads/` is writable by PHP
-7. Open `/admin/login`
+1. Install PHP dependencies:
 
-## Default users
+   ```bash
+   composer install
+   ```
 
-Both seeded users use the password `admin123!`.
+2. Create the configuration file:
 
-- Admin user: `admin`
-- Editor user: `editor`
+   ```bash
+   cp config/config.example.php config/config.php
+   ```
 
+3. Edit `config/config.php`.
 
-## Internationalization
+4. Import the database schema and demo data:
 
-Hugin now uses language files for all user-facing strings.
+   ```bash
+   mysql -u root -p < database.sql
+   ```
 
-- Core translations live in `app/lang/`
-- Plugin translations live in `plugins/<plugin>/lang/`
-- The active language is set globally in `config/config.php`
+5. Point the web server document root to `public/`.
 
-Example:
+6. Make sure PHP can write uploaded media below `public/uploads/`.
+
+7. Open `/admin/login`.
+
+The seeded demo users both use the password `admin123!`:
+
+- `admin`, role `admin`
+- `editor`, role `editor`
+
+Change these passwords immediately on a real installation.
+
+### `config.php`
+
+Hugin loads `config/config.php` if it exists and falls back to `config/config.example.php` during development. The most important options are:
 
 ```php
-'app' => [
-    // ...
-    'locale' => 'en',
-    'fallback_locale' => 'en',
+<?php
+return [
+    'app' => [
+        'name' => 'Hugin | Open Source Digital Signage',
+        'base_url' => '', // Example: https://signage.example.org
+        'session_name' => 'hugin_session',
+        'debug' => false,
+        'locale' => 'en',
+        'fallback_locale' => 'en',
+    ],
+    'db' => [
+        'host' => '127.0.0.1',
+        'port' => 3306,
+        'database' => 'info_display',
+        'username' => 'root',
+        'password' => '',
+        'charset' => 'utf8mb4',
+    ],
+    'upload' => [
+        'max_size_bytes' => 52428800, // 50 MB
+    ],
+    'monitoring' => [
+        'enabled' => false,
+        'api_token' => 'put_a_secure_random_token_here',
+        'online_threshold_seconds' => 180,
+        'stale_threshold_seconds' => 1800,
+    ],
+];
+```
+
+Notes:
+
+- `app.base_url` may be empty when Hugin runs at the domain root. Set it when the app is served from a subdirectory or behind a proxy path.
+- `app.locale` and `app.fallback_locale` select language files from `app/lang/` and plugin language files from `plugins/<plugin>/lang/`.
+- `upload.max_size_bytes` is enforced by Hugin, but PHP and the web server must also allow the same upload size.
+- Monitoring API endpoints return `404` until `monitoring.enabled` is `true`.
+- Public routes are handled by `public/index.php`; Apache installs can use the bundled `public/.htaccess`.
+
+## 3. Feature List
+
+### Displays
+
+- Public display pages at `/display/<slug>`.
+- Landscape and vertical display orientation.
+- Per-display default slide duration, transition effect, timezone, icon, active flag, and sort order.
+- Manual display reload requests from the admin UI.
+- Automatic heartbeat collection from display clients.
+- Display state endpoint at `/display/<slug>/state` for client-side refresh detection.
+
+### Locations And Display Groups
+
+- Organize displays by location.
+- Create display groups inside locations.
+- Move displays between groups in bulk.
+- Maintain group layout metadata: x/y position, width, height, rotation, and sort order.
+
+### Playlists
+
+- Playlists are stored internally as channels.
+- A playlist can be assigned to one or more displays.
+- Each display assignment uses a schedule and priority.
+- Playlists can override or inherit transition effects.
+- Playlists can override the display slide duration.
+- Drag-and-drop playlist ordering per display.
+
+### Schedules
+
+- Built-in system `Fulltime` schedule.
+- Custom weekly time-slot schedules.
+- Multiple weekday/time rules per schedule.
+- Schedule resolution uses the display timezone.
+- Higher-priority scheduled playlists can override full-time playlists.
+
+### Slides
+
+Built-in slide types:
+
+- `image`: external image URL or media library asset.
+- `video`: external video URL or media library asset.
+- `website`: external URL rendered in an iframe.
+- `text`: safe Markdown content rendered with Parsedown.
+
+Slide capabilities:
+
+- Reuse one slide in multiple playlists.
+- Per-slide duration override.
+- Optional slide title position or hidden title.
+- Active/inactive state.
+- Preview route at `/preview-slide/<id>`.
+- Drag-and-drop ordering inside playlists.
+
+Text slide capabilities:
+
+- Markdown with safe mode enabled.
+- Background color or media background.
+- Text color and translucent text box color.
+- Text box layouts: `top-left`, `top-right`, `center`, `bottom-left`, `bottom-right`.
+- Animations: `none`, `fade-up`, `fly-left`, `fly-right`, `fly-top`, `fly-bottom`, `soft-bounce`, `gentle-zoom`.
+- Blur toggle, box width, animation duration, and animation delay.
+- Optional QR code URL with configurable QR position, size, foreground color, and background color.
+
+### Media Library
+
+- Upload and reuse image or video assets.
+- Supported images: JPG, PNG, GIF, WEBP.
+- Supported videos: MP4, WEBM, OGG.
+- Filter media by kind.
+- Media usage checks prevent deleting assets that are still referenced.
+- Uploaded files are stored below `public/uploads/YYYY/MM/`.
+
+### Admin, Users, And Security
+
+- Password-protected admin backend.
+- Roles: `admin` and `editor`.
+- Admin-only user management.
+- Admin-only display, location, group, plugin, and global settings management.
+
+### Appearance And Settings
+
+- Global branding settings in `/admin/settings`.
+- Default background color, text color, heading font, and text font.
+- Public `branding` settings are readable by plugins through the plugin API.
+- Core and plugin internationalization via PHP language files.
+
+### Plugins
+
+Plugins can add custom slide types, slide settings, global plugin settings, frontend assets, and state data. Bundled plugin slide types include:
+
+- `flip-clock`: responsive split-flap style clock.
+- `weather`: current weather using Open-Meteo data.
+- `brightsky-dwd-weather`: DWD weather using Bright Sky station data.
+- `tl-1menu`: TL1 menu display with prices, allergens, categories, and sustainability data.
+- `screen-meta`: Demo / "Hello World" plugin: renders the latest display heartbeat metadata.
+
+## 4. Monitoring API
+
+The Monitoring API exposes JSON status data for external monitoring systems. Enable it in `config/config.php`:
+
+```php
+'monitoring' => [
+    'enabled' => true,
+    'api_token' => 'replace_with_a_long_random_token',
+    'online_threshold_seconds' => 180,
+    'stale_threshold_seconds' => 1800,
 ],
 ```
 
-This package includes the default language `en`.
+All monitoring endpoints require a Bearer token:
 
-## Plugin system v2
+```bash
+curl -H "Authorization: Bearer replace_with_a_long_random_token" \
+  https://signage.example.org/api/monitoring/health
+```
 
-Plugins live in the `plugins/` folder. Each plugin is self-contained and can:
+### Endpoints
 
-- register one custom slide type
-- provide its own slide configuration UI in the admin slide form
-- provide global plugin settings in the plugin admin area
-- store slide-scoped and global plugin settings in the database
-- render its own frontend output
-- load optional frontend CSS/JS assets
-- read display and heartbeat metadata through the plugin API
-- read and upload media assets through Hugin's media library
-- store cache and private plugin data below `storage/`
+`GET /api/monitoring/health`
 
-### Plugin folder structure
+Returns a compact health result for active displays:
+
+- `status`: `ok`, `warning`, or `critical`
+- `timestamp`
+- `totals`: active display counts by `online`, `stale`, `offline`, and `never_seen`
+- `checks`
+- `thresholds`
+
+`GET /api/monitoring/summary`
+
+Returns aggregate display status:
+
+- total, active, inactive, online, stale, offline, and never-seen display counts
+- configured thresholds
+- active channel distribution
+
+`GET /api/monitoring/displays`
+
+Returns all display statuses. Add `?active_only=1` to include only active displays.
+
+`GET /api/monitoring/displays/<slug>`
+
+Returns one display status by slug.
+
+### Status Values
+
+- `online`: last heartbeat is within `online_threshold_seconds`.
+- `stale`: last heartbeat is older than the online threshold but within `stale_threshold_seconds`.
+- `offline`: last heartbeat is older than the stale threshold.
+- `never_seen`: active display has no heartbeat yet.
+- `inactive`: display is disabled.
+
+### Display Payload
+
+Display responses include:
+
+- display id, name, slug, description, active flag, and status
+- last seen timestamp and seconds/minutes since last seen
+- resolved active playlist/channel
+- client metadata: IP, browser, OS, platform, language, timezone, online state, cookies, user agent
+- screen metadata: screen size, available size, viewport size, pixel ratio, color depth, orientation, touch points, CPU concurrency, and device memory
+
+## 5. Short Plugin API Development Documentation
+
+Plugins live in `plugins/<plugin-name>/`. A plugin is trusted local PHP code and should be installed only from sources you control or have reviewed.
+
+### Minimal Structure
 
 ```text
 plugins/
@@ -87,120 +276,213 @@ plugins/
     Plugin.php
     views/
     assets/
+    lang/
+      en.php
+      de.php
 ```
 
-### Required manifest keys
+### Manifest
 
-`plugin.json` should define at least:
+`plugin.json` should define:
 
-- `name`
-- `display_name`
-- `version`
-- `description`
-- `slide_type`
-- `api_version`
-- `main`
-- `class`
-
-Set `api_version` to `2` for plugins that use the global settings, media-library, or storage helpers.
-
-`display_name` and `description` may be plain strings or locale maps in the manifest, for example `{ "en": "Weather", "de": "Wetter" }`. Locale maps are resolved with the configured locale, fallback locale, base language, then English.
-
-### Plugin class hooks
-
-Plugins usually extend `App\Core\AbstractSlidePlugin`. The v2 hooks are:
-
-```php
-public function getDefaultSettings(): array;
-public function renderAdminSettings(array $slide, array $settings, PluginApi $api): string;
-public function normalizeSettings(array $input, array $existingSettings, PluginApi $api): array;
-public function renderFrontend(array $slide, array $settings, PluginApi $api): string;
-public function getFrontendAssets(array $slide, array $settings, PluginApi $api): array;
-public function getStateData(array $slide, array $settings, PluginApi $api): array;
-
-public function getDefaultGlobalSettings(): array;
-public function renderGlobalSettings(array $settings, PluginApi $api): string;
-public function normalizeGlobalSettings(array $input, array $existingSettings, PluginApi $api): array;
+```json
+{
+  "name": "your-plugin",
+  "display_name": {
+    "en": "Your Plugin",
+    "de": "Dein Plugin"
+  },
+  "version": "1.0.0",
+  "description": {
+    "en": "Adds a custom slide type.",
+    "de": "Fuegt einen eigenen Slide-Typ hinzu."
+  },
+  "slide_type": "your-plugin",
+  "api_version": 2,
+  "main": "Plugin.php",
+  "class": "Plugins\\YourPlugin\\Plugin",
+  "icon": "assets/img/slide_your_plugin.svg"
+}
 ```
 
-Slide settings are available to admins and editors through the slide editor. Global plugin settings are available only to admins at `/admin/plugins`.
+`display_name` and `description` can be strings or locale maps. Locale maps are resolved from the configured locale, fallback locale, base language, then English.
 
-### Media library from plugins
+### Plugin Class
 
-Use the `PluginApi` object passed to plugin hooks:
+Plugins normally extend `App\Core\AbstractSlidePlugin`:
 
 ```php
+<?php
+namespace Plugins\YourPlugin;
+
+use App\Core\AbstractSlidePlugin;
+use App\Core\PluginApi;
+
+class Plugin extends AbstractSlidePlugin
+{
+    public function getDefaultSettings(): array
+    {
+        return ['heading' => 'Hello'];
+    }
+
+    public function renderAdminSettings(array $slide, array $settings, PluginApi $api): string
+    {
+        return $this->renderView('views/config.php', [
+            'settings' => array_replace($this->getDefaultSettings(), $settings),
+            'plugin' => $this,
+        ]);
+    }
+
+    public function normalizeSettings(array $input, array $existingSettings, PluginApi $api): array
+    {
+        return [
+            'heading' => trim((string)($input['heading'] ?? 'Hello')),
+        ];
+    }
+
+    public function renderFrontend(array $slide, array $settings, PluginApi $api): string
+    {
+        return '<div class="your-plugin-slide">' . e($settings['heading'] ?? '') . '</div>';
+    }
+
+    public function getFrontendAssets(array $slide, array $settings, PluginApi $api): array
+    {
+        return [
+            'css' => [$api->pluginAssetUrl($this->getName(), 'assets/your-plugin.css')],
+            'js' => [$api->pluginAssetUrl($this->getName(), 'assets/your-plugin.js')],
+        ];
+    }
+}
+```
+
+Available hooks:
+
+- `getDefaultSettings()`
+- `renderAdminSettings(array $slide, array $settings, PluginApi $api)`
+- `normalizeSettings(array $input, array $existingSettings, PluginApi $api)`
+- `renderFrontend(array $slide, array $settings, PluginApi $api)`
+- `getFrontendAssets(array $slide, array $settings, PluginApi $api)`
+- `getStateData(array $slide, array $settings, PluginApi $api)`
+- `getDefaultGlobalSettings()`
+- `renderGlobalSettings(array $settings, PluginApi $api)`
+- `normalizeGlobalSettings(array $input, array $existingSettings, PluginApi $api)`
+
+Slide settings are edited in the slide form. Global plugin settings are edited by admins at `/admin/plugins/<plugin>/settings`.
+
+### Access The Media Library From A Plugin
+
+Use the `PluginApi` instance passed into plugin hooks.
+
+List all media or only one kind:
+
+```php
+$allAssets = $api->listMediaAssets();
 $images = $api->listMediaAssets('image');
-$asset = $api->getMediaAsset((int)$settings['media_asset_id']);
+$videos = $api->listMediaAssets('video');
+```
+
+Load one media asset and convert it to a public URL:
+
+```php
+$asset = $api->getMediaAsset((int)($settings['media_asset_id'] ?? 0));
 $url = $api->mediaAssetUrl($asset);
 ```
 
-For upload fields inside slide settings, use a file input named like:
-
-```php
-<input type="file" name="plugin_settings[your-plugin][media_file]" accept="image/*,video/*">
-```
-
-Then normalize it with:
+Store an uploaded file from slide settings:
 
 ```php
 $file = $api->pluginUploadedFile($this->getName(), 'media_file');
 $asset = $api->storeMediaAsset($file, 'Optional media label');
 ```
 
-For global settings, use the root `plugin_global_settings`:
+The matching admin form field must be nested under `plugin_settings[<plugin-name>]`:
+
+```php
+<input
+    type="file"
+    name="plugin_settings[your-plugin][media_file]"
+    accept="image/*,video/*"
+>
+```
+
+For global plugin settings, use the `plugin_global_settings` root:
 
 ```php
 $file = $api->pluginUploadedFile($this->getName(), 'media_file', 'plugin_global_settings');
+$asset = $api->storeMediaAsset($file, 'Global plugin media');
 ```
 
-### Plugin storage and cache
+Media uploads are only available in admin contexts where Hugin has a current user and an upload manager.
 
-Plugins should not write into their own source folders. Use:
+### Access Hugin Settings From A Plugin
+
+Plugins can read public Hugin settings through `PluginApi`. Currently the public namespace is `branding`.
+
+Read all branding settings:
 
 ```php
-$cacheFile = $api->pluginCachePath($this->getName(), 'feed.json');
-$dataFile = $api->pluginStoragePath($this->getName(), 'private/state.json');
+$branding = $api->getHuginSettings('branding');
 ```
 
-These resolve to:
+Read one setting with a fallback:
 
-- `storage/cache/plugins/<plugin>/...`
-- `storage/plugins/<plugin>/...`
+```php
+$background = $api->getHuginSetting('branding', 'default_background_color', '#0f172a');
+$textColor = $api->getHuginSetting('branding', 'default_text_color', '#f8fafc');
+$headingFont = $api->getHuginSetting('branding', 'default_font_heading', '');
+$textFont = $api->getHuginSetting('branding', 'default_font_text', '');
+```
 
-### Included example plugin
+Unknown or private namespaces return an empty array or the provided default.
 
-This package includes `plugins/screen-meta`, an API v2 example plugin slide type that renders the latest heartbeat metadata collected from the client and exposes a small global settings dialog.
+### Display, Playlist, Heartbeat, And State Context
 
-Manage plugins in the admin backend at `/admin/plugins`.
+Frontend plugin hooks can inspect the current display, playlist/channel, and latest heartbeat:
 
-## Important schema change
+```php
+$display = $api->getDisplay();
+$channel = $api->getChannel();
+$heartbeat = $api->getHeartbeat();
+$screen = $api->getScreenMetadata();
+$system = $api->getSystemMeta();
+```
 
-This version changes the content model and adds plugin support:
+Use `getStateData()` to add plugin-specific state into `/display/<slug>/state`. Hugin includes this state in its display signature so clients can refresh when plugin data changes.
 
-- `channels` are reusable content containers
-- `schedules` and `schedule_rules` store reusable schedule definitions
-- `channel_display_schedule_assignments` links channels, displays, and schedules
-- `slides` are reusable content items
-- `channel_slide_assignments` links slides to channels
-- `plugins` stores plugin registry state
-- `plugin_global_settings` stores plugin-wide settings
-- `slide_plugin_data` stores plugin settings per slide
+### Plugin Storage And Cache
 
-If you are upgrading from an earlier package, re-import `database.sql` or migrate your data accordingly.
+Plugins should not write generated data into their source folders. Use the storage helpers:
 
-## Notes
+```php
+$dataFile = $api->pluginStoragePath($this->getName(), 'private/state.json');
+$cacheFile = $api->pluginCachePath($this->getName(), 'feed.json');
+```
 
-- Website slides are rendered in an iframe. Some websites block embedding using `X-Frame-Options` or CSP.
-- External image/video URLs still work alongside uploaded media.
-- Drag-and-drop sorting saves automatically after you drop a row.
-- The example plugin is trusted local PHP code. Only install plugins you control or review.
+These resolve below:
 
-## Display online detection
+- `storage/plugins/<plugin>/`
+- `storage/cache/plugins/<plugin>/`
 
-Each display page sends a heartbeat on load and then repeats below the configured online threshold.
+### Assets And Translations
 
-- Green status: display seen within the configured online window
-- Orange status: display seen after the online window but before the stale window
-- Red status: no heartbeat after the configured stale window
-- The dashboard also shows the currently active channel and the last seen IP address
+Serve plugin assets through Hugin:
+
+```php
+$cssUrl = $api->pluginAssetUrl($this->getName(), 'assets/your-plugin.css');
+```
+
+Plugin language files live in `plugins/<plugin>/lang/<locale>.php` and are loaded below the translation namespace `plugins.<plugin>`. Inside `AbstractSlidePlugin`, use:
+
+```php
+$label = $this->t('settings.heading', 'Heading');
+```
+
+### Lifecycle Notes
+
+- Hugin discovers plugins with `plugin.json` and a loadable PHP class implementing `SlidePluginInterface`.
+- Plugin registry data is synchronized automatically at boot and in the plugin admin area.
+- Plugins can be enabled or disabled in `/admin/plugins`.
+- Disabling a plugin can deactivate slides that use its slide type.
+- Plugin slide settings are stored in `slide_plugin_data`.
+- Plugin global settings are stored in `plugin_global_settings`.
+- Frontend CSS and JavaScript assets returned by `getFrontendAssets()` are included only when slides using that plugin are rendered.

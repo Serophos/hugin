@@ -1,26 +1,56 @@
-# Hugin Weather Plugin (Plugin API v2)
+# Hugin Weather Plugin
 
-This plugin adds a `weather` slide type to Hugin v5.
+The Weather plugin adds the `weather` slide type to Hugin. It renders current weather for a selected location using Open-Meteo data, with server-side fetching, caching, configurable units, and optional date/time display.
 
-## Features
-- Current weather only
-- Open-Meteo city search in admin config
-- Temperature, wind speed, and precipitation unit selection
-- Optional client-side date/time display
-- Responsive gradient background and large weather icons
-- One-hour server-side cache in Hugin's global plugin cache storage
-- Global plugin settings for Open-Meteo endpoints and API key
-- One-hour frontend refresh
+## Configuration Files
 
-## Install
-1. Copy the `weather` folder into `plugins/` of your Hugin installation.
-2. Ensure the plugin is enabled in `/admin/plugins`.
-3. Create or edit a slide and select the `weather` slide type.
-4. Search and select a city, then save the slide.
+This plugin has two configuration layers:
 
-## Commercial use
-Open `/admin/plugins`, choose **Configure** for the Weather plugin, then set the Open-Meteo endpoint and API key according to your Open-Meteo commercial plan. These values are stored in Hugin's plugin settings database table.
+- `plugins/weather/config.php`: file-based runtime defaults for cache and HTTP behavior.
+- `/admin/plugins/weather/settings`: Hugin global plugin settings stored in the database for Open-Meteo endpoints and an optional API key.
 
-## Notes
-- Built for Hugin Plugin API v2.
-- Cache files are written through `PluginApi::pluginCachePath()` below `storage/cache/plugins/weather/`.
+This README documents the file-based `config.php` settings.
+
+## `config.php` Map
+
+```php
+<?php
+return [
+    'cache_ttl_seconds' => 3600,
+    'http_timeout_seconds' => 12,
+    'user_agent' => 'Hugin Weather Plugin/1.0',
+];
+```
+
+## Settings
+
+| Setting | Type | Default | Description |
+| --- | --- | --- | --- |
+| `cache_ttl_seconds` | integer | `3600` | Number of seconds that fetched current weather data may be reused from `storage/cache/plugins/weather/`. A value of `3600` means one hour. |
+| `http_timeout_seconds` | integer | `12` | Timeout in seconds for server-side API requests. The plugin enforces a minimum effective timeout of `3` seconds. |
+| `user_agent` | string | `Hugin Weather Plugin/1.0` | HTTP `User-Agent` header sent to Open-Meteo geocoding and weather endpoints. Change this if your deployment needs a custom contact or product identifier. |
+
+## Related Global Plugin Settings
+
+The following settings are not stored in `config.php`; they are edited in the Hugin admin area and saved in `plugin_global_settings`:
+
+| Setting | Default | Description |
+| --- | --- | --- |
+| `weather_base_url` | `https://api.open-meteo.com/v1/forecast` | Open-Meteo forecast endpoint used for current weather requests. |
+| `geocoding_base_url` | `https://geocoding-api.open-meteo.com/v1/search` | Open-Meteo geocoding endpoint used when resolving a location search. |
+| `api_key` | empty | Optional Open-Meteo API key. If set, the plugin sends it as `apikey` in server-side requests. |
+
+## Runtime Behavior
+
+1. A slide stores location, coordinate, unit, and display options in slide plugin settings.
+2. The plugin resolves location searches through the configured geocoding endpoint.
+3. Current weather requests are made server-side.
+4. Weather responses are cached below `storage/cache/plugins/weather/` using `cache_ttl_seconds`.
+5. Frontend CSS and JavaScript are served through Hugin's plugin asset route.
+
+## Common Adjustments
+
+- Increase `cache_ttl_seconds` to reduce API traffic.
+- Decrease `cache_ttl_seconds` when displays need fresher weather data.
+- Increase `http_timeout_seconds` for slow networks or proxy setups.
+- Set a custom `user_agent` if your API provider or proxy policy requires one.
