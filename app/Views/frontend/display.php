@@ -97,9 +97,43 @@ if (str_starts_with($display['slug'] ?? '', 'preview-slide-') && preg_match('#^p
                 $textAnimationDelay = (int)($slide['resolved_text_box_animation_delay_ms'] ?? 0);
                 $qrUrl = trim((string)($slide['resolved_qr_url'] ?? ''));
                 $qrPosition = (string)($slide['resolved_qr_position'] ?? 'bottom-right');
+                $qrAnimationEnabled = !empty($slide['resolved_qr_animation_enabled']);
+                $qrSizePercent = (int)($slide['resolved_qr_size_percent'] ?? 15);
+                $textSlideStyle = [
+                    '--text-slide-bg' => (string)($slide['resolved_background_color'] ?? '#0f172a'),
+                    '--text-slide-fg' => (string)($slide['resolved_text_color'] ?? 'rgba(248,250,252,1)'),
+                    '--text-slide-overlay' => (string)($slide['resolved_overlay_color'] ?? 'rgba(15,23,42,0.68)'),
+                    '--text-slide-qr-fg' => (string)($slide['resolved_qr_foreground_color'] ?? 'rgba(15,23,42,1)'),
+                    '--text-slide-qr-bg' => (string)($slide['resolved_qr_background_color'] ?? 'rgba(255,255,255,1)'),
+                    '--text-slide-card-width' => (string)$textBoxWidthPercent . 'vw',
+                    '--text-slide-qr-size' => (string)$qrSizePercent . 'vw',
+                    '--text-slide-card-blur' => $textBoxBlur,
+                    '--text-card-animation-duration' => (string)$textAnimationDuration . 'ms',
+                    '--text-card-animation-delay' => (string)$textAnimationDelay . 'ms',
+                ];
+                foreach ([
+                    'top-left' => 'resolved_text_box_radius_top_left_rem',
+                    'top-right' => 'resolved_text_box_radius_top_right_rem',
+                    'bottom-right' => 'resolved_text_box_radius_bottom_right_rem',
+                    'bottom-left' => 'resolved_text_box_radius_bottom_left_rem',
+                ] as $corner => $key) {
+                    if (($slide[$key] ?? null) !== null) {
+                        $textSlideStyle['--text-slide-card-radius-' . $corner] = format_text_slide_radius_rem($slide[$key]) . 'rem';
+                    }
+                }
+                foreach ([
+                    'top-left' => 'resolved_qr_radius_top_left_rem',
+                    'top-right' => 'resolved_qr_radius_top_right_rem',
+                    'bottom-right' => 'resolved_qr_radius_bottom_right_rem',
+                    'bottom-left' => 'resolved_qr_radius_bottom_left_rem',
+                ] as $corner => $key) {
+                    if (($slide[$key] ?? null) !== null) {
+                        $textSlideStyle['--text-slide-qr-radius-' . $corner] = format_text_slide_radius_rem($slide[$key]) . 'rem';
+                    }
+                }
+                $textSlideStyleAttr = implode('; ', array_map(static fn(string $key, string $value): string => $key . ': ' . $value, array_keys($textSlideStyle), $textSlideStyle)) . ';';
                 ?>
-                <?php $qrSizePercent = (int)($slide['resolved_qr_size_percent'] ?? 15); ?>
-                <div class="text-slide text-slide--layout-<?= e($textLayout) ?>" data-text-animation="<?= e($textAnimation) ?>" style="--text-slide-bg: <?= e($slide['resolved_background_color'] ?? '#0f172a') ?>; --text-slide-fg: <?= e($slide['resolved_text_color'] ?? 'rgba(248,250,252,1)') ?>; --text-slide-overlay: <?= e($slide['resolved_overlay_color'] ?? 'rgba(15,23,42,0.68)') ?>; --text-slide-qr-fg: <?= e($slide['resolved_qr_foreground_color'] ?? 'rgba(15,23,42,1)') ?>; --text-slide-qr-bg: <?= e($slide['resolved_qr_background_color'] ?? 'rgba(255,255,255,1)') ?>; --text-slide-card-width: <?= e((string)$textBoxWidthPercent) ?>vw; --text-slide-qr-size: <?= e((string)$qrSizePercent) ?>vw; --text-slide-card-blur: <?= e($textBoxBlur) ?>; --text-card-animation-duration: <?= e((string)$textAnimationDuration) ?>ms; --text-card-animation-delay: <?= e((string)$textAnimationDelay) ?>ms;">
+                <div class="text-slide text-slide--layout-<?= e($textLayout) ?>" data-text-animation="<?= e($textAnimation) ?>" style="<?= e($textSlideStyleAttr) ?>">
                     <?php if (!empty($slide['text_background_url'])): ?>
                         <?php if (($slide['text_background_kind'] ?? '') === 'video'): ?>
                             <video class="text-slide-background text-slide-background--video" data-src="<?= e(url((string)$slide['text_background_url'])) ?>" muted playsinline loop preload="metadata" aria-hidden="true"></video>
@@ -113,9 +147,11 @@ if (str_starts_with($display['slug'] ?? '', 'preview-slide-') && preg_match('#^p
                         </div>
                     </div>
                     <?php if ($qrUrl !== ''): ?>
-                        <div class="text-slide-qr text-slide-qr--<?= e($qrPosition) ?>" style="width: <?= e((string)$qrSizePercent) ?>vw;" data-qr-url="<?= e($qrUrl) ?>" data-qr-foreground="<?= e($slide['resolved_qr_foreground_color'] ?? 'rgba(15,23,42,1)') ?>" data-qr-background="<?= e($slide['resolved_qr_background_color'] ?? 'rgba(255,255,255,1)') ?>" role="img" aria-label="<?= e(__('slide.qr_code_label')) ?>">
-                            <canvas class="text-slide-qr__canvas" width="1" height="1"></canvas>
-                            <div class="text-slide-qr__fallback"><?= e($qrUrl) ?></div>
+                        <div class="text-slide-qr text-slide-qr--<?= e($qrPosition) ?> <?= $qrAnimationEnabled ? 'text-slide-qr--animated' : '' ?>" data-qr-url="<?= e($qrUrl) ?>" data-qr-foreground="<?= e($slide['resolved_qr_foreground_color'] ?? 'rgba(15,23,42,1)') ?>" data-qr-background="<?= e($slide['resolved_qr_background_color'] ?? 'rgba(255,255,255,1)') ?>" role="img" aria-label="<?= e(__('slide.qr_code_label')) ?>">
+                            <div class="text-slide-qr__surface">
+                                <canvas class="text-slide-qr__canvas" width="1" height="1"></canvas>
+                                <div class="text-slide-qr__fallback"><?= e($qrUrl) ?></div>
+                            </div>
                         </div>
                     <?php endif; ?>
                 </div>

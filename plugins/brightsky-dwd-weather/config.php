@@ -6,7 +6,7 @@ return [
     'http_timeout_seconds' => 12,
     'max_dist_meters' => 50000,
     'timezone' => 'Europe/Berlin',
-    'debug_force_rain_effect' => false,
+    'debug_force_rain_effect' => true,
     'debug_force_lightning_effect' => false,
     'user_agent' => 'Hugin BrightSky DWD Weather Plugin/1.0',
 ];

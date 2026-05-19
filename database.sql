@@ -205,10 +205,19 @@ CREATE TABLE slides (
     text_box_animation_delay_ms INT UNSIGNED NULL,
     text_box_blur_enabled TINYINT(1) NULL,
     text_box_width_percent TINYINT UNSIGNED NULL,
+    text_box_radius_top_left_rem DECIMAL(4,2) UNSIGNED NULL,
+    text_box_radius_top_right_rem DECIMAL(4,2) UNSIGNED NULL,
+    text_box_radius_bottom_right_rem DECIMAL(4,2) UNSIGNED NULL,
+    text_box_radius_bottom_left_rem DECIMAL(4,2) UNSIGNED NULL,
     qr_foreground_color VARCHAR(40) NULL,
     qr_background_color VARCHAR(40) NULL,
     qr_position VARCHAR(40) NULL,
     qr_size_percent TINYINT UNSIGNED NULL,
+    qr_animation_enabled TINYINT(1) NULL,
+    qr_radius_top_left_rem DECIMAL(4,2) UNSIGNED NULL,
+    qr_radius_top_right_rem DECIMAL(4,2) UNSIGNED NULL,
+    qr_radius_bottom_right_rem DECIMAL(4,2) UNSIGNED NULL,
+    qr_radius_bottom_left_rem DECIMAL(4,2) UNSIGNED NULL,
     duration_seconds INT UNSIGNED NULL,
     title_position ENUM('hide', 'top-left', 'top-right', 'bottom-left', 'bottom-right', 'center') NOT NULL DEFAULT 'bottom-left',
     is_active TINYINT(1) NOT NULL DEFAULT 1,
@@ -323,16 +332,19 @@ INSERT INTO slides (
     name, slide_type, source_mode, source_url, media_asset_id, background_media_asset_id, text_markup,
     background_color, text_color, text_box_background_color, text_box_layout, text_box_animation,
     text_box_animation_duration_ms, text_box_animation_delay_ms, text_box_blur_enabled, text_box_width_percent,
-    qr_foreground_color, qr_background_color, qr_position, qr_size_percent, duration_seconds, title_position, is_active
+    text_box_radius_top_left_rem, text_box_radius_top_right_rem, text_box_radius_bottom_right_rem, text_box_radius_bottom_left_rem,
+    qr_foreground_color, qr_background_color, qr_position, qr_size_percent,
+    qr_animation_enabled, qr_radius_top_left_rem, qr_radius_top_right_rem, qr_radius_bottom_right_rem, qr_radius_bottom_left_rem,
+    duration_seconds, title_position, is_active
 ) VALUES
-('Hugin Teaser Video', 'video', 'media', NULL, 1, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 15, 'hide', 1),
-('Hugin Brand Image', 'image', 'media', NULL, 2, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 10, 'hide', 1),
-('Flexible Text Overlay', 'text', 'external', 'https://github.com/serophos/hugin', NULL, 3, '# Hugin | Open Source Digital Signage\n\nCreate polished information screens with rich text, media backgrounds, translucent cards, and QR codes. This slide uses a demo media asset as its background.', '#0f172a', 'rgba(248,250,252,1)', 'rgba(15,23,42,0.72)', 'bottom-left', 'fade-up', 600, 100, 1, 76, 'rgba(255,255,255,1)', 'rgba(31,41,55,0)', 'bottom-right', 14, 12, 'hide', 1),
-('Visual Announcements', 'text', 'external', NULL, NULL, 4, '# Readable messages, fast updates\n\nUse Hugin to publish announcements, wayfinding notes, menus, and service updates. Layout, card width, animation timing, background media, and colors can be tuned for each slide.', '#111827', 'rgba(255,255,255,1)', 'rgba(17,24,39,0.64)', 'bottom-right', 'fade-up', 700, 1500, 1, 33, 'rgba(17,24,39,1)', 'rgba(255,255,255,1)', 'top-right', 12, 12, 'hide', 1),
-('Morning Website Slide', 'website', 'external', 'https://en.wikipedia.org/wiki/Digital_signage', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 14, 'top-left', 1),
-('Morning Media Message', 'text', 'external', 'https://github.com/', NULL, 2, '# Scheduled playlists\n\nThis morning playlist is active only on weekday mornings and only on one display. Hugin can combine schedules, priorities, and display assignments for targeted communication.', '#06202a', 'rgba(240,253,250,1)', 'rgba(6,32,42,0.70)', 'top-left', 'zoom', 650, 0, 1, 72, 'rgba(6,32,42,1)', 'rgba(240,253,250,1)', 'bottom-right', 13, 10, 'hide', 1),
-('External Video Example', 'video', 'external', 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 12, 'bottom-right', 1),
-('Compact Status Card', 'text', 'external', NULL, NULL, NULL, '# Simple by default\n\nRun Hugin on standard web clients, assign playlists to screens, and keep demo content professional, safe, and easy to replace.', '#1f2937', 'rgba(249,250,251,1)', 'rgba(31,41,55,0.78)', 'center', 'none', 600, 0, 0, 55, 'rgba(31,41,55,1)', 'rgba(249,250,251,1)', 'bottom-left', 10, 9, 'hide', 1);
+('Hugin Teaser Video', 'video', 'media', NULL, 1, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 15, 'hide', 1),
+('Hugin Brand Image', 'image', 'media', NULL, 2, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 10, 'hide', 1),
+('Flexible Text Overlay', 'text', 'external', 'https://github.com/serophos/hugin', NULL, 3, '# Hugin | Open Source Digital Signage\n\nCreate polished information screens with rich text, media backgrounds, translucent cards, and QR codes. This slide uses a demo media asset as its background.', '#0f172a', 'rgba(248,250,252,1)', 'rgba(15,23,42,0.72)', 'bottom-left', 'fade-up', 600, 100, 1, 76, NULL, NULL, NULL, NULL, 'rgba(255,255,255,1)', 'rgba(31,41,55,0)', 'bottom-right', 14, 0, NULL, NULL, NULL, NULL, 12, 'hide', 1),
+('Visual Announcements', 'text', 'external', NULL, NULL, 4, '# Readable messages, fast updates\n\nUse Hugin to publish announcements, wayfinding notes, menus, and service updates. Layout, card width, animation timing, background media, and colors can be tuned for each slide.', '#111827', 'rgba(255,255,255,1)', 'rgba(17,24,39,0.64)', 'bottom-right', 'fade-up', 700, 1500, 1, 33, NULL, NULL, NULL, NULL, 'rgba(17,24,39,1)', 'rgba(255,255,255,1)', 'top-right', 12, 0, NULL, NULL, NULL, NULL, 12, 'hide', 1),
+('Morning Website Slide', 'website', 'external', 'https://en.wikipedia.org/wiki/Digital_signage', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 14, 'top-left', 1),
+('Morning Media Message', 'text', 'external', 'https://github.com/', NULL, 2, '# Scheduled playlists\n\nThis morning playlist is active only on weekday mornings and only on one display. Hugin can combine schedules, priorities, and display assignments for targeted communication.', '#06202a', 'rgba(240,253,250,1)', 'rgba(6,32,42,0.70)', 'top-left', 'zoom', 650, 0, 1, 72, NULL, NULL, NULL, NULL, 'rgba(6,32,42,1)', 'rgba(240,253,250,1)', 'bottom-right', 13, 0, NULL, NULL, NULL, NULL, 10, 'hide', 1),
+('External Video Example', 'video', 'external', 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 12, 'bottom-right', 1),
+('Compact Status Card', 'text', 'external', NULL, NULL, NULL, '# Simple by default\n\nRun Hugin on standard web clients, assign playlists to screens, and keep demo content professional, safe, and easy to replace.', '#1f2937', 'rgba(249,250,251,1)', 'rgba(31,41,55,0.78)', 'center', 'none', 600, 0, 0, 55, NULL, NULL, NULL, NULL, 'rgba(31,41,55,1)', 'rgba(249,250,251,1)', 'bottom-left', 10, 0, NULL, NULL, NULL, NULL, 9, 'hide', 1);
 
 INSERT INTO channel_slide_assignments (channel_id, slide_id, sort_order) VALUES
 (1, 1, 1),

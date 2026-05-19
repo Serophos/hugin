@@ -560,7 +560,7 @@ function normalize_integer_range(mixed $value, int $default, int $min, int $max)
 
 function normalize_text_slide_animation_duration_ms(mixed $value): int
 {
-    return normalize_integer_range($value, 600, 300, 800);
+    return normalize_integer_range($value, 600, 300, 1500);
 }
 
 function normalize_text_slide_animation_delay_ms(mixed $value): int
@@ -571,6 +571,91 @@ function normalize_text_slide_animation_delay_ms(mixed $value): int
 function normalize_text_slide_box_width_percent(mixed $value): int
 {
     return normalize_integer_range($value, 76, 25, 95);
+}
+
+function text_slide_radius_corner_keys(): array
+{
+    return ['top_left', 'top_right', 'bottom_right', 'bottom_left'];
+}
+
+function normalize_text_slide_radius_rem(mixed $value): ?float
+{
+    $value = trim((string)$value);
+    if ($value === '' || preg_match('/^-?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)$/', $value) !== 1) {
+        return null;
+    }
+
+    return round(max(0, min(10, (float)$value)), 2);
+}
+
+function format_text_slide_radius_rem(mixed $value): string
+{
+    if ($value === null || $value === '') {
+        return '';
+    }
+
+    $normalized = normalize_text_slide_radius_rem($value);
+    if ($normalized === null) {
+        return '';
+    }
+
+    return rtrim(rtrim(sprintf('%.2F', $normalized), '0'), '.');
+}
+
+function normalize_text_slide_radius_corners(string $mode, mixed $allValue, array $cornerValues): array
+{
+    $empty = array_fill_keys(text_slide_radius_corner_keys(), null);
+    if ($mode === 'default') {
+        return $empty;
+    }
+
+    if ($mode === 'all') {
+        $radius = normalize_text_slide_radius_rem($allValue);
+        return array_fill_keys(text_slide_radius_corner_keys(), $radius);
+    }
+
+    if ($mode !== 'custom') {
+        return $empty;
+    }
+
+    $normalized = [];
+    foreach (text_slide_radius_corner_keys() as $corner) {
+        $normalized[$corner] = normalize_text_slide_radius_rem($cornerValues[$corner] ?? '');
+    }
+
+    return $normalized;
+}
+
+function text_slide_radius_mode_from_values(array $values): string
+{
+    $corners = [];
+    foreach (text_slide_radius_corner_keys() as $corner) {
+        $value = $values[$corner] ?? null;
+        $corners[$corner] = normalize_text_slide_radius_rem($value);
+    }
+
+    $configured = array_values(array_filter($corners, static fn(?float $value): bool => $value !== null));
+    if ($configured === []) {
+        return 'default';
+    }
+
+    return count(array_unique(array_values($corners), SORT_REGULAR)) === 1 ? 'all' : 'custom';
+}
+
+function text_slide_radius_all_value(array $values): string
+{
+    if (text_slide_radius_mode_from_values($values) !== 'all') {
+        return '';
+    }
+
+    foreach (text_slide_radius_corner_keys() as $corner) {
+        $value = $values[$corner] ?? null;
+        if ($value !== null && $value !== '') {
+            return format_text_slide_radius_rem($value);
+        }
+    }
+
+    return '';
 }
 
 function render_markup(string $input): string

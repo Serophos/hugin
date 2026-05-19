@@ -368,10 +368,19 @@ class FrontendController
             $slide['resolved_text_box_animation_delay_ms'] = normalize_text_slide_animation_delay_ms($slide['text_box_animation_delay_ms'] ?? '');
             $slide['resolved_text_box_blur_enabled'] = (int)($slide['text_box_blur_enabled'] ?? 1) === 1;
             $slide['resolved_text_box_width_percent'] = normalize_text_slide_box_width_percent($slide['text_box_width_percent'] ?? '');
+            $slide['resolved_text_box_radius_top_left_rem'] = normalize_text_slide_radius_rem($slide['text_box_radius_top_left_rem'] ?? '');
+            $slide['resolved_text_box_radius_top_right_rem'] = normalize_text_slide_radius_rem($slide['text_box_radius_top_right_rem'] ?? '');
+            $slide['resolved_text_box_radius_bottom_right_rem'] = normalize_text_slide_radius_rem($slide['text_box_radius_bottom_right_rem'] ?? '');
+            $slide['resolved_text_box_radius_bottom_left_rem'] = normalize_text_slide_radius_rem($slide['text_box_radius_bottom_left_rem'] ?? '');
             $slide['resolved_qr_foreground_color'] = normalize_css_rgba_color((string)($slide['qr_foreground_color'] ?? ''), 'rgba(15, 23, 42, 1)');
             $slide['resolved_qr_background_color'] = normalize_css_rgba_color((string)($slide['qr_background_color'] ?? ''), 'rgba(255, 255, 255, 1)');
             $slide['resolved_qr_position'] = normalize_text_slide_qr_position((string)($slide['qr_position'] ?? ''));
             $slide['resolved_qr_size_percent'] = normalize_text_slide_qr_size_percent($slide['qr_size_percent'] ?? '');
+            $slide['resolved_qr_animation_enabled'] = (int)($slide['qr_animation_enabled'] ?? 0) === 1;
+            $slide['resolved_qr_radius_top_left_rem'] = normalize_text_slide_radius_rem($slide['qr_radius_top_left_rem'] ?? '');
+            $slide['resolved_qr_radius_top_right_rem'] = normalize_text_slide_radius_rem($slide['qr_radius_top_right_rem'] ?? '');
+            $slide['resolved_qr_radius_bottom_right_rem'] = normalize_text_slide_radius_rem($slide['qr_radius_bottom_right_rem'] ?? '');
+            $slide['resolved_qr_radius_bottom_left_rem'] = normalize_text_slide_radius_rem($slide['qr_radius_bottom_left_rem'] ?? '');
             $slide['resolved_qr_url'] = '';
 
             if (($slide['slide_type'] ?? '') === 'text') {
@@ -483,10 +492,19 @@ class FrontendController
                     'text_box_animation_delay_ms' => (int)($slide['resolved_text_box_animation_delay_ms'] ?? 0),
                     'text_box_blur_enabled' => (int)(($slide['resolved_text_box_blur_enabled'] ?? true) ? 1 : 0),
                     'text_box_width_percent' => (int)($slide['resolved_text_box_width_percent'] ?? 0),
+                    'text_box_radius_top_left_rem' => $slide['resolved_text_box_radius_top_left_rem'] ?? null,
+                    'text_box_radius_top_right_rem' => $slide['resolved_text_box_radius_top_right_rem'] ?? null,
+                    'text_box_radius_bottom_right_rem' => $slide['resolved_text_box_radius_bottom_right_rem'] ?? null,
+                    'text_box_radius_bottom_left_rem' => $slide['resolved_text_box_radius_bottom_left_rem'] ?? null,
                     'qr_url' => (string)($slide['resolved_qr_url'] ?? ''),
                     'qr_foreground_color' => (string)($slide['resolved_qr_foreground_color'] ?? ''),
                     'qr_background_color' => (string)($slide['resolved_qr_background_color'] ?? ''),
                     'qr_position' => (string)($slide['resolved_qr_position'] ?? ''),
+                    'qr_animation_enabled' => (int)(($slide['resolved_qr_animation_enabled'] ?? false) ? 1 : 0),
+                    'qr_radius_top_left_rem' => $slide['resolved_qr_radius_top_left_rem'] ?? null,
+                    'qr_radius_top_right_rem' => $slide['resolved_qr_radius_top_right_rem'] ?? null,
+                    'qr_radius_bottom_right_rem' => $slide['resolved_qr_radius_bottom_right_rem'] ?? null,
+                    'qr_radius_bottom_left_rem' => $slide['resolved_qr_radius_bottom_left_rem'] ?? null,
                     'resolved_duration' => (int)$slide['resolved_duration'],
                     'updated_at' => (string)($slide['updated_at'] ?? ''),
                     'assignment_sort_order' => (int)($slide['assignment_sort_order'] ?? 0),

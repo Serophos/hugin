@@ -7,7 +7,35 @@ $textSlideLayouts = text_slide_layout_options();
 $textSlideAnimations = text_slide_animation_options();
 $textSlideQrPositions = text_slide_qr_position_options();
 $textBoxWidthPercentValue = (string)old('text_box_width_percent', $slide['text_box_width_percent'] ?? '76', $formId);
+$textBoxRadiusSlideValues = [
+    'top_left' => $slide['text_box_radius_top_left_rem'] ?? null,
+    'top_right' => $slide['text_box_radius_top_right_rem'] ?? null,
+    'bottom_right' => $slide['text_box_radius_bottom_right_rem'] ?? null,
+    'bottom_left' => $slide['text_box_radius_bottom_left_rem'] ?? null,
+];
+$textBoxRadiusMode = (string)old('text_box_radius_mode', text_slide_radius_mode_from_values($textBoxRadiusSlideValues), $formId);
+$textBoxRadiusAllValue = (string)old('text_box_radius_all_rem', text_slide_radius_all_value($textBoxRadiusSlideValues), $formId);
+$textBoxRadiusValues = [
+    'top_left' => (string)old('text_box_radius_top_left_rem', format_text_slide_radius_rem($slide['text_box_radius_top_left_rem'] ?? ''), $formId),
+    'top_right' => (string)old('text_box_radius_top_right_rem', format_text_slide_radius_rem($slide['text_box_radius_top_right_rem'] ?? ''), $formId),
+    'bottom_right' => (string)old('text_box_radius_bottom_right_rem', format_text_slide_radius_rem($slide['text_box_radius_bottom_right_rem'] ?? ''), $formId),
+    'bottom_left' => (string)old('text_box_radius_bottom_left_rem', format_text_slide_radius_rem($slide['text_box_radius_bottom_left_rem'] ?? ''), $formId),
+];
 $qrSizePercentValue = (string)old('qr_size_percent', $slide['qr_size_percent'] ?? '15', $formId);
+$qrRadiusSlideValues = [
+    'top_left' => $slide['qr_radius_top_left_rem'] ?? null,
+    'top_right' => $slide['qr_radius_top_right_rem'] ?? null,
+    'bottom_right' => $slide['qr_radius_bottom_right_rem'] ?? null,
+    'bottom_left' => $slide['qr_radius_bottom_left_rem'] ?? null,
+];
+$qrRadiusMode = (string)old('qr_radius_mode', text_slide_radius_mode_from_values($qrRadiusSlideValues), $formId);
+$qrRadiusAllValue = (string)old('qr_radius_all_rem', text_slide_radius_all_value($qrRadiusSlideValues), $formId);
+$qrRadiusValues = [
+    'top_left' => (string)old('qr_radius_top_left_rem', format_text_slide_radius_rem($slide['qr_radius_top_left_rem'] ?? ''), $formId),
+    'top_right' => (string)old('qr_radius_top_right_rem', format_text_slide_radius_rem($slide['qr_radius_top_right_rem'] ?? ''), $formId),
+    'bottom_right' => (string)old('qr_radius_bottom_right_rem', format_text_slide_radius_rem($slide['qr_radius_bottom_right_rem'] ?? ''), $formId),
+    'bottom_left' => (string)old('qr_radius_bottom_left_rem', format_text_slide_radius_rem($slide['qr_radius_bottom_left_rem'] ?? ''), $formId),
+];
 $pluginCss = [];
 foreach ($pluginDefinitions as $p) {
     $pluginName = (string)($p['name'] ?? '');
@@ -145,14 +173,21 @@ require __DIR__ . '/../layouts/admin_header.php';
                         <?= field_error_html('background_color', $formId) ?>
                     </label>
                     <label><?= e(__('slide.background_media')) ?>
-                        <select name="background_media_asset_id"<?= field_attrs('background_media_asset_id', $formId) ?>>
+                        <select name="background_media_asset_id" data-background-media-select<?= field_attrs('background_media_asset_id', $formId) ?>>
                             <option value=""><?= e(__('common.none')) ?></option>
                             <?php foreach (($backgroundMediaAssets ?? $imageMediaAssets ?? []) as $asset): ?>
-                                <option value="<?= e((string)$asset['id']) ?>" <?= old_selected('background_media_asset_id', $asset['id'], $slide['background_media_asset_id'] ?? '', $formId) ?>><?= e($asset['name']) ?> · <?= e($asset['original_name']) ?> (<?= e(enum_label('slide_types', (string)$asset['media_kind'], (string)$asset['media_kind'])) ?>)</option>
+                                <option value="<?= e((string)$asset['id']) ?>" data-media-kind="<?= e((string)($asset['media_kind'] ?? '')) ?>" data-media-url="<?= e(($asset['file_path'] ?? '') !== '' ? url((string)$asset['file_path']) : '') ?>" data-media-name="<?= e($asset['name']) ?>" <?= old_selected('background_media_asset_id', $asset['id'], $slide['background_media_asset_id'] ?? '', $formId) ?>><?= e($asset['name']) ?> · <?= e($asset['original_name']) ?> (<?= e(enum_label('slide_types', (string)$asset['media_kind'], (string)$asset['media_kind'])) ?>)</option>
                             <?php endforeach; ?>
                         </select>
                         <?= field_error_html('background_media_asset_id', $formId) ?>
                     </label>
+                    <div class="text-background-preview full-width" data-background-media-preview hidden>
+                        <div class="text-background-preview__thumb" data-background-media-preview-thumb>
+                            <img src="" alt="" data-background-media-preview-image hidden>
+                            <video src="" muted playsinline preload="metadata" data-background-media-preview-video hidden></video>
+                            <span data-background-media-preview-name></span>
+                        </div>
+                    </div>
                     <label class="full-width"><?= e(__('slide.background_upload')) ?>
                         <input type="file" name="background_uploaded_file" accept="image/*,video/*"<?= field_attrs('background_uploaded_file', $formId) ?>>
                         <?= field_error_html('background_uploaded_file', $formId) ?>
@@ -206,6 +241,32 @@ require __DIR__ . '/../layouts/admin_header.php';
                         <input type="checkbox" name="text_box_blur_enabled" value="1" <?= old_checked('text_box_blur_enabled', $slide['text_box_blur_enabled'] ?? 1, $formId) ?>>
                         <span><?= e(__('slide.text_box_blur_enabled')) ?></span>
                     </label>
+                    <div class="radius-control full-width" data-radius-control>
+                        <label><?= e(__('slide.text_box_radius')) ?>
+                            <select name="text_box_radius_mode" data-radius-mode<?= field_attrs('text_box_radius_mode', $formId) ?>>
+                                <option value="default" <?= selected($textBoxRadiusMode, 'default') ?>><?= e(enum_label('radius_modes', 'default')) ?></option>
+                                <option value="all" <?= selected($textBoxRadiusMode, 'all') ?>><?= e(enum_label('radius_modes', 'all')) ?></option>
+                                <option value="custom" <?= selected($textBoxRadiusMode, 'custom') ?>><?= e(enum_label('radius_modes', 'custom')) ?></option>
+                            </select>
+                        </label>
+                        <label data-radius-panel="all"><?= e(__('slide.radius_all_rem')) ?>
+                            <input type="number" name="text_box_radius_all_rem" min="0" max="10" step="0.1" value="<?= e($textBoxRadiusAllValue) ?>"<?= field_attrs('text_box_radius_all_rem', $formId) ?>>
+                        </label>
+                        <div class="radius-control__corners" data-radius-panel="custom">
+                            <label><?= e(__('slide.radius_top_left_rem')) ?>
+                                <input type="number" name="text_box_radius_top_left_rem" min="0" max="10" step="0.1" value="<?= e($textBoxRadiusValues['top_left']) ?>"<?= field_attrs('text_box_radius_top_left_rem', $formId) ?>>
+                            </label>
+                            <label><?= e(__('slide.radius_top_right_rem')) ?>
+                                <input type="number" name="text_box_radius_top_right_rem" min="0" max="10" step="0.1" value="<?= e($textBoxRadiusValues['top_right']) ?>"<?= field_attrs('text_box_radius_top_right_rem', $formId) ?>>
+                            </label>
+                            <label><?= e(__('slide.radius_bottom_right_rem')) ?>
+                                <input type="number" name="text_box_radius_bottom_right_rem" min="0" max="10" step="0.1" value="<?= e($textBoxRadiusValues['bottom_right']) ?>"<?= field_attrs('text_box_radius_bottom_right_rem', $formId) ?>>
+                            </label>
+                            <label><?= e(__('slide.radius_bottom_left_rem')) ?>
+                                <input type="number" name="text_box_radius_bottom_left_rem" min="0" max="10" step="0.1" value="<?= e($textBoxRadiusValues['bottom_left']) ?>"<?= field_attrs('text_box_radius_bottom_left_rem', $formId) ?>>
+                            </label>
+                        </div>
+                    </div>
                 </div>
             </fieldset>
 
@@ -221,12 +282,16 @@ require __DIR__ . '/../layouts/admin_header.php';
                         <?= field_error_html('text_box_animation', $formId) ?>
                     </label>
                     <label><?= e(__('slide.text_box_animation_duration_ms')) ?>
-                        <input type="number" name="text_box_animation_duration_ms" min="300" max="800" step="50" value="<?= e((string)old('text_box_animation_duration_ms', $slide['text_box_animation_duration_ms'] ?? '600', $formId)) ?>"<?= field_attrs('text_box_animation_duration_ms', $formId) ?>>
+                        <input type="number" name="text_box_animation_duration_ms" min="300" max="1500" step="50" value="<?= e((string)old('text_box_animation_duration_ms', $slide['text_box_animation_duration_ms'] ?? '600', $formId)) ?>"<?= field_attrs('text_box_animation_duration_ms', $formId) ?>>
                         <?= field_error_html('text_box_animation_duration_ms', $formId) ?>
                     </label>
                     <label><?= e(__('slide.text_box_animation_delay_ms')) ?>
                         <input type="number" name="text_box_animation_delay_ms" min="0" max="5000" step="50" value="<?= e((string)old('text_box_animation_delay_ms', $slide['text_box_animation_delay_ms'] ?? '0', $formId)) ?>"<?= field_attrs('text_box_animation_delay_ms', $formId) ?>>
                         <?= field_error_html('text_box_animation_delay_ms', $formId) ?>
+                    </label>
+                    <label class="checkbox-row text-slide-checkbox">
+                        <input type="checkbox" name="qr_animation_enabled" value="1" <?= old_checked('qr_animation_enabled', $slide['qr_animation_enabled'] ?? 0, $formId) ?>>
+                        <span><?= e(__('slide.qr_animation_enabled')) ?></span>
                     </label>
                 </div>
             </fieldset>
@@ -256,6 +321,32 @@ require __DIR__ . '/../layouts/admin_header.php';
                         </select>
                         <?= field_error_html('qr_position', $formId) ?>
                     </label>
+                    <div class="radius-control full-width" data-radius-control>
+                        <label><?= e(__('slide.qr_radius')) ?>
+                            <select name="qr_radius_mode" data-radius-mode<?= field_attrs('qr_radius_mode', $formId) ?>>
+                                <option value="default" <?= selected($qrRadiusMode, 'default') ?>><?= e(enum_label('radius_modes', 'default')) ?></option>
+                                <option value="all" <?= selected($qrRadiusMode, 'all') ?>><?= e(enum_label('radius_modes', 'all')) ?></option>
+                                <option value="custom" <?= selected($qrRadiusMode, 'custom') ?>><?= e(enum_label('radius_modes', 'custom')) ?></option>
+                            </select>
+                        </label>
+                        <label data-radius-panel="all"><?= e(__('slide.radius_all_rem')) ?>
+                            <input type="number" name="qr_radius_all_rem" min="0" max="10" step="0.1" value="<?= e($qrRadiusAllValue) ?>"<?= field_attrs('qr_radius_all_rem', $formId) ?>>
+                        </label>
+                        <div class="radius-control__corners" data-radius-panel="custom">
+                            <label><?= e(__('slide.radius_top_left_rem')) ?>
+                                <input type="number" name="qr_radius_top_left_rem" min="0" max="10" step="0.1" value="<?= e($qrRadiusValues['top_left']) ?>"<?= field_attrs('qr_radius_top_left_rem', $formId) ?>>
+                            </label>
+                            <label><?= e(__('slide.radius_top_right_rem')) ?>
+                                <input type="number" name="qr_radius_top_right_rem" min="0" max="10" step="0.1" value="<?= e($qrRadiusValues['top_right']) ?>"<?= field_attrs('qr_radius_top_right_rem', $formId) ?>>
+                            </label>
+                            <label><?= e(__('slide.radius_bottom_right_rem')) ?>
+                                <input type="number" name="qr_radius_bottom_right_rem" min="0" max="10" step="0.1" value="<?= e($qrRadiusValues['bottom_right']) ?>"<?= field_attrs('qr_radius_bottom_right_rem', $formId) ?>>
+                            </label>
+                            <label><?= e(__('slide.radius_bottom_left_rem')) ?>
+                                <input type="number" name="qr_radius_bottom_left_rem" min="0" max="10" step="0.1" value="<?= e($qrRadiusValues['bottom_left']) ?>"<?= field_attrs('qr_radius_bottom_left_rem', $formId) ?>>
+                            </label>
+                        </div>
+                    </div>
                     <label><?= e(__('slide.qr_foreground_color')) ?>
                         <span class="rgba-control" data-rgba-control data-default-color="#0f172a" data-default-alpha="1">
                             <input type="color" value="#0f172a" data-rgba-color>
@@ -403,6 +494,89 @@ function initRangeInput(input) {
     sync();
 }
 
+function initBackgroundMediaPreview(select) {
+    const preview = document.querySelector('[data-background-media-preview]');
+    if (!preview) return;
+
+    const image = preview.querySelector('[data-background-media-preview-image]');
+    const video = preview.querySelector('[data-background-media-preview-video]');
+    const name = preview.querySelector('[data-background-media-preview-name]');
+
+    const clearMedia = () => {
+        if (image) {
+            image.hidden = true;
+            image.removeAttribute('src');
+            image.alt = '';
+        }
+        if (video) {
+            video.hidden = true;
+            video.pause();
+            video.removeAttribute('src');
+            video.load();
+        }
+    };
+
+    const sync = () => {
+        const option = select.selectedOptions[0];
+        const url = option?.dataset.mediaUrl || '';
+        const kind = option?.dataset.mediaKind || '';
+        const label = option?.dataset.mediaName || '';
+
+        clearMedia();
+        preview.hidden = !url;
+        if (name) {
+            name.textContent = label;
+        }
+        if (!url) return;
+
+        if (kind === 'video' && video) {
+            video.src = url;
+            video.hidden = false;
+            video.load();
+            return;
+        }
+
+        if (image) {
+            image.src = url;
+            image.alt = label;
+            image.hidden = false;
+        }
+    };
+
+    select.addEventListener('change', sync);
+    sync();
+}
+
+function setRadiusPanelState(panel, enabled) {
+    panel.hidden = !enabled;
+    panel.setAttribute('aria-hidden', enabled ? 'false' : 'true');
+    panel.querySelectorAll('input, select, textarea, button').forEach(input => {
+        input.disabled = !enabled;
+    });
+}
+
+function updateRadiusControl(control) {
+    const mode = control.querySelector('[data-radius-mode]');
+    if (!mode) return;
+
+    const isSectionHidden = control.closest('#text-slide-fields')?.style.display === 'none';
+    const selectedMode = mode.value || 'default';
+    mode.disabled = isSectionHidden;
+
+    control.querySelectorAll('[data-radius-panel]').forEach(panel => {
+        setRadiusPanelState(panel, !isSectionHidden && panel.dataset.radiusPanel === selectedMode);
+    });
+}
+
+function initRadiusControl(control) {
+    const mode = control.querySelector('[data-radius-mode]');
+    if (!mode) return;
+
+    mode.addEventListener('change', () => updateRadiusControl(control));
+    mode.addEventListener('input', () => updateRadiusControl(control));
+    updateRadiusControl(control);
+}
+
 function filterMediaByType(slideType) {
     const mediaSelect = document.querySelector('select[name="media_asset_id"]');
     const uploadInput = document.getElementById('uploaded_file');
@@ -503,6 +677,7 @@ function updateSlideTypeUi() {
 
     const textInputs = textFields.querySelectorAll('input, select, textarea');
     textInputs.forEach(el => el.disabled = textFields.style.display === 'none');
+    document.querySelectorAll('[data-radius-control]').forEach(updateRadiusControl);
 
     document.querySelectorAll('.plugin-settings-section').forEach(section => {
         const inputs = section.querySelectorAll('input, select, textarea');
@@ -515,6 +690,9 @@ document.getElementById('slide_type').addEventListener('change', updateSlideType
 document.getElementById('source_mode').addEventListener('change', updateSlideTypeUi);
 document.querySelectorAll('[data-rgba-control]').forEach(initRgbaControl);
 document.querySelectorAll('[data-range-input]').forEach(initRangeInput);
+document.querySelectorAll('[data-radius-control]').forEach(initRadiusControl);
+const backgroundMediaSelect = document.querySelector('[data-background-media-select]');
+if (backgroundMediaSelect) initBackgroundMediaPreview(backgroundMediaSelect);
 updateSlideTypeUi();
 </script>
 <?php require __DIR__ . '/../layouts/admin_footer.php'; ?>

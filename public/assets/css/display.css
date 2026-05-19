@@ -340,7 +340,7 @@ html, body {
     max-height: 82vh;
     overflow: hidden;
     padding: 3.2rem 3.4rem;
-    border-radius: 2rem;
+    border-radius: var(--text-slide-card-radius-top-left, 2rem) var(--text-slide-card-radius-top-right, 2rem) var(--text-slide-card-radius-bottom-right, 2rem) var(--text-slide-card-radius-bottom-left, 2rem);
     background: var(--text-slide-overlay, rgba(15, 23, 42, 0.68));
     color: var(--text-slide-fg, #f8fafc);
     box-shadow: 0 25px 60px rgba(0, 0, 0, 0.28);
@@ -366,11 +366,19 @@ html, body {
     aspect-ratio: 1;
     display: grid;
     place-items: center;
-    padding: 0.6rem;
-    border-radius: 1rem;
-    background: var(--text-slide-qr-bg, rgba(255, 255, 255, 1));
-
     right: 6vw;
+}
+
+.text-slide-qr__surface {
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+    display: grid;
+    place-items: center;
+    padding: 0.6rem;
+    border-radius: var(--text-slide-qr-radius-top-left, 1rem) var(--text-slide-qr-radius-top-right, 1rem) var(--text-slide-qr-radius-bottom-right, 1rem) var(--text-slide-qr-radius-bottom-left, 1rem);
+    background: var(--text-slide-qr-bg, rgba(255, 255, 255, 1));
+    overflow: hidden;
 }
 
 .text-slide-qr--top-right {
@@ -464,31 +472,38 @@ html, body {
     background: rgba(255,255,255,0.16);
 }
 
-.slide.is-text-card-animating .text-slide[data-text-animation="fade-up"] .text-slide-card {
+.slide.is-text-card-animating .text-slide[data-text-animation="fade-up"] .text-slide-card,
+.slide.is-text-card-animating .text-slide[data-text-animation="fade-up"] .text-slide-qr--animated .text-slide-qr__surface {
     animation: text-card-fade-up var(--text-card-animation-duration, 520ms) cubic-bezier(0.16, 1, 0.3, 1) var(--text-card-animation-delay, 0ms) both;
 }
 
-.slide.is-text-card-animating .text-slide[data-text-animation="fly-left"] .text-slide-card {
+.slide.is-text-card-animating .text-slide[data-text-animation="fly-left"] .text-slide-card,
+.slide.is-text-card-animating .text-slide[data-text-animation="fly-left"] .text-slide-qr--animated .text-slide-qr__surface {
     animation: text-card-fly-left var(--text-card-animation-duration, 560ms) cubic-bezier(0.16, 1, 0.3, 1) var(--text-card-animation-delay, 0ms) both;
 }
 
-.slide.is-text-card-animating .text-slide[data-text-animation="fly-right"] .text-slide-card {
+.slide.is-text-card-animating .text-slide[data-text-animation="fly-right"] .text-slide-card,
+.slide.is-text-card-animating .text-slide[data-text-animation="fly-right"] .text-slide-qr--animated .text-slide-qr__surface {
     animation: text-card-fly-right var(--text-card-animation-duration, 560ms) cubic-bezier(0.16, 1, 0.3, 1) var(--text-card-animation-delay, 0ms) both;
 }
 
-.slide.is-text-card-animating .text-slide[data-text-animation="fly-top"] .text-slide-card {
+.slide.is-text-card-animating .text-slide[data-text-animation="fly-top"] .text-slide-card,
+.slide.is-text-card-animating .text-slide[data-text-animation="fly-top"] .text-slide-qr--animated .text-slide-qr__surface {
     animation: text-card-fly-top var(--text-card-animation-duration, 560ms) cubic-bezier(0.16, 1, 0.3, 1) var(--text-card-animation-delay, 0ms) both;
 }
 
-.slide.is-text-card-animating .text-slide[data-text-animation="fly-bottom"] .text-slide-card {
+.slide.is-text-card-animating .text-slide[data-text-animation="fly-bottom"] .text-slide-card,
+.slide.is-text-card-animating .text-slide[data-text-animation="fly-bottom"] .text-slide-qr--animated .text-slide-qr__surface {
     animation: text-card-fly-bottom var(--text-card-animation-duration, 560ms) cubic-bezier(0.16, 1, 0.3, 1) var(--text-card-animation-delay, 0ms) both;
 }
 
-.slide.is-text-card-animating .text-slide[data-text-animation="soft-bounce"] .text-slide-card {
+.slide.is-text-card-animating .text-slide[data-text-animation="soft-bounce"] .text-slide-card,
+.slide.is-text-card-animating .text-slide[data-text-animation="soft-bounce"] .text-slide-qr--animated .text-slide-qr__surface {
     animation: text-card-soft-bounce var(--text-card-animation-duration, 680ms) cubic-bezier(0.22, 1, 0.36, 1) var(--text-card-animation-delay, 0ms) both;
 }
 
-.slide.is-text-card-animating .text-slide[data-text-animation="gentle-zoom"] .text-slide-card {
+.slide.is-text-card-animating .text-slide[data-text-animation="gentle-zoom"] .text-slide-card,
+.slide.is-text-card-animating .text-slide[data-text-animation="gentle-zoom"] .text-slide-qr--animated .text-slide-qr__surface {
     animation: text-card-gentle-zoom var(--text-card-animation-duration, 600ms) cubic-bezier(0.16, 1, 0.3, 1) var(--text-card-animation-delay, 0ms) both;
 }
 
@@ -498,22 +513,22 @@ html, body {
 }
 
 @keyframes text-card-fly-left {
-    from { opacity: 0.01; transform: translate3d(-34px, 0, 0); }
+    from { opacity: 0.01; transform: translate3d(-110vw, 0, 0); }
     to { opacity: 1; transform: translate3d(0, 0, 0); }
 }
 
 @keyframes text-card-fly-right {
-    from { opacity: 0.01; transform: translate3d(34px, 0, 0); }
+    from { opacity: 0.01; transform: translate3d(110vw, 0, 0); }
     to { opacity: 1; transform: translate3d(0, 0, 0); }
 }
 
 @keyframes text-card-fly-top {
-    from { opacity: 0.01; transform: translate3d(0, -28px, 0); }
+    from { opacity: 0.01; transform: translate3d(0, -110vh, 0); }
     to { opacity: 1; transform: translate3d(0, 0, 0); }
 }
 
 @keyframes text-card-fly-bottom {
-    from { opacity: 0.01; transform: translate3d(0, 28px, 0); }
+    from { opacity: 0.01; transform: translate3d(0, 110vh, 0); }
     to { opacity: 1; transform: translate3d(0, 0, 0); }
 }
 
@@ -537,7 +552,7 @@ html, body {
         width: min(var(--text-slide-card-width, 76vw), 95vw, 920px);
         max-height: 88vh;
         padding: 2rem;
-        border-radius: 1.4rem;
+        border-radius: var(--text-slide-card-radius-top-left, 1.4rem) var(--text-slide-card-radius-top-right, 1.4rem) var(--text-slide-card-radius-bottom-right, 1.4rem) var(--text-slide-card-radius-bottom-left, 1.4rem);
     }
 
     .text-slide-qr {

@@ -1500,10 +1500,39 @@ class AdminController
         $textBoxAnimationDelayMs = normalize_text_slide_animation_delay_ms($this->request->input('text_box_animation_delay_ms', '0'));
         $textBoxBlurEnabled = $this->request->input('text_box_blur_enabled') ? 1 : 0;
         $textBoxWidthPercent = normalize_text_slide_box_width_percent($this->request->input('text_box_width_percent', '76'));
+        $textBoxRadius = normalize_text_slide_radius_corners(
+            (string)$this->request->input('text_box_radius_mode', 'default'),
+            $this->request->input('text_box_radius_all_rem', ''),
+            [
+                'top_left' => $this->request->input('text_box_radius_top_left_rem', ''),
+                'top_right' => $this->request->input('text_box_radius_top_right_rem', ''),
+                'bottom_right' => $this->request->input('text_box_radius_bottom_right_rem', ''),
+                'bottom_left' => $this->request->input('text_box_radius_bottom_left_rem', ''),
+            ]
+        );
+        $textBoxRadiusTopLeftRem = $textBoxRadius['top_left'];
+        $textBoxRadiusTopRightRem = $textBoxRadius['top_right'];
+        $textBoxRadiusBottomRightRem = $textBoxRadius['bottom_right'];
+        $textBoxRadiusBottomLeftRem = $textBoxRadius['bottom_left'];
         $qrSizePercent = normalize_text_slide_qr_size_percent($this->request->input('qr_size_percent', '15'));
         $qrForegroundColor = normalize_css_rgba_color((string)$this->request->input('qr_foreground_color', ''), 'rgba(15, 23, 42, 1)');
         $qrBackgroundColor = normalize_css_rgba_color((string)$this->request->input('qr_background_color', ''), 'rgba(255, 255, 255, 1)');
         $qrPosition = normalize_text_slide_qr_position((string)$this->request->input('qr_position', 'bottom-right'));
+        $qrAnimationEnabled = $this->request->input('qr_animation_enabled') ? 1 : 0;
+        $qrRadius = normalize_text_slide_radius_corners(
+            (string)$this->request->input('qr_radius_mode', 'default'),
+            $this->request->input('qr_radius_all_rem', ''),
+            [
+                'top_left' => $this->request->input('qr_radius_top_left_rem', ''),
+                'top_right' => $this->request->input('qr_radius_top_right_rem', ''),
+                'bottom_right' => $this->request->input('qr_radius_bottom_right_rem', ''),
+                'bottom_left' => $this->request->input('qr_radius_bottom_left_rem', ''),
+            ]
+        );
+        $qrRadiusTopLeftRem = $qrRadius['top_left'];
+        $qrRadiusTopRightRem = $qrRadius['top_right'];
+        $qrRadiusBottomRightRem = $qrRadius['bottom_right'];
+        $qrRadiusBottomLeftRem = $qrRadius['bottom_left'];
         $qrUrl = trim((string)$this->request->input('qr_url', ''));
         $plugin = $this->plugins->getPluginBySlideType($slideType, true);
         $isPluginType = $plugin !== null;
@@ -1529,11 +1558,24 @@ class AdminController
             'text_box_animation_delay_ms' => (string)$this->request->input('text_box_animation_delay_ms', '0'),
             'text_box_blur_enabled' => $this->request->input('text_box_blur_enabled') ? 1 : 0,
             'text_box_width_percent' => (string)$this->request->input('text_box_width_percent', '76'),
+            'text_box_radius_mode' => (string)$this->request->input('text_box_radius_mode', 'default'),
+            'text_box_radius_all_rem' => (string)$this->request->input('text_box_radius_all_rem', ''),
+            'text_box_radius_top_left_rem' => (string)$this->request->input('text_box_radius_top_left_rem', ''),
+            'text_box_radius_top_right_rem' => (string)$this->request->input('text_box_radius_top_right_rem', ''),
+            'text_box_radius_bottom_right_rem' => (string)$this->request->input('text_box_radius_bottom_right_rem', ''),
+            'text_box_radius_bottom_left_rem' => (string)$this->request->input('text_box_radius_bottom_left_rem', ''),
             'qr_url' => (string)$this->request->input('qr_url', ''),
             'qr_size_percent' => (string)$this->request->input('qr_size_percent', '15'),
             'qr_foreground_color' => (string)$this->request->input('qr_foreground_color', ''),
             'qr_background_color' => (string)$this->request->input('qr_background_color', ''),
             'qr_position' => (string)$this->request->input('qr_position', 'bottom-right'),
+            'qr_animation_enabled' => $this->request->input('qr_animation_enabled') ? 1 : 0,
+            'qr_radius_mode' => (string)$this->request->input('qr_radius_mode', 'default'),
+            'qr_radius_all_rem' => (string)$this->request->input('qr_radius_all_rem', ''),
+            'qr_radius_top_left_rem' => (string)$this->request->input('qr_radius_top_left_rem', ''),
+            'qr_radius_top_right_rem' => (string)$this->request->input('qr_radius_top_right_rem', ''),
+            'qr_radius_bottom_right_rem' => (string)$this->request->input('qr_radius_bottom_right_rem', ''),
+            'qr_radius_bottom_left_rem' => (string)$this->request->input('qr_radius_bottom_left_rem', ''),
             'plugin_settings' => $pluginSettingsInput,
             'is_active' => $isActive,
             'return_to' => (string)$this->request->input('return_to', '/admin/slides'),
@@ -1582,10 +1624,19 @@ class AdminController
                 $textBoxAnimationDelayMs = null;
                 $textBoxBlurEnabled = null;
                 $textBoxWidthPercent = null;
+                $textBoxRadiusTopLeftRem = null;
+                $textBoxRadiusTopRightRem = null;
+                $textBoxRadiusBottomRightRem = null;
+                $textBoxRadiusBottomLeftRem = null;
                 $qrSizePercent = null;
                 $qrForegroundColor = null;
                 $qrBackgroundColor = null;
                 $qrPosition = null;
+                $qrAnimationEnabled = null;
+                $qrRadiusTopLeftRem = null;
+                $qrRadiusTopRightRem = null;
+                $qrRadiusBottomRightRem = null;
+                $qrRadiusBottomLeftRem = null;
             } elseif ($slideType === 'website') {
                 if ($sourceUrl === '') {
                     throw new RuntimeException(__('slide.website_requires_url'));
@@ -1602,10 +1653,19 @@ class AdminController
                 $textBoxAnimationDelayMs = null;
                 $textBoxBlurEnabled = null;
                 $textBoxWidthPercent = null;
+                $textBoxRadiusTopLeftRem = null;
+                $textBoxRadiusTopRightRem = null;
+                $textBoxRadiusBottomRightRem = null;
+                $textBoxRadiusBottomLeftRem = null;
                 $qrSizePercent = null;
                 $qrForegroundColor = null;
                 $qrBackgroundColor = null;
                 $qrPosition = null;
+                $qrAnimationEnabled = null;
+                $qrRadiusTopLeftRem = null;
+                $qrRadiusTopRightRem = null;
+                $qrRadiusBottomRightRem = null;
+                $qrRadiusBottomLeftRem = null;
             } elseif ($slideType === 'text') {
                 if ($qrUrl !== '' && !filter_var($qrUrl, FILTER_VALIDATE_URL)) {
                     throw new RuntimeException(__('slide.qr_url_invalid'));
@@ -1649,9 +1709,18 @@ class AdminController
                 $textBoxAnimationDelayMs = null;
                 $textBoxBlurEnabled = null;
                 $textBoxWidthPercent = null;
+                $textBoxRadiusTopLeftRem = null;
+                $textBoxRadiusTopRightRem = null;
+                $textBoxRadiusBottomRightRem = null;
+                $textBoxRadiusBottomLeftRem = null;
                 $qrForegroundColor = null;
                 $qrBackgroundColor = null;
                 $qrPosition = null;
+                $qrAnimationEnabled = null;
+                $qrRadiusTopLeftRem = null;
+                $qrRadiusTopRightRem = null;
+                $qrRadiusBottomRightRem = null;
+                $qrRadiusBottomLeftRem = null;
                 $uploadedFile = $this->request->file('uploaded_file');
                 if ($uploadedFile && ($uploadedFile['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
                     $expectedKind = $slideType === 'image' ? 'image' : 'video';
@@ -1702,14 +1771,14 @@ class AdminController
         try {
             if ($id) {
                 $this->db->execute(
-                    'UPDATE slides SET name = ?, slide_type = ?, source_mode = ?, source_url = ?, media_asset_id = ?, background_media_asset_id = ?, text_markup = ?, background_color = ?, text_color = ?, text_box_background_color = ?, text_box_layout = ?, text_box_animation = ?, text_box_animation_duration_ms = ?, text_box_animation_delay_ms = ?, text_box_blur_enabled = ?, text_box_width_percent = ?, qr_foreground_color = ?, qr_background_color = ?, qr_position = ?, qr_size_percent = ?, duration_seconds = ?, title_position = ?, is_active = ? WHERE id = ?',
-                    [$name, $slideType, $sourceMode, $sourceUrl, $mediaAssetId, $backgroundMediaAssetId, $textMarkup !== '' ? $textMarkup : null, $backgroundColor, $textColor, $textBoxBackgroundColor, $textBoxLayout, $textBoxAnimation, $textBoxAnimationDurationMs, $textBoxAnimationDelayMs, $textBoxBlurEnabled, $textBoxWidthPercent, $qrForegroundColor, $qrBackgroundColor, $qrPosition, $qrSizePercent, $duration, $titlePosition, $isActive, $id]
+                    'UPDATE slides SET name = ?, slide_type = ?, source_mode = ?, source_url = ?, media_asset_id = ?, background_media_asset_id = ?, text_markup = ?, background_color = ?, text_color = ?, text_box_background_color = ?, text_box_layout = ?, text_box_animation = ?, text_box_animation_duration_ms = ?, text_box_animation_delay_ms = ?, text_box_blur_enabled = ?, text_box_width_percent = ?, text_box_radius_top_left_rem = ?, text_box_radius_top_right_rem = ?, text_box_radius_bottom_right_rem = ?, text_box_radius_bottom_left_rem = ?, qr_foreground_color = ?, qr_background_color = ?, qr_position = ?, qr_size_percent = ?, qr_animation_enabled = ?, qr_radius_top_left_rem = ?, qr_radius_top_right_rem = ?, qr_radius_bottom_right_rem = ?, qr_radius_bottom_left_rem = ?, duration_seconds = ?, title_position = ?, is_active = ? WHERE id = ?',
+                    [$name, $slideType, $sourceMode, $sourceUrl, $mediaAssetId, $backgroundMediaAssetId, $textMarkup !== '' ? $textMarkup : null, $backgroundColor, $textColor, $textBoxBackgroundColor, $textBoxLayout, $textBoxAnimation, $textBoxAnimationDurationMs, $textBoxAnimationDelayMs, $textBoxBlurEnabled, $textBoxWidthPercent, $textBoxRadiusTopLeftRem, $textBoxRadiusTopRightRem, $textBoxRadiusBottomRightRem, $textBoxRadiusBottomLeftRem, $qrForegroundColor, $qrBackgroundColor, $qrPosition, $qrSizePercent, $qrAnimationEnabled, $qrRadiusTopLeftRem, $qrRadiusTopRightRem, $qrRadiusBottomRightRem, $qrRadiusBottomLeftRem, $duration, $titlePosition, $isActive, $id]
                 );
                 $slideId = $id;
             } else {
                 $this->db->execute(
-                    'INSERT INTO slides (name, slide_type, source_mode, source_url, media_asset_id, background_media_asset_id, text_markup, background_color, text_color, text_box_background_color, text_box_layout, text_box_animation, text_box_animation_duration_ms, text_box_animation_delay_ms, text_box_blur_enabled, text_box_width_percent, qr_foreground_color, qr_background_color, qr_position, qr_size_percent, duration_seconds, title_position, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                    [$name, $slideType, $sourceMode, $sourceUrl, $mediaAssetId, $backgroundMediaAssetId, $textMarkup !== '' ? $textMarkup : null, $backgroundColor, $textColor, $textBoxBackgroundColor, $textBoxLayout, $textBoxAnimation, $textBoxAnimationDurationMs, $textBoxAnimationDelayMs, $textBoxBlurEnabled, $textBoxWidthPercent, $qrForegroundColor, $qrBackgroundColor, $qrPosition, $qrSizePercent, $duration, $titlePosition, $isActive]
+                    'INSERT INTO slides (name, slide_type, source_mode, source_url, media_asset_id, background_media_asset_id, text_markup, background_color, text_color, text_box_background_color, text_box_layout, text_box_animation, text_box_animation_duration_ms, text_box_animation_delay_ms, text_box_blur_enabled, text_box_width_percent, text_box_radius_top_left_rem, text_box_radius_top_right_rem, text_box_radius_bottom_right_rem, text_box_radius_bottom_left_rem, qr_foreground_color, qr_background_color, qr_position, qr_size_percent, qr_animation_enabled, qr_radius_top_left_rem, qr_radius_top_right_rem, qr_radius_bottom_right_rem, qr_radius_bottom_left_rem, duration_seconds, title_position, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                    [$name, $slideType, $sourceMode, $sourceUrl, $mediaAssetId, $backgroundMediaAssetId, $textMarkup !== '' ? $textMarkup : null, $backgroundColor, $textColor, $textBoxBackgroundColor, $textBoxLayout, $textBoxAnimation, $textBoxAnimationDurationMs, $textBoxAnimationDelayMs, $textBoxBlurEnabled, $textBoxWidthPercent, $textBoxRadiusTopLeftRem, $textBoxRadiusTopRightRem, $textBoxRadiusBottomRightRem, $textBoxRadiusBottomLeftRem, $qrForegroundColor, $qrBackgroundColor, $qrPosition, $qrSizePercent, $qrAnimationEnabled, $qrRadiusTopLeftRem, $qrRadiusTopRightRem, $qrRadiusBottomRightRem, $qrRadiusBottomLeftRem, $duration, $titlePosition, $isActive]
                 );
                 $slideId = (int)$this->db->lastInsertId();
             }
