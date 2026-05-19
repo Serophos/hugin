@@ -1,5 +1,6 @@
 # Hugin
 
+![Hugin Admin Backend Dashboard showing Data about Digital Signage displays etc.](/docs/Hugin%20Dashboard.jpg)
 ## 1. What Hugin Is
 
 Hugin is an open source PHP/MySQL digital signage system for managing information displays from a browser. It provides public display URLs for screens, an admin backend for content management, reusable media and slides, scheduled playlists, display monitoring, and a plugin API for custom slide types.
