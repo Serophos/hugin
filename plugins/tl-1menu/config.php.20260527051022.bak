@@ -1,0 +1,743 @@
+<?php
+
+declare(strict_types=1);
+
+return [
+    'menu_url' => 'https://plan.studentenwerk.sh/speiseplan/spei2.xml',
+    'cache_ttl' => 1800,
+    'debug_date' => null,
+    'default_language' => 'de',
+    'default_mensa' => 'mensa1',
+    'default_exclude' => [120, 121, 122, 123, 124, 125, 801],
+    'default_display_co2' => true,
+    'default_display_water' => false,
+    'default_display_animal_welfare' => false,
+    'default_display_rainforest' => false,
+    'default_show_header' => true,
+    'default_background_color' => '#f1f5f9',
+    // Plugin-relative paths or absolute URLs. Built-in paths resolve to filled and outline variants.
+    'environment_rating_icons' => [
+        'co2' => 'assets/img/environment/leaf-filled.svg',
+        'water' => 'assets/img/environment/drop-filled.svg',
+        'animal_welfare' => 'assets/img/environment/heart-filled.svg',
+        'rainforest' => 'assets/img/environment/tree-filled.svg',
+    ],
+    'pseudo_allergen_category_map' => [
+        'VE' => 'vegetarian',
+        'VN' => 'vegan',
+        'Fi' => 'fish',
+        'STF' => 'streetfood',
+        'SHT' => 'sh_teller',
+        'KK' => 'kuechenklassiker',
+        'YF' => 'your_favorite',
+        'AGS' => 'pork_higher_welfare',
+        'S' => 'pork',
+        'AGF' => 'fish_higher_welfare',
+        'G' => 'poultry',
+        'L' => 'lamb',
+        'LGF' => 'lamb_higher_welfare',
+        'AGR' => 'beef_higher_welfare',
+        'R' => 'beef',
+        'MV' => 'mensa_vital',
+        'INTERNATIONAL' => 'international',
+        'International' => 'international',
+        'IN' => 'International',
+    ],
+    'food_types' => [
+        48 => [
+            'key' => 'mensa_tipp_vegan_legacy',
+            'categories' => ['vegan'],
+            'labels' => [
+                'de' => 'Mensa-Tipp vegan (alt)',
+                'en' => 'Mensa tip vegan (legacy)',
+            ],
+        ],
+        49 => [
+            'key' => 'vegan',
+            'categories' => ['vegan'],
+            'labels' => [
+                'de' => 'Vegan',
+                'en' => 'Vegan',
+            ],
+        ],
+        100 => [
+            'key' => 'eintopf',
+            'labels' => [
+                'de' => 'Eintopf',
+                'en' => 'Stew',
+            ],
+        ],
+        101 => [
+            'key' => 'eintopf_vegan',
+            'categories' => ['vegan'],
+            'labels' => [
+                'de' => 'Eintopf vegan',
+                'en' => 'Stew vegan',
+            ],
+        ],
+        102 => [
+            'key' => 'eintopf_vegetarian',
+            'categories' => ['vegetarian'],
+            'labels' => [
+                'de' => 'Eintopf vegetarisch',
+                'en' => 'Stew vegetarian',
+            ],
+        ],
+        103 => [
+            'key' => 'eintopf_no_price',
+            'labels' => [
+                'de' => 'Eintopf ohne Preis',
+                'en' => 'Stew without price',
+            ],
+        ],
+        104 => [
+            'key' => 'main_1',
+            'labels' => [
+                'de' => 'Hauptgericht 1',
+                'en' => 'Main dish 1',
+            ],
+        ],
+        105 => [
+            'key' => 'main_1_vegan',
+            'categories' => ['vegan'],
+            'labels' => [
+                'de' => 'Hauptgericht 1 vegan',
+                'en' => 'Main dish 1 vegan',
+            ],
+        ],
+        106 => [
+            'key' => 'main_1_vegetarian',
+            'categories' => ['vegetarian'],
+            'labels' => [
+                'de' => 'Hauptgericht 1 vegetarisch',
+                'en' => 'Main dish 1 vegetarian',
+            ],
+        ],
+        107 => [
+            'key' => 'main_1_no_price',
+            'labels' => [
+                'de' => 'Hauptgericht 1 ohne Preis',
+                'en' => 'Main dish 1 without price',
+            ],
+        ],
+        108 => [
+            'key' => 'main_2',
+            'labels' => [
+                'de' => 'Hauptgericht 2',
+                'en' => 'Main dish 2',
+            ],
+        ],
+        109 => [
+            'key' => 'main_2_vegan',
+            'categories' => ['vegan'],
+            'labels' => [
+                'de' => 'Hauptgericht 2 vegan',
+                'en' => 'Main dish 2 vegan',
+            ],
+        ],
+        110 => [
+            'key' => 'main_2_vegetarian',
+            'categories' => ['vegetarian'],
+            'labels' => [
+                'de' => 'Hauptgericht 2 vegetarisch',
+                'en' => 'Main dish 2 vegetarian',
+            ],
+        ],
+        111 => [
+            'key' => 'main_2_no_price',
+            'labels' => [
+                'de' => 'Hauptgericht 2 ohne Preis',
+                'en' => 'Main dish 2 without price',
+            ],
+        ],
+        112 => [
+            'key' => 'mensa_tip',
+            'labels' => [
+                'de' => 'Mensa-Tipp',
+                'en' => 'Mensa tip',
+            ],
+        ],
+        113 => [
+            'key' => 'mensa_tip_vegan',
+            'categories' => ['vegan'],
+            'labels' => [
+                'de' => 'Mensa-Tipp vegan',
+                'en' => 'Mensa tip vegan',
+            ],
+        ],
+        114 => [
+            'key' => 'mensa_tip_vegetarian',
+            'categories' => ['vegetarian'],
+            'labels' => [
+                'de' => 'Mensa-Tipp vegetarisch',
+                'en' => 'Mensa tip vegetarian',
+            ],
+        ],
+        115 => [
+            'key' => 'mensa_tip_no_price',
+            'labels' => [
+                'de' => 'Mensa-Tipp ohne Preis',
+                'en' => 'Mensa tip without price',
+            ],
+        ],
+        116 => [
+            'key' => 'vegetarian_main',
+            'categories' => ['vegetarian'],
+            'labels' => [
+                'de' => 'Vegetarisches Hauptgericht',
+                'en' => 'Vegetarian main dish',
+            ],
+        ],
+        117 => [
+            'key' => 'vegetarian_main_no_price',
+            'categories' => ['vegetarian'],
+            'labels' => [
+                'de' => 'Vegetarisches Hauptgericht ohne Preis',
+                'en' => 'Vegetarian main dish without price',
+            ],
+        ],
+        118 => [
+            'key' => 'vegan_main',
+            'categories' => ['vegan'],
+            'labels' => [
+                'de' => 'Veganes Hauptgericht',
+                'en' => 'Vegan main dish',
+            ],
+        ],
+        119 => [
+            'key' => 'vegan_main_no_price',
+            'categories' => ['vegan'],
+            'labels' => [
+                'de' => 'Veganes Hauptgericht ohne Preis',
+                'en' => 'Vegan main dish without price',
+            ],
+        ],
+        120 => [
+            'key' => 'side_dishes',
+            'labels' => [
+                'de' => 'Beilagen',
+                'en' => 'Side dishes',
+            ],
+        ],
+        121 => [
+            'key' => 'side_salad',
+            'labels' => [
+                'de' => 'Beilagensalat',
+                'en' => 'Side salad',
+            ],
+        ],
+        122 => [
+            'key' => 'salad_bar_by_weight',
+            'labels' => [
+                'de' => 'Salatbar nach Gewicht',
+                'en' => 'Salad bar by weight',
+            ],
+        ],
+        123 => [
+            'key' => 'dessert',
+            'labels' => [
+                'de' => 'Dessert',
+                'en' => 'Dessert',
+            ],
+        ],
+        124 => [
+            'key' => 'mensa_tip_no_spl',
+            'labels' => [
+                'de' => 'Mensa-Tipp ohne SPL',
+                'en' => 'Mensa tip without menu column',
+            ],
+        ],
+        125 => [
+            'key' => 'eintopf_no_spl',
+            'labels' => [
+                'de' => 'Eintopf ohne SPL',
+                'en' => 'Stew without menu column',
+            ],
+        ],
+        126 => [
+            'key' => 'campaigns',
+            'labels' => [
+                'de' => 'Aktionen',
+                'en' => 'Promotions',
+            ],
+        ],
+        128 => [
+            'key' => 'mensa_tip_extra',
+            'labels' => [
+                'de' => 'Mensa-Tipp Zusatz',
+                'en' => 'Mensa tip extra',
+            ],
+        ],
+        129 => [
+            'key' => 'mensa_tip_extra_vegetarian',
+            'categories' => ['vegetarian'],
+            'labels' => [
+                'de' => 'Mensa-Tipp Zusatz vegetarisch',
+                'en' => 'Mensa tip extra vegetarian',
+            ],
+        ],
+        130 => [
+            'key' => 'mensa_tip_extra_vegan',
+            'categories' => ['vegan'],
+            'labels' => [
+                'de' => 'Mensa-Tipp Zusatz vegan',
+                'en' => 'Mensa tip extra vegan',
+            ],
+        ],
+        131 => [
+            'key' => 'mensa_tip_vegan_no_price',
+            'categories' => ['vegan'],
+            'labels' => [
+                'de' => 'Mensa-Tipp vegan ohne Preis',
+                'en' => 'Mensa tip vegan without price',
+            ],
+        ],
+        132 => [
+            'key' => 'mensa_tip_vegetarian_no_price',
+            'categories' => ['vegetarian'],
+            'labels' => [
+                'de' => 'Mensa-Tipp vegetarisch ohne Preis',
+                'en' => 'Mensa tip vegetarian without price',
+            ],
+        ],
+        133 => [
+            'key' => 'main_1_higher_welfare',
+            'labels' => [
+                'de' => 'Hauptgericht 1 artgerecht',
+                'en' => 'Main dish 1 higher welfare',
+            ],
+        ],
+        134 => [
+            'key' => 'main_2_higher_welfare',
+            'labels' => [
+                'de' => 'Hauptgericht 2 artgerecht',
+                'en' => 'Main dish 2 higher welfare',
+            ],
+        ],
+        135 => [
+            'key' => 'mensa_tip_higher_welfare',
+            'labels' => [
+                'de' => 'Mensa-Tipp artgerecht',
+                'en' => 'Mensa tip higher welfare',
+            ],
+        ],
+        136 => [
+            'key' => 'eintopf_sausage_higher_welfare',
+            'labels' => [
+                'de' => 'Eintopf Wurst artgerecht',
+                'en' => 'Stew sausage higher welfare',
+            ],
+        ],
+        200 => [
+            'key' => 'mensa_daily_1_vn',
+            'categories' => ['vegan'],
+            'labels' => [
+                'de' => 'Mensa Tagesgericht 1 VN',
+                'en' => 'Mensa daily dish 1 VN',
+            ],
+        ],
+        201 => [
+            'key' => 'mensa_daily_2_ve',
+            'categories' => ['vegetarian'],
+            'labels' => [
+                'de' => 'Mensa Tagesgericht 2 VE',
+                'en' => 'Mensa daily dish 2 VE',
+            ],
+        ],
+        202 => [
+            'key' => 'mensa_daily_3',
+            'labels' => [
+                'de' => 'Mensa Tagesgericht 3',
+                'en' => 'Mensa daily dish 3',
+            ],
+        ],
+        203 => [
+            'key' => 'mensa_daily_4',
+            'labels' => [
+                'de' => 'Mensa Tagesgericht 4',
+                'en' => 'Mensa daily dish 4',
+            ],
+        ],
+        204 => [
+            'key' => 'caf_daily_1_vn',
+            'categories' => ['vegan'],
+            'labels' => [
+                'de' => 'CAF Tagesgericht 1 VN',
+                'en' => 'Cafeteria daily dish 1 VN',
+            ],
+        ],
+        205 => [
+            'key' => 'caf_daily_1_ve',
+            'categories' => ['vegetarian'],
+            'labels' => [
+                'de' => 'CAF Tagesgericht 1 VE',
+                'en' => 'Cafeteria daily dish 1 VE',
+            ],
+        ],
+        206 => [
+            'key' => 'caf_standard_1',
+            'labels' => [
+                'de' => 'CAF Standardgericht 1',
+                'en' => 'Cafeteria standard dish 1',
+            ],
+        ],
+        207 => [
+            'key' => 'caf_standard_2',
+            'labels' => [
+                'de' => 'CAF Standardgericht 2',
+                'en' => 'Cafeteria standard dish 2',
+            ],
+        ],
+        208 => [
+            'key' => 'caf_standard_vn',
+            'categories' => ['vegan'],
+            'labels' => [
+                'de' => 'CAF Standardgericht VN',
+                'en' => 'Cafeteria standard dish VN',
+            ],
+        ],
+        209 => [
+            'key' => 'caf_standard_ve',
+            'categories' => ['vegetarian'],
+            'labels' => [
+                'de' => 'CAF Standardgericht VE',
+                'en' => 'Cafeteria standard dish VE',
+            ],
+        ],
+        210 => [
+            'key' => 'caf_daily_monday',
+            'labels' => [
+                'de' => 'CAF Tagesgericht Montag',
+                'en' => 'Cafeteria daily dish Monday',
+            ],
+        ],
+        211 => [
+            'key' => 'caf_daily_tuesday',
+            'labels' => [
+                'de' => 'CAF Tagesgericht Dienstag',
+                'en' => 'Cafeteria daily dish Tuesday',
+            ],
+        ],
+        212 => [
+            'key' => 'caf_daily_wednesday',
+            'labels' => [
+                'de' => 'CAF Tagesgericht Mittwoch',
+                'en' => 'Cafeteria daily dish Wednesday',
+            ],
+        ],
+        213 => [
+            'key' => 'caf_daily_thursday',
+            'labels' => [
+                'de' => 'CAF Tagesgericht Donnerstag',
+                'en' => 'Cafeteria daily dish Thursday',
+            ],
+        ],
+        214 => [
+            'key' => 'caf_daily_friday',
+            'labels' => [
+                'de' => 'CAF Tagesgericht Freitag',
+                'en' => 'Cafeteria daily dish Friday',
+            ],
+        ],
+        300 => [
+            'key' => 'representation',
+            'labels' => [
+                'de' => 'Repräsentation',
+                'en' => 'Representation',
+            ],
+        ],
+        301 => [
+            'key' => 'mensa_pasta_bar',
+            'labels' => [
+                'de' => 'Mensa Pastabar',
+                'en' => 'Mensa pasta bar',
+            ],
+        ],
+        800 => [
+            'key' => 'central_production',
+            'labels' => [
+                'de' => 'Zentrale Produktion',
+                'en' => 'Central production',
+            ],
+        ],
+    ],
+    'mensen' => [
+        'kesselhaus' => [
+            'label' => 'Mensa Kesselhaus',
+            'locations' => [425],
+        ],
+        'mensacafete1' => [
+            'label' => 'Mensa 1 / Cafeteria 1',
+            'locations' => [411, 413],
+        ],
+        'mensacafete2' => [
+            'label' => 'Mensa 2 / Cafeteria 2',
+            'locations' => [421, 423],
+        ],
+        'schwentinemensacafete' => [
+            'label' => 'Schwentine Mensa / American Diner',
+            'locations' => [426, 427],
+        ],
+        'mensa1' => [
+            'label' => 'Mensa 1',
+            'locations' => [411],
+        ],
+        'cafete1' => [
+            'label' => 'Cafeteria 1',
+            'locations' => [413],
+        ],
+        'mensa2' => [
+            'label' => 'Mensa 2',
+            'locations' => [421],
+        ],
+        'cafete2' => [
+            'label' => 'Cafeteria 2',
+            'locations' => [423],
+        ],
+        'schwentinemensa' => [
+            'label' => 'Schwentine Mensa',
+            'locations' => [426],
+        ],
+        'americandiner' => [
+            'label' => 'American Diner',
+            'locations' => [427],
+        ],
+        'dockside' => [
+            'label' => 'Cafeteria Dockside',
+            'locations' => [408],
+        ],
+        'boje23' => [
+            'label' => 'Cafeteria Boje23',
+            'locations' => [409],
+        ],
+        'flensburg' => [
+            'label' => 'Mensa Flensburg',
+            'locations' => [431],
+        ],
+        'b-gebaeude' => [
+            'label' => 'Cafeteria B-Gebaeude',
+            'locations' => [433],
+        ],
+        'luebeck' => [
+            'label' => 'Mensa / Cafeteria Luebeck',
+            'locations' => [441, 442],
+        ],
+        'musikhochschule' => [
+            'label' => 'Cafeteria Musikhochschule',
+            'locations' => [443],
+        ],
+        'bitsundbites' => [
+            'label' => 'Cafeteria Bits & Bites',
+            'locations' => [444],
+        ],
+        'heide' => [
+            'label' => 'Mensa Heide',
+            'locations' => [461],
+        ],
+        'wedel' => [
+            'label' => 'Cafeteria Wedel',
+            'locations' => [453],
+        ],
+    ],
+    'standort_namen' => [
+        408 => 'Cafeteria Dockside',
+        409 => 'Cafeteria Boje23',
+        411 => 'Mensa 1',
+        413 => 'Cafeteria 1',
+        414 => 'Cafe Lounge cUBar',
+        421 => 'Mensa 2',
+        423 => 'Cafeteria 2',
+        424 => 'Mensa Gaarden',
+        425 => 'Mensa Kesselhaus - deine Veggie-Mensa',
+        426 => 'Schwentine Mensa',
+        427 => 'American Diner',
+        429 => 'Cafeteria Kesselhaus',
+        431 => 'Mensa Flensburg',
+        432 => 'Cafe Lounge Flensburg',
+        433 => 'Cafeteria B-Gebaeude',
+        441 => 'Mensa Luebeck',
+        442 => 'Cafeteria Luebeck',
+        443 => 'Cafeteria Musikhochschule',
+        444 => 'Cafeteria Bits & Bites',
+        453 => 'Cafeteria Wedel',
+        461 => 'Mensa Heide',
+        462 => 'Cafeteria Heide',
+    ],
+    'categories' => [
+        'vegan' => [
+            'icon' => 'assets/img/categories/vegan.svg',
+            'labels' => [
+                'de' => 'Vegan',
+                'en' => 'Vegan',
+            ],
+        ],
+        'vegetarian' => [
+            'icon' => 'assets/img/categories/vegetarian.svg',
+            'labels' => [
+                'de' => 'Vegetarisch',
+                'en' => 'Vegetarian',
+            ],
+        ],
+        'fish' => [
+            'icon' => 'assets/img/categories/fish.svg',
+            'labels' => [
+                'de' => 'Fisch',
+                'en' => 'Fish',
+            ],
+        ],
+        'meat' => [
+            'icon' => 'assets/img/categories/meat.svg',
+            'labels' => [
+                'de' => 'Fleisch',
+                'en' => 'Meat',
+            ],
+        ],
+        'streetfood' => [
+            'icon' => 'assets/img/categories/streetfood.svg',
+            'labels' => [
+                'de' => 'Streetfood',
+                'en' => 'Streetfood',
+            ],
+        ],
+        'sh_teller' => [
+            'icon' => 'assets/img/categories/default.svg',
+            'labels' => [
+                'de' => 'SH Teller',
+                'en' => 'SH Teller',
+            ],
+        ],
+        'kuechenklassiker' => [
+            'icon' => 'assets/img/categories/default.svg',
+            'labels' => [
+                'de' => 'Küchenklassiker',
+                'en' => 'Kitchen classic',
+            ],
+        ],
+        'your_favorite' => [
+            'icon' => 'assets/img/categories/favorite.svg',
+            'labels' => [
+                'de' => 'Your Favorite',
+                'en' => 'Your Favorite',
+            ],
+        ],
+        'pork_higher_welfare' => [
+            'icon' => 'assets/img/categories/pork.svg',
+            'labels' => [
+                'de' => 'Schwein aus artgerechter Haltung',
+                'en' => 'Pork from higher-welfare farming',
+            ],
+        ],
+        'pork' => [
+            'icon' => 'assets/img/categories/pork.svg',
+            'labels' => [
+                'de' => 'Schwein',
+                'en' => 'Pork',
+            ],
+        ],
+        'lamb' => [
+            'icon' => 'assets/img/categories/lamb.svg',
+            'labels' => [
+                'de' => 'Lammfleisch',
+                'en' => 'Lamb',
+            ],
+        ],        
+        'lamb_higher_welfare' => [
+            'icon' => 'assets/img/categories/lamb.svg',
+            'labels' => [
+                'de' => 'Lammfleisch aus artgerechter Haltung',
+                'en' => 'Lamb from higher-welfare farming',
+            ],
+        ],           
+        'fish_higher_welfare' => [
+            'icon' => 'assets/img/categories/fish.svg',
+            'labels' => [
+                'de' => 'Fisch aus artgerechter Haltung',
+                'en' => 'Fish from higher-welfare sourcing',
+            ],
+        ],
+        'poultry' => [
+            'icon' => 'assets/img/categories/poultry.svg',
+            'labels' => [
+                'de' => 'Geflügel',
+                'en' => 'Poultry',
+            ],
+        ],
+        'beef_higher_welfare' => [
+            'icon' => 'assets/img/categories/beef.svg',
+            'labels' => [
+                'de' => 'Rind aus artgerechter Haltung',
+                'en' => 'Beef from higher-welfare farming',
+            ],
+        ],
+        'beef' => [
+            'icon' => 'assets/img/categories/beef.svg',
+            'labels' => [
+                'de' => 'Rind',
+                'en' => 'Beef',
+            ],
+        ],
+        'mensa_vital' => [
+            'icon' => 'assets/img/categories/mensa-vital.svg',
+            'labels' => [
+                'de' => 'Mensa Vital',
+                'en' => 'Mensa Vital',
+            ],
+        ],
+        'international' => [
+            'icon' => 'assets/img/categories/international.svg',
+            'labels' => [
+                'de' => 'International',
+                'en' => 'International',
+            ],
+        ],
+        'bio' => [
+            'icon' => 'assets/img/categories/vegan.svg',
+            'labels' => [
+                'de' => 'Bio',
+                'en' => 'Organic',
+            ],
+        ],
+        'dessert' => [
+            'icon' => 'assets/img/categories/dessert.svg',
+            'labels' => [
+                'de' => 'Dessert',
+                'en' => 'Dessert',
+            ],
+        ],
+        'soup' => [
+            'icon' => 'assets/img/categories/soup.svg',
+            'labels' => [
+                'de' => 'Suppe',
+                'en' => 'Soup',
+            ],
+        ],
+        'salad' => [
+            'icon' => 'assets/img/categories/salad.svg',
+            'labels' => [
+                'de' => 'Salat',
+                'en' => 'Salad',
+            ],
+        ],
+        'pasta' => [
+            'icon' => 'assets/img/categories/pasta.svg',
+            'labels' => [
+                'de' => 'Pasta',
+                'en' => 'Pasta',
+            ],
+        ],
+        'pizza' => [
+            'icon' => 'assets/img/categories/pizza.svg',
+            'labels' => [
+                'de' => 'Pizza',
+                'en' => 'Pizza',
+            ],
+        ],
+        'burger' => [
+            'icon' => 'assets/img/categories/burger.svg',
+            'labels' => [
+                'de' => 'Burger',
+                'en' => 'Burger',
+            ],
+        ],
+    ],
+];

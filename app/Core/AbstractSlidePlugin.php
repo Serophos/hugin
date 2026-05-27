@@ -72,6 +72,11 @@ abstract class AbstractSlidePlugin implements SlidePluginInterface
         return array_replace($this->getDefaultGlobalSettings(), $existingSettings, $input);
     }
 
+    public function handleAdminAction(string $action, array $input, PluginApi $api): array
+    {
+        throw new \RuntimeException(__('plugins.action_not_found', [], 'Plugin action not found.'));
+    }
+
     public function getFrontendAssets(array $slide, array $settings, PluginApi $api): array
     {
         return ['css' => [], 'js' => []];

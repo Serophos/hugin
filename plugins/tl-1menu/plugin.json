@@ -10,7 +10,7 @@
     "de": "Zeigt den heutigen TL1-Speiseplan für eine ausgewählte Mensa oder Cafeteria mit Preisen, Allergenen, Zusatzstoffen, Kategorien und Nachhaltigkeitsdaten an."
   },
   "slide_type": "tl-1menu",
-  "icon": "assets/img/slide_tl1menu.svg",
+  "icon": "assets/img/slides/tl1menu.svg",
   "api_version": 2,
   "main": "Plugin.php",
   "class": "Plugins\\Tl1Menu\\Plugin"

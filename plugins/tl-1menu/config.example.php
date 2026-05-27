@@ -3,207 +3,49 @@
 declare(strict_types=1);
 
 return [
-    'menu_url' => 'https://yourdomain/speiseplan/speiseplan.xml',
-    'cache_ttl' => 1800,
-    'debug_date' => null,
-    'default_language' => 'de',
-    'default_mensa' => 'mensa',
-    'default_exclude' => [1,2,3],
-    'default_display_co2' => true,
-    'default_display_water' => false,
-    'default_display_animal_welfare' => false,
-    'default_display_rainforest' => false,
-    'default_show_header' => true,
-    'default_background_color' => '#f1f5f9',
-    'default_environment_display_style' => 'symbols',
-    'pseudo_allergen_category_map' => [
-        'STF' => 'streetfood',
-        'SHT' => 'sh_teller',
-        'KK' => 'kuechenklassiker',
-        'YF' => 'your_favorite',
-        'AGS' => 'pork_higher_welfare',
-        'S' => 'pork',
-        'AGF' => 'fish_higher_welfare',
-        'G' => 'poultry',
-        'AGR' => 'beef_higher_welfare',
-        'R' => 'beef',
-        'MV' => 'mensa_vital',
-        'INTERNATIONAL' => 'international',
-    ],
-    'mensen' => [
-        'mensa' => [
-            'label' => 'Mensa',
-            'locations' => [111],
+    'schema_version' => 2,
+    'field_definitions' => [],
+    'field_mapping' => [
+        'id' => null,
+        'date' => null,
+        'mensa_name' => null,
+        'location_id' => null,
+        'location_name' => null,
+        'type_id' => null,
+        'type_name' => null,
+        'spalte' => null,
+        'title' => [
+            'de' => [],
+            'en' => [],
         ],
-        'cafeteria' => [
-            'label' => 'Cafeteria',
-            'locations' => [112],
+        'description' => [
+            'de' => [],
+            'en' => [],
+        ],
+        'allergen_codes' => null,
+        'allergen_names' => [
+            'de' => null,
+            'en' => null,
+        ],
+        'category_token_fields' => [],
+        'environment' => [
+            'co2_value' => null,
+            'co2_rating' => null,
+            'co2_saving' => null,
+            'water_value' => null,
+            'water_rating' => null,
+            'animal_welfare' => null,
+            'rainforest' => null,
         ],
     ],
-    'standort_namen' => [
-        111 => 'Mensa',
-        112 => 'Cafeteria',
-    ],
-    'categories' => [
-        'vegan' => [
-            'icon' => '🌿',
-            'labels' => [
-                'de' => 'Vegan',
-                'en' => 'Vegan',
-            ],
-        ],
-        'vegetarian' => [
-            'icon' => '🥕',
-            'labels' => [
-                'de' => 'Vegetarisch',
-                'en' => 'Vegetarian',
-            ],
-        ],
-        'fish' => [
-            'icon' => '🐟',
-            'labels' => [
-                'de' => 'Fisch',
-                'en' => 'Fish',
-            ],
-        ],
-        'meat' => [
-            'icon' => '🍖',
-            'labels' => [
-                'de' => 'Fleisch',
-                'en' => 'Meat',
-            ],
-        ],
-        'streetfood' => [
-            'icon' => '🍔',
-            'labels' => [
-                'de' => 'Streetfood',
-                'en' => 'Streetfood',
-            ],
-        ],
-        'sh_teller' => [
-            'icon' => '🍽',
-            'labels' => [
-                'de' => 'SH Teller',
-                'en' => 'SH Teller',
-            ],
-        ],
-        'kuechenklassiker' => [
-            'icon' => '👨‍🍳',
-            'labels' => [
-                'de' => 'Küchenklassiker',
-                'en' => 'Kitchen classic',
-            ],
-        ],
-        'your_favorite' => [
-            'icon' => '⭐',
-            'labels' => [
-                'de' => 'Your Favorite',
-                'en' => 'Your Favorite',
-            ],
-        ],
-        'pork_higher_welfare' => [
-            'icon' => '🐖',
-            'labels' => [
-                'de' => 'Schwein aus artgerechter Haltung',
-                'en' => 'Pork from higher-welfare farming',
-            ],
-        ],
-        'pork' => [
-            'icon' => '🐖',
-            'labels' => [
-                'de' => 'Schwein',
-                'en' => 'Pork',
-            ],
-        ],
-        'fish_higher_welfare' => [
-            'icon' => '🐟',
-            'labels' => [
-                'de' => 'Fisch aus artgerechter Haltung',
-                'en' => 'Fish from higher-welfare sourcing',
-            ],
-        ],
-        'poultry' => [
-            'icon' => '🐔',
-            'labels' => [
-                'de' => 'Geflügel',
-                'en' => 'Poultry',
-            ],
-        ],
-        'beef_higher_welfare' => [
-            'icon' => '🐄',
-            'labels' => [
-                'de' => 'Rind aus artgerechter Haltung',
-                'en' => 'Beef from higher-welfare farming',
-            ],
-        ],
-        'beef' => [
-            'icon' => '🐄',
-            'labels' => [
-                'de' => 'Rind',
-                'en' => 'Beef',
-            ],
-        ],
-        'mensa_vital' => [
-            'icon' => '💚',
-            'labels' => [
-                'de' => 'Mensa Vital',
-                'en' => 'Mensa Vital',
-            ],
-        ],
-        'international' => [
-            'icon' => '🌍',
-            'labels' => [
-                'de' => 'International',
-                'en' => 'International',
-            ],
-        ],
-        'bio' => [
-            'icon' => '🌱',
-            'labels' => [
-                'de' => 'Bio',
-                'en' => 'Organic',
-            ],
-        ],
-    ],
-    'food_types' => [
-        48 => [
-            'key' => 'mensa_tipp_vegan_legacy',
-            'categories' => ['vegan'],
-            'labels' => [
-                'de' => 'Mensa-Tipp vegan (alt)',
-                'en' => 'Mensa tip vegan (legacy)',
-            ],
-        ],
-        49 => [
-            'key' => 'vegan',
-            'categories' => ['vegan'],
-            'labels' => [
-                'de' => 'Vegan',
-                'en' => 'Vegan',
-            ],
-        ],
-        100 => [
-            'key' => 'eintopf',
-            'labels' => [
-                'de' => 'Eintopf',
-                'en' => 'Stew',
-            ],
-        ],
-        101 => [
-            'key' => 'eintopf_vegan',
-            'categories' => ['vegan'],
-            'labels' => [
-                'de' => 'Eintopf vegan',
-                'en' => 'Stew vegan',
-            ],
-        ],
-        102 => [
-            'key' => 'eintopf_vegetarian',
-            'categories' => ['vegetarian'],
-            'labels' => [
-                'de' => 'Eintopf vegetarisch',
-                'en' => 'Stew vegetarian',
-            ],
-        ],
+    'price_groups' => [],
+    'mensen' => [],
+    'standort_namen' => [],
+    'food_types' => [],
+    'categories' => [],
+    'token_catalog' => [],
+    'setup' => [
+        'source_url' => '',
+        'generated_at' => null,
     ],
 ];

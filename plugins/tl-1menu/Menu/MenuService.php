@@ -2,10 +2,8 @@
 
 declare(strict_types=1);
 
-namespace Plugins\Tl1Menu\Application;
+namespace Plugins\Tl1Menu\Menu;
 
-use Plugins\Tl1Menu\Domain\MenuItem;
-use Plugins\Tl1Menu\Infrastructure\MenuRepository;
 
 final class MenuService
 {
@@ -15,17 +13,18 @@ final class MenuService
     }
 
     /** @return list<MenuItem> */
-    public function getMenuForToday(string $mensa, bool $refresh = false): array
+    public function getMenuForToday(string $mensa, bool $refresh = false, string $language = 'de'): array
     {
-        return $this->getMenuForDate($mensa, date('Y-m-d'), $this->getDefaultExcludedTypeIds(), $refresh);
+        return $this->getMenuForDate($mensa, date('Y-m-d'), $this->getDefaultExcludedTypeIds(), $refresh, $language);
     }
 
     /** @return list<MenuItem> */
-    public function getMenuForDate(string $mensa, string $date, array $excludeTypes = [], bool $refresh = false): array
+    public function getMenuForDate(string $mensa, string $date, array $excludeTypes = [], bool $refresh = false, string $language = 'de'): array
     {
         return $this->repository->findByFilters([
             'mensa' => $mensa,
             'date' => $date,
+            'language' => $language,
             'exclude_types' => array_values(array_unique(array_map('intval', $excludeTypes))),
             'sort' => true,
         ], $refresh);
@@ -52,6 +51,47 @@ final class MenuService
         }
         ksort($normalized);
         return $normalized;
+    }
+
+    /** @return list<array{key:string,labels?:array<string,string>,label?:string}> */
+    public function getPriceGroups(): array
+    {
+        $groups = is_array($this->config['price_groups'] ?? null) ? $this->config['price_groups'] : [];
+        $normalized = [];
+        foreach ($groups as $group) {
+            if (!is_array($group)) {
+                continue;
+            }
+            $key = trim((string)($group['key'] ?? ''));
+            if ($key === '') {
+                continue;
+            }
+            $normalized[] = [
+                'key' => $key,
+                'labels' => is_array($group['labels'] ?? null) ? $group['labels'] : [],
+                'label' => trim((string)($group['label'] ?? '')),
+            ];
+        }
+        return $normalized;
+    }
+
+    public function getPriceGroupLabel(string $key, ?string $language = null): string
+    {
+        foreach ($this->getPriceGroups() as $group) {
+            if (($group['key'] ?? '') === $key) {
+                $label = $this->localizedConfigLabel($group, $language);
+                if ($label !== null) {
+                    return $label;
+                }
+            }
+        }
+
+        $legacy = [
+            'student' => __('plugins.tl-1menu.frontend.student'),
+            'staff' => __('plugins.tl-1menu.frontend.staff'),
+            'guest' => __('plugins.tl-1menu.frontend.guest'),
+        ];
+        return $legacy[$key] ?? $this->humanizeKey($key);
     }
 
     /** @return list<int> */
@@ -105,7 +145,7 @@ final class MenuService
         $icon = is_array($category) ? trim((string)($category['icon'] ?? '')) : '';
 
         return [
-            'icon' => $icon !== '' ? $icon : '🏷',
+            'icon' => $icon !== '' ? $icon : 'assets/img/categories/default.svg',
             'label' => $this->getCategoryLabel($classification, $language),
         ];
     }

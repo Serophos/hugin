@@ -2,11 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Plugins\Tl1Menu\Infrastructure;
+namespace Plugins\Tl1Menu\Menu;
 
 use DateTimeInterface;
-use Plugins\Tl1Menu\Domain\MenuItem;
-use Plugins\Tl1Menu\Parser\MensaXmlParser;
 use RuntimeException;
 
 final class MenuRepository

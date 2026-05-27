@@ -15,10 +15,16 @@ $showWater = !empty($settings['display_water']);
 $showAnimalWelfare = !empty($settings['display_animal_welfare']);
 $showRainforest = !empty($settings['display_rainforest']);
 $showAnyEco = $showCo2 || $showWater || $showAnimalWelfare || $showRainforest;
-$showStudentPrice = !empty($settings['display_student_price']);
-$showEmployeePrice = !empty($settings['display_employee_price']);
-$showGuestPrice = !empty($settings['display_guest_price']);
-$visiblePriceCount = ($showStudentPrice ? 1 : 0) + ($showEmployeePrice ? 1 : 0) + ($showGuestPrice ? 1 : 0);
+$priceGroups = $service->getPriceGroups();
+$displayPriceGroups = is_array($settings['display_price_groups'] ?? null) ? $settings['display_price_groups'] : [];
+$visiblePriceGroups = [];
+foreach ($priceGroups as $priceGroup) {
+    $priceKey = (string)($priceGroup['key'] ?? '');
+    if ($priceKey !== '' && ($displayPriceGroups === [] || !empty($displayPriceGroups[$priceKey]))) {
+        $visiblePriceGroups[] = $priceGroup;
+    }
+}
+$visiblePriceCount = count($visiblePriceGroups);
 $showAnyPrice = $visiblePriceCount > 0;
 $showHeader = !empty($settings['show_header']);
 $backgroundColor = normalize_hex_color((string)($backgroundColor ?? ($globalSettings['background_color'] ?? '#f1f5f9')), '#f1f5f9');
@@ -87,8 +93,17 @@ foreach ($items as $item) {
                 <div class="tl1menu-list__flow">
                     <?php foreach ($groups as $group): ?>
                         <section class="tl1menu-list__category tl1menu-list__category--<?= e($group['key']) ?>">
+                            <?php $groupIcon = $plugin->categoryIconDisplayData((string)($group['icon'] ?? ''), $api); ?>
                             <h3 class="tl1menu-list__category-title">
-                                <?php if ((string)$group['icon'] !== ''): ?><span aria-hidden="true"><?= e((string)$group['icon']) ?></span><?php endif; ?>
+                                <?php if ($groupIcon['value'] !== ''): ?>
+                                    <span class="tl1menu-list__category-icon" aria-hidden="true">
+                                        <?php if ($groupIcon['type'] === 'image'): ?>
+                                            <img src="<?= e($groupIcon['value']) ?>" alt="">
+                                        <?php else: ?>
+                                            <?= e($groupIcon['value']) ?>
+                                        <?php endif; ?>
+                                    </span>
+                                <?php endif; ?>
                                 <span><?= e((string)$group['label']) ?></span>
                             </h3>
                             <div class="tl1menu-list__items">
@@ -120,15 +135,10 @@ foreach ($items as $item) {
 
                                             <?php if ($showAnyPrice): ?>
                                                 <div class="tl1menu-list__prices tl1menu-list__prices--count-<?= e((string)$visiblePriceCount) ?>">
-                                                    <?php if ($showStudentPrice): ?>
-                                                        <div class="tl1menu-list__price"><span><?= e(__('plugins.tl-1menu.frontend.student')) ?></span><strong><?= e($service->formatPrice($item->getPrice('student'), $language)) ?></strong></div>
-                                                    <?php endif; ?>
-                                                    <?php if ($showEmployeePrice): ?>
-                                                        <div class="tl1menu-list__price"><span><?= e(__('plugins.tl-1menu.frontend.staff')) ?></span><strong><?= e($service->formatPrice($item->getPrice('staff'), $language)) ?></strong></div>
-                                                    <?php endif; ?>
-                                                    <?php if ($showGuestPrice): ?>
-                                                        <div class="tl1menu-list__price"><span><?= e(__('plugins.tl-1menu.frontend.guest')) ?></span><strong><?= e($service->formatPrice($item->getPrice('guest'), $language)) ?></strong></div>
-                                                    <?php endif; ?>
+                                                    <?php foreach ($visiblePriceGroups as $priceGroup): ?>
+                                                        <?php $priceKey = (string)$priceGroup['key']; ?>
+                                                        <div class="tl1menu-list__price"><span><?= e($service->getPriceGroupLabel($priceKey, $language)) ?></span><strong><?= e($service->formatPrice($item->getPrice($priceKey), $language)) ?></strong></div>
+                                                    <?php endforeach; ?>
                                                 </div>
                                             <?php endif; ?>
                                         </div>
@@ -136,8 +146,15 @@ foreach ($items as $item) {
                                         <?php if ($displayCategories !== []): ?>
                                             <div class="tl1menu-list__badges">
                                                 <?php foreach ($displayCategories as $categoryKey => $categoryData): ?>
+                                                    <?php $categoryIcon = $plugin->categoryIconDisplayData((string)($categoryData['icon'] ?? ''), $api); ?>
                                                     <span class="tl1menu-list__badge tl1menu-list__badge--<?= e($categoryKey) ?>">
-                                                        <span aria-hidden="true"><?= e($categoryData['icon']) ?></span>
+                                                        <span class="tl1menu-list__badge-icon" aria-hidden="true">
+                                                            <?php if ($categoryIcon['type'] === 'image'): ?>
+                                                                <img src="<?= e($categoryIcon['value']) ?>" alt="">
+                                                            <?php else: ?>
+                                                                <?= e($categoryIcon['value']) ?>
+                                                            <?php endif; ?>
+                                                        </span>
                                                         <span><?= e($categoryData['label']) ?></span>
                                                     </span>
                                                 <?php endforeach; ?>

@@ -6,15 +6,19 @@ namespace Plugins\Tl1Menu;
 
 use App\Core\AbstractSlidePlugin;
 use App\Core\PluginApi;
-use Plugins\Tl1Menu\Application\MenuService;
-use Plugins\Tl1Menu\Infrastructure\MenuRepository;
-use Plugins\Tl1Menu\Parser\MensaXmlParser;
+use Plugins\Tl1Menu\Menu\MenuRepository;
+use Plugins\Tl1Menu\Menu\MenuService;
+use Plugins\Tl1Menu\Menu\MensaXmlParser;
+use Plugins\Tl1Menu\Setup\ConfigWriter;
+use Plugins\Tl1Menu\Setup\Tl1SetupAnalyzer;
 use RuntimeException;
 
-require_once __DIR__ . '/src/Domain/MenuItem.php';
-require_once __DIR__ . '/src/Parser/MensaXmlParser.php';
-require_once __DIR__ . '/src/Infrastructure/MenuRepository.php';
-require_once __DIR__ . '/src/Application/MenuService.php';
+require_once __DIR__ . '/Menu/MenuItem.php';
+require_once __DIR__ . '/Menu/MensaXmlParser.php';
+require_once __DIR__ . '/Menu/MenuRepository.php';
+require_once __DIR__ . '/Menu/MenuService.php';
+require_once __DIR__ . '/Setup/Tl1SetupAnalyzer.php';
+require_once __DIR__ . '/Setup/ConfigWriter.php';
 
 class Plugin extends AbstractSlidePlugin
 {
@@ -24,42 +28,67 @@ class Plugin extends AbstractSlidePlugin
 
     public function getDefaultSettings(): array
     {
-        $config = $this->getPluginConfig();
-        return [
-            'display_mode' => 'card',
-            'mensa' => (string)($config['default_mensa'] ?? 'mensa1'),
-            'language' => (string)($config['default_language'] ?? 'de'),
-            'exclude_types' => array_values(array_map('intval', is_array($config['default_exclude'] ?? null) ? $config['default_exclude'] : [])),
-            'display_student_price' => true,
-            'display_employee_price' => true,
-            'display_guest_price' => true,
-            'display_co2' => (bool)($config['default_display_co2'] ?? true),
-            'display_water' => (bool)($config['default_display_water'] ?? false),
-            'display_animal_welfare' => (bool)($config['default_display_animal_welfare'] ?? false),
-            'display_rainforest' => (bool)($config['default_display_rainforest'] ?? false),
-            'environment_display_style' => 'global',
-            'background_color_mode' => 'global',
-            'background_color' => '',
-            'background_image_mode' => 'global',
-            'background_media_asset_id' => null,
-            'show_header' => (bool)($config['default_show_header'] ?? true),
-        ];
+        return $this->defaultSlideSettings($this->getDefaultGlobalSettings());
     }
 
     public function getDefaultGlobalSettings(): array
     {
         $config = $this->getPluginConfig();
+        $environmentIcons = is_array($config['environment_rating_icons'] ?? null) ? $config['environment_rating_icons'] : [];
+
         return [
+            'menu_url' => (string)($config['menu_url'] ?? ''),
+            'cache_ttl' => max(60, (int)($config['cache_ttl'] ?? 1800)),
+            'debug_date' => $config['debug_date'] ?? null,
+            'default_language' => $this->normalizeLanguage($config['default_language'] ?? 'de'),
+            'default_mensa' => (string)($config['default_mensa'] ?? ''),
+            'default_exclude' => array_values(array_map('intval', is_array($config['default_exclude'] ?? null) ? $config['default_exclude'] : [])),
+            'default_display_co2' => (bool)($config['default_display_co2'] ?? true),
+            'default_display_water' => (bool)($config['default_display_water'] ?? false),
+            'default_display_animal_welfare' => (bool)($config['default_display_animal_welfare'] ?? false),
+            'default_display_rainforest' => (bool)($config['default_display_rainforest'] ?? false),
+            'default_show_header' => (bool)($config['default_show_header'] ?? true),
             'background_color' => $this->normalizeColor((string)($config['default_background_color'] ?? '#f1f5f9')),
             'background_media_asset_id' => null,
             'environment_display_style' => $this->normalizeEnvironmentalDisplayStyle($config['default_environment_display_style'] ?? 'symbols', false),
+            'environment_rating_icons' => array_replace([
+                'co2' => 'assets/img/environment/leaf-filled.svg',
+                'water' => 'assets/img/environment/drop-filled.svg',
+                'animal_welfare' => 'assets/img/environment/heart-filled.svg',
+                'rainforest' => 'assets/img/environment/tree-filled.svg',
+            ], array_filter(array_map('strval', $environmentIcons))),
+        ];
+    }
+
+    /** @param array<string, mixed> $globalSettings */
+    private function defaultSlideSettings(array $globalSettings): array
+    {
+        return [
+            'display_mode' => 'card',
+            'mensa' => (string)($globalSettings['default_mensa'] ?? ''),
+            'language' => $this->normalizeLanguage($globalSettings['default_language'] ?? 'de'),
+            'exclude_types' => array_values(array_map('intval', is_array($globalSettings['default_exclude'] ?? null) ? $globalSettings['default_exclude'] : [])),
+            'display_price_groups' => array_fill_keys(array_column($this->getMenuService($globalSettings)->getPriceGroups(), 'key'), true),
+            'display_student_price' => true,
+            'display_employee_price' => true,
+            'display_guest_price' => true,
+            'display_co2' => (bool)($globalSettings['default_display_co2'] ?? true),
+            'display_water' => (bool)($globalSettings['default_display_water'] ?? false),
+            'display_animal_welfare' => (bool)($globalSettings['default_display_animal_welfare'] ?? false),
+            'display_rainforest' => (bool)($globalSettings['default_display_rainforest'] ?? false),
+            'environment_display_style' => 'global',
+            'background_color_mode' => 'global',
+            'background_color' => '',
+            'background_image_mode' => 'global',
+            'background_media_asset_id' => null,
+            'show_header' => (bool)($globalSettings['default_show_header'] ?? true),
         ];
     }
 
     public function renderAdminSettings(array $slide, array $settings, PluginApi $api): string
     {
-        $settings = array_replace($this->getDefaultSettings(), $settings);
         $globalSettings = array_replace($this->getDefaultGlobalSettings(), $api->loadGlobalSettings($this->getName()));
+        $settings = array_replace($this->defaultSlideSettings($globalSettings), $settings);
         $backgroundAssetId = $this->normalizeOptionalId($settings['background_media_asset_id'] ?? null);
         $backgroundAsset = $backgroundAssetId !== null ? $api->getMediaAsset($backgroundAssetId) : null;
         if (($backgroundAsset['media_kind'] ?? null) !== 'image') {
@@ -70,13 +99,14 @@ class Plugin extends AbstractSlidePlugin
             'settings' => $settings,
             'globalSettings' => $globalSettings,
             'plugin' => $this,
-            'mensen' => $this->getMenuService()->getAvailableMensen(),
-            'foodTypes' => $this->getMenuService()->getFoodTypes(),
+            'mensen' => $this->getMenuService($globalSettings)->getAvailableMensen(),
+            'foodTypes' => $this->getMenuService($globalSettings)->getFoodTypes(),
+            'priceGroups' => $this->getMenuService($globalSettings)->getPriceGroups(),
             'imageMediaAssets' => $api->listMediaAssets('image'),
             'backgroundImageUrl' => $api->mediaAssetUrl($backgroundAsset),
             'displayModePreviews' => [
-                'card' => $api->pluginAssetUrl($this->getName(), 'assets/img/display-mode-card.svg'),
-                'list' => $api->pluginAssetUrl($this->getName(), 'assets/img/display-mode-list.svg'),
+                'card' => $api->pluginAssetUrl($this->getName(), 'assets/img/display-modes/card.svg'),
+                'list' => $api->pluginAssetUrl($this->getName(), 'assets/img/display-modes/list.svg'),
             ],
             'environmentIconAssets' => $this->getEnvironmentalIconAssets($api),
         ]);
@@ -91,12 +121,19 @@ class Plugin extends AbstractSlidePlugin
             $backgroundAsset = null;
         }
 
+        $service = $this->getMenuService($settings);
+
         return $this->renderView('views/global_config.php', [
             'settings' => $settings,
             'plugin' => $this,
+            'menuService' => $service,
+            'mensen' => $service->getAvailableMensen(),
+            'foodTypes' => $service->getFoodTypes(),
             'imageMediaAssets' => $api->listMediaAssets('image'),
             'backgroundImageUrl' => $api->mediaAssetUrl($backgroundAsset),
             'environmentIconAssets' => $this->getEnvironmentalIconAssets($api),
+            'setupActionBaseUrl' => url('/admin/plugins/' . $this->getName() . '/actions'),
+            'parserConfig' => $this->getPluginConfig(),
         ]);
     }
 
@@ -128,21 +165,38 @@ class Plugin extends AbstractSlidePlugin
             }
         }
 
+        $menuUrl = trim((string)($input['menu_url'] ?? $existingSettings['menu_url'] ?? ''));
+        if ($menuUrl !== '' && filter_var($menuUrl, FILTER_VALIDATE_URL) === false) {
+            throw new RuntimeException(__('plugins.tl-1menu.errors.invalid_menu_url'));
+        }
+
         return [
+            'menu_url' => $menuUrl,
+            'cache_ttl' => max(60, (int)($input['cache_ttl'] ?? $existingSettings['cache_ttl'] ?? 1800)),
+            'debug_date' => trim((string)($input['debug_date'] ?? $existingSettings['debug_date'] ?? '')) ?: null,
+            'default_language' => $this->normalizeLanguage($input['default_language'] ?? $existingSettings['default_language'] ?? 'de'),
+            'default_mensa' => trim((string)($input['default_mensa'] ?? $existingSettings['default_mensa'] ?? '')),
+            'default_exclude' => $this->normalizeIntCsv(array_key_exists('default_exclude', $input) ? $input['default_exclude'] : []),
+            'default_display_co2' => !empty($input['default_display_co2']),
+            'default_display_water' => !empty($input['default_display_water']),
+            'default_display_animal_welfare' => !empty($input['default_display_animal_welfare']),
+            'default_display_rainforest' => !empty($input['default_display_rainforest']),
+            'default_show_header' => !empty($input['default_show_header']),
             'background_color' => $backgroundColor,
             'background_media_asset_id' => $backgroundMediaAssetId,
             'environment_display_style' => $environmentDisplayStyle,
+            'environment_rating_icons' => $this->normalizeEnvironmentIconInput($input['environment_rating_icons'] ?? $existingSettings['environment_rating_icons'] ?? []),
         ];
     }
 
     public function normalizeSettings(array $input, array $existingSettings, PluginApi $api): array
     {
-        $defaults = $this->getDefaultSettings();
+        $globalSettings = array_replace($this->getDefaultGlobalSettings(), $api->loadGlobalSettings($this->getName()));
+        $defaults = $this->defaultSlideSettings($globalSettings);
         $existingSettings = array_replace($defaults, $existingSettings);
-        $service = $this->getMenuService();
+        $service = $this->getMenuService($globalSettings);
         $availableMensen = $service->getAvailableMensen();
         $foodTypes = $service->getFoodTypes();
-        $globalSettings = array_replace($this->getDefaultGlobalSettings(), $api->loadGlobalSettings($this->getName()));
 
         $displayMode = $this->normalizeDisplayMode($input['display_mode'] ?? $existingSettings['display_mode'] ?? $defaults['display_mode']);
         $environmentDisplayStyle = $this->normalizeEnvironmentalDisplayStyle(
@@ -164,7 +218,22 @@ class Plugin extends AbstractSlidePlugin
         sort($excludeTypes);
         $excludeTypes = array_values(array_unique($excludeTypes));
 
-        if (!in_array($mensa, $availableMensen, true)) {
+        $availablePriceGroups = array_column($service->getPriceGroups(), 'key');
+        $rawDisplayPriceGroups = $input['display_price_groups'] ?? $existingSettings['display_price_groups'] ?? [];
+        $displayPriceGroups = [];
+        if (is_array($rawDisplayPriceGroups)) {
+            foreach ($availablePriceGroups as $priceGroupKey) {
+                $displayPriceGroups[$priceGroupKey] = !empty($rawDisplayPriceGroups[$priceGroupKey]) || in_array($priceGroupKey, $rawDisplayPriceGroups, true);
+            }
+        }
+        if ($displayPriceGroups === []) {
+            foreach ($availablePriceGroups as $priceGroupKey) {
+                $legacyKey = 'display_' . ($priceGroupKey === 'staff' ? 'employee' : $priceGroupKey) . '_price';
+                $displayPriceGroups[$priceGroupKey] = array_key_exists($legacyKey, $input) ? !empty($input[$legacyKey]) : true;
+            }
+        }
+
+        if ($availableMensen !== [] && !in_array($mensa, $availableMensen, true)) {
             throw new RuntimeException(__('plugins.tl-1menu.errors.invalid_mensa'));
         }
         if (!in_array($language, ['de', 'en'], true)) {
@@ -204,9 +273,10 @@ class Plugin extends AbstractSlidePlugin
             'mensa' => $mensa,
             'language' => $language,
             'exclude_types' => $excludeTypes,
-            'display_student_price' => !empty($input['display_student_price']),
-            'display_employee_price' => !empty($input['display_employee_price']),
-            'display_guest_price' => !empty($input['display_guest_price']),
+            'display_price_groups' => $displayPriceGroups,
+            'display_student_price' => !empty($displayPriceGroups['student']),
+            'display_employee_price' => !empty($displayPriceGroups['staff']),
+            'display_guest_price' => !empty($displayPriceGroups['guest']),
             'display_co2' => !empty($input['display_co2']),
             'display_water' => !empty($input['display_water']),
             'display_animal_welfare' => !empty($input['display_animal_welfare']),
@@ -222,18 +292,18 @@ class Plugin extends AbstractSlidePlugin
 
     public function renderFrontend(array $slide, array $settings, PluginApi $api): string
     {
-        $settings = array_replace($this->getDefaultSettings(), $settings);
         $globalSettings = array_replace($this->getDefaultGlobalSettings(), $api->loadGlobalSettings($this->getName()));
+        $settings = array_replace($this->defaultSlideSettings($globalSettings), $settings);
         $language = in_array($settings['language'], ['de', 'en'], true) ? $settings['language'] : 'de';
-        $today = $this->resolveEffectiveDate();
-        $service = $this->getMenuService();
+        $today = $this->resolveEffectiveDate($globalSettings);
+        $service = $this->getMenuService($globalSettings);
         $mensaKey = (string)$settings['mensa'];
         $mensaLabel = $service->getMensaLabel($mensaKey);
         $errorMessage = null;
         $resolvedBackground = $this->resolveBackground($settings, $globalSettings, $api);
 
         try {
-            $items = $service->getMenuForDate($mensaKey, $today, is_array($settings['exclude_types'] ?? null) ? $settings['exclude_types'] : [], false);
+            $items = $service->getMenuForDate($mensaKey, $today, is_array($settings['exclude_types'] ?? null) ? $settings['exclude_types'] : [], false, $language);
         } catch (\Throwable $e) {
             $items = [];
             $errorMessage = __('plugins.tl-1menu.frontend.loading_error');
@@ -245,6 +315,7 @@ class Plugin extends AbstractSlidePlugin
 
         return $this->renderView($view, [
             'plugin' => $this,
+            'api' => $api,
             'settings' => $settings,
             'language' => $language,
             'today' => $today,
@@ -263,7 +334,8 @@ class Plugin extends AbstractSlidePlugin
 
     public function getFrontendAssets(array $slide, array $settings, PluginApi $api): array
     {
-        $settings = array_replace($this->getDefaultSettings(), $settings);
+        $globalSettings = array_replace($this->getDefaultGlobalSettings(), $api->loadGlobalSettings($this->getName()));
+        $settings = array_replace($this->defaultSlideSettings($globalSettings), $settings);
         $assets = ['css' => [$api->pluginAssetUrl($this->getName(), 'assets/tl-1menu.css')], 'js' => []];
         if ($this->normalizeDisplayMode($settings['display_mode'] ?? 'card') === 'list') {
             $assets['js'][] = $api->pluginAssetUrl($this->getName(), 'assets/tl-1menu-list.js');
@@ -273,16 +345,18 @@ class Plugin extends AbstractSlidePlugin
 
     public function getStateData(array $slide, array $settings, PluginApi $api): array
     {
-        $settings = array_replace($this->getDefaultSettings(), $settings);
+        $globalSettings = array_replace($this->getDefaultGlobalSettings(), $api->loadGlobalSettings($this->getName()));
+        $settings = array_replace($this->defaultSlideSettings($globalSettings), $settings);
         return [
             'display_mode' => $this->normalizeDisplayMode($settings['display_mode'] ?? 'card'),
             'mensa' => $settings['mensa'],
             'language' => $settings['language'],
-            'date' => $this->resolveEffectiveDate(),
+            'date' => $this->resolveEffectiveDate($globalSettings),
             'exclude_types' => $settings['exclude_types'],
             'display_student_price' => (bool)$settings['display_student_price'],
             'display_employee_price' => (bool)$settings['display_employee_price'],
             'display_guest_price' => (bool)$settings['display_guest_price'],
+            'display_price_groups' => $settings['display_price_groups'] ?? [],
             'display_co2' => (bool)$settings['display_co2'],
             'display_water' => (bool)$settings['display_water'],
             'display_animal_welfare' => (bool)$settings['display_animal_welfare'],
@@ -293,7 +367,103 @@ class Plugin extends AbstractSlidePlugin
             'background_image_mode' => $settings['background_image_mode'],
             'background_media_asset_id' => $settings['background_media_asset_id'],
             'show_header' => (bool)$settings['show_header'],
-            'global' => array_replace($this->getDefaultGlobalSettings(), $api->loadGlobalSettings($this->getName())),
+            'global' => $globalSettings,
+        ];
+    }
+
+    public function handleAdminAction(string $action, array $input, PluginApi $api): array
+    {
+        $analyzer = new Tl1SetupAnalyzer($api->pluginCachePath($this->getName(), 'setup.xml'));
+
+        if ($action === 'analyze-url') {
+            return $analyzer->downloadAndAnalyze((string)($input['menu_url'] ?? ''));
+        }
+
+        if ($action === 'analyze-mapping') {
+            $config = $this->decodeGeneratedConfig((string)($input['config_json'] ?? ''));
+            return $analyzer->analyzeCachedWithConfig($config);
+        }
+
+        if ($action === 'preview-row') {
+            $config = $this->decodeGeneratedConfig((string)($input['config_json'] ?? ''));
+            $rowPreview = $analyzer->previewCachedRow($config, (int)($input['row_index'] ?? 0));
+            $tmp = tempnam(sys_get_temp_dir(), 'tl1-preview-');
+            if ($tmp === false) {
+                throw new RuntimeException(__('plugins.tl-1menu.errors.setup_preview_failed'));
+            }
+            $xml = '<?xml version="1.0"?><DATAPACKET><ROWDATA><ROW';
+            foreach ($rowPreview['row'] as $key => $value) {
+                $xml .= ' ' . $key . '="' . htmlspecialchars((string)$value, ENT_QUOTES | ENT_XML1, 'UTF-8') . '"';
+            }
+            $xml .= "/></ROWDATA></DATAPACKET>";
+            file_put_contents($tmp, $xml);
+            try {
+                $parser = new MensaXmlParser(array_replace($this->runtimeConfig($api->loadGlobalSettings($this->getName())), $config));
+                $items = $parser->parseFile($tmp, ['language' => (string)($input['language'] ?? 'de')]);
+            } finally {
+                @unlink($tmp);
+            }
+            $item = $items[0] ?? null;
+            return array_replace($rowPreview, ['item' => $item ? $this->menuItemToArray($item) : null]);
+        }
+
+        if ($action === 'save-config') {
+            $config = $this->decodeGeneratedConfig((string)($input['config_json'] ?? ''));
+            $config['setup']['generated_at'] = date('c');
+            $globalSettingsJson = (string)($input['global_settings_json'] ?? '');
+            $normalizedGlobal = null;
+            if ($globalSettingsJson !== '') {
+                $globalInput = json_decode($globalSettingsJson, true);
+                if (is_array($globalInput)) {
+                    $existingGlobal = array_replace($this->getDefaultGlobalSettings(), $api->loadGlobalSettings($this->getName()));
+                    $normalizedGlobal = $this->normalizeGlobalSettings($globalInput, $existingGlobal, $api);
+                }
+            }
+            $writer = new ConfigWriter(__DIR__ . '/config.php');
+            $result = $writer->write($config);
+            if ($normalizedGlobal !== null) {
+                $api->saveGlobalSettings($this->getName(), $normalizedGlobal);
+            }
+            $this->config = null;
+            $this->service = null;
+            return ['saved' => $result];
+        }
+
+        return parent::handleAdminAction($action, $input, $api);
+    }
+
+    /** @return array<string, mixed> */
+    private function decodeGeneratedConfig(string $json): array
+    {
+        $decoded = json_decode($json, true);
+        if (!is_array($decoded)) {
+            throw new RuntimeException(__('plugins.tl-1menu.errors.config_invalid_generated'));
+        }
+        return $decoded;
+    }
+
+    private function menuItemToArray(\Plugins\Tl1Menu\Menu\MenuItem $item): array
+    {
+        return [
+            'id' => $item->id,
+            'date' => $item->date,
+            'mensa_key' => $item->mensaKey,
+            'mensa_name' => $item->mensaName,
+            'location_id' => $item->locationId,
+            'location_name' => $item->locationName,
+            'type_id' => $item->typeId,
+            'type_name' => $item->typeName,
+            'spalte' => $item->spalte,
+            'title_de' => $item->titleDe,
+            'title_en' => $item->titleEn,
+            'description_de' => $item->descriptionDe,
+            'description_en' => $item->descriptionEn,
+            'prices' => $item->prices,
+            'allergens' => $item->allergens,
+            'additives' => $item->additives,
+            'categories' => $item->categories,
+            'classification' => $item->classification,
+            'environment' => $item->environment,
         ];
     }
 
@@ -311,15 +481,63 @@ class Plugin extends AbstractSlidePlugin
         return $this->config;
     }
 
-    public function getMenuService(): MenuService
+    /** @param array<string, mixed> $globalSettings */
+    public function getMenuService(array $globalSettings = []): MenuService
     {
+        $config = $this->runtimeConfig($globalSettings);
+        if ($globalSettings !== []) {
+            $parser = new MensaXmlParser($config);
+            $repository = new MenuRepository($parser, $config);
+            return new MenuService($repository, $config);
+        }
+
         if ($this->service === null) {
-            $config = $this->getPluginConfig();
             $parser = new MensaXmlParser($config);
             $repository = new MenuRepository($parser, $config);
             $this->service = new MenuService($repository, $config);
         }
         return $this->service;
+    }
+
+    /** @param array<string, mixed> $globalSettings @return array<string, mixed> */
+    private function runtimeConfig(array $globalSettings = []): array
+    {
+        $globalSettings = array_replace($this->getDefaultGlobalSettings(), $globalSettings);
+        $config = array_replace($this->runtimeSafeDefaults(), $this->getPluginConfig());
+        foreach ([
+            'menu_url', 'cache_ttl', 'debug_date', 'default_language', 'default_mensa', 'default_exclude',
+            'default_display_co2', 'default_display_water', 'default_display_animal_welfare', 'default_display_rainforest',
+            'default_show_header', 'environment_rating_icons',
+        ] as $key) {
+            if (array_key_exists($key, $globalSettings)) {
+                $config[$key] = $globalSettings[$key];
+            }
+        }
+        $config['default_background_color'] = $globalSettings['background_color'] ?? '#f1f5f9';
+        $config['default_environment_display_style'] = $globalSettings['environment_display_style'] ?? 'symbols';
+        return $config;
+    }
+
+    /** @return array<string, mixed> */
+    private function runtimeSafeDefaults(): array
+    {
+        return [
+            'schema_version' => 2,
+            'field_definitions' => [],
+            'field_mapping' => [],
+            'price_groups' => [],
+            'mensen' => [],
+            'standort_namen' => [],
+            'food_types' => [],
+            'categories' => [],
+            'token_catalog' => [],
+            'menu_url' => '',
+            'cache_ttl' => 1800,
+            'debug_date' => null,
+            'default_language' => 'de',
+            'default_mensa' => '',
+            'default_exclude' => [],
+        ];
     }
 
     /** @return array<int, array{key: string, setting: string, label: string, value: string, rating: string}> */
@@ -360,9 +578,10 @@ class Plugin extends AbstractSlidePlugin
         ];
     }
 
-    private function resolveEffectiveDate(): string
+    /** @param array<string, mixed> $globalSettings */
+    private function resolveEffectiveDate(array $globalSettings = []): string
     {
-        $config = $this->getPluginConfig();
+        $config = $this->runtimeConfig($globalSettings);
         $debugDate = trim((string)($config['debug_date'] ?? ''));
         if ($debugDate !== '') {
             $timestamp = strtotime($debugDate);
@@ -372,6 +591,44 @@ class Plugin extends AbstractSlidePlugin
         }
 
         return date('Y-m-d');
+    }
+
+    private function normalizeLanguage(mixed $value): string
+    {
+        $language = strtolower(trim((string)$value));
+        return in_array($language, ['de', 'en'], true) ? $language : 'de';
+    }
+
+    /** @return list<int> */
+    private function normalizeIntCsv(mixed $value): array
+    {
+        $rawValues = is_array($value) ? $value : preg_split('/\s*,\s*/', (string)$value);
+        $ids = [];
+        foreach ($rawValues ?: [] as $rawValue) {
+            $rawValue = trim((string)$rawValue);
+            if ($rawValue !== '' && is_numeric($rawValue)) {
+                $ids[] = (int)$rawValue;
+            }
+        }
+        sort($ids);
+        return array_values(array_unique($ids));
+    }
+
+    /** @return array<string, string> */
+    private function normalizeEnvironmentIconInput(mixed $value): array
+    {
+        $defaults = is_array($this->getDefaultGlobalSettings()['environment_rating_icons'] ?? null)
+            ? $this->getDefaultGlobalSettings()['environment_rating_icons']
+            : [];
+        $input = is_array($value) ? $value : [];
+        $icons = [];
+        foreach (['co2', 'water', 'animal_welfare', 'rainforest'] as $key) {
+            $icon = trim((string)($input[$key] ?? $defaults[$key] ?? ''));
+            if ($icon !== '') {
+                $icons[$key] = $icon;
+            }
+        }
+        return $icons;
     }
 
     private function normalizeColor(string $value): string
@@ -487,15 +744,89 @@ class Plugin extends AbstractSlidePlugin
     /** @return array<string, array{filled: string, outline: string}> */
     private function getEnvironmentalIconAssets(PluginApi $api): array
     {
+        $globalSettings = array_replace($this->getDefaultGlobalSettings(), $api->loadGlobalSettings($this->getName()));
+        $configured = is_array($globalSettings['environment_rating_icons'] ?? null) ? $globalSettings['environment_rating_icons'] : [];
+        $map = [
+            'leaf' => 'co2',
+            'drop' => 'water',
+            'heart' => 'animal_welfare',
+            'tree' => 'rainforest',
+        ];
         $assets = [];
-        foreach (['leaf', 'drop', 'heart', 'tree'] as $icon) {
-            $assets[$icon] = [
-                'filled' => $api->pluginAssetUrl($this->getName(), 'assets/img/' . $icon . '-filled.svg'),
-                'outline' => $api->pluginAssetUrl($this->getName(), 'assets/img/' . $icon . '-outline.svg'),
+        foreach ($map as $icon => $settingKey) {
+            $configuredPath = trim((string)($configured[$settingKey] ?? ''));
+            $assets[$icon] = $this->resolveEnvironmentalIconPair($api, $icon, $configuredPath);
+        }
+        return $assets;
+    }
+
+    /** @return array{filled: string, outline: string} */
+    private function resolveEnvironmentalIconPair(PluginApi $api, string $icon, string $configuredPath): array
+    {
+        $defaultPaths = $this->defaultEnvironmentalIconPaths($icon);
+        $normalizedPath = ltrim(str_replace('\\', '/', $configuredPath), '/');
+        $pathOnly = explode('#', $normalizedPath, 2)[0];
+
+        if (
+            $configuredPath === ''
+            || $pathOnly === $defaultPaths['filled']
+            || $pathOnly === $defaultPaths['outline']
+            || $this->isLegacyEnvironmentalIconPath($icon, $normalizedPath)
+        ) {
+            return [
+                'filled' => $api->pluginAssetUrl($this->getName(), $defaultPaths['filled']),
+                'outline' => $api->pluginAssetUrl($this->getName(), $defaultPaths['outline']),
             ];
         }
 
-        return $assets;
+        $url = $this->resolvePluginAssetPath($api, $configuredPath);
+        return ['filled' => $url, 'outline' => $url];
+    }
+
+    /** @return array{filled: string, outline: string} */
+    private function defaultEnvironmentalIconPaths(string $icon): array
+    {
+        return [
+            'filled' => 'assets/img/environment/' . $icon . '-filled.svg',
+            'outline' => 'assets/img/environment/' . $icon . '-outline.svg',
+        ];
+    }
+
+    private function isLegacyEnvironmentalIconPath(string $icon, string $path): bool
+    {
+        $legacyPaths = [
+            'leaf' => ['assets/img/eco-leaf.svg', 'assets/img/leaf-filled.svg', 'assets/img/leaf-outline.svg'],
+            'drop' => ['assets/img/eco-drop.svg', 'assets/img/drop-filled.svg', 'assets/img/drop-outline.svg'],
+            'heart' => ['assets/img/eco-heart.svg', 'assets/img/heart-filled.svg', 'assets/img/heart-outline.svg'],
+            'tree' => ['assets/img/eco-tree.svg', 'assets/img/tree-filled.svg', 'assets/img/tree-outline.svg'],
+        ];
+        $pathOnly = explode('#', $path, 2)[0];
+        return in_array($pathOnly, $legacyPaths[$icon] ?? [], true);
+    }
+
+    private function resolvePluginAssetPath(PluginApi $api, string $path): string
+    {
+        if (preg_match('#^https?://#i', $path) === 1 || str_starts_with($path, '/')) {
+            return $path;
+        }
+        return $api->pluginAssetUrl($this->getName(), $path);
+    }
+
+    /** @return array{type: string, value: string} */
+    public function categoryIconDisplayData(string $icon, PluginApi $api): array
+    {
+        $icon = trim($icon);
+        if ($icon === '') {
+            $icon = 'assets/img/categories/default.svg';
+        }
+
+        $pathOnly = explode('#', str_replace('\\', '/', $icon), 2)[0];
+        $extension = strtolower(pathinfo($pathOnly, PATHINFO_EXTENSION));
+        if (in_array($extension, ['svg', 'png', 'jpg', 'jpeg', 'webp', 'gif'], true) || str_contains($pathOnly, '/')) {
+            return ['type' => 'image', 'value' => $this->resolvePluginAssetPath($api, $icon)];
+        }
+
+        return ['type' => 'text', 'value' => $icon];
     }
 
     public function environmentalSymbolFillCount(mixed $rating): int

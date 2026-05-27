@@ -16,10 +16,16 @@ $showWater = !empty($settings['display_water']);
 $showAnimalWelfare = !empty($settings['display_animal_welfare']);
 $showRainforest = !empty($settings['display_rainforest']);
 $showAnyEco = $showCo2 || $showWater || $showAnimalWelfare || $showRainforest;
-$showStudentPrice = !empty($settings['display_student_price']);
-$showEmployeePrice = !empty($settings['display_employee_price']);
-$showGuestPrice = !empty($settings['display_guest_price']);
-$visiblePriceCount = ($showStudentPrice ? 1 : 0) + ($showEmployeePrice ? 1 : 0) + ($showGuestPrice ? 1 : 0);
+$priceGroups = $service->getPriceGroups();
+$displayPriceGroups = is_array($settings['display_price_groups'] ?? null) ? $settings['display_price_groups'] : [];
+$visiblePriceGroups = [];
+foreach ($priceGroups as $priceGroup) {
+    $priceKey = (string)($priceGroup['key'] ?? '');
+    if ($priceKey !== '' && ($displayPriceGroups === [] || !empty($displayPriceGroups[$priceKey]))) {
+        $visiblePriceGroups[] = $priceGroup;
+    }
+}
+$visiblePriceCount = count($visiblePriceGroups);
 $showAnyPrice = $visiblePriceCount > 0;
 $showHeader = !empty($settings['show_header']);
 $backgroundColor = normalize_hex_color((string)($backgroundColor ?? ($globalSettings['background_color'] ?? '#f1f5f9')), '#f1f5f9');
@@ -85,8 +91,15 @@ if (!empty($backgroundImageUrl)) {
                         <?php if ($displayCategories !== []): ?>
                             <div class="tl1menu__category-list">
                                 <?php foreach ($displayCategories as $categoryKey => $categoryData): ?>
+                                    <?php $categoryIcon = $plugin->categoryIconDisplayData((string)($categoryData['icon'] ?? ''), $api); ?>
                                     <div class="tl1menu__category-badge tl1menu__category-badge--<?= e($categoryKey) ?>">
-                                        <span class="tl1menu__category-icon" aria-hidden="true"><?= e($categoryData['icon']) ?></span>
+                                        <span class="tl1menu__category-icon" aria-hidden="true">
+                                            <?php if ($categoryIcon['type'] === 'image'): ?>
+                                                <img src="<?= e($categoryIcon['value']) ?>" alt="">
+                                            <?php else: ?>
+                                                <?= e($categoryIcon['value']) ?>
+                                            <?php endif; ?>
+                                        </span>
                                         <span><?= e($categoryData['label']) ?></span>
                                     </div>
                                 <?php endforeach; ?>
@@ -100,15 +113,10 @@ if (!empty($backgroundImageUrl)) {
 
                     <?php if ($showAnyPrice): ?>
                         <div class="tl1menu__prices tl1menu__prices--count-<?= e((string)$visiblePriceCount) ?>">
-                            <?php if ($showStudentPrice): ?>
-                                <div class="tl1menu__price"><span><?= e(__('plugins.tl-1menu.frontend.student')) ?></span><strong><?= e($service->formatPrice($item->getPrice('student'), $language)) ?></strong></div>
-                            <?php endif; ?>
-                            <?php if ($showEmployeePrice): ?>
-                                <div class="tl1menu__price"><span><?= e(__('plugins.tl-1menu.frontend.staff')) ?></span><strong><?= e($service->formatPrice($item->getPrice('staff'), $language)) ?></strong></div>
-                            <?php endif; ?>
-                            <?php if ($showGuestPrice): ?>
-                                <div class="tl1menu__price"><span><?= e(__('plugins.tl-1menu.frontend.guest')) ?></span><strong><?= e($service->formatPrice($item->getPrice('guest'), $language)) ?></strong></div>
-                            <?php endif; ?>
+                            <?php foreach ($visiblePriceGroups as $priceGroup): ?>
+                                <?php $priceKey = (string)$priceGroup['key']; ?>
+                                <div class="tl1menu__price"><span><?= e($service->getPriceGroupLabel($priceKey, $language)) ?></span><strong><?= e($service->formatPrice($item->getPrice($priceKey), $language)) ?></strong></div>
+                            <?php endforeach; ?>
                         </div>
                     <?php endif; ?>
 

@@ -210,6 +210,25 @@ class AdminController
         redirect('/admin/plugins');
     }
 
+    public function pluginAction(string $pluginName, string $action): void
+    {
+        $this->auth->requireRole('admin');
+        $this->plugins->syncRegistry();
+
+        $plugin = $this->plugins->getPlugin($pluginName);
+        if (!$plugin) {
+            $this->jsonResponse(['ok' => false, 'error' => __('plugins.not_found')], 404);
+        }
+
+        $input = (array)$this->request->input('plugin_action', []);
+        try {
+            $result = $plugin->handleAdminAction($action, $input, $this->plugins->buildApi(null, null, null, $this->auth->id()));
+            $this->jsonResponse(array_replace(['ok' => true], $result));
+        } catch (\Throwable $e) {
+            $this->jsonResponse(['ok' => false, 'error' => $e->getMessage()], 400);
+        }
+    }
+
     public function settingsForm(): void
     {
         $this->auth->requireRole('admin');
@@ -2376,6 +2395,14 @@ class AdminController
         return null;
     }
 
+    private function jsonResponse(array $payload, int $status = 200): void
+    {
+        http_response_code($status);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
     private function pluginFieldErrors(SlidePluginInterface $plugin, string $message, bool $global = false): array
     {
         if (!$global) {
@@ -2404,6 +2431,9 @@ class AdminController
                     'background_media_asset_id' => $message,
                     'background_image_file' => $message,
                 ];
+            }
+            if ($this->messageMatches($message, ['plugins.tl-1menu.errors.invalid_menu_url'])) {
+                return ['menu_url' => $message];
             }
         }
 

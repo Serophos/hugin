@@ -19,6 +19,8 @@ $previewLanguageSetting = (string)($settings['language'] ?? 'de');
 $previewLanguage = in_array($previewLanguageSetting, ['de', 'en'], true) ? $previewLanguageSetting : 'de';
 $environmentPreviewMetrics = $plugin->getEnvironmentPreviewMetrics($previewLanguage);
 $selectedTypes = array_map('intval', is_array($settings['exclude_types'] ?? null) ? $settings['exclude_types'] : []);
+$priceGroups = is_array($priceGroups ?? null) ? $priceGroups : [];
+$displayPriceGroups = is_array($settings['display_price_groups'] ?? null) ? $settings['display_price_groups'] : [];
 ?>
 <div class="plugin-settings-card tl1menu-slide-settings" data-tl1menu-settings data-tl1menu-slide-settings>
     <h3><?= e(__('plugins.tl-1menu.config.title')) ?></h3>
@@ -31,7 +33,7 @@ $selectedTypes = array_map('intval', is_array($settings['exclude_types'] ?? null
                 <select name="plugin_settings[<?= e($plugin->getName()) ?>][mensa]"<?= field_attrs($fieldPrefix . 'mensa', $formId) ?>>
                     <?php foreach ($mensen as $mensaKey): ?>
                         <option value="<?= e($mensaKey) ?>" <?= selected($settings['mensa'], $mensaKey) ?>>
-                            <?= e($plugin->getMenuService()->getMensaLabel($mensaKey)) ?>
+                            <?= e($plugin->getMenuService($globalSettings)->getMensaLabel($mensaKey)) ?>
                         </option>
                     <?php endforeach; ?>
                 </select>
@@ -166,23 +168,21 @@ $selectedTypes = array_map('intval', is_array($settings['exclude_types'] ?? null
         </div>
     </fieldset>
 
-    <fieldset class="full-width">
-        <legend><?= e(__('plugins.tl-1menu.config.price_title')) ?></legend>
-        <div class="tl1menu-admin-checklist">
-            <label class="checkbox-row">
-                <input type="checkbox" name="plugin_settings[<?= e($plugin->getName()) ?>][display_student_price]" value="1" <?= !empty($settings['display_student_price']) ? 'checked' : '' ?>>
-                <span><?= e(__('plugins.tl-1menu.config.display_student_price')) ?></span>
-            </label>
-            <label class="checkbox-row">
-                <input type="checkbox" name="plugin_settings[<?= e($plugin->getName()) ?>][display_employee_price]" value="1" <?= !empty($settings['display_employee_price']) ? 'checked' : '' ?>>
-                <span><?= e(__('plugins.tl-1menu.config.display_employee_price')) ?></span>
-            </label>
-            <label class="checkbox-row">
-                <input type="checkbox" name="plugin_settings[<?= e($plugin->getName()) ?>][display_guest_price]" value="1" <?= !empty($settings['display_guest_price']) ? 'checked' : '' ?>>
-                <span><?= e(__('plugins.tl-1menu.config.display_guest_price')) ?></span>
-            </label>
-        </div>
-    </fieldset>
+    <?php if ($priceGroups !== []): ?>
+        <fieldset class="full-width">
+            <legend><?= e(__('plugins.tl-1menu.config.price_title')) ?></legend>
+            <div class="tl1menu-admin-checklist">
+                <?php foreach ($priceGroups as $priceGroup): ?>
+                    <?php $priceKey = (string)($priceGroup['key'] ?? ''); ?>
+                    <?php if ($priceKey === '') { continue; } ?>
+                    <label class="checkbox-row">
+                        <input type="checkbox" name="plugin_settings[<?= e($plugin->getName()) ?>][display_price_groups][<?= e($priceKey) ?>]" value="1" <?= ($displayPriceGroups === [] || !empty($displayPriceGroups[$priceKey])) ? 'checked' : '' ?>>
+                        <span><?= e($plugin->getMenuService($globalSettings)->getPriceGroupLabel($priceKey, current_locale())) ?></span>
+                    </label>
+                <?php endforeach; ?>
+            </div>
+        </fieldset>
+    <?php endif; ?>
 
     <details class="tl1menu-admin-advanced full-width">
         <summary><?= e(__('plugins.tl-1menu.config.advanced_options')) ?></summary>
@@ -194,7 +194,7 @@ $selectedTypes = array_map('intval', is_array($settings['exclude_types'] ?? null
                     <?php foreach ($foodTypes as $typeId => $typeKey): ?>
                         <label class="checkbox-row">
                             <input type="checkbox" name="plugin_settings[<?= e($plugin->getName()) ?>][exclude_types][]" value="<?= e((string)$typeId) ?>" <?= in_array((int)$typeId, $selectedTypes, true) ? 'checked' : '' ?>>
-                            <span><?= e($plugin->getMenuService()->getFoodTypeLabel((int)$typeId, (string)$typeKey, current_locale())) ?> (<?= e((string)$typeId) ?>)</span>
+                            <span><?= e($plugin->getMenuService($globalSettings)->getFoodTypeLabel((int)$typeId, (string)$typeKey, current_locale())) ?> (<?= e((string)$typeId) ?>)</span>
                         </label>
                     <?php endforeach; ?>
                 </div>

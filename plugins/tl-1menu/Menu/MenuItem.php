@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Plugins\Tl1Menu\Domain;
+namespace Plugins\Tl1Menu\Menu;
 
 final class MenuItem
 {

@@ -1,4 +1,38 @@
 <?php
+$staticUri = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
+$staticMethod = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
+if (is_string($staticUri) && in_array($staticMethod, ['GET', 'HEAD'], true)) {
+    $staticPath = realpath(__DIR__ . '/' . ltrim(rawurldecode($staticUri), '/'));
+    $publicRoot = realpath(__DIR__);
+    $staticExtensions = ['css', 'js', 'png', 'jpg', 'jpeg', 'webp', 'svg', 'gif', 'ico', 'mp4', 'webm', 'otf', 'ttf', 'woff', 'woff2'];
+    $extension = strtolower(pathinfo($staticPath ?: '', PATHINFO_EXTENSION));
+    if ($publicRoot !== false && $staticPath !== false && str_starts_with($staticPath, $publicRoot . DIRECTORY_SEPARATOR) && is_file($staticPath) && in_array($extension, $staticExtensions, true)) {
+        $mimeMap = [
+            'css' => 'text/css; charset=utf-8',
+            'js' => 'application/javascript; charset=utf-8',
+            'png' => 'image/png',
+            'jpg' => 'image/jpeg',
+            'jpeg' => 'image/jpeg',
+            'webp' => 'image/webp',
+            'svg' => 'image/svg+xml',
+            'gif' => 'image/gif',
+            'ico' => 'image/x-icon',
+            'mp4' => 'video/mp4',
+            'webm' => 'video/webm',
+            'otf' => 'font/otf',
+            'ttf' => 'font/ttf',
+            'woff' => 'font/woff',
+            'woff2' => 'font/woff2',
+        ];
+        header('Content-Type: ' . ($mimeMap[$extension] ?? 'application/octet-stream'));
+        header('Content-Length: ' . (string)filesize($staticPath));
+        if ($staticMethod !== 'HEAD') {
+            readfile($staticPath);
+        }
+        exit;
+    }
+}
+
 require_once __DIR__ . '/../app/bootstrap.php';
 
 use App\Controllers\AdminController;
@@ -30,6 +64,7 @@ if ($uri === '/admin/plugins' && $method === 'GET') { $admin->plugins(); exit; }
 if ($uri === '/admin/settings' && $method === 'GET') { $admin->settingsForm(); exit; }
 if ($uri === '/admin/settings' && $method === 'POST') { $admin->saveSettings(); exit; }
 if (preg_match('#^/admin/plugins/([a-zA-Z0-9\-_]+)/toggle$#', $uri, $m) && $method === 'POST') { $admin->togglePlugin($m[1]); exit; }
+if (preg_match('#^/admin/plugins/([a-zA-Z0-9\-_]+)/actions/([a-zA-Z0-9\-_]+)$#', $uri, $m) && $method === 'POST') { $admin->pluginAction($m[1], $m[2]); exit; }
 if (preg_match('#^/admin/plugins/([a-zA-Z0-9\-_]+)/settings$#', $uri, $m) && $method === 'GET') { $admin->pluginSettingsForm($m[1]); exit; }
 if (preg_match('#^/admin/plugins/([a-zA-Z0-9\-_]+)/settings$#', $uri, $m) && $method === 'POST') { $admin->savePluginSettings($m[1]); exit; }
 
