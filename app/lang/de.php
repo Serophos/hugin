@@ -276,6 +276,8 @@ return [
         'name_placeholder' => 'z. B. Empfangswand',
         'description_placeholder' => 'z. B. 2x2 Displaywand über dem Empfang',
         'sort_order_placeholder' => 'z. B. 20',
+        'sync_reload_to_full_minute' => 'Playlist-/Konfigurations-Neuladen auf volle Minute synchronisieren',
+        'sync_reload_to_full_minute_help' => 'Gruppierte Bildschirme übernehmen Playlist-/Konfigurationsänderungen gemeinsam zur nächsten vollen Minute. Während Aktualisierungen bleibt der aktuelle Inhalt sichtbar.',
         'name_exists' => 'In diesem Standort existiert bereits eine Gruppe mit diesem Namen.',
         'not_found' => 'Gruppe nicht gefunden.',
         'created' => 'Gruppe erstellt.',

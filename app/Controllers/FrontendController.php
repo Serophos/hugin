@@ -23,6 +23,7 @@ class FrontendController
             return;
         }
 
+        $displayGroup = $this->loadDisplayGroup((int)$display['id']);
         $activeAssignment = $this->resolveActiveAssignment($display);
         if (!$activeAssignment) {
             http_response_code(500);
@@ -44,7 +45,7 @@ class FrontendController
         $duration = (int)($activeAssignment['slide_duration_seconds'] ?: $display['slide_duration_seconds']);
         $heartbeat = $this->db->one('SELECT * FROM display_heartbeats WHERE display_id = ?', [$display['id']]);
         [$resolvedSlides, $pluginAssets] = $this->resolveSlides($slides, $display, $activeAssignment, $heartbeat, $duration);
-        $state = $this->buildDisplayState($display, $activeAssignment, $resolvedSlides, $effect, $duration);
+        $state = $this->buildDisplayState($display, $activeAssignment, $resolvedSlides, $effect, $duration, $displayGroup);
         $brandingSettings = $this->loadBrandingSettings();
 
         $this->view->render('frontend/display', [
@@ -58,6 +59,7 @@ class FrontendController
             'effect' => $effect,
             'duration' => $duration,
             'stateSignature' => $state['signature'],
+            'displayGroup' => $displayGroup,
             'orientation' => $display['orientation'] ?? 'landscape',
             'pluginAssets' => $pluginAssets,
             'brandingSettings' => $brandingSettings,
@@ -208,6 +210,7 @@ class FrontendController
             json_response(['ok' => false, 'message' => __('frontend.state_message_display_not_found')], 404);
         }
 
+        $displayGroup = $this->loadDisplayGroup((int)$display['id']);
         $activeAssignment = $this->resolveActiveAssignment($display);
         if (!$activeAssignment) {
             json_response(['ok' => false, 'message' => __('frontend.state_message_no_channel')], 409);
@@ -226,7 +229,7 @@ class FrontendController
         $heartbeat = $this->db->one('SELECT * FROM display_heartbeats WHERE display_id = ?', [$display['id']]);
         [$resolvedSlides] = $this->resolveSlides($slides, $display, $activeAssignment, $heartbeat, $duration);
 
-        json_response($this->buildDisplayState($display, $activeAssignment, $resolvedSlides, $effect, $duration));
+        json_response($this->buildDisplayState($display, $activeAssignment, $resolvedSlides, $effect, $duration, $displayGroup));
     }
 
     public function heartbeat(string $slug): void
@@ -448,12 +451,13 @@ class FrontendController
         return array_replace($defaults, $settings);
     }
 
-    private function buildDisplayState(array $display, array $activeAssignment, array $resolvedSlides, string $effect, int $duration): array
+    private function buildDisplayState(array $display, array $activeAssignment, array $resolvedSlides, string $effect, int $duration, ?array $displayGroup = null): array
     {
         $payload = [
             'display_id' => (int)$display['id'],
             'display_slug' => (string)$display['slug'],
             'display_updated_at' => (string)($display['updated_at'] ?? ''),
+            'display_group' => $displayGroup,
             'channel_id' => (int)$activeAssignment['channel_id'],
             'channel_name' => (string)$activeAssignment['channel_name'],
             'channel_updated_at' => (string)($activeAssignment['channel_updated_at'] ?? ''),
@@ -522,6 +526,35 @@ class FrontendController
         $payload['signature'] = sha1(json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '');
         $payload['ok'] = true;
         return $payload;
+    }
+
+    private function loadDisplayGroup(int $displayId): ?array
+    {
+        if ($displayId <= 0) {
+            return null;
+        }
+
+        $group = $this->db->one(
+            'SELECT g.id, g.name, g.sync_enabled, g.sync_mode
+             FROM display_group_memberships dgm
+             INNER JOIN display_groups g ON g.id = dgm.group_id
+             WHERE dgm.display_id = ?
+             LIMIT 1',
+            [$displayId]
+        );
+
+        if (!$group) {
+            return null;
+        }
+
+        $syncEnabled = (int)($group['sync_enabled'] ?? 0) === 1;
+        return [
+            'id' => (int)$group['id'],
+            'name' => (string)$group['name'],
+            'sync_enabled' => $syncEnabled ? 1 : 0,
+            'sync_mode' => (string)($group['sync_mode'] ?? 'independent'),
+            'sync_reload_to_full_minute' => $syncEnabled,
+        ];
     }
 
     private function collectPluginGlobalUpdatedAt(array $resolvedSlides): array

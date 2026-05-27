@@ -14,10 +14,16 @@
     let stateTimer = null;
     let scheduleStateTimer = null;
     let watchdogTimer = null;
+    let pendingReloadTimer = null;
+    let pendingReload = null;
     let nextSlideDueAt = 0;
     let startupComplete = false;
     let stateRequestInFlight = false;
     let currentSignature = slideshow.dataset.stateSignature || '';
+    const MINUTE_MS = 60000;
+    const SYNC_RELOAD_MIN_LEAD_MS = 3000;
+    const SCHEDULED_SYNC_RELOAD_KEY = 'huginScheduledSyncReload';
+    const SCHEDULED_SYNC_RELOAD_MAX_AGE_MS = 120000;
     const requestFrame = window.requestAnimationFrame
         ? window.requestAnimationFrame.bind(window)
         : (callback => window.setTimeout(callback, 16));
@@ -76,6 +82,149 @@
     };
 
     const nextIndex = (fromIndex, offset = 1) => (fromIndex + offset + slides.length) % slides.length;
+
+    const logReload = (message, context = {}) => {
+        if (window.console?.info) {
+            window.console.info(`[Hugin display] ${message}`, context);
+        }
+    };
+
+    const displayGroupFromDataset = () => ({
+        id: slideshow.dataset.displayGroupId || '',
+        name: slideshow.dataset.displayGroupName || '',
+        sync_enabled: slideshow.dataset.syncReloadToFullMinute === '1' ? 1 : 0,
+        sync_mode: slideshow.dataset.displayGroupSyncMode || 'independent',
+        sync_reload_to_full_minute: slideshow.dataset.syncReloadToFullMinute === '1',
+    });
+
+    const displayGroupFromState = stateData => {
+        const group = stateData?.display_group || null;
+        if (!group) return displayGroupFromDataset();
+
+        return {
+            id: group.id || '',
+            name: group.name || '',
+            sync_enabled: group.sync_enabled ? 1 : 0,
+            sync_mode: group.sync_mode || 'independent',
+            sync_reload_to_full_minute: Boolean(group.sync_reload_to_full_minute),
+        };
+    };
+
+    const shouldUseSyncedGroupReload = stateData => displayGroupFromState(stateData).sync_reload_to_full_minute === true;
+
+    const computeNextFullMinuteActivation = (nowMs = Date.now()) => {
+        const msIntoMinute = nowMs % MINUTE_MS;
+        const nextMinute = msIntoMinute === 0 ? nowMs + MINUTE_MS : nowMs + (MINUTE_MS - msIntoMinute);
+
+        if (nextMinute - nowMs < SYNC_RELOAD_MIN_LEAD_MS) {
+            return nextMinute + MINUTE_MS;
+        }
+
+        return nextMinute;
+    };
+
+    const readScheduledSyncReload = () => {
+        try {
+            const raw = window.sessionStorage.getItem(SCHEDULED_SYNC_RELOAD_KEY);
+            const data = raw ? JSON.parse(raw) : null;
+            const ageMs = Date.now() - Number(data?.at || 0);
+
+            if (data?.reason === 'sync-group-config-reload' && ageMs >= 0 && ageMs <= SCHEDULED_SYNC_RELOAD_MAX_AGE_MS) {
+                window.sessionStorage.removeItem(SCHEDULED_SYNC_RELOAD_KEY);
+                return data;
+            }
+
+            if (raw) {
+                window.sessionStorage.removeItem(SCHEDULED_SYNC_RELOAD_KEY);
+            }
+        } catch (error) {
+            try {
+                window.sessionStorage.removeItem(SCHEDULED_SYNC_RELOAD_KEY);
+            } catch (storageError) {}
+        }
+
+        document.documentElement.classList.remove('hugin-scheduled-sync-reload');
+        return null;
+    };
+
+    const markScheduledSyncReload = () => {
+        try {
+            window.sessionStorage.setItem(SCHEDULED_SYNC_RELOAD_KEY, JSON.stringify({
+                at: Date.now(),
+                reason: 'sync-group-config-reload',
+            }));
+        } catch (error) {}
+    };
+
+    const reloadImmediately = (reason, stateData = null) => {
+        if (pendingReloadTimer) {
+            clearTimeout(pendingReloadTimer);
+        }
+        pendingReloadTimer = null;
+        pendingReload = null;
+
+        logReload('Applying immediate reload', {
+            reason,
+            displayGroup: displayGroupFromState(stateData),
+            signature: stateData?.signature || '',
+        });
+        window.location.reload();
+    };
+
+    const applyPendingReload = () => {
+        if (!pendingReload) return;
+
+        const reload = pendingReload;
+        pendingReload = null;
+        pendingReloadTimer = null;
+
+        logReload('Applying synchronized reload', {
+            reason: reload.reason,
+            displayGroup: reload.displayGroup,
+            signature: reload.signature,
+            activateAt: new Date(reload.activateAtMs).toISOString(),
+        });
+
+        markScheduledSyncReload();
+        window.location.reload();
+    };
+
+    const scheduleSyncedReload = (reason, stateData) => {
+        const signature = stateData?.signature || '';
+        const displayGroup = displayGroupFromState(stateData);
+
+        if (pendingReload?.signature === signature && pendingReloadTimer) {
+            logReload('Synchronized reload already pending', {
+                reason,
+                displayGroup,
+                signature,
+                activateAt: new Date(pendingReload.activateAtMs).toISOString(),
+            });
+            return;
+        }
+
+        const activateAtMs = computeNextFullMinuteActivation(Date.now());
+        const replaced = Boolean(pendingReloadTimer);
+        if (pendingReloadTimer) {
+            clearTimeout(pendingReloadTimer);
+        }
+
+        pendingReload = {
+            reason,
+            stateData,
+            signature,
+            displayGroup,
+            activateAtMs,
+        };
+        pendingReloadTimer = window.setTimeout(applyPendingReload, Math.max(0, activateAtMs - Date.now()));
+
+        logReload(replaced ? 'Replaced pending synchronized reload' : 'Scheduled synchronized reload', {
+            reason,
+            displayGroup,
+            signature,
+            activateAt: new Date(activateAtMs).toISOString(),
+        });
+    };
 
     const qrRsBlocksL = [
         null,
@@ -562,10 +711,16 @@
             return targetMs - msIntoMinute;
         }
 
-        return 60000 - msIntoMinute + targetMs;
+        return MINUTE_MS - msIntoMinute + targetMs;
     };
 
     const shouldWaitForStartupSync = () => {
+        const scheduledReload = readScheduledSyncReload();
+        if (scheduledReload) {
+            logReload('Skipping startup sync after scheduled synchronized reload', scheduledReload);
+            return false;
+        }
+
         const key = slideshow.dataset.startupSyncKey || `hugin:slideshow-started:${window.location.pathname}`;
 
         try {
@@ -781,7 +936,12 @@
         })
             .then(response => {
                 if (response.status === 404 || response.status === 409) {
-                    window.location.reload();
+                    const stateData = { signature: `state-http-${response.status}` };
+                    if (shouldUseSyncedGroupReload(stateData)) {
+                        scheduleSyncedReload(`state-http-${response.status}`, stateData);
+                    } else {
+                        reloadImmediately(`state-http-${response.status}`, stateData);
+                    }
                     return null;
                 }
 
@@ -790,7 +950,12 @@
             .then(data => {
                 if (!data) return;
                 if (data.ok === false) {
-                    window.location.reload();
+                    const stateData = Object.assign({ signature: 'state-error' }, data);
+                    if (shouldUseSyncedGroupReload(stateData)) {
+                        scheduleSyncedReload('state-error', stateData);
+                    } else {
+                        reloadImmediately('state-error', stateData);
+                    }
                     return;
                 }
                 if (!data.signature) return;
@@ -799,7 +964,20 @@
                     return;
                 }
                 if (data.signature !== currentSignature) {
-                    window.location.reload();
+                    const useSyncedReload = shouldUseSyncedGroupReload(data);
+                    logReload('Config change detected', {
+                        currentSignature,
+                        nextSignature: data.signature,
+                        displayGroup: displayGroupFromState(data),
+                        synchronizedGroup: useSyncedReload,
+                    });
+
+                    if (useSyncedReload) {
+                        scheduleSyncedReload('signature-changed', data);
+                        return;
+                    }
+
+                    reloadImmediately('signature-changed', data);
                 }
             })
             .catch(() => {})
@@ -882,6 +1060,7 @@
     const startSlideshow = () => {
         startupComplete = true;
         slideshow.classList.remove('is-startup-sync-pending');
+        document.documentElement.classList.remove('hugin-scheduled-sync-reload');
         prepareMediaAround(index);
         startVideo(slides[index]);
         restartTextCardAnimation(slides[index]);

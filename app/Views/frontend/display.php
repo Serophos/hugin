@@ -1,4 +1,8 @@
-<?php $heartbeatInterval = max(30, min(120, (int)floor(((int)app_config('monitoring.online_threshold_seconds', 180)) / 2))); ?>
+<?php
+$heartbeatInterval = max(30, min(120, (int)floor(((int)app_config('monitoring.online_threshold_seconds', 180)) / 2)));
+$displayGroup = $displayGroup ?? null;
+$syncReloadToFullMinute = !empty($displayGroup['sync_reload_to_full_minute']);
+?>
 <!doctype html>
 <html lang="<?= e(current_locale()) ?>">
 <head>
@@ -6,6 +10,31 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?= e($display['name']) ?> · <?= e(__('app.name', [], 'Hugin')) ?></title>
     <link rel="stylesheet" href="<?= e(url('/assets/css/display.css')) ?>">
+    <script>
+        (() => {
+            const key = 'huginScheduledSyncReload';
+            const maxAgeMs = 120000;
+
+            try {
+                const raw = window.sessionStorage.getItem(key);
+                const data = raw ? JSON.parse(raw) : null;
+                const ageMs = Date.now() - Number(data?.at || 0);
+
+                if (data?.reason === 'sync-group-config-reload' && ageMs >= 0 && ageMs <= maxAgeMs) {
+                    document.documentElement.classList.add('hugin-scheduled-sync-reload');
+                    return;
+                }
+
+                if (raw) {
+                    window.sessionStorage.removeItem(key);
+                }
+            } catch (error) {
+                try {
+                    window.sessionStorage.removeItem(key);
+                } catch (storageError) {}
+            }
+        })();
+    </script>
     <?php foreach (($pluginAssets['css'] ?? []) as $cssAsset): ?>
         <link rel="stylesheet" href="<?= e($cssAsset) ?>">
     <?php endforeach; ?>
@@ -63,6 +92,10 @@ if (str_starts_with($display['slug'] ?? '', 'preview-slide-') && preg_match('#^p
      data-state-url="<?= e(url($displayRoutePrefix . '/state')) ?>"
      data-state-check-interval="60"
      data-state-signature="<?= e($stateSignature) ?>"
+     data-sync-reload-to-full-minute="<?= $syncReloadToFullMinute ? '1' : '0' ?>"
+     data-display-group-id="<?= e((string)($displayGroup['id'] ?? '')) ?>"
+     data-display-group-name="<?= e((string)($displayGroup['name'] ?? '')) ?>"
+     data-display-group-sync-mode="<?= e((string)($displayGroup['sync_mode'] ?? 'independent')) ?>"
      data-startup-sync-key="hugin:slideshow-started:<?= e($display['slug']) ?>">
     <div class="startup-loading" role="status" aria-live="polite">
         <div class="startup-loading__content">

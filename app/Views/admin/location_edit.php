@@ -114,6 +114,8 @@ require __DIR__ . '/../layouts/admin_header.php';
                     <input type="number" name="sort_order" value="<?= e((string)old('sort_order', '0', $groupCreateForm)) ?>" min="0" placeholder="<?= e(__('display_groups.sort_order_placeholder')) ?>"<?= field_attrs('sort_order', $groupCreateForm) ?>>
                     <?= field_error_html('sort_order', $groupCreateForm) ?>
                 </label>
+                <label class="checkbox-row"><input type="checkbox" name="sync_enabled" value="1" <?= old_checked('sync_enabled', 0, $groupCreateForm) ?>> <?= e(__('display_groups.sync_reload_to_full_minute')) ?></label>
+                <small class="field-note"><?= e(__('display_groups.sync_reload_to_full_minute_help')) ?></small>
                 <button type="submit" class="button button--default"><?= admin_icon('add') ?><span><?= e(__('common.create')) ?></span></button>
             </form>
         </div>

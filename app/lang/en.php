@@ -256,6 +256,8 @@ return [
         'name_placeholder' => 'e.g. Reception wall',
         'description_placeholder' => 'e.g. 2x2 display wall above the desk',
         'sort_order_placeholder' => 'e.g. 20',
+        'sync_reload_to_full_minute' => 'Synchronize playlist/config reloads to full minute',
+        'sync_reload_to_full_minute_help' => 'Grouped displays apply playlist/config changes together at the next full minute. During updates, the current content remains visible.',
         'name_exists' => 'A group with this name already exists in this location.',
         'not_found' => 'Group not found.',
         'created' => 'Group created.',

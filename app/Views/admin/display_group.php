@@ -100,6 +100,8 @@ require __DIR__ . '/../layouts/admin_header.php';
                     <input type="number" name="sort_order" value="<?= e((string)old('sort_order', $group['sort_order'], $groupEditForm)) ?>" min="0" placeholder="<?= e(__('display_groups.sort_order_placeholder')) ?>"<?= field_attrs('sort_order', $groupEditForm) ?>>
                     <?= field_error_html('sort_order', $groupEditForm) ?>
                 </label>
+                <label class="checkbox-row"><input type="checkbox" name="sync_enabled" value="1" <?= old_checked('sync_enabled', $group['sync_enabled'] ?? 0, $groupEditForm) ?>> <?= e(__('display_groups.sync_reload_to_full_minute')) ?></label>
+                <small class="field-note"><?= e(__('display_groups.sync_reload_to_full_minute_help')) ?></small>
                 <button type="submit" class="button button--default"><?= admin_icon('save') ?><span><?= e(__('common.save')) ?></span></button>
             </form>
         </div>

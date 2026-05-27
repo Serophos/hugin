@@ -493,18 +493,36 @@ class AdminController
     {
         $this->auth->requireRole('admin');
 
-        $display = $this->db->one('SELECT id, name FROM displays WHERE id = ?', [$id]);
+        $display = $this->db->one(
+            'SELECT d.id, d.name, g.id AS group_id, g.sync_enabled
+             FROM displays d
+             LEFT JOIN display_group_memberships dgm ON dgm.display_id = d.id
+             LEFT JOIN display_groups g ON g.id = dgm.group_id
+             WHERE d.id = ?',
+            [$id]
+        );
         if (!$display) {
             flash('error', __('display.not_found'));
             redirect('/admin/displays');
         }
 
-        $this->db->execute(
-            'UPDATE displays
-             SET updated_at = IF(updated_at >= CURRENT_TIMESTAMP, updated_at + INTERVAL 1 SECOND, CURRENT_TIMESTAMP)
-             WHERE id = ?',
-            [$id]
-        );
+        if (!empty($display['group_id']) && (int)($display['sync_enabled'] ?? 0) === 1) {
+            $this->db->execute(
+                'UPDATE displays d
+                 INNER JOIN display_group_memberships dgm ON dgm.display_id = d.id
+                 SET d.updated_at = IF(d.updated_at >= CURRENT_TIMESTAMP, d.updated_at + INTERVAL 1 SECOND, CURRENT_TIMESTAMP)
+                 WHERE dgm.group_id = ?',
+                [(int)$display['group_id']]
+            );
+        } else {
+            $this->db->execute(
+                'UPDATE displays
+                 SET updated_at = IF(updated_at >= CURRENT_TIMESTAMP, updated_at + INTERVAL 1 SECOND, CURRENT_TIMESTAMP)
+                 WHERE id = ?',
+                [$id]
+            );
+        }
+
         flash('success', __('display.reload_requested', ['display' => $display['name']]));
         redirect($this->adminReturnPath('/admin/displays'));
     }
@@ -681,6 +699,8 @@ class AdminController
         $description = trim((string)$this->request->input('description'));
         $sortOrderRaw = trim((string)$this->request->input('sort_order', '0'));
         $sortOrder = max(0, (int)$sortOrderRaw);
+        $syncEnabled = $this->request->input('sync_enabled') ? 1 : 0;
+        $syncMode = $syncEnabled ? 'full_minute_reload' : 'independent';
         $defaultReturn = $locationId > 0 ? '/admin/locations/' . $locationId . '/edit' : '/admin/locations';
         $returnTo = $this->adminReturnPath($defaultReturn);
         $form = $id ? 'display_group_edit' : 'display_group_create';
@@ -689,6 +709,7 @@ class AdminController
             'name' => $nameRaw,
             'description' => (string)$this->request->input('description'),
             'sort_order' => $sortOrderRaw,
+            'sync_enabled' => $syncEnabled,
         ];
         $errors = [];
 
@@ -723,8 +744,8 @@ class AdminController
             }
 
             $this->db->execute(
-                'UPDATE display_groups SET location_id = ?, name = ?, description = ?, sort_order = ? WHERE id = ?',
-                [$locationId, $name, $description, $sortOrder, $id]
+                'UPDATE display_groups SET location_id = ?, name = ?, description = ?, sort_order = ?, sync_enabled = ?, sync_mode = ? WHERE id = ?',
+                [$locationId, $name, $description, $sortOrder, $syncEnabled, $syncMode, $id]
             );
             flash('success', __('display_groups.updated'));
         } else {
@@ -733,8 +754,8 @@ class AdminController
                 [$locationId]
             )['next_sort'] ?? 1));
             $this->db->execute(
-                'INSERT INTO display_groups (location_id, name, description, sort_order) VALUES (?, ?, ?, ?)',
-                [$locationId, $name, $description, $nextSort]
+                'INSERT INTO display_groups (location_id, name, description, sort_order, sync_enabled, sync_mode) VALUES (?, ?, ?, ?, ?, ?)',
+                [$locationId, $name, $description, $nextSort, $syncEnabled, $syncMode]
             );
             flash('success', __('display_groups.created'));
         }
