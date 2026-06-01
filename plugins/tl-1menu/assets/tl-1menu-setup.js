@@ -14,6 +14,7 @@
     const previewReload = root.querySelector('[data-tl1menu-preview-reload]');
     const status = root.querySelector('[data-tl1menu-setup-status]');
     const confirmDialog = root.querySelector('[data-tl1menu-confirm-dialog]');
+    const valueDialog = root.querySelector('[data-tl1menu-value-dialog]');
     let state = parseJson(jsonEl ? jsonEl.value : '{}') || {};
     let sampleRows = [];
     let activePreview = 'schema';
@@ -151,6 +152,149 @@
         });
     }
 
+    function requestValue(options) {
+        const config = Object.assign({
+            title: '',
+            label: '',
+            value: '',
+            inputMode: 'text',
+            acceptLabel: t('dialog.accept_add')
+        }, options || {});
+
+        if (valueDialog && typeof valueDialog.showModal === 'function') {
+            return showNativeValueDialog(config);
+        }
+
+        return showFallbackValueDialog(config);
+    }
+
+    function showNativeValueDialog(config) {
+        return new Promise(resolve => {
+            const title = valueDialog.querySelector('[data-tl1menu-value-title]');
+            const label = valueDialog.querySelector('[data-tl1menu-value-label]');
+            const input = valueDialog.querySelector('[data-tl1menu-value-input]');
+            const accept = valueDialog.querySelector('[data-tl1menu-value-accept]');
+            const acceptLabel = valueDialog.querySelector('[data-tl1menu-value-accept-label]');
+            const cancelButtons = Array.from(valueDialog.querySelectorAll('[data-tl1menu-value-cancel]'));
+            const previousFocus = document.activeElement && typeof document.activeElement.focus === 'function' ? document.activeElement : null;
+            let settled = false;
+
+            if (title) title.textContent = config.title;
+            if (label) label.textContent = config.label;
+            if (acceptLabel) acceptLabel.textContent = config.acceptLabel;
+            if (input) {
+                input.value = config.value || '';
+                input.inputMode = config.inputMode || 'text';
+            }
+
+            function settle(result) {
+                if (settled) return;
+                settled = true;
+                accept?.removeEventListener('click', onAccept);
+                cancelButtons.forEach(button => button.removeEventListener('click', onCancelClick));
+                input?.removeEventListener('keydown', onInputKeydown);
+                valueDialog.removeEventListener('cancel', onCancel);
+                valueDialog.removeEventListener('close', onClose);
+                if (valueDialog.open) valueDialog.close();
+                if (previousFocus) setTimeout(() => previousFocus.focus(), 0);
+                resolve(result);
+            }
+
+            function onAccept() { settle(input ? input.value : ''); }
+            function onCancelClick() { settle(null); }
+            function onCancel(event) {
+                event.preventDefault();
+                settle(null);
+            }
+            function onClose() { settle(null); }
+            function onInputKeydown(event) {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    onAccept();
+                }
+            }
+
+            accept?.addEventListener('click', onAccept);
+            cancelButtons.forEach(button => button.addEventListener('click', onCancelClick));
+            input?.addEventListener('keydown', onInputKeydown);
+            valueDialog.addEventListener('cancel', onCancel);
+            valueDialog.addEventListener('close', onClose);
+
+            try {
+                valueDialog.showModal();
+            } catch (error) {
+                settle(null);
+                return;
+            }
+            setTimeout(() => {
+                (input || accept || valueDialog).focus();
+                input?.select();
+            }, 0);
+        });
+    }
+
+    function showFallbackValueDialog(config) {
+        return new Promise(resolve => {
+            const id = `tl1menu-value-${Date.now()}`;
+            const overlay = document.createElement('div');
+            const previousFocus = document.activeElement && typeof document.activeElement.focus === 'function' ? document.activeElement : null;
+            overlay.className = 'tl1menu-confirm-fallback';
+            overlay.innerHTML = `
+                <div class="admin-dialog tl1menu-confirm-fallback__dialog" role="dialog" aria-modal="true" aria-labelledby="${escapeAttr(id)}-title">
+                    <div class="admin-dialog__panel tl1menu-confirm-dialog__panel" role="document">
+                        <h2 id="${escapeAttr(id)}-title">${escapeHtml(config.title)}</h2>
+                        <label class="tl1menu-value-dialog__field"><span>${escapeHtml(config.label)}</span><input class="tl1menu-value-dialog__input" type="text" inputmode="${escapeAttr(config.inputMode || 'text')}" value="${escapeAttr(config.value || '')}" data-fallback-value></label>
+                        <div class="form-actions">
+                            <button type="button" class="button button--normal" data-fallback-cancel>${escapeHtml(t('dialog.cancel'))}</button>
+                            <button type="button" class="button button--default" data-fallback-accept>${escapeHtml(config.acceptLabel)}</button>
+                        </div>
+                    </div>
+                </div>`;
+            const panel = overlay.querySelector('[role="dialog"]');
+            const input = overlay.querySelector('[data-fallback-value]');
+            const cancel = overlay.querySelector('[data-fallback-cancel]');
+            const accept = overlay.querySelector('[data-fallback-accept]');
+            let settled = false;
+
+            function settle(result) {
+                if (settled) return;
+                settled = true;
+                overlay.removeEventListener('click', onOverlayClick);
+                panel?.removeEventListener('keydown', onKeydown);
+                overlay.remove();
+                if (previousFocus) previousFocus.focus();
+                resolve(result);
+            }
+            function onOverlayClick(event) {
+                if (event.target === overlay) settle(null);
+            }
+            function onKeydown(event) {
+                if (event.key === 'Escape') {
+                    event.preventDefault();
+                    settle(null);
+                    return;
+                }
+                if (event.key === 'Enter' && document.activeElement === input) {
+                    event.preventDefault();
+                    settle(input ? input.value : '');
+                    return;
+                }
+                if (event.key === 'Tab' && panel) trapFocus(panel, event);
+            }
+
+            cancel?.addEventListener('click', () => settle(null));
+            accept?.addEventListener('click', () => settle(input ? input.value : ''));
+            overlay.addEventListener('click', onOverlayClick);
+            panel?.addEventListener('keydown', onKeydown);
+            document.body.appendChild(overlay);
+            setTimeout(() => {
+                (input || accept || panel)?.focus();
+                input?.select();
+            }, 0);
+        });
+    }
+
+
     function setConfirmVariant(button, variant) {
         if (!button) return;
         button.classList.toggle('button--danger', variant === 'danger');
@@ -217,12 +361,38 @@
         showOutput(testPreview || t('test_empty'));
     }
 
+    function updateTestPreview(payload) {
+        testPreview = payload.item || payload.row || payload;
+    }
+
+    function hasSetupConfig() {
+        if (!state || typeof state !== 'object') return false;
+        return ['field_definitions', 'field_mapping', 'price_groups', 'mensen', 'food_types', 'token_catalog', 'categories']
+            .some(key => Object.prototype.hasOwnProperty.call(state, key));
+    }
+
+    async function preloadInitialPreviews() {
+        if (!hasSetupConfig()) return;
+
+        await Promise.allSettled([
+            post('analyze-mapping', {config_json: JSON.stringify(state)}).then(payload => {
+                schemaPreview = payload.analysis || schemaPreview || state;
+                sampleRows = payload.sample_rows || sampleRows;
+                if (activePreview === 'schema') showSchemaPreview();
+            }),
+            post('preview-row', {config_json: JSON.stringify(state), row_index: 0}).then(payload => {
+                updateTestPreview(payload);
+                if (activePreview === 'test') showTestPreview();
+            })
+        ]);
+    }
+
     async function runExtractionPreview() {
         setPreviewTab('test');
         setStatus(t('status.previewing'));
         try {
             const payload = await post('preview-row', {config_json: JSON.stringify(state), row_index: 0});
-            testPreview = payload.item || payload.row || payload;
+            updateTestPreview(payload);
             showTestPreview();
             setStatus(t('status.preview_updated'));
         } catch (error) {
@@ -380,7 +550,7 @@
         return `<details class="tl1menu-setup__section" data-setup-section="categories"><summary>${escapeHtml(t('sections.categories'))}</summary>${sectionTools('category')}<div class="tl1menu-setup__table-wrap"><table><thead><tr><th>${escapeHtml(t('fields.key'))}</th><th>${escapeHtml(t('fields.icon'))}</th><th>${escapeHtml(t('fields.de'))}</th><th>${escapeHtml(t('fields.en'))}</th><th>${escapeHtml(t('fields.actions'))}</th></tr></thead><tbody>${rows.length ? rows.map(([key, row]) => `<tr><td>${escapeHtml(key)}</td><td>${input(row.icon, `categories.${escapePath(key)}.icon`)}</td><td>${input(row.labels && row.labels.de, `categories.${escapePath(key)}.labels.de`)}</td><td>${input(row.labels && row.labels.en, `categories.${escapePath(key)}.labels.en`)}</td><td>${removeButton('category', key)}</td></tr>`).join('') : emptyRow(5)}</tbody></table></div></details>`;
     }
 
-    function addRow(type) {
+    async function addRow(type) {
         if (!type) return;
         const viewState = captureEditorView(setupSectionForType(type));
         if (type === 'price_group') {
@@ -391,7 +561,12 @@
             return;
         }
 
-        const key = prompt(t(`prompts.${type}`));
+        const key = await requestValue({
+            title: t(`actions.add_${type}`),
+            label: t(`prompts.${type}`),
+            inputMode: type === 'food_type' ? 'numeric' : 'text',
+            acceptLabel: t('dialog.accept_add')
+        });
         if (key === null) return;
         const normalizedKey = normalizeNewKey(key, type);
         if (normalizedKey === '') {
@@ -541,7 +716,12 @@
         button.addEventListener('click', () => {
             const tab = button.getAttribute('data-tl1menu-preview-tab');
             if (tab === 'test') {
-                runExtractionPreview();
+                if (testPreview) {
+                    showTestPreview();
+                    setStatus(t('status.preview_updated'));
+                } else {
+                    runExtractionPreview();
+                }
                 return;
             }
             showSchemaPreview();
@@ -575,6 +755,10 @@
     function escapePath(value) { return String(value).replace(/\./g, '%2E'); }
     function unescapePath(value) { return String(value).replace(/%2E/g, '.'); }
 
+    if (hasSetupConfig()) {
+        schemaPreview = state._analysis || state || schemaPreview;
+    }
     showSchemaPreview();
     render();
+    preloadInitialPreviews();
 })();

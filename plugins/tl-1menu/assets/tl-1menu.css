@@ -1638,6 +1638,29 @@
     white-space: pre-wrap;
 }
 
+.tl1menu-value-dialog__field {
+    display: grid;
+    gap: 0.45rem;
+    color: var(--text);
+    font-weight: 700;
+}
+
+.tl1menu-value-dialog__input {
+    width: 100%;
+    min-height: 2.45rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.55rem 0.65rem;
+    font: inherit;
+    font-weight: 500;
+}
+
+.tl1menu-value-dialog__input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.14);
+    outline: none;
+}
+
 .tl1menu-confirm-fallback {
     position: fixed;
     inset: 0;

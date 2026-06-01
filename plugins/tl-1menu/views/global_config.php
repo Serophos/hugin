@@ -103,6 +103,7 @@ $setupI18n = [
     'dialog.accept_analyze' => __('plugins.tl-1menu.setup.dialog.accept_analyze'),
     'dialog.accept_save' => __('plugins.tl-1menu.setup.dialog.accept_save'),
     'dialog.accept_remove' => __('plugins.tl-1menu.setup.dialog.accept_remove'),
+    'dialog.accept_add' => __('common.create'),
     'tabs.schema' => __('plugins.tl-1menu.setup.tabs.schema'),
     'tabs.test' => __('plugins.tl-1menu.setup.tabs.test'),
     'confirm_save' => __('plugins.tl-1menu.setup.confirm_save'),
@@ -256,7 +257,7 @@ $setupI18n = [
                     </div>
                     <button type="button" class="tl1menu-setup__preview-reload" data-tl1menu-preview-reload title="<?= e(__('plugins.tl-1menu.setup.preview_actions.reload')) ?>" aria-label="<?= e(__('plugins.tl-1menu.setup.preview_actions.reload')) ?>"><?= admin_icon('reload') ?></button>
                 </div>
-                <pre class="tl1menu-setup__preview" data-tl1menu-setup-preview-output><?= e(json_encode(['schema_version' => $parserConfig['schema_version'] ?? null], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}') ?></pre>
+                <pre class="tl1menu-setup__preview" data-tl1menu-setup-preview-output><?= e(json_encode($parserConfig, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}') ?></pre>
             </div>
         </div>
         <textarea class="tl1menu-setup__json" data-tl1menu-setup-json><?= e(json_encode($parserConfig, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}') ?></textarea>
@@ -272,6 +273,20 @@ $setupI18n = [
             <div class="form-actions">
                 <button type="button" class="button button--normal" data-tl1menu-confirm-cancel><?= admin_icon('cancel') ?><span><?= e(__('plugins.tl-1menu.setup.dialog.cancel')) ?></span></button>
                 <button type="button" class="button button--danger" data-tl1menu-confirm-accept><span data-tl1menu-confirm-accept-label><?= e(__('plugins.tl-1menu.setup.dialog.accept_save')) ?></span></button>
+            </div>
+        </div>
+    </dialog>
+
+    <dialog class="admin-dialog tl1menu-confirm-dialog tl1menu-value-dialog" data-tl1menu-value-dialog aria-modal="true" aria-labelledby="tl1menu-value-title">
+        <div class="admin-dialog__panel tl1menu-confirm-dialog__panel" role="document">
+            <h2 id="tl1menu-value-title" data-tl1menu-value-title></h2>
+            <label class="tl1menu-value-dialog__field">
+                <span data-tl1menu-value-label></span>
+                <input class="tl1menu-value-dialog__input" type="text" autocomplete="off" data-tl1menu-value-input>
+            </label>
+            <div class="form-actions">
+                <button type="button" class="button button--normal" data-tl1menu-value-cancel><?= admin_icon('cancel') ?><span><?= e(__('plugins.tl-1menu.setup.dialog.cancel')) ?></span></button>
+                <button type="button" class="button button--default" data-tl1menu-value-accept><?= admin_icon('add') ?><span data-tl1menu-value-accept-label><?= e(__('common.create')) ?></span></button>
             </div>
         </div>
     </dialog>

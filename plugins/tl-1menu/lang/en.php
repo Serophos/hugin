@@ -52,7 +52,7 @@ return [
         'feed_title' => 'Feed and cache',
         'menu_url' => 'TL-1 XML URL',
         'cache_ttl' => 'Cache lifetime in seconds',
-        'debug_date' => 'Debug date override',
+        'debug_date' => 'Debug date override (leave empty for normal operation)',
         'slide_defaults_title' => 'Slide defaults',
         'default_mensa' => 'Default mensa key',
         'default_show_header' => 'Show header by default',

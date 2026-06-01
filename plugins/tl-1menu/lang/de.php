@@ -52,7 +52,7 @@ return [
         'feed_title' => 'Feed und Cache',
         'menu_url' => 'TL-1 XML-URL',
         'cache_ttl' => 'Cache-Laufzeit in Sekunden',
-        'debug_date' => 'Debug-Datum überschreiben',
+        'debug_date' => 'Debug-Datum (Leer lassen für normalen Betrieb)',
         'slide_defaults_title' => 'Folienstandardwerte',
         'default_mensa' => 'Standard-Mensa-Schlüssel',
         'default_show_header' => 'Kopfzeile standardmäßig anzeigen',
