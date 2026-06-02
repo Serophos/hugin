@@ -9,6 +9,9 @@
     const csrfToken = csrfInput ? csrfInput.value : '';
     const menuUrlInput = root.querySelector('[data-tl1menu-menu-url]');
     const jsonEl = root.querySelector('[data-tl1menu-setup-json]');
+    const setupGrid = root.querySelector('[data-tl1menu-setup-grid]') || root;
+    const summaryEl = root.querySelector('[data-tl1menu-setup-summary]');
+    const fieldEditor = root.querySelector('[data-tl1menu-setup-field-editor]');
     const editor = root.querySelector('[data-tl1menu-setup-editor]');
     const output = root.querySelector('[data-tl1menu-setup-preview-output]');
     const previewTabs = Array.from(root.querySelectorAll('[data-tl1menu-preview-tab]'));
@@ -500,25 +503,22 @@
     function captureEditorView(extraOpenSection) {
         const openSections = new Set();
         const sectionScroll = {};
-        if (editor) {
-            editor.querySelectorAll('[data-setup-section]').forEach(section => {
-                const key = section.getAttribute('data-setup-section') || '';
-                if (key && section.open) openSections.add(key);
-                const scroller = section.querySelector('.tl1menu-setup__table-wrap');
-                if (key && scroller) {
-                    sectionScroll[key] = {top: scroller.scrollTop, left: scroller.scrollLeft};
-                }
-            });
-        }
+        setupGrid.querySelectorAll('[data-setup-section]').forEach(section => {
+            const key = section.getAttribute('data-setup-section') || '';
+            if (key && section.open) openSections.add(key);
+            const scroller = section.querySelector('.tl1menu-setup__table-wrap');
+            if (key && scroller) {
+                sectionScroll[key] = {top: scroller.scrollTop, left: scroller.scrollLeft};
+            }
+        });
         if (extraOpenSection) openSections.add(extraOpenSection);
         return {openSections, sectionScroll, scrollY: window.scrollY, scrollX: window.scrollX};
     }
 
     function restoreEditorView(viewState, preserveSections) {
-        if (!editor) return;
         const defaults = new Set(['field_mapping', 'price_groups']);
         const openSections = viewState && viewState.openSections instanceof Set ? viewState.openSections : defaults;
-        editor.querySelectorAll('[data-setup-section]').forEach(section => {
+        setupGrid.querySelectorAll('[data-setup-section]').forEach(section => {
             const key = section.getAttribute('data-setup-section') || '';
             section.open = preserveSections ? openSections.has(key) : defaults.has(key);
             const scroller = section.querySelector('.tl1menu-setup__table-wrap');
@@ -535,19 +535,26 @@
 
     function render(viewState) {
         if (!editor) return;
-        const preserveSections = !!viewState || editor.querySelector('[data-setup-section]') !== null;
+        const preserveSections = !!viewState || setupGrid.querySelector('[data-setup-section]') !== null;
         const currentView = viewState || captureEditorView();
         const mapping = state.field_mapping || {};
         const analysis = state._analysis || {};
         const counts = analysis.counts || {};
-        editor.innerHTML = `
+        const summaryHtml = `
             <div class="tl1menu-setup__summary">
                 <strong>${escapeHtml(String(counts.rows || 0))}</strong> ${escapeHtml(t('summary.rows'))} ·
                 <strong>${escapeHtml(String(counts.locations || 0))}</strong> ${escapeHtml(t('summary.locations'))} ·
                 <strong>${escapeHtml(String(counts.food_types || 0))}</strong> ${escapeHtml(t('summary.food_types'))} ·
                 <strong>${escapeHtml(String(counts.tokens || 0))}</strong> ${escapeHtml(t('summary.tokens'))}
-            </div>
-            ${renderMapping(mapping)}
+            </div>`;
+        if (summaryEl) {
+            summaryEl.innerHTML = summaryHtml;
+        }
+        if (fieldEditor) {
+            fieldEditor.innerHTML = renderMapping(mapping);
+        }
+        editor.innerHTML = `
+            ${fieldEditor ? '' : summaryHtml + renderMapping(mapping)}
             ${renderPriceGroups()}
             ${renderMensen()}
             ${renderFoodTypes()}
@@ -555,17 +562,17 @@
             ${renderCategories()}
         `;
         restoreEditorView(currentView, preserveSections);
-        editor.querySelectorAll('[data-path]').forEach(control => {
+        setupGrid.querySelectorAll('[data-path]').forEach(control => {
             control.addEventListener('input', () => updatePath(control.getAttribute('data-path'), control.value));
             control.addEventListener('change', () => updatePath(control.getAttribute('data-path'), control.value));
         });
-        editor.querySelectorAll('[data-category-icon-select]').forEach(select => {
+        setupGrid.querySelectorAll('[data-category-icon-select]').forEach(select => {
             select.addEventListener('change', () => updateCategoryIconPreview(select));
         });
-        editor.querySelectorAll('[data-add-row]').forEach(button => {
+        setupGrid.querySelectorAll('[data-add-row]').forEach(button => {
             button.addEventListener('click', () => addRow(button.getAttribute('data-add-row')));
         });
-        editor.querySelectorAll('[data-remove-row]').forEach(button => {
+        setupGrid.querySelectorAll('[data-remove-row]').forEach(button => {
             button.addEventListener('click', () => removeRow(button.getAttribute('data-remove-row'), button.getAttribute('data-row-key')));
         });
     }

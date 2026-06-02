@@ -248,8 +248,9 @@ $setupI18n = [
         <p class="muted"><?= e(__('plugins.tl-1menu.setup.help')) ?></p>
         <p class="muted"><?= e(__('plugins.tl-1menu.setup.save_scope_help')) ?></p>
         <div class="tl1menu-setup__status" data-tl1menu-setup-status></div>
-        <div class="tl1menu-setup__grid">
-            <div class="tl1menu-setup__editor" data-tl1menu-setup-editor></div>
+        <div class="tl1menu-setup__grid" data-tl1menu-setup-grid>
+            <div data-tl1menu-setup-summary></div>
+            <div class="tl1menu-setup__field-editor" data-tl1menu-setup-field-editor></div>
             <div class="tl1menu-setup__preview-panel" data-tl1menu-preview-panel>
                 <div class="tl1menu-setup__preview-head">
                     <div class="tl1menu-setup__preview-tabs" role="tablist" aria-label="<?= e(__('plugins.tl-1menu.setup.preview_tabs_label')) ?>">
@@ -260,6 +261,7 @@ $setupI18n = [
                 </div>
                 <pre class="tl1menu-setup__preview" data-tl1menu-setup-preview-output><?= e(json_encode($parserConfig, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}') ?></pre>
             </div>
+            <div class="tl1menu-setup__editor" data-tl1menu-setup-editor></div>
         </div>
         <textarea class="tl1menu-setup__json" data-tl1menu-setup-json><?= e(json_encode($parserConfig, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}') ?></textarea>
         <div class="form-actions tl1menu-setup__footer-actions">
