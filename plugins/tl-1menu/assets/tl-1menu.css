@@ -1461,7 +1461,7 @@
 }
 .tl1menu-setup__field-editor .tl1menu-setup__table-wrap {
     flex: 1 1 auto;
-    max-height: none;
+    max-height: 28rem;
     min-height: 0;
 }
 .tl1menu-setup table {
@@ -1708,8 +1708,9 @@
     white-space: pre-wrap;
 }
 .tl1menu-setup__preview {
-    flex: 1 1 auto;
+    flex: 1 1 0;
     max-height: none;
+    min-height: 0;
 }
 .tl1menu-setup__json {
     min-height: 12rem;
