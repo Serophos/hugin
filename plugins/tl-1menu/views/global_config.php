@@ -248,15 +248,6 @@ $setupI18n = [
         <div class="tl1menu-setup__toolbar">
             <button type="button" class="button button--normal" data-tl1menu-setup-analyze><?= admin_icon('reload') ?><span><?= e(__('plugins.tl-1menu.setup.analyze')) ?></span></button>
         </div>
-        <div class="tl1menu-setup__icon-upload" data-tl1menu-category-icon-upload>
-            <label class="tl1menu-setup__icon-upload-field">
-                <span><?= e(__('plugins.tl-1menu.setup.icon_upload.title')) ?></span>
-                <input type="file" accept=".svg,.png,.webp,image/svg+xml,image/png,image/webp" data-tl1menu-category-icon-file>
-            </label>
-            <button type="button" class="button button--normal button--small" data-tl1menu-category-icon-upload-button><?= admin_icon('upload') ?><span><?= e(__('plugins.tl-1menu.setup.icon_upload.button')) ?></span></button>
-            <small class="field-note tl1menu-setup__icon-upload-help"><?= e(__('plugins.tl-1menu.setup.icon_upload.help')) ?></small>
-            <span class="tl1menu-setup__icon-upload-status" data-tl1menu-category-icon-upload-status role="status" aria-live="polite"></span>
-        </div>
         <p class="muted"><?= e(__('plugins.tl-1menu.setup.help')) ?></p>
         <p class="muted"><?= e(__('plugins.tl-1menu.setup.save_scope_help')) ?></p>
         <div class="tl1menu-setup__status" data-tl1menu-setup-status></div>
@@ -275,6 +266,16 @@ $setupI18n = [
             </div>
             <div class="tl1menu-setup__editor" data-tl1menu-setup-editor></div>
         </div>
+        <div class="tl1menu-setup__icon-upload" data-tl1menu-category-icon-upload>
+            <label class="tl1menu-setup__icon-upload-field">
+                <span><?= e(__('plugins.tl-1menu.setup.icon_upload.title')) ?></span>
+                <input type="file" accept=".svg,.png,.webp,image/svg+xml,image/png,image/webp" data-tl1menu-category-icon-file>
+            </label>
+            <button type="button" class="button button--normal button--small" data-tl1menu-category-icon-upload-button><?= admin_icon('upload') ?><span><?= e(__('plugins.tl-1menu.setup.icon_upload.button')) ?></span></button>
+            <small class="field-note tl1menu-setup__icon-upload-help"><?= e(__('plugins.tl-1menu.setup.icon_upload.help')) ?></small>
+            <span class="tl1menu-setup__icon-upload-status" data-tl1menu-category-icon-upload-status role="status" aria-live="polite"></span>
+        </div>
+
         <textarea class="tl1menu-setup__json" data-tl1menu-setup-json><?= e(json_encode($parserConfig, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}') ?></textarea>
         <div class="form-actions tl1menu-setup__footer-actions">
             <button type="button" class="button button--default" data-tl1menu-setup-save><?= admin_icon('save') ?><span><?= e(__('plugins.tl-1menu.setup.save_generated')) ?></span></button>
