@@ -88,6 +88,14 @@ return [
         'preview_actions' => [
             'reload' => 'Reload preview',
         ],
+        'icon_upload' => [
+            'title' => 'Upload category icon',
+            'button' => 'Upload icon',
+            'help' => 'SVG, PNG, or WebP only. Icons must be square and are saved with their original filename.',
+            'choose_file' => 'Choose a category icon file first.',
+            'uploading' => 'Uploading category icon...',
+            'uploaded' => 'Category icon uploaded. It is now available in the icon dropdowns.',
+        ],
         'summary' => [
             'rows' => 'rows',
             'locations' => 'locations',
@@ -216,6 +224,13 @@ return [
         'config_backup_failed' => 'TL-1 Menu plugin: the old config.php could not be backed up.',
         'config_write_failed' => 'TL-1 Menu plugin: the generated config.php could not be written.',
         'config_invalid_generated' => 'TL-1 Menu plugin: the generated parser config is invalid.',
+        'category_icon_missing' => 'TL-1 Menu plugin: please choose a category icon file.',
+        'category_icon_invalid_upload' => 'TL-1 Menu plugin: the category icon upload is invalid.',
+        'category_icon_invalid_filename' => 'TL-1 Menu plugin: the category icon filename is invalid.',
+        'category_icon_invalid_type' => 'TL-1 Menu plugin: category icons must be SVG, PNG, or WebP files.',
+        'category_icon_not_square' => 'TL-1 Menu plugin: category icons must have a 1:1 aspect ratio.',
+        'category_icon_not_writable' => 'TL-1 Menu plugin: assets/img/categories is not writable by the webserver.',
+        'category_icon_save_failed' => 'TL-1 Menu plugin: the category icon could not be saved.',
     ],
     'frontend' => [
         'eyebrow' => 'Today\'s menu',

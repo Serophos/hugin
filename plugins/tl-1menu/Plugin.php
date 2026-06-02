@@ -374,6 +374,10 @@ class Plugin extends AbstractSlidePlugin
 
     public function handleAdminAction(string $action, array $input, PluginApi $api): array
     {
+        if ($action === 'upload-category-icon') {
+            return $this->storeCategoryIconUpload($api->pluginUploadedFile($this->getName(), 'category_icon_file'), $api);
+        }
+
         $analyzer = new Tl1SetupAnalyzer($api->pluginCachePath($this->getName(), 'setup.xml'));
 
         if ($action === 'analyze-url') {
@@ -793,6 +797,146 @@ class Plugin extends AbstractSlidePlugin
         usort($choices, static fn (array $a, array $b): int => strnatcasecmp($a['label'], $b['label']));
 
         return $choices;
+    }
+
+    /** @param array<string, mixed>|null $file @return array{uploaded: array{path: string, label: string, url: string}, category_icons: list<array{path: string, label: string, url: string}>} */
+    private function storeCategoryIconUpload(?array $file, PluginApi $api): array
+    {
+        if (!$file || ($file['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) {
+            throw new RuntimeException(__('plugins.tl-1menu.errors.category_icon_missing'));
+        }
+        if (($file['error'] ?? UPLOAD_ERR_OK) !== UPLOAD_ERR_OK) {
+            throw new RuntimeException(__('plugins.tl-1menu.errors.category_icon_invalid_upload'));
+        }
+
+        $tmpName = (string)($file['tmp_name'] ?? '');
+        if ($tmpName === '' || !is_uploaded_file($tmpName)) {
+            throw new RuntimeException(__('plugins.tl-1menu.errors.category_icon_invalid_upload'));
+        }
+
+        $filename = $this->normalizeCategoryIconFilename((string)($file['name'] ?? ''));
+        $extension = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+        $this->assertUploadedCategoryIcon($tmpName, $extension);
+
+        $directory = __DIR__ . '/assets/img/categories';
+        if (!is_dir($directory) && !mkdir($directory, 0775, true)) {
+            throw new RuntimeException(__('plugins.tl-1menu.errors.category_icon_not_writable'));
+        }
+        if (!is_writable($directory)) {
+            throw new RuntimeException(__('plugins.tl-1menu.errors.category_icon_not_writable'));
+        }
+
+        $destination = $directory . DIRECTORY_SEPARATOR . $filename;
+        if (!move_uploaded_file($tmpName, $destination)) {
+            throw new RuntimeException(__('plugins.tl-1menu.errors.category_icon_save_failed'));
+        }
+        @chmod($destination, 0644);
+
+        $path = 'assets/img/categories/' . $filename;
+        return [
+            'uploaded' => [
+                'path' => $path,
+                'label' => $filename,
+                'url' => $api->pluginAssetUrl($this->getName(), $path),
+            ],
+            'category_icons' => $this->getCategoryIconChoices($api),
+        ];
+    }
+
+    private function normalizeCategoryIconFilename(string $name): string
+    {
+        $filename = basename(str_replace('\\', '/', trim($name)));
+        if (
+            $filename === ''
+            || $filename === '.'
+            || $filename === '..'
+            || str_starts_with($filename, '.')
+            || preg_match('/[\x00-\x1f\x7f]/', $filename) === 1
+        ) {
+            throw new RuntimeException(__('plugins.tl-1menu.errors.category_icon_invalid_filename'));
+        }
+
+        $extension = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+        if (!in_array($extension, ['svg', 'png', 'webp'], true)) {
+            throw new RuntimeException(__('plugins.tl-1menu.errors.category_icon_invalid_type'));
+        }
+
+        return $filename;
+    }
+
+    private function assertUploadedCategoryIcon(string $tmpName, string $extension): void
+    {
+        if ($extension === 'svg') {
+            $dimensions = $this->readSvgDimensions($tmpName);
+            if ($dimensions === null || !$this->isSquareRatio($dimensions['width'], $dimensions['height'])) {
+                throw new RuntimeException(__('plugins.tl-1menu.errors.category_icon_not_square'));
+            }
+            return;
+        }
+
+        $imageSize = @getimagesize($tmpName);
+        if (!is_array($imageSize)) {
+            throw new RuntimeException(__('plugins.tl-1menu.errors.category_icon_invalid_type'));
+        }
+
+        $expectedType = $extension === 'png' ? IMAGETYPE_PNG : IMAGETYPE_WEBP;
+        if ((int)($imageSize[2] ?? 0) !== $expectedType) {
+            throw new RuntimeException(__('plugins.tl-1menu.errors.category_icon_invalid_type'));
+        }
+
+        if (!$this->isSquareRatio((float)($imageSize[0] ?? 0), (float)($imageSize[1] ?? 0))) {
+            throw new RuntimeException(__('plugins.tl-1menu.errors.category_icon_not_square'));
+        }
+    }
+
+    /** @return array{width: float, height: float}|null */
+    private function readSvgDimensions(string $tmpName): ?array
+    {
+        $previous = libxml_use_internal_errors(true);
+        $dom = new \DOMDocument();
+        $loaded = $dom->load($tmpName, LIBXML_NONET | LIBXML_COMPACT | LIBXML_NOWARNING | LIBXML_NOERROR);
+        libxml_clear_errors();
+        libxml_use_internal_errors($previous);
+        if (!$loaded || !$dom->documentElement || strtolower($dom->documentElement->localName) !== 'svg') {
+            throw new RuntimeException(__('plugins.tl-1menu.errors.category_icon_invalid_type'));
+        }
+
+        $width = $this->parseSvgLength($dom->documentElement->getAttribute('width'));
+        $height = $this->parseSvgLength($dom->documentElement->getAttribute('height'));
+        if ($width !== null && $height !== null) {
+            return ['width' => $width, 'height' => $height];
+        }
+
+        $viewBox = trim($dom->documentElement->getAttribute('viewBox'));
+        if ($viewBox === '') {
+            return null;
+        }
+
+        $parts = preg_split('/[\s,]+/', $viewBox, -1, PREG_SPLIT_NO_EMPTY);
+        if (!is_array($parts) || count($parts) !== 4) {
+            return null;
+        }
+
+        return ['width' => (float)$parts[2], 'height' => (float)$parts[3]];
+    }
+
+    private function parseSvgLength(string $value): ?float
+    {
+        $value = trim($value);
+        if ($value === '' || str_ends_with($value, '%')) {
+            return null;
+        }
+
+        if (preg_match('/\A([0-9]+(?:\.[0-9]+)?)/', $value, $matches) !== 1) {
+            return null;
+        }
+
+        return (float)$matches[1];
+    }
+
+    private function isSquareRatio(float $width, float $height): bool
+    {
+        return $width > 0 && $height > 0 && abs($width - $height) <= 0.01;
     }
 
     /** @return array{filled: string, outline: string} */

@@ -88,6 +88,14 @@ return [
         'preview_actions' => [
             'reload' => 'Vorschau neu laden',
         ],
+        'icon_upload' => [
+            'title' => 'Kategorie-Icon hochladen',
+            'button' => 'Icon hochladen',
+            'help' => 'Nur SVG, PNG oder WebP. Icons müssen quadratisch sein und werden mit ihrem ursprünglichen Dateinamen gespeichert.',
+            'choose_file' => 'Wähle zuerst eine Kategorie-Icon-Datei aus.',
+            'uploading' => 'Kategorie-Icon wird hochgeladen...',
+            'uploaded' => 'Kategorie-Icon hochgeladen. Es ist jetzt in den Icon-Auswahllisten verfügbar.',
+        ],
         'summary' => [
             'rows' => 'Zeilen',
             'locations' => 'Standorte',
@@ -216,6 +224,13 @@ return [
         'config_backup_failed' => 'TL-1 Speiseplan Plugin: Die alte config.php konnte nicht gesichert werden.',
         'config_write_failed' => 'TL-1 Speiseplan Plugin: Die generierte config.php konnte nicht geschrieben werden.',
         'config_invalid_generated' => 'TL-1 Speiseplan Plugin: Die generierte Parser-Konfiguration ist ungültig.',
+        'category_icon_missing' => 'TL-1 Speiseplan Plugin: Bitte eine Kategorie-Icon-Datei auswählen.',
+        'category_icon_invalid_upload' => 'TL-1 Speiseplan Plugin: Der Kategorie-Icon-Upload ist ungültig.',
+        'category_icon_invalid_filename' => 'TL-1 Speiseplan Plugin: Der Dateiname des Kategorie-Icons ist ungültig.',
+        'category_icon_invalid_type' => 'TL-1 Speiseplan Plugin: Kategorie-Icons müssen SVG-, PNG- oder WebP-Dateien sein.',
+        'category_icon_not_square' => 'TL-1 Speiseplan Plugin: Kategorie-Icons müssen ein Seitenverhältnis von 1:1 haben.',
+        'category_icon_not_writable' => 'TL-1 Speiseplan Plugin: assets/img/categories ist für den Webserver nicht beschreibbar.',
+        'category_icon_save_failed' => 'TL-1 Speiseplan Plugin: Das Kategorie-Icon konnte nicht gespeichert werden.',
     ],
     'frontend' => [
         'eyebrow' => 'Heutiger Speiseplan',

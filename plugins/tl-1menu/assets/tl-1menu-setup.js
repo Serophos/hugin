@@ -2,12 +2,16 @@
     const root = document.querySelector('[data-tl1menu-setup]');
     if (!root) return;
 
+    const pluginName = root.getAttribute('data-plugin-name') || 'tl-1menu';
     const actionBase = root.getAttribute('data-action-base') || '';
     const i18n = parseJson(root.getAttribute('data-i18n') || '{}') || {};
-    const categoryIconChoices = normalizeCategoryIconChoices(parseJson(root.getAttribute('data-category-icons') || '[]'));
+    let categoryIconChoices = normalizeCategoryIconChoices(parseJson(root.getAttribute('data-category-icons') || '[]'));
     const csrfInput = document.querySelector('input[name="_csrf"]');
     const csrfToken = csrfInput ? csrfInput.value : '';
     const menuUrlInput = root.querySelector('[data-tl1menu-menu-url]');
+    const categoryIconFileInput = root.querySelector('[data-tl1menu-category-icon-file]');
+    const categoryIconUploadButton = root.querySelector('[data-tl1menu-category-icon-upload-button]');
+    const categoryIconUploadStatus = root.querySelector('[data-tl1menu-category-icon-upload-status]');
     const jsonEl = root.querySelector('[data-tl1menu-setup-json]');
     const setupGrid = root.querySelector('[data-tl1menu-setup-grid]') || root;
     const summaryEl = root.querySelector('[data-tl1menu-setup-summary]');
@@ -46,6 +50,16 @@
         if (!status) return;
         status.textContent = message || '';
         status.classList.toggle('is-error', !!isError);
+    }
+
+    function setCategoryIconUploadStatus(message, isError) {
+        if (!categoryIconUploadStatus) {
+            setStatus(message, isError);
+            return;
+        }
+
+        categoryIconUploadStatus.textContent = message || '';
+        categoryIconUploadStatus.classList.toggle('is-error', !!isError);
     }
 
     function confirmAction(options) {
@@ -755,6 +769,43 @@
         if (!payload.ok) throw new Error(payload.error || t('errors.request_failed'));
         return payload;
     }
+
+    async function postFile(action, file) {
+        if (!actionBase) throw new Error(t('errors.missing_action'));
+        const formData = new FormData();
+        formData.set('_csrf', csrfToken);
+        formData.set(`plugin_settings[${pluginName}][category_icon_file]`, file);
+        const response = await fetch(`${actionBase}/${action}`, {
+            method: 'POST',
+            headers: {'X-CSRF-Token': csrfToken},
+            body: formData
+        });
+        const payload = await response.json();
+        if (!payload.ok) throw new Error(payload.error || t('errors.request_failed'));
+        return payload;
+    }
+
+    categoryIconUploadButton?.addEventListener('click', async () => {
+        const file = categoryIconFileInput && categoryIconFileInput.files ? categoryIconFileInput.files[0] : null;
+        if (!file) {
+            setCategoryIconUploadStatus(t('icon_upload.choose_file'), true);
+            return;
+        }
+
+        categoryIconUploadButton.disabled = true;
+        setCategoryIconUploadStatus(t('icon_upload.uploading'));
+        try {
+            const payload = await postFile('upload-category-icon', file);
+            categoryIconChoices = normalizeCategoryIconChoices(payload.category_icons || []);
+            if (categoryIconFileInput) categoryIconFileInput.value = '';
+            render(captureEditorView());
+            setCategoryIconUploadStatus(t('icon_upload.uploaded'));
+        } catch (error) {
+            setCategoryIconUploadStatus(error.message, true);
+        } finally {
+            categoryIconUploadButton.disabled = false;
+        }
+    });
 
     root.querySelector('[data-tl1menu-setup-analyze]')?.addEventListener('click', async () => {
         if (!await confirmAction({

@@ -55,6 +55,9 @@ $setupI18n = [
     'actions.add_food_type' => __('plugins.tl-1menu.setup.actions.add_food_type'),
     'actions.add_token' => __('plugins.tl-1menu.setup.actions.add_token'),
     'actions.add_category' => __('plugins.tl-1menu.setup.actions.add_category'),
+    'icon_upload.choose_file' => __('plugins.tl-1menu.setup.icon_upload.choose_file'),
+    'icon_upload.uploading' => __('plugins.tl-1menu.setup.icon_upload.uploading'),
+    'icon_upload.uploaded' => __('plugins.tl-1menu.setup.icon_upload.uploaded'),
     'empty_table' => __('plugins.tl-1menu.setup.empty_table'),
     'test_empty' => __('plugins.tl-1menu.setup.test_empty'),
     'prompts.location' => __('plugins.tl-1menu.setup.prompts.location'),
@@ -116,7 +119,7 @@ $setupI18n = [
     'errors.duplicate_key' => __('plugins.tl-1menu.setup.errors.duplicate_key'),
 ];
 ?>
-<div class="plugin-settings-card tl1menu-global-settings" data-tl1menu-settings data-tl1menu-setup data-action-base="<?= e($setupActionBaseUrl) ?>" data-i18n="<?= e(json_encode($setupI18n, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_APOS | JSON_HEX_QUOT) ?: '{}') ?>" data-category-icons="<?= e(json_encode($categoryIconChoices, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_APOS | JSON_HEX_QUOT) ?: '[]') ?>">
+<div class="plugin-settings-card tl1menu-global-settings" data-tl1menu-settings data-tl1menu-setup data-plugin-name="<?= e($plugin->getName()) ?>" data-action-base="<?= e($setupActionBaseUrl) ?>" data-i18n="<?= e(json_encode($setupI18n, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_APOS | JSON_HEX_QUOT) ?: '{}') ?>" data-category-icons="<?= e(json_encode($categoryIconChoices, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_APOS | JSON_HEX_QUOT) ?: '[]') ?>">
     <h3><?= e(__('plugins.tl-1menu.global_config.title')) ?></h3>
     <p class="muted"><?= e(__('plugins.tl-1menu.global_config.intro')) ?></p>
 
@@ -244,6 +247,15 @@ $setupI18n = [
         <legend><?= e(__('plugins.tl-1menu.setup.title')) ?></legend>
         <div class="tl1menu-setup__toolbar">
             <button type="button" class="button button--normal" data-tl1menu-setup-analyze><?= admin_icon('reload') ?><span><?= e(__('plugins.tl-1menu.setup.analyze')) ?></span></button>
+        </div>
+        <div class="tl1menu-setup__icon-upload" data-tl1menu-category-icon-upload>
+            <label class="tl1menu-setup__icon-upload-field">
+                <span><?= e(__('plugins.tl-1menu.setup.icon_upload.title')) ?></span>
+                <input type="file" accept=".svg,.png,.webp,image/svg+xml,image/png,image/webp" data-tl1menu-category-icon-file>
+            </label>
+            <button type="button" class="button button--normal button--small" data-tl1menu-category-icon-upload-button><?= admin_icon('upload') ?><span><?= e(__('plugins.tl-1menu.setup.icon_upload.button')) ?></span></button>
+            <small class="field-note tl1menu-setup__icon-upload-help"><?= e(__('plugins.tl-1menu.setup.icon_upload.help')) ?></small>
+            <span class="tl1menu-setup__icon-upload-status" data-tl1menu-category-icon-upload-status role="status" aria-live="polite"></span>
         </div>
         <p class="muted"><?= e(__('plugins.tl-1menu.setup.help')) ?></p>
         <p class="muted"><?= e(__('plugins.tl-1menu.setup.save_scope_help')) ?></p>
