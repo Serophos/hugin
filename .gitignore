@@ -1,7 +1,8 @@
-config/config.php
+# Local config files
+config.php
 
-# Plugin config
-plugins/tl-1menu/config.php
+# Backup files
+*.bak
 
 #ignore database migrations
 #db-migrations/*
@@ -17,6 +18,5 @@ public/assets/fonts/*
 # Composer dependencies
 /vendor/
 composer.phar
-
 
 
