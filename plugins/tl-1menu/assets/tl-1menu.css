@@ -1515,9 +1515,47 @@
 .tl1menu-setup td > select {
     cursor: pointer;
 }
+.tl1menu-setup__icon-select {
+    display: grid;
+    grid-template-columns: 2.35rem minmax(0, 1fr);
+    align-items: stretch;
+    min-height: 2.15rem;
+}
+.tl1menu-setup__icon-preview {
+    display: grid;
+    place-items: center;
+    border-right: 1px solid #d8dee8;
+    background: #f8fafc;
+}
+.tl1menu-setup__icon-preview img {
+    width: 1.3rem;
+    height: 1.3rem;
+    object-fit: contain;
+}
+.tl1menu-setup__icon-select--empty .tl1menu-setup__icon-preview::before {
+    content: "";
+    width: 1.3rem;
+    height: 1.3rem;
+}
+.tl1menu-setup__icon-select select {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    min-height: 2.15rem;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.86rem;
+    line-height: 1.35;
+    padding: 0.38rem 0.48rem;
+}
 .tl1menu-setup td > input:focus-visible,
 .tl1menu-setup td > select:focus-visible,
-.tl1menu-setup td > textarea:focus-visible {
+.tl1menu-setup td > textarea:focus-visible,
+.tl1menu-setup__icon-select select:focus-visible {
     outline: none;
     box-shadow: none;
 }

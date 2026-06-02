@@ -132,6 +132,7 @@ class Plugin extends AbstractSlidePlugin
             'imageMediaAssets' => $api->listMediaAssets('image'),
             'backgroundImageUrl' => $api->mediaAssetUrl($backgroundAsset),
             'environmentIconAssets' => $this->getEnvironmentalIconAssets($api),
+            'categoryIconChoices' => $this->getCategoryIconChoices($api),
             'setupActionBaseUrl' => url('/admin/plugins/' . $this->getName() . '/actions'),
             'parserConfig' => $this->getPluginConfig(),
         ]);
@@ -758,6 +759,40 @@ class Plugin extends AbstractSlidePlugin
             $assets[$icon] = $this->resolveEnvironmentalIconPair($api, $icon, $configuredPath);
         }
         return $assets;
+    }
+
+    /** @return list<array{path: string, label: string, url: string}> */
+    private function getCategoryIconChoices(PluginApi $api): array
+    {
+        $directory = __DIR__ . '/assets/img/categories';
+        $files = is_dir($directory) ? glob($directory . '/*') : false;
+        if (!is_array($files)) {
+            return [];
+        }
+
+        $choices = [];
+        foreach ($files as $file) {
+            if (!is_file($file)) {
+                continue;
+            }
+
+            $extension = strtolower(pathinfo($file, PATHINFO_EXTENSION));
+            if (!in_array($extension, ['png', 'webp', 'svg'], true)) {
+                continue;
+            }
+
+            $filename = basename($file);
+            $path = 'assets/img/categories/' . $filename;
+            $choices[] = [
+                'path' => $path,
+                'label' => $filename,
+                'url' => $api->pluginAssetUrl($this->getName(), $path),
+            ];
+        }
+
+        usort($choices, static fn (array $a, array $b): int => strnatcasecmp($a['label'], $b['label']));
+
+        return $choices;
     }
 
     /** @return array{filled: string, outline: string} */

@@ -20,6 +20,7 @@ $environmentPreviewMetrics = array_map(static function (array $metric): array {
 }, $plugin->getEnvironmentPreviewMetrics($previewLanguage));
 $globalEnvironmentDisplayStyle = $environmentDisplayStyle;
 $environmentIconAssets = is_array($environmentIconAssets ?? null) ? $environmentIconAssets : [];
+$categoryIconChoices = is_array($categoryIconChoices ?? null) ? $categoryIconChoices : [];
 $formId = 'plugin_settings';
 $setupActionBaseUrl = (string)($setupActionBaseUrl ?? '');
 $parserConfig = is_array($parserConfig ?? null) ? $parserConfig : [];
@@ -115,7 +116,7 @@ $setupI18n = [
     'errors.duplicate_key' => __('plugins.tl-1menu.setup.errors.duplicate_key'),
 ];
 ?>
-<div class="plugin-settings-card tl1menu-global-settings" data-tl1menu-settings data-tl1menu-setup data-action-base="<?= e($setupActionBaseUrl) ?>" data-i18n="<?= e(json_encode($setupI18n, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_APOS | JSON_HEX_QUOT) ?: '{}') ?>">
+<div class="plugin-settings-card tl1menu-global-settings" data-tl1menu-settings data-tl1menu-setup data-action-base="<?= e($setupActionBaseUrl) ?>" data-i18n="<?= e(json_encode($setupI18n, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_APOS | JSON_HEX_QUOT) ?: '{}') ?>" data-category-icons="<?= e(json_encode($categoryIconChoices, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_APOS | JSON_HEX_QUOT) ?: '[]') ?>">
     <h3><?= e(__('plugins.tl-1menu.global_config.title')) ?></h3>
     <p class="muted"><?= e(__('plugins.tl-1menu.global_config.intro')) ?></p>
 

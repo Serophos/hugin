@@ -4,6 +4,7 @@
 
     const actionBase = root.getAttribute('data-action-base') || '';
     const i18n = parseJson(root.getAttribute('data-i18n') || '{}') || {};
+    const categoryIconChoices = normalizeCategoryIconChoices(parseJson(root.getAttribute('data-category-icons') || '[]'));
     const csrfInput = document.querySelector('input[name="_csrf"]');
     const csrfToken = csrfInput ? csrfInput.value : '';
     const menuUrlInput = root.querySelector('[data-tl1menu-menu-url]');
@@ -23,6 +24,15 @@
 
     function parseJson(value) {
         try { return JSON.parse(value || '{}'); } catch (e) { return {}; }
+    }
+
+    function normalizeCategoryIconChoices(value) {
+        if (!Array.isArray(value)) return [];
+        return value.map(choice => ({
+            path: String(choice && choice.path || '').trim(),
+            label: String(choice && choice.label || '').trim(),
+            url: String(choice && choice.url || '').trim()
+        })).filter(choice => choice.path !== '' && choice.url !== '');
     }
 
     function t(key) {
@@ -409,6 +419,41 @@
         return `<select data-path="${escapeAttr(path)}"><option value="">${escapeHtml(t('no_field'))}</option>${fields.map(name => `<option value="${escapeAttr(name)}" ${String(value || '') === name ? 'selected' : ''}>${escapeHtml(name)}</option>`).join('')}</select>`;
     }
 
+    function categoryIconSelect(value, path) {
+        if (!categoryIconChoices.length) {
+            return input(value, path);
+        }
+
+        const iconPath = normalizeCategoryIconPath(value);
+        const selectedChoice = categoryIconChoices.find(choice => choice.path === iconPath);
+        const currentOption = selectedChoice ? '' : `<option value="${escapeAttr(iconPath)}" selected>${escapeHtml(iconPath)}</option>`;
+        const options = categoryIconChoices.map(choice => {
+            const label = choice.label || choice.path.replace(/^.*\//, '');
+            return `<option value="${escapeAttr(choice.path)}" ${choice.path === iconPath ? 'selected' : ''}>${escapeHtml(label)}</option>`;
+        }).join('');
+        const previewSrc = selectedChoice ? selectedChoice.url : '';
+
+        return `<div class="tl1menu-setup__icon-select${previewSrc === '' ? ' tl1menu-setup__icon-select--empty' : ''}">
+            <span class="tl1menu-setup__icon-preview" aria-hidden="true">${previewSrc !== '' ? `<img src="${escapeAttr(previewSrc)}" alt="">` : ''}</span>
+            <select data-path="${escapeAttr(path)}" data-category-icon-select>${currentOption}${options}</select>
+        </div>`;
+    }
+
+    function normalizeCategoryIconPath(value) {
+        const path = String(value || '').trim().replace(/\\/g, '/');
+        return path !== '' ? path : 'assets/img/categories/default.svg';
+    }
+
+    function updateCategoryIconPreview(select) {
+        const wrapper = select.closest('.tl1menu-setup__icon-select');
+        const preview = wrapper ? wrapper.querySelector('.tl1menu-setup__icon-preview') : null;
+        if (!wrapper || !preview) return;
+
+        const selectedChoice = categoryIconChoices.find(choice => choice.path === normalizeCategoryIconPath(select.value));
+        wrapper.classList.toggle('tl1menu-setup__icon-select--empty', !selectedChoice);
+        preview.innerHTML = selectedChoice ? `<img src="${escapeAttr(selectedChoice.url)}" alt="">` : '';
+    }
+
     function input(value, path, placeholder) {
         return `<input type="text" value="${escapeAttr(value || '')}" data-path="${escapeAttr(path)}" placeholder="${escapeAttr(placeholder || '')}">`;
     }
@@ -501,6 +546,9 @@
             control.addEventListener('input', () => updatePath(control.getAttribute('data-path'), control.value));
             control.addEventListener('change', () => updatePath(control.getAttribute('data-path'), control.value));
         });
+        editor.querySelectorAll('[data-category-icon-select]').forEach(select => {
+            select.addEventListener('change', () => updateCategoryIconPreview(select));
+        });
         editor.querySelectorAll('[data-add-row]').forEach(button => {
             button.addEventListener('click', () => addRow(button.getAttribute('data-add-row')));
         });
@@ -547,7 +595,7 @@
 
     function renderCategories() {
         const rows = Object.entries(state.categories || {});
-        return `<details class="tl1menu-setup__section" data-setup-section="categories"><summary>${escapeHtml(t('sections.categories'))}</summary>${sectionTools('category')}<div class="tl1menu-setup__table-wrap"><table><thead><tr><th>${escapeHtml(t('fields.key'))}</th><th>${escapeHtml(t('fields.icon'))}</th><th>${escapeHtml(t('fields.de'))}</th><th>${escapeHtml(t('fields.en'))}</th><th>${escapeHtml(t('fields.actions'))}</th></tr></thead><tbody>${rows.length ? rows.map(([key, row]) => `<tr><td>${escapeHtml(key)}</td><td>${input(row.icon, `categories.${escapePath(key)}.icon`)}</td><td>${input(row.labels && row.labels.de, `categories.${escapePath(key)}.labels.de`)}</td><td>${input(row.labels && row.labels.en, `categories.${escapePath(key)}.labels.en`)}</td><td>${removeButton('category', key)}</td></tr>`).join('') : emptyRow(5)}</tbody></table></div></details>`;
+        return `<details class="tl1menu-setup__section" data-setup-section="categories"><summary>${escapeHtml(t('sections.categories'))}</summary>${sectionTools('category')}<div class="tl1menu-setup__table-wrap"><table><thead><tr><th>${escapeHtml(t('fields.key'))}</th><th>${escapeHtml(t('fields.icon'))}</th><th>${escapeHtml(t('fields.de'))}</th><th>${escapeHtml(t('fields.en'))}</th><th>${escapeHtml(t('fields.actions'))}</th></tr></thead><tbody>${rows.length ? rows.map(([key, row]) => `<tr><td>${escapeHtml(key)}</td><td>${categoryIconSelect(row.icon, `categories.${escapePath(key)}.icon`)}</td><td>${input(row.labels && row.labels.de, `categories.${escapePath(key)}.labels.de`)}</td><td>${input(row.labels && row.labels.en, `categories.${escapePath(key)}.labels.en`)}</td><td>${removeButton('category', key)}</td></tr>`).join('') : emptyRow(5)}</tbody></table></div></details>`;
     }
 
     async function addRow(type) {

@@ -134,6 +134,8 @@ Fields:
 | `icon` | string | Plugin-relative SVG/image path, absolute URL, or legacy text marker for the category. Built-in category icons live in `assets/img/categories/`. |
 | `labels` | locale map | Localized category label used on rendered menu items. |
 
+In the global XML parser setup, the category icon field is a dropdown populated from PNG, WebP, and SVG files in `plugins/tl-1menu/assets/img/categories/`. The setup table saves the selected plugin-relative path, and both card and list frontend renderers resolve that path through the shared category icon display helper.
+
 The service also understands a legacy `category_display` map if present. The setup wizard assigns built-in SVG icons for reliably detected categories such as vegan, vegetarian, fish, pork, beef, poultry, lamb, dessert, favorites, streetfood, international, soup, salad, pasta, pizza, and burger.
 
 ## Mensa And Location Mapping
