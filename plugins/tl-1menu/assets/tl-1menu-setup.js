@@ -426,17 +426,30 @@
 
         const iconPath = normalizeCategoryIconPath(value);
         const selectedChoice = categoryIconChoices.find(choice => choice.path === iconPath);
-        const currentOption = selectedChoice ? '' : `<option value="${escapeAttr(iconPath)}" selected>${escapeHtml(iconPath)}</option>`;
+        const currentOption = selectedChoice ? '' : `<option value="${escapeAttr(iconPath)}" selected>${escapeHtml(categoryIconLabel(iconPath))}</option>`;
         const options = categoryIconChoices.map(choice => {
             const label = choice.label || choice.path.replace(/^.*\//, '');
             return `<option value="${escapeAttr(choice.path)}" ${choice.path === iconPath ? 'selected' : ''}>${escapeHtml(label)}</option>`;
         }).join('');
-        const previewSrc = selectedChoice ? selectedChoice.url : '';
 
-        return `<div class="tl1menu-setup__icon-select${previewSrc === '' ? ' tl1menu-setup__icon-select--empty' : ''}">
-            <span class="tl1menu-setup__icon-preview" aria-hidden="true">${previewSrc !== '' ? `<img src="${escapeAttr(previewSrc)}" alt="">` : ''}</span>
+        return `<div class="tl1menu-setup__icon-select${selectedChoice ? '' : ' tl1menu-setup__icon-select--empty'}">
             <select data-path="${escapeAttr(path)}" data-category-icon-select>${currentOption}${options}</select>
+            <span class="tl1menu-setup__icon-preview" aria-hidden="true">${categoryIconPreviewHtml(selectedChoice)}</span>
         </div>`;
+    }
+
+    function categoryIconLabel(path) {
+        return String(path || '').replace(/^.*\//, '');
+    }
+
+    function categoryIconPreviewHtml(choice) {
+        if (!choice) return '';
+        const label = choice.label || categoryIconLabel(choice.path);
+        const src = escapeAttr(choice.url);
+        return `<img src="${src}" alt="">
+            <span class="tl1menu-setup__icon-popover" role="presentation">
+                <img src="${src}" alt="${escapeAttr(label)}">
+            </span>`;
     }
 
     function normalizeCategoryIconPath(value) {
@@ -451,7 +464,7 @@
 
         const selectedChoice = categoryIconChoices.find(choice => choice.path === normalizeCategoryIconPath(select.value));
         wrapper.classList.toggle('tl1menu-setup__icon-select--empty', !selectedChoice);
-        preview.innerHTML = selectedChoice ? `<img src="${escapeAttr(selectedChoice.url)}" alt="">` : '';
+        preview.innerHTML = categoryIconPreviewHtml(selectedChoice);
     }
 
     function input(value, path, placeholder) {
