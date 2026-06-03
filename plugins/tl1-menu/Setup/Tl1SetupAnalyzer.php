@@ -30,7 +30,7 @@ final class Tl1SetupAnalyzer
     public function analyzeCachedWithConfig(array $config): array
     {
         if (!is_file($this->cacheFile)) {
-            throw new RuntimeException(__('plugins.tl-1menu.errors.setup_xml_missing'));
+            throw new RuntimeException(__('plugins.tl1-menu.errors.setup_xml_missing'));
         }
         $xml = (string)file_get_contents($this->cacheFile);
         return $this->analyzeRows($xml, $config);
@@ -40,18 +40,18 @@ final class Tl1SetupAnalyzer
     public function previewCachedRow(array $config, int $rowIndex): array
     {
         if (!is_file($this->cacheFile)) {
-            throw new RuntimeException(__('plugins.tl-1menu.errors.setup_xml_missing'));
+            throw new RuntimeException(__('plugins.tl1-menu.errors.setup_xml_missing'));
         }
         $dom = $this->loadXml((string)file_get_contents($this->cacheFile));
         $xpath = new DOMXPath($dom);
         $nodes = $xpath->query('/DATAPACKET/ROWDATA/ROW');
         if ($nodes === false || $nodes->length === 0) {
-            throw new RuntimeException(__('plugins.tl-1menu.errors.setup_no_rows'));
+            throw new RuntimeException(__('plugins.tl1-menu.errors.setup_no_rows'));
         }
         $rowIndex = max(0, min($rowIndex, $nodes->length - 1));
         $row = $nodes->item($rowIndex);
         if (!$row instanceof DOMElement) {
-            throw new RuntimeException(__('plugins.tl-1menu.errors.setup_no_rows'));
+            throw new RuntimeException(__('plugins.tl1-menu.errors.setup_no_rows'));
         }
 
         return [
@@ -95,11 +95,11 @@ final class Tl1SetupAnalyzer
     {
         $url = trim($url);
         if ($url === '' || filter_var($url, FILTER_VALIDATE_URL) === false) {
-            throw new RuntimeException(__('plugins.tl-1menu.errors.invalid_menu_url'));
+            throw new RuntimeException(__('plugins.tl1-menu.errors.invalid_menu_url'));
         }
         $scheme = strtolower((string)(parse_url($url, PHP_URL_SCHEME) ?? ''));
         if (!in_array($scheme, ['http', 'https'], true)) {
-            throw new RuntimeException(__('plugins.tl-1menu.errors.invalid_menu_url'));
+            throw new RuntimeException(__('plugins.tl1-menu.errors.invalid_menu_url'));
         }
 
         $context = stream_context_create([
@@ -115,7 +115,7 @@ final class Tl1SetupAnalyzer
         ]);
         $handle = @fopen($url, 'rb', false, $context);
         if (!is_resource($handle)) {
-            throw new RuntimeException(__('plugins.tl-1menu.errors.setup_download_failed'));
+            throw new RuntimeException(__('plugins.tl1-menu.errors.setup_download_failed'));
         }
 
         $xml = '';
@@ -127,13 +127,13 @@ final class Tl1SetupAnalyzer
             $xml .= $chunk;
             if (strlen($xml) > self::MAX_DOWNLOAD_BYTES) {
                 fclose($handle);
-                throw new RuntimeException(__('plugins.tl-1menu.errors.setup_xml_too_large'));
+                throw new RuntimeException(__('plugins.tl1-menu.errors.setup_xml_too_large'));
             }
         }
         fclose($handle);
 
         if (trim($xml) === '') {
-            throw new RuntimeException(__('plugins.tl-1menu.errors.setup_download_failed'));
+            throw new RuntimeException(__('plugins.tl1-menu.errors.setup_download_failed'));
         }
 
         return $xml;
@@ -143,10 +143,10 @@ final class Tl1SetupAnalyzer
     {
         $dir = dirname($this->cacheFile);
         if (!is_dir($dir) && !mkdir($dir, 0775, true) && !is_dir($dir)) {
-            throw new RuntimeException(__('plugins.tl-1menu.errors.setup_cache_failed'));
+            throw new RuntimeException(__('plugins.tl1-menu.errors.setup_cache_failed'));
         }
         if (file_put_contents($this->cacheFile, $xml) === false) {
-            throw new RuntimeException(__('plugins.tl-1menu.errors.setup_cache_failed'));
+            throw new RuntimeException(__('plugins.tl1-menu.errors.setup_cache_failed'));
         }
     }
 
@@ -158,7 +158,7 @@ final class Tl1SetupAnalyzer
         libxml_clear_errors();
         libxml_use_internal_errors($previous);
         if (!$loaded) {
-            throw new RuntimeException(__('plugins.tl-1menu.errors.setup_invalid_xml'));
+            throw new RuntimeException(__('plugins.tl1-menu.errors.setup_invalid_xml'));
         }
         return $dom;
     }
@@ -187,7 +187,7 @@ final class Tl1SetupAnalyzer
             }
         }
         if ($fields === []) {
-            throw new RuntimeException(__('plugins.tl-1menu.errors.setup_no_metadata'));
+            throw new RuntimeException(__('plugins.tl1-menu.errors.setup_no_metadata'));
         }
         return $fields;
     }
@@ -198,7 +198,7 @@ final class Tl1SetupAnalyzer
         $xpath = new DOMXPath($dom);
         $nodes = $xpath->query('/DATAPACKET/ROWDATA/ROW');
         if ($nodes === false || $nodes->length === 0) {
-            throw new RuntimeException(__('plugins.tl-1menu.errors.setup_no_rows'));
+            throw new RuntimeException(__('plugins.tl1-menu.errors.setup_no_rows'));
         }
         $rows = [];
         $limit = min($nodes->length, self::SAMPLE_ROW_LIMIT);

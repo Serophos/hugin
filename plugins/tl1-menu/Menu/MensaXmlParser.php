@@ -68,7 +68,7 @@ final class MensaXmlParser
     private function parseDom(DOMDocument $dom, array $filters): array
     {
         if ((int)($this->config['schema_version'] ?? 0) !== 2) {
-            throw new RuntimeException('TL-1 parser configuration has not been generated yet. Open the TL-1 Menu plugin settings and run setup.');
+            throw new RuntimeException('TL1 parser configuration has not been generated yet. Open the TL1 Menu plugin settings and run setup.');
         }
 
         $xpath = new DOMXPath($dom);

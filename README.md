@@ -197,7 +197,7 @@ Plugins can add custom slide types, slide settings, global plugin settings, fron
 - `flip-clock`: responsive split-flap style clock.
 - `weather`: current weather using Open-Meteo data.
 - `brightsky-dwd-weather`: DWD weather using Bright Sky station data.
-- `tl-1menu`: TL1 menu display with prices, allergens, categories, and sustainability data.
+- `tl1-menu`: TL1 menu display with prices, allergens, categories, and sustainability data.
 - `screen-meta`: Demo / "Hello World" plugin: renders the latest display heartbeat metadata.
 
 ## 4. Monitoring API

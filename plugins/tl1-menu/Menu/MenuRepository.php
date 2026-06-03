@@ -50,7 +50,7 @@ final class MenuRepository
     {
         $url = (string)($this->config['menu_url'] ?? '');
         if ($url === '') {
-            throw new RuntimeException('TL-1 menu URL is not configured.');
+            throw new RuntimeException('TL1 menu URL is not configured.');
         }
 
         $context = stream_context_create([
@@ -70,7 +70,7 @@ final class MenuRepository
             if (is_file($this->cacheFile)) {
                 return (string)file_get_contents($this->cacheFile);
             }
-            throw new RuntimeException('Could not download TL-1 menu XML from ' . $url);
+            throw new RuntimeException('Could not download TL1 menu XML from ' . $url);
         }
 
         return $xml;
@@ -79,7 +79,7 @@ final class MenuRepository
     private function resolveCacheFile(): string
     {
         $root = (string)(app_config('paths.root', dirname(__DIR__, 4)));
-        return rtrim($root, '/') . '/storage/cache/plugins/tl-1menu/speiseplan.xml';
+        return rtrim($root, '/') . '/storage/cache/plugins/tl1-menu/speiseplan.xml';
     }
 
     private function ensureCacheDirectoryExists(): void

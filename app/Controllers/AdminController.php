@@ -2443,17 +2443,17 @@ class AdminController
             }
         }
 
-        if ($plugin->getName() === 'tl-1menu') {
-            if ($this->messageMatches($message, ['plugins.tl-1menu.errors.background_asset_not_found'])) {
+        if ($plugin->getName() === 'tl1-menu') {
+            if ($this->messageMatches($message, ['plugins.tl1-menu.errors.background_asset_not_found'])) {
                 return ['background_media_asset_id' => $message];
             }
-            if ($this->messageMatches($message, ['plugins.tl-1menu.errors.background_invalid_type'])) {
+            if ($this->messageMatches($message, ['plugins.tl1-menu.errors.background_invalid_type'])) {
                 return [
                     'background_media_asset_id' => $message,
                     'background_image_file' => $message,
                 ];
             }
-            if ($this->messageMatches($message, ['plugins.tl-1menu.errors.invalid_menu_url'])) {
+            if ($this->messageMatches($message, ['plugins.tl1-menu.errors.invalid_menu_url'])) {
                 return ['menu_url' => $message];
             }
         }
@@ -2493,11 +2493,11 @@ class AdminController
                 }
             }
 
-            if ($pluginName === 'tl-1menu') {
-                if ($this->messageMatches($message, ['plugins.tl-1menu.errors.invalid_mensa'])) {
+            if ($pluginName === 'tl1-menu') {
+                if ($this->messageMatches($message, ['plugins.tl1-menu.errors.invalid_mensa'])) {
                     return [$prefix . 'mensa' => $message];
                 }
-                if ($this->messageMatches($message, ['plugins.tl-1menu.errors.invalid_language'])) {
+                if ($this->messageMatches($message, ['plugins.tl1-menu.errors.invalid_language'])) {
                     return [$prefix . 'language' => $message];
                 }
             }

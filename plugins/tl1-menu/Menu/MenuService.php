@@ -87,9 +87,9 @@ final class MenuService
         }
 
         $legacy = [
-            'student' => __('plugins.tl-1menu.frontend.student'),
-            'staff' => __('plugins.tl-1menu.frontend.staff'),
-            'guest' => __('plugins.tl-1menu.frontend.guest'),
+            'student' => __('plugins.tl1-menu.frontend.student'),
+            'staff' => __('plugins.tl1-menu.frontend.staff'),
+            'guest' => __('plugins.tl1-menu.frontend.guest'),
         ];
         return $legacy[$key] ?? $this->humanizeKey($key);
     }
@@ -170,7 +170,7 @@ final class MenuService
     public function formatPrice(?float $price, string $language): string
     {
         if ($price === null || $price <= 0.0) {
-            return __('plugins.tl-1menu.frontend.price_not_available');
+            return __('plugins.tl1-menu.frontend.price_not_available');
         }
         $locale = $language === 'en' ? 'en_US' : 'de_DE';
         if (class_exists('NumberFormatter')) {
@@ -233,12 +233,12 @@ final class MenuService
         }
 
         if ($kind === 'co2') {
-            $unit = __('plugins.tl-1menu.frontend.units.co2');
+            $unit = __('plugins.tl1-menu.frontend.units.co2');
             return number_format($value, 0, $language === 'en' ? '.' : ',', $language === 'en' ? ',' : '.') . ' ' . $unit;
         }
 
         if ($kind === 'water') {
-            $unit = __('plugins.tl-1menu.frontend.units.water');
+            $unit = __('plugins.tl1-menu.frontend.units.water');
             return number_format($value, 2, $language === 'en' ? '.' : ',', $language === 'en' ? ',' : '.') . ' ' . $unit;
         }
 

@@ -153,22 +153,22 @@ class Plugin extends AbstractSlidePlugin
             $this->assertUploadedImage($uploadedBackground);
             $mediaAsset = $api->storeMediaAsset($uploadedBackground, $this->getDisplayName() . ' background');
             if (!$mediaAsset || ($mediaAsset['media_kind'] ?? '') !== 'image') {
-                throw new RuntimeException(__('plugins.tl-1menu.errors.background_invalid_type'));
+                throw new RuntimeException(__('plugins.tl1-menu.errors.background_invalid_type'));
             }
             $backgroundMediaAssetId = (int)$mediaAsset['id'];
         } elseif ($backgroundMediaAssetId !== null) {
             $mediaAsset = $api->getMediaAsset($backgroundMediaAssetId);
             if (!$mediaAsset) {
-                throw new RuntimeException(__('plugins.tl-1menu.errors.background_asset_not_found'));
+                throw new RuntimeException(__('plugins.tl1-menu.errors.background_asset_not_found'));
             }
             if (($mediaAsset['media_kind'] ?? '') !== 'image') {
-                throw new RuntimeException(__('plugins.tl-1menu.errors.background_invalid_type'));
+                throw new RuntimeException(__('plugins.tl1-menu.errors.background_invalid_type'));
             }
         }
 
         $menuUrl = trim((string)($input['menu_url'] ?? $existingSettings['menu_url'] ?? ''));
         if ($menuUrl !== '' && filter_var($menuUrl, FILTER_VALIDATE_URL) === false) {
-            throw new RuntimeException(__('plugins.tl-1menu.errors.invalid_menu_url'));
+            throw new RuntimeException(__('plugins.tl1-menu.errors.invalid_menu_url'));
         }
 
         return [
@@ -235,10 +235,10 @@ class Plugin extends AbstractSlidePlugin
         }
 
         if ($availableMensen !== [] && !in_array($mensa, $availableMensen, true)) {
-            throw new RuntimeException(__('plugins.tl-1menu.errors.invalid_mensa'));
+            throw new RuntimeException(__('plugins.tl1-menu.errors.invalid_mensa'));
         }
         if (!in_array($language, ['de', 'en'], true)) {
-            throw new RuntimeException(__('plugins.tl-1menu.errors.invalid_language'));
+            throw new RuntimeException(__('plugins.tl1-menu.errors.invalid_language'));
         }
 
         $backgroundColorMode = $this->normalizeBackgroundColorMode($input['background_color_mode'] ?? $existingSettings['background_color_mode'] ?? 'global');
@@ -255,17 +255,17 @@ class Plugin extends AbstractSlidePlugin
             $this->assertUploadedImage($uploadedBackground);
             $mediaAsset = $api->storeMediaAsset($uploadedBackground, $this->getDisplayName() . ' slide background');
             if (!$mediaAsset || ($mediaAsset['media_kind'] ?? '') !== 'image') {
-                throw new RuntimeException(__('plugins.tl-1menu.errors.background_invalid_type'));
+                throw new RuntimeException(__('plugins.tl1-menu.errors.background_invalid_type'));
             }
             $backgroundMediaAssetId = (int)$mediaAsset['id'];
             $backgroundImageMode = 'custom';
         } elseif ($backgroundImageMode === 'custom' && $backgroundMediaAssetId !== null) {
             $mediaAsset = $api->getMediaAsset($backgroundMediaAssetId);
             if (!$mediaAsset) {
-                throw new RuntimeException(__('plugins.tl-1menu.errors.background_asset_not_found'));
+                throw new RuntimeException(__('plugins.tl1-menu.errors.background_asset_not_found'));
             }
             if (($mediaAsset['media_kind'] ?? '') !== 'image') {
-                throw new RuntimeException(__('plugins.tl-1menu.errors.background_invalid_type'));
+                throw new RuntimeException(__('plugins.tl1-menu.errors.background_invalid_type'));
             }
         }
 
@@ -307,7 +307,7 @@ class Plugin extends AbstractSlidePlugin
             $items = $service->getMenuForDate($mensaKey, $today, is_array($settings['exclude_types'] ?? null) ? $settings['exclude_types'] : [], false, $language);
         } catch (\Throwable $e) {
             $items = [];
-            $errorMessage = __('plugins.tl-1menu.frontend.loading_error');
+            $errorMessage = __('plugins.tl1-menu.frontend.loading_error');
         }
 
         $view = $this->normalizeDisplayMode($settings['display_mode'] ?? 'card') === 'list'
@@ -337,9 +337,9 @@ class Plugin extends AbstractSlidePlugin
     {
         $globalSettings = array_replace($this->getDefaultGlobalSettings(), $api->loadGlobalSettings($this->getName()));
         $settings = array_replace($this->defaultSlideSettings($globalSettings), $settings);
-        $assets = ['css' => [$api->pluginAssetUrl($this->getName(), 'assets/tl-1menu.css')], 'js' => []];
+        $assets = ['css' => [$api->pluginAssetUrl($this->getName(), 'assets/tl1menu.css')], 'js' => []];
         if ($this->normalizeDisplayMode($settings['display_mode'] ?? 'card') === 'list') {
-            $assets['js'][] = $api->pluginAssetUrl($this->getName(), 'assets/tl-1menu-list.js');
+            $assets['js'][] = $api->pluginAssetUrl($this->getName(), 'assets/tl1menu-list.js');
         }
         return $assets;
     }
@@ -394,7 +394,7 @@ class Plugin extends AbstractSlidePlugin
             $rowPreview = $analyzer->previewCachedRow($config, (int)($input['row_index'] ?? 0));
             $tmp = tempnam(sys_get_temp_dir(), 'tl1-preview-');
             if ($tmp === false) {
-                throw new RuntimeException(__('plugins.tl-1menu.errors.setup_preview_failed'));
+                throw new RuntimeException(__('plugins.tl1-menu.errors.setup_preview_failed'));
             }
             $xml = '<?xml version="1.0"?><DATAPACKET><ROWDATA><ROW';
             foreach ($rowPreview['row'] as $key => $value) {
@@ -442,7 +442,7 @@ class Plugin extends AbstractSlidePlugin
     {
         $decoded = json_decode($json, true);
         if (!is_array($decoded)) {
-            throw new RuntimeException(__('plugins.tl-1menu.errors.config_invalid_generated'));
+            throw new RuntimeException(__('plugins.tl1-menu.errors.config_invalid_generated'));
         }
         return $decoded;
     }
@@ -555,28 +555,28 @@ class Plugin extends AbstractSlidePlugin
             [
                 'key' => 'co2',
                 'setting' => 'display_co2',
-                'label' => __('plugins.tl-1menu.frontend.co2'),
+                'label' => __('plugins.tl1-menu.frontend.co2'),
                 'value' => $service->formatEnvironmentalValue(620.0, 'co2', $language) ?? '620',
                 'rating' => 'B',
             ],
             [
                 'key' => 'water',
                 'setting' => 'display_water',
-                'label' => __('plugins.tl-1menu.frontend.water'),
+                'label' => __('plugins.tl1-menu.frontend.water'),
                 'value' => $service->formatEnvironmentalValue(1.8, 'water', $language) ?? '1.80',
                 'rating' => 'C',
             ],
             [
                 'key' => 'animal_welfare',
                 'setting' => 'display_animal_welfare',
-                'label' => __('plugins.tl-1menu.frontend.animal_welfare'),
+                'label' => __('plugins.tl1-menu.frontend.animal_welfare'),
                 'value' => '-',
                 'rating' => 'A',
             ],
             [
                 'key' => 'rainforest',
                 'setting' => 'display_rainforest',
-                'label' => __('plugins.tl-1menu.frontend.rainforest'),
+                'label' => __('plugins.tl1-menu.frontend.rainforest'),
                 'value' => '-',
                 'rating' => 'B',
             ],
@@ -803,15 +803,15 @@ class Plugin extends AbstractSlidePlugin
     private function storeCategoryIconUpload(?array $file, PluginApi $api): array
     {
         if (!$file || ($file['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) {
-            throw new RuntimeException(__('plugins.tl-1menu.errors.category_icon_missing'));
+            throw new RuntimeException(__('plugins.tl1-menu.errors.category_icon_missing'));
         }
         if (($file['error'] ?? UPLOAD_ERR_OK) !== UPLOAD_ERR_OK) {
-            throw new RuntimeException(__('plugins.tl-1menu.errors.category_icon_invalid_upload'));
+            throw new RuntimeException(__('plugins.tl1-menu.errors.category_icon_invalid_upload'));
         }
 
         $tmpName = (string)($file['tmp_name'] ?? '');
         if ($tmpName === '' || !is_uploaded_file($tmpName)) {
-            throw new RuntimeException(__('plugins.tl-1menu.errors.category_icon_invalid_upload'));
+            throw new RuntimeException(__('plugins.tl1-menu.errors.category_icon_invalid_upload'));
         }
 
         $filename = $this->normalizeCategoryIconFilename((string)($file['name'] ?? ''));
@@ -820,15 +820,15 @@ class Plugin extends AbstractSlidePlugin
 
         $directory = __DIR__ . '/assets/img/categories';
         if (!is_dir($directory) && !mkdir($directory, 0775, true)) {
-            throw new RuntimeException(__('plugins.tl-1menu.errors.category_icon_not_writable'));
+            throw new RuntimeException(__('plugins.tl1-menu.errors.category_icon_not_writable'));
         }
         if (!is_writable($directory)) {
-            throw new RuntimeException(__('plugins.tl-1menu.errors.category_icon_not_writable'));
+            throw new RuntimeException(__('plugins.tl1-menu.errors.category_icon_not_writable'));
         }
 
         $destination = $directory . DIRECTORY_SEPARATOR . $filename;
         if (!move_uploaded_file($tmpName, $destination)) {
-            throw new RuntimeException(__('plugins.tl-1menu.errors.category_icon_save_failed'));
+            throw new RuntimeException(__('plugins.tl1-menu.errors.category_icon_save_failed'));
         }
         @chmod($destination, 0644);
 
@@ -853,12 +853,12 @@ class Plugin extends AbstractSlidePlugin
             || str_starts_with($filename, '.')
             || preg_match('/[\x00-\x1f\x7f]/', $filename) === 1
         ) {
-            throw new RuntimeException(__('plugins.tl-1menu.errors.category_icon_invalid_filename'));
+            throw new RuntimeException(__('plugins.tl1-menu.errors.category_icon_invalid_filename'));
         }
 
         $extension = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
         if (!in_array($extension, ['svg', 'png', 'webp'], true)) {
-            throw new RuntimeException(__('plugins.tl-1menu.errors.category_icon_invalid_type'));
+            throw new RuntimeException(__('plugins.tl1-menu.errors.category_icon_invalid_type'));
         }
 
         return $filename;
@@ -869,23 +869,23 @@ class Plugin extends AbstractSlidePlugin
         if ($extension === 'svg') {
             $dimensions = $this->readSvgDimensions($tmpName);
             if ($dimensions === null || !$this->isSquareRatio($dimensions['width'], $dimensions['height'])) {
-                throw new RuntimeException(__('plugins.tl-1menu.errors.category_icon_not_square'));
+                throw new RuntimeException(__('plugins.tl1-menu.errors.category_icon_not_square'));
             }
             return;
         }
 
         $imageSize = @getimagesize($tmpName);
         if (!is_array($imageSize)) {
-            throw new RuntimeException(__('plugins.tl-1menu.errors.category_icon_invalid_type'));
+            throw new RuntimeException(__('plugins.tl1-menu.errors.category_icon_invalid_type'));
         }
 
         $expectedType = $extension === 'png' ? IMAGETYPE_PNG : IMAGETYPE_WEBP;
         if ((int)($imageSize[2] ?? 0) !== $expectedType) {
-            throw new RuntimeException(__('plugins.tl-1menu.errors.category_icon_invalid_type'));
+            throw new RuntimeException(__('plugins.tl1-menu.errors.category_icon_invalid_type'));
         }
 
         if (!$this->isSquareRatio((float)($imageSize[0] ?? 0), (float)($imageSize[1] ?? 0))) {
-            throw new RuntimeException(__('plugins.tl-1menu.errors.category_icon_not_square'));
+            throw new RuntimeException(__('plugins.tl1-menu.errors.category_icon_not_square'));
         }
     }
 
@@ -898,7 +898,7 @@ class Plugin extends AbstractSlidePlugin
         libxml_clear_errors();
         libxml_use_internal_errors($previous);
         if (!$loaded || !$dom->documentElement || strtolower($dom->documentElement->localName) !== 'svg') {
-            throw new RuntimeException(__('plugins.tl-1menu.errors.category_icon_invalid_type'));
+            throw new RuntimeException(__('plugins.tl1-menu.errors.category_icon_invalid_type'));
         }
 
         $width = $this->parseSvgLength($dom->documentElement->getAttribute('width'));
@@ -1043,7 +1043,7 @@ class Plugin extends AbstractSlidePlugin
         }
 
         if (!in_array($mimeType, ['image/jpeg', 'image/png', 'image/gif', 'image/webp'], true)) {
-            throw new RuntimeException(__('plugins.tl-1menu.errors.background_invalid_type'));
+            throw new RuntimeException(__('plugins.tl1-menu.errors.background_invalid_type'));
         }
     }
 }

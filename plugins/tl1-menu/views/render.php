@@ -50,7 +50,7 @@ if (!empty($backgroundImageUrl)) {
     <?php if ($showHeader): ?>
         <header class="tl1menu__header">
             <div>
-                <div class="tl1menu__eyebrow"><?= e(__('plugins.tl-1menu.frontend.eyebrow')) ?></div>
+                <div class="tl1menu__eyebrow"><?= e(__('plugins.tl1-menu.frontend.eyebrow')) ?></div>
                 <h2 class="tl1menu__title"><?= e($mensaLabel) ?></h2>
             </div>
             <div class="tl1menu__date"><?= e($formattedDate) ?></div>
@@ -65,7 +65,7 @@ if (!empty($backgroundImageUrl)) {
     <?php elseif ($itemCount === 0): ?>
         <div class="tl1menu__empty">
             <div class="tl1menu__empty-icon">🍽</div>
-            <p><?= e(__('plugins.tl-1menu.frontend.no_data_message', ['mensa' => $mensaLabel, 'date' => $formattedDate])) ?></p>
+            <p><?= e(__('plugins.tl1-menu.frontend.no_data_message', ['mensa' => $mensaLabel, 'date' => $formattedDate])) ?></p>
         </div>
     <?php else: ?>
         <div class="tl1menu__grid">
@@ -121,17 +121,17 @@ if (!empty($backgroundImageUrl)) {
                     <?php endif; ?>
 
                     <?php if ($hasZeroPrice && $showAnyPrice): ?>
-                        <div class="tl1menu__price-note"><?= e(__('plugins.tl-1menu.frontend.price_at_counter')) ?></div>
+                        <div class="tl1menu__price-note"><?= e(__('plugins.tl1-menu.frontend.price_at_counter')) ?></div>
                     <?php endif; ?>
 
                     <div class="tl1menu__info-grid">
                         <div class="tl1menu__meta-box">
-                            <div class="tl1menu__meta-title"><?= e(__('plugins.tl-1menu.frontend.allergens')) ?></div>
-                            <div class="tl1menu__meta-value"><?= e($allergens !== '' ? $allergens : __('plugins.tl-1menu.frontend.none')) ?></div>
+                            <div class="tl1menu__meta-title"><?= e(__('plugins.tl1-menu.frontend.allergens')) ?></div>
+                            <div class="tl1menu__meta-value"><?= e($allergens !== '' ? $allergens : __('plugins.tl1-menu.frontend.none')) ?></div>
                         </div>
                         <div class="tl1menu__meta-box">
-                            <div class="tl1menu__meta-title"><?= e(__('plugins.tl-1menu.frontend.additives')) ?></div>
-                            <div class="tl1menu__meta-value"><?= e($additives !== '' ? $additives : __('plugins.tl-1menu.frontend.none')) ?></div>
+                            <div class="tl1menu__meta-title"><?= e(__('plugins.tl1-menu.frontend.additives')) ?></div>
+                            <div class="tl1menu__meta-value"><?= e($additives !== '' ? $additives : __('plugins.tl1-menu.frontend.none')) ?></div>
                         </div>
                     </div>
 
@@ -141,7 +141,7 @@ if (!empty($backgroundImageUrl)) {
                                 <?php
                                 $environmentVariant = 'card';
                                 $metricKey = 'co2';
-                                $metricLabel = __('plugins.tl-1menu.frontend.co2');
+                                $metricLabel = __('plugins.tl1-menu.frontend.co2');
                                 $metricValue = $service->formatEnvironmentalValue(isset($item->environment['co2_value']) && is_numeric($item->environment['co2_value']) ? (float)$item->environment['co2_value'] : null, 'co2', $language) ?? '-';
                                 $metricRating = (string)($item->environment['co2_rating'] ?? '');
                                 require __DIR__ . '/partials/environment_metric.php';
@@ -151,7 +151,7 @@ if (!empty($backgroundImageUrl)) {
                                 <?php
                                 $environmentVariant = 'card';
                                 $metricKey = 'water';
-                                $metricLabel = __('plugins.tl-1menu.frontend.water');
+                                $metricLabel = __('plugins.tl1-menu.frontend.water');
                                 $metricValue = $service->formatEnvironmentalValue(isset($item->environment['water_value']) && is_numeric($item->environment['water_value']) ? (float)$item->environment['water_value'] : null, 'water', $language) ?? '-';
                                 $metricRating = (string)($item->environment['water_rating'] ?? '');
                                 require __DIR__ . '/partials/environment_metric.php';
@@ -161,7 +161,7 @@ if (!empty($backgroundImageUrl)) {
                                 <?php
                                 $environmentVariant = 'card';
                                 $metricKey = 'animal_welfare';
-                                $metricLabel = __('plugins.tl-1menu.frontend.animal_welfare');
+                                $metricLabel = __('plugins.tl1-menu.frontend.animal_welfare');
                                 $metricValue = '-';
                                 $metricRating = (string)($item->environment['animal_welfare'] ?? '');
                                 require __DIR__ . '/partials/environment_metric.php';
@@ -171,7 +171,7 @@ if (!empty($backgroundImageUrl)) {
                                 <?php
                                 $environmentVariant = 'card';
                                 $metricKey = 'rainforest';
-                                $metricLabel = __('plugins.tl-1menu.frontend.rainforest');
+                                $metricLabel = __('plugins.tl1-menu.frontend.rainforest');
                                 $metricValue = '-';
                                 $metricRating = (string)($item->environment['rainforest'] ?? '');
                                 require __DIR__ . '/partials/environment_metric.php';

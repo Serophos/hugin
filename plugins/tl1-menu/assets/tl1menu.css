@@ -879,7 +879,7 @@
 }
 
 
-/* TL-1 Menu List View */
+/* TL1 Menu List View */
 .tl1menu-list {
     --tl1menu-list-food-columns: 1;
     --tl1menu-list-font-size: 20px;
@@ -1364,7 +1364,7 @@
     }
 }
 
-/* TL-1 setup wizard */
+/* TL1 setup wizard */
 .tl1menu-global-settings ~ .form-actions {
     display: none;
 }

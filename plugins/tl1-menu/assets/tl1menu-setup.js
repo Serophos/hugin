@@ -2,7 +2,7 @@
     const root = document.querySelector('[data-tl1menu-setup]');
     if (!root) return;
 
-    const pluginName = root.getAttribute('data-plugin-name') || 'tl-1menu';
+    const pluginName = root.getAttribute('data-plugin-name') || 'tl1-menu';
     const actionBase = root.getAttribute('data-action-base') || '';
     const i18n = parseJson(root.getAttribute('data-i18n') || '{}') || {};
     let categoryIconChoices = normalizeCategoryIconChoices(parseJson(root.getAttribute('data-category-icons') || '[]'));
