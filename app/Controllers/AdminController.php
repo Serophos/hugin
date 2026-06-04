@@ -119,10 +119,12 @@ class AdminController
 
         $enable = $this->request->input('enable') ? true : false;
         $affectedSlides = $enable ? [] : $this->slidesForPluginType($plugin->getSlideType());
+        $affectedDisplayIds = $this->displayIdsForSlideType($plugin->getSlideType());
         if (!$enable && $affectedSlides !== [] && !$this->request->input('confirm_slide_deactivation')) {
             flash('error', __('plugins.disable_requires_confirmation', ['count' => count($affectedSlides)]));
             redirect('/admin/plugins');
         }
+
 
         $pdo = $this->db->pdo();
         $pdo->beginTransaction();
@@ -136,6 +138,8 @@ class AdminController
             $pdo->rollBack();
             throw $e;
         }
+
+        $this->requestReloadForDisplays($affectedDisplayIds);
 
         if (!$enable && $affectedSlides !== []) {
             flash('success', __('plugins.disabled_message_with_slides', [
@@ -196,6 +200,7 @@ class AdminController
         try {
             $settings = $plugin->normalizeGlobalSettings($input, $existingSettings, $this->plugins->buildApi(null, null, null, $this->auth->id()));
             $this->plugins->saveGlobalSettings($pluginName, $settings);
+            $this->requestReloadForDisplays($this->displayIdsForSlideType($plugin->getSlideType()));
         } catch (RuntimeException $e) {
             $this->redirectWithForm(
                 '/admin/plugins/' . $pluginName . '/settings',
@@ -279,6 +284,7 @@ class AdminController
             'default_font_heading' => $defaultFontHeading,
             'default_font_text' => $defaultFontText,
         ]);
+        $this->requestReloadForDisplays($this->allDisplayIds());
 
         flash('success', __('settings.saved'));
         redirect('/admin/settings');
@@ -468,6 +474,7 @@ class AdminController
                 'UPDATE displays SET name = ?, slug = ?, description = ?, transition_effect = ?, slide_duration_seconds = ?, timezone = ?, sort_order = ?, orientation = ?, icon_file = ?, is_active = ? WHERE id = ?',
                 [$name, $slug, $description, $effect, $duration, $timezone, $sortOrder, $orientation, $iconFile, $isActive, $id]
             );
+            $displayId = $id;
             flash('success', __('display.updated'));
         } else {
             $nextSort = $sortOrder ?: ((int)($this->db->one('SELECT COALESCE(MAX(sort_order), 0) + 1 AS next_sort FROM displays')['next_sort'] ?? 1));
@@ -475,9 +482,11 @@ class AdminController
                 'INSERT INTO displays (name, slug, description, transition_effect, slide_duration_seconds, timezone, sort_order, orientation, icon_file, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
                 [$name, $slug, $description, $effect, $duration, $timezone, $nextSort, $orientation, $iconFile, $isActive]
             );
+            $displayId = (int)$this->db->lastInsertId();
             flash('success', __('display.created'));
         }
 
+        $this->requestReloadForDisplays([$displayId]);
         redirect('/admin/displays');
     }
 
@@ -506,22 +515,7 @@ class AdminController
             redirect('/admin/displays');
         }
 
-        if (!empty($display['group_id']) && (int)($display['sync_enabled'] ?? 0) === 1) {
-            $this->db->execute(
-                'UPDATE displays d
-                 INNER JOIN display_group_memberships dgm ON dgm.display_id = d.id
-                 SET d.updated_at = IF(d.updated_at >= CURRENT_TIMESTAMP, d.updated_at + INTERVAL 1 SECOND, CURRENT_TIMESTAMP)
-                 WHERE dgm.group_id = ?',
-                [(int)$display['group_id']]
-            );
-        } else {
-            $this->db->execute(
-                'UPDATE displays
-                 SET updated_at = IF(updated_at >= CURRENT_TIMESTAMP, updated_at + INTERVAL 1 SECOND, CURRENT_TIMESTAMP)
-                 WHERE id = ?',
-                [$id]
-            );
-        }
+        $this->requestReloadForDisplays([$id]);
 
         flash('success', __('display.reload_requested', ['display' => $display['name']]));
         redirect($this->adminReturnPath('/admin/displays'));
@@ -530,9 +524,11 @@ class AdminController
     public function sortDisplays(): void
     {
         $this->auth->requireRole('admin');
-        foreach ($this->normalizeIds($this->request->input('ids', [])) as $index => $id) {
+        $displayIds = $this->normalizeIds($this->request->input('ids', []));
+        foreach ($displayIds as $index => $id) {
             $this->db->execute('UPDATE displays SET sort_order = ? WHERE id = ?', [$index + 1, $id]);
         }
+        $this->requestReloadForDisplays($displayIds);
         json_response(['ok' => true]);
     }
 
@@ -676,15 +672,20 @@ class AdminController
             redirect('/admin/locations');
         }
 
-        $displayCount = (int)($this->db->one(
-            'SELECT COUNT(DISTINCT dgm.display_id) AS cnt
-             FROM display_groups g
-             INNER JOIN display_group_memberships dgm ON dgm.group_id = g.id
-             WHERE g.location_id = ?',
-            [$id]
-        )['cnt'] ?? 0);
+        $locationDisplayIds = $this->idsFromRows(
+            $this->db->all(
+                'SELECT DISTINCT dgm.display_id
+                 FROM display_groups g
+                 INNER JOIN display_group_memberships dgm ON dgm.group_id = g.id
+                 WHERE g.location_id = ?',
+                [$id]
+            ),
+            'display_id'
+        );
+        $displayCount = count($locationDisplayIds);
 
         $this->db->execute('DELETE FROM display_locations WHERE id = ?', [$id]);
+        $this->requestReloadForDisplays($locationDisplayIds);
         flash('success', __('locations.deleted', ['count' => $displayCount]));
         redirect('/admin/locations');
     }
@@ -747,6 +748,7 @@ class AdminController
                 'UPDATE display_groups SET location_id = ?, name = ?, description = ?, sort_order = ?, sync_enabled = ?, sync_mode = ? WHERE id = ?',
                 [$locationId, $name, $description, $sortOrder, $syncEnabled, $syncMode, $id]
             );
+            $this->requestReloadForDisplays($this->displayIdsForGroup($id));
             flash('success', __('display_groups.updated'));
         } else {
             $nextSort = $sortOrder ?: ((int)($this->db->one(
@@ -774,12 +776,11 @@ class AdminController
         }
         $returnTo = $this->adminReturnPath('/admin/locations/' . $group['location_id'] . '/edit');
 
-        $displayCount = (int)($this->db->one(
-            'SELECT COUNT(*) AS cnt FROM display_group_memberships WHERE group_id = ?',
-            [$id]
-        )['cnt'] ?? 0);
+        $groupDisplayIds = $this->displayIdsForGroup($id);
+        $displayCount = count($groupDisplayIds);
 
         $this->db->execute('DELETE FROM display_groups WHERE id = ?', [$id]);
+        $this->requestReloadForDisplays($groupDisplayIds);
         flash('success', __('display_groups.deleted', ['count' => $displayCount]));
         redirect($returnTo);
     }
@@ -817,6 +818,8 @@ class AdminController
             redirect($returnTo);
         }
 
+        $affectedDisplayIds = $this->expandDisplayIdsForSyncedGroups($displayIds);
+
         if ($targetGroupId === null) {
             $placeholders = implode(', ', array_fill(0, count($displayIds), '?'));
             $this->db->execute(
@@ -843,6 +846,7 @@ class AdminController
             }
         }
 
+        $this->requestReloadForDisplays(array_merge($affectedDisplayIds, $displayIds));
         flash('success', __('display_groups.bulk_moved', ['count' => count($displayIds)]));
         redirect($returnTo);
     }
@@ -1159,6 +1163,7 @@ class AdminController
             $assignmentPriorityValues,
             $assignmentErrors
         );
+        $affectedDisplayIds = $id ? $this->displayIdsForChannels([$id]) : [];
         $errors = array_replace($errors, $assignmentErrors);
         if ($errors !== []) {
             $this->redirectWithForm(
@@ -1213,6 +1218,9 @@ class AdminController
             throw $e;
         }
 
+        $assignmentDisplayIds = array_map(static fn(array $assignment): int => (int)$assignment['display_id'], $assignmentRows);
+        $this->requestReloadForDisplays(array_merge($affectedDisplayIds, $assignmentDisplayIds));
+
         flash('success', __($id ? 'channel.updated' : 'channel.created'));
         redirect('/admin/playlists');
     }
@@ -1220,7 +1228,9 @@ class AdminController
     public function deletePlaylist(int $id): void
     {
         $this->auth->requireLogin();
+        $affectedDisplayIds = $this->displayIdsForChannels([$id]);
         $this->db->execute('DELETE FROM channels WHERE id = ?', [$id]);
+        $this->requestReloadForDisplays($affectedDisplayIds);
         flash('success', __('channel.deleted'));
         redirect('/admin/playlists');
     }
@@ -1232,6 +1242,7 @@ class AdminController
         foreach ($this->normalizeIds($this->request->input('ids', [])) as $index => $assignmentId) {
             $this->db->execute('UPDATE channel_display_schedule_assignments SET priority = ? WHERE id = ? AND display_id = ?', [$index + 1, $assignmentId, $displayId]);
         }
+        $this->requestReloadForDisplays([$displayId]);
         json_response(['ok' => true]);
     }
 
@@ -1338,6 +1349,8 @@ class AdminController
             );
         }
 
+        $affectedDisplayIds = $id ? $this->displayIdsForSchedules([$id]) : [];
+
         $pdo = $this->db->pdo();
         $pdo->beginTransaction();
         try {
@@ -1368,6 +1381,8 @@ class AdminController
             $pdo->rollBack();
             throw $e;
         }
+
+        $this->requestReloadForDisplays($affectedDisplayIds);
 
         flash('success', __($id ? 'schedule.updated' : 'schedule.created'));
         redirect('/admin/schedules');
@@ -1806,6 +1821,8 @@ class AdminController
             );
         }
 
+        $affectedChannelIds = $id ? $this->channelIdsForSlides([$id]) : [];
+
         $pdo = $this->db->pdo();
         $pdo->beginTransaction();
         try {
@@ -1836,6 +1853,8 @@ class AdminController
             throw $e;
         }
 
+        $this->requestReloadForDisplays($this->displayIdsForChannels(array_merge($affectedChannelIds, $channelIds)));
+
         flash('success', __($id ? 'slide.updated' : 'slide.created'));
 
         if ($saveAction === 'save') {
@@ -1853,7 +1872,9 @@ class AdminController
     public function deleteSlide(int $id): void
     {
         $this->auth->requireLogin();
+        $affectedDisplayIds = $this->displayIdsForSlides([$id]);
         $this->db->execute('DELETE FROM slides WHERE id = ?', [$id]);
+        $this->requestReloadForDisplays($affectedDisplayIds);
         flash('success', __('slide.deleted'));
         redirect($this->adminReturnPath('/admin/slides'));
     }
@@ -1883,6 +1904,7 @@ class AdminController
         );
 
         $this->reindexChannelSlides($channelId);
+        $this->requestReloadForDisplays($this->displayIdsForChannels([$channelId]));
 
         flash('success', __('slide.removed_from_channel', ['slide' => $assignment['slide_name'], 'channel' => $assignment['channel_name']]));
         redirect($this->adminReturnPath('/admin/slides'));
@@ -1935,6 +1957,8 @@ class AdminController
             );
         }
 
+        $this->requestReloadForDisplays($this->displayIdsForChannels([$channelId]));
+
         flash('success', __('slide.added_to_channel', [
             'count' => count($slideIds),
             'channel' => $channel['name'],
@@ -1949,6 +1973,7 @@ class AdminController
         foreach ($this->normalizeIds($this->request->input('ids', [])) as $index => $slideId) {
             $this->db->execute('UPDATE channel_slide_assignments SET sort_order = ? WHERE slide_id = ? AND channel_id = ?', [$index + 1, $slideId, $channelId]);
         }
+        $this->requestReloadForDisplays($this->displayIdsForChannels([$channelId]));
         json_response(['ok' => true]);
     }
 
@@ -2317,6 +2342,170 @@ class AdminController
     private function normalizedPluginSettingKey(string $key): string
     {
         return strtolower((string)preg_replace('/[^a-zA-Z0-9]+/', '', $key));
+    }
+
+    private function requestReloadForDisplays(array $displayIds): void
+    {
+        $displayIds = $this->expandDisplayIdsForSyncedGroups($displayIds);
+        if ($displayIds === []) {
+            return;
+        }
+
+        $placeholders = implode(', ', array_fill(0, count($displayIds), '?'));
+        $this->db->execute(
+            'UPDATE displays
+             SET updated_at = IF(updated_at >= CURRENT_TIMESTAMP, updated_at + INTERVAL 1 SECOND, CURRENT_TIMESTAMP)
+             WHERE id IN (' . $placeholders . ')',
+            $displayIds
+        );
+    }
+
+    private function expandDisplayIdsForSyncedGroups(array $displayIds): array
+    {
+        $displayIds = $this->uniquePositiveIds($displayIds);
+        if ($displayIds === []) {
+            return [];
+        }
+
+        $expanded = array_fill_keys($displayIds, true);
+        $placeholders = implode(', ', array_fill(0, count($displayIds), '?'));
+        $rows = $this->db->all(
+            'SELECT DISTINCT member.display_id
+             FROM display_group_memberships source
+             INNER JOIN display_groups g ON g.id = source.group_id
+             INNER JOIN display_group_memberships member ON member.group_id = source.group_id
+             WHERE source.display_id IN (' . $placeholders . ')
+               AND g.sync_enabled = 1',
+            $displayIds
+        );
+
+        foreach ($rows as $row) {
+            $displayId = (int)($row['display_id'] ?? 0);
+            if ($displayId > 0) {
+                $expanded[$displayId] = true;
+            }
+        }
+
+        return array_map('intval', array_keys($expanded));
+    }
+
+    private function allDisplayIds(): array
+    {
+        return $this->idsFromRows($this->db->all('SELECT id FROM displays'), 'id');
+    }
+
+    private function displayIdsForGroup(int $groupId): array
+    {
+        if ($groupId <= 0) {
+            return [];
+        }
+
+        return $this->idsFromRows(
+            $this->db->all('SELECT display_id FROM display_group_memberships WHERE group_id = ?', [$groupId]),
+            'display_id'
+        );
+    }
+
+    private function displayIdsForChannels(array $channelIds): array
+    {
+        $channelIds = $this->uniquePositiveIds($channelIds);
+        if ($channelIds === []) {
+            return [];
+        }
+
+        $placeholders = implode(', ', array_fill(0, count($channelIds), '?'));
+        return $this->idsFromRows(
+            $this->db->all(
+                'SELECT DISTINCT display_id FROM channel_display_schedule_assignments WHERE channel_id IN (' . $placeholders . ')',
+                $channelIds
+            ),
+            'display_id'
+        );
+    }
+
+    private function displayIdsForSchedules(array $scheduleIds): array
+    {
+        $scheduleIds = $this->uniquePositiveIds($scheduleIds);
+        if ($scheduleIds === []) {
+            return [];
+        }
+
+        $placeholders = implode(', ', array_fill(0, count($scheduleIds), '?'));
+        return $this->idsFromRows(
+            $this->db->all(
+                'SELECT DISTINCT display_id FROM channel_display_schedule_assignments WHERE schedule_id IN (' . $placeholders . ')',
+                $scheduleIds
+            ),
+            'display_id'
+        );
+    }
+
+    private function displayIdsForSlides(array $slideIds): array
+    {
+        return $this->displayIdsForChannels($this->channelIdsForSlides($slideIds));
+    }
+
+    private function displayIdsForSlideType(string $slideType): array
+    {
+        $slideType = trim($slideType);
+        if ($slideType === '') {
+            return [];
+        }
+
+        return $this->idsFromRows(
+            $this->db->all(
+                'SELECT DISTINCT cdsa.display_id
+                 FROM slides s
+                 INNER JOIN channel_slide_assignments csa ON csa.slide_id = s.id
+                 INNER JOIN channel_display_schedule_assignments cdsa ON cdsa.channel_id = csa.channel_id
+                 WHERE s.slide_type = ?',
+                [$slideType]
+            ),
+            'display_id'
+        );
+    }
+
+    private function channelIdsForSlides(array $slideIds): array
+    {
+        $slideIds = $this->uniquePositiveIds($slideIds);
+        if ($slideIds === []) {
+            return [];
+        }
+
+        $placeholders = implode(', ', array_fill(0, count($slideIds), '?'));
+        return $this->idsFromRows(
+            $this->db->all(
+                'SELECT DISTINCT channel_id FROM channel_slide_assignments WHERE slide_id IN (' . $placeholders . ')',
+                $slideIds
+            ),
+            'channel_id'
+        );
+    }
+
+    private function idsFromRows(array $rows, string $key): array
+    {
+        $ids = [];
+        foreach ($rows as $row) {
+            $id = (int)($row[$key] ?? 0);
+            if ($id > 0) {
+                $ids[$id] = true;
+            }
+        }
+
+        return array_map('intval', array_keys($ids));
+    }
+
+    private function uniquePositiveIds(array $ids): array
+    {
+        $normalized = [];
+        foreach ($ids as $id) {
+            $id = (int)$id;
+            if ($id > 0) {
+                $normalized[$id] = true;
+            }
+        }
+
+        return array_map('intval', array_keys($normalized));
     }
 
     private function loadBrandingSettings(): array
