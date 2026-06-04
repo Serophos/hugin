@@ -90,6 +90,8 @@ if (str_starts_with($display['slug'] ?? '', 'preview-slide-') && preg_match('#^p
      data-heartbeat-url="<?= e(url($displayRoutePrefix . '/heartbeat')) ?>"
      data-heartbeat-interval="<?= e((string)$heartbeatInterval) ?>"
      data-state-url="<?= e(url($displayRoutePrefix . '/state')) ?>"
+     data-offline-manifest-url="<?= $isPreviewDisplay ? '' : e(url($displayRoutePrefix . '/offline-manifest')) ?>"
+     data-service-worker-url="<?= $isPreviewDisplay ? '' : e(url('/display-service-worker.js')) ?>"
      data-state-check-interval="60"
      data-state-signature="<?= e($stateSignature) ?>"
      data-sync-reload-to-full-minute="<?= $syncReloadToFullMinute ? '1' : '0' ?>"
@@ -109,7 +111,17 @@ if (str_starts_with($display['slug'] ?? '', 'preview-slide-') && preg_match('#^p
         </div>
     </div>
     <?php foreach ($slides as $index => $slide): ?>
-        <section class="slide <?= $index === 0 ? 'is-active' : '' ?>" data-duration="<?= e((string)$slide['resolved_duration']) ?>">
+        <?php
+        $offlinePolicy = 'skip';
+        if (($slide['slide_type'] ?? '') === 'website') {
+            $offlinePolicy = 'skip';
+        } elseif (is_string($slide['plugin_rendered_html'] ?? null) && $slide['plugin_rendered_html'] !== '') {
+            $offlinePolicy = 'try';
+        } elseif (in_array((string)($slide['slide_type'] ?? ''), ['image', 'video', 'text'], true)) {
+            $offlinePolicy = 'play';
+        }
+        ?>
+        <section class="slide <?= $index === 0 ? 'is-active' : '' ?>" data-slide-id="<?= e((string)$slide['id']) ?>" data-slide-type="<?= e((string)$slide['slide_type']) ?>" data-offline-policy="<?= e($offlinePolicy) ?>" data-duration="<?= e((string)$slide['resolved_duration']) ?>">
             <?php if (($slide['title_position'] ?? 'bottom-left') !== 'hide'): ?>
                 <div class="slide-label position-<?= e($slide['title_position'] ?? 'bottom-left') ?>"><?= e($slide['name']) ?></div>
             <?php endif; ?>
@@ -171,7 +183,7 @@ if (str_starts_with($display['slug'] ?? '', 'preview-slide-') && preg_match('#^p
                         <?php if (($slide['text_background_kind'] ?? '') === 'video'): ?>
                             <video class="text-slide-background text-slide-background--video" data-src="<?= e(url((string)$slide['text_background_url'])) ?>" muted playsinline loop preload="metadata" aria-hidden="true"></video>
                         <?php else: ?>
-                            <div class="text-slide-background text-slide-background--image" style="background-image: url('<?= e(url((string)$slide['text_background_url'])) ?>');"></div>
+                            <div class="text-slide-background text-slide-background--image" data-bg-src="<?= e(url((string)$slide['text_background_url'])) ?>"></div>
                         <?php endif; ?>
                     <?php endif; ?>
                     <div class="text-slide-panel">

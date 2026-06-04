@@ -28,6 +28,21 @@
         ? window.requestAnimationFrame.bind(window)
         : (callback => window.setTimeout(callback, 16));
 
+    const readStoredCachedUrls = () => {
+        try {
+            const raw = window.localStorage.getItem(`hugin:display-cache:${window.location.pathname}`);
+            const data = raw ? JSON.parse(raw) : null;
+            return Array.isArray(data?.cachedUrls) ? data.cachedUrls : [];
+        } catch (error) {
+            return [];
+        }
+    };
+
+    const cachedAssetUrls = new Set(readStoredCachedUrls());
+    let offlineCacheWarmPromise = null;
+    let lastWarmSignature = '';
+
+
     const bindMediaFallback = element => {
         if (!element || element.dataset.fallbackBound) return;
         element.dataset.fallbackBound = '1';
@@ -65,6 +80,240 @@
             return value;
         }
     };
+
+    const normalizeAssetUrl = value => {
+        if (!value) return '';
+        try {
+            const url = new URL(value, window.location.href);
+            url.hash = '';
+            return url.toString();
+        } catch (error) {
+            return '';
+        }
+    };
+
+    const isSameOriginAssetUrl = value => {
+        const url = normalizeAssetUrl(value);
+        if (!url) return false;
+        try {
+            return new URL(url).origin === window.location.origin;
+        } catch (error) {
+            return false;
+        }
+    };
+
+    const isProbablyOffline = () => navigator.onLine === false;
+
+    const storeCachedUrls = () => {
+        try {
+            window.localStorage.setItem(`hugin:display-cache:${window.location.pathname}`, JSON.stringify({
+                at: Date.now(),
+                signature: currentSignature,
+                cachedUrls: Array.from(cachedAssetUrls),
+            }));
+        } catch (error) {}
+    };
+
+    const mergeCachedUrls = urls => {
+        (Array.isArray(urls) ? urls : []).forEach(url => {
+            const normalized = normalizeAssetUrl(url);
+            if (normalized) cachedAssetUrls.add(normalized);
+        });
+        storeCachedUrls();
+    };
+
+    const assetUrlsForSlide = slide => {
+        if (!slide) return [];
+        const urls = [];
+        slide.querySelectorAll('img[data-src], video[data-src]').forEach(element => {
+            const url = normalizeAssetUrl(element.dataset.src || '');
+            if (url) urls.push(url);
+        });
+        slide.querySelectorAll('.text-slide-background--image[data-bg-src]').forEach(element => {
+            const url = normalizeAssetUrl(element.dataset.bgSrc || '');
+            if (url) urls.push(url);
+        });
+        return Array.from(new Set(urls));
+    };
+
+    const isSlidePlayable = slide => {
+        if (!slide) return false;
+        if (!isProbablyOffline()) return true;
+
+        const policy = slide.dataset.offlinePolicy || 'skip';
+        if (policy === 'skip') return false;
+        if (slide.querySelector('iframe[data-src], iframe[src]')) return false;
+
+        if (policy === 'try') {
+            return true;
+        }
+
+        return assetUrlsForSlide(slide).every(url => !isSameOriginAssetUrl(url) || cachedAssetUrls.has(url));
+    };
+
+    const firstPlayableIndex = () => slides.findIndex(slide => isSlidePlayable(slide));
+
+    const nextPlayableIndex = (fromIndex, offset = 1) => {
+        if (slides.length === 0) return -1;
+        const startOffset = Math.max(0, offset);
+        for (let step = startOffset; step < slides.length + startOffset; step += 1) {
+            const candidate = nextIndex(fromIndex, step);
+            if (isSlidePlayable(slides[candidate])) {
+                return candidate;
+            }
+        }
+        return -1;
+    };
+
+    const registerDisplayServiceWorker = () => {
+        const serviceWorkerUrl = resolveEndpointUrl(slideshow.dataset.serviceWorkerUrl || '');
+        if (!serviceWorkerUrl || !('serviceWorker' in navigator)) {
+            return Promise.resolve(false);
+        }
+
+        return navigator.serviceWorker.register(serviceWorkerUrl, { scope: '/' })
+            .then(() => navigator.serviceWorker.ready)
+            .then(() => true)
+            .catch(() => false);
+    };
+
+    const serviceWorkerReady = registerDisplayServiceWorker();
+
+    const postServiceWorkerMessage = (type, payload = {}) => serviceWorkerReady.then(ready => {
+        if (!ready || !navigator.serviceWorker) {
+            throw new Error('Display service worker is unavailable.');
+        }
+
+        return navigator.serviceWorker.ready.then(registration => new Promise((resolve, reject) => {
+            const worker = registration.active || navigator.serviceWorker.controller;
+            if (!worker) {
+                reject(new Error('Display service worker is not active.'));
+                return;
+            }
+
+            const channel = new MessageChannel();
+            const timeout = window.setTimeout(() => reject(new Error('Display service worker timed out.')), 45000);
+            channel.port1.onmessage = event => {
+                window.clearTimeout(timeout);
+                const data = event.data || {};
+                if (data.ok === false) {
+                    reject(new Error(data.error || 'Display service worker request failed.'));
+                    return;
+                }
+                resolve(data);
+            };
+            worker.postMessage(Object.assign({ type }, payload), [channel.port2]);
+        }));
+    });
+
+    const resolveOfflineCacheBudget = () => {
+        const hardCap = (navigator.deviceMemory && Number(navigator.deviceMemory) <= 2 ? 1 : 3) * 1024 * 1024 * 1024;
+        if (!navigator.storage?.estimate) {
+            return Promise.resolve(hardCap);
+        }
+
+        return navigator.storage.estimate()
+            .then(estimate => {
+                const quota = Number(estimate.quota || 0);
+                const usage = Number(estimate.usage || 0);
+                const availableWithReserve = quota > 0 ? Math.max(0, Math.floor((quota * 0.8) - usage)) : hardCap;
+                return Math.max(64 * 1024 * 1024, Math.min(hardCap, availableWithReserve || hardCap));
+            })
+            .catch(() => hardCap);
+    };
+
+    const fetchOfflineManifest = () => {
+        const url = resolveEndpointUrl(slideshow.dataset.offlineManifestUrl || '');
+        if (!url || !window.fetch) return Promise.resolve(null);
+
+        return fetch(url, {
+            method: 'GET',
+            headers: { 'Accept': 'application/json' },
+            cache: 'no-store',
+            credentials: 'same-origin',
+        })
+            .then(response => response.ok ? response.json() : null)
+            .then(data => data?.ok === true ? data : null)
+            .catch(() => null);
+    };
+
+    const applyManifestSlidePolicies = manifest => {
+        const policies = new Map((manifest?.slides || []).map(slide => [String(slide.id), slide]));
+        slides.forEach(slide => {
+            const item = policies.get(String(slide.dataset.slideId || ''));
+            if (!item) return;
+            slide.dataset.offlinePolicy = item.policy || slide.dataset.offlinePolicy || 'skip';
+            slide.dataset.offlineRequiredAssets = JSON.stringify(item.required_asset_urls || []);
+        });
+    };
+
+    const offlinePlayableCount = (manifest, cachedUrls) => {
+        const cached = new Set(Array.isArray(cachedUrls) ? cachedUrls.map(normalizeAssetUrl).filter(Boolean) : []);
+        return (manifest?.slides || []).filter(slide => {
+            if ((slide.policy || 'skip') === 'skip') return false;
+            if ((slide.policy || '') === 'try') return true;
+            return (slide.required_asset_urls || []).every(url => cached.has(normalizeAssetUrl(url)));
+        }).length;
+    };
+
+    const warmOfflineCache = (reason = 'startup') => {
+        if (reason === 'state-check' && currentSignature && lastWarmSignature === currentSignature) {
+            return Promise.resolve({ manifest: null, offlinePlayableCount: 0, cachedUrls: Array.from(cachedAssetUrls), reason });
+        }
+        if (offlineCacheWarmPromise) return offlineCacheWarmPromise;
+
+        offlineCacheWarmPromise = fetchOfflineManifest()
+            .then(manifest => {
+                if (!manifest) return { manifest: null, offlinePlayableCount: 0, cachedUrls: Array.from(cachedAssetUrls) };
+                applyManifestSlidePolicies(manifest);
+                return resolveOfflineCacheBudget()
+                    .then(maxBytes => postServiceWorkerMessage('CACHE_DISPLAY_MANIFEST', { manifest, maxBytes }))
+                    .then(result => {
+                        mergeCachedUrls(result.cachedUrls || []);
+                        lastWarmSignature = manifest.signature || lastWarmSignature;
+                        return {
+                            manifest,
+                            offlinePlayableCount: offlinePlayableCount(manifest, result.cachedUrls || []),
+                            cachedUrls: result.cachedUrls || [],
+                            reason,
+                        };
+                    })
+                    .catch(() => ({
+                        manifest,
+                        offlinePlayableCount: offlinePlayableCount(manifest, Array.from(cachedAssetUrls)),
+                        cachedUrls: Array.from(cachedAssetUrls),
+                        reason,
+                    }));
+            })
+            .then(result => {
+                offlineCacheWarmPromise = null;
+                return result;
+            })
+            .catch(error => {
+                offlineCacheWarmPromise = null;
+                throw error;
+            });
+
+        return offlineCacheWarmPromise;
+    };
+
+    const prepareOfflineCacheForReload = stateData => warmOfflineCache('config-reload')
+        .then(result => ({ defer: Boolean(result.manifest && result.offlinePlayableCount <= 0), result }))
+        .catch(() => ({ defer: false, result: null, stateData }));
+
+    const runWhenOfflineReady = (stateData, applyReload) => {
+        prepareOfflineCacheForReload(stateData).then(({ defer }) => {
+            if (defer) {
+                logReload('Deferred reload because the new playlist has no offline-playable slides cached yet', {
+                    signature: stateData?.signature || '',
+                    displayGroup: displayGroupFromState(stateData),
+                });
+                return;
+            }
+            applyReload();
+        }).catch(applyReload);
+    };
+
 
     const heartbeatIntervalMs = () => {
         const seconds = parseInt(slideshow.dataset.heartbeatInterval || '90', 10);
@@ -163,12 +412,14 @@
         pendingReloadTimer = null;
         pendingReload = null;
 
-        logReload('Applying immediate reload', {
-            reason,
-            displayGroup: displayGroupFromState(stateData),
-            signature: stateData?.signature || '',
+        runWhenOfflineReady(stateData, () => {
+            logReload('Applying immediate reload', {
+                reason,
+                displayGroup: displayGroupFromState(stateData),
+                signature: stateData?.signature || '',
+            });
+            window.location.reload();
         });
-        window.location.reload();
     };
 
     const applyPendingReload = () => {
@@ -209,21 +460,25 @@
             clearTimeout(pendingReloadTimer);
         }
 
-        pendingReload = {
-            reason,
-            stateData,
-            signature,
-            displayGroup,
-            activateAtMs,
-        };
-        pendingReloadTimer = window.setTimeout(applyPendingReload, Math.max(0, activateAtMs - Date.now()));
+        const scheduleReload = () => {
+            pendingReload = {
+                reason,
+                stateData,
+                signature,
+                displayGroup,
+                activateAtMs,
+            };
+            pendingReloadTimer = window.setTimeout(applyPendingReload, Math.max(0, activateAtMs - Date.now()));
 
-        logReload(replaced ? 'Replaced pending synchronized reload' : 'Scheduled synchronized reload', {
-            reason,
-            displayGroup,
-            signature,
-            activateAt: new Date(activateAtMs).toISOString(),
-        });
+            logReload(replaced ? 'Replaced pending synchronized reload' : 'Scheduled synchronized reload', {
+                reason,
+                displayGroup,
+                signature,
+                activateAt: new Date(activateAtMs).toISOString(),
+            });
+        };
+
+        runWhenOfflineReady(stateData, scheduleReload);
     };
 
     const qrRsBlocksL = [
@@ -747,11 +1002,29 @@
     };
 
     const ensureMediaLoaded = slide => {
-        if (!slide) return;
+        if (!slide || !isSlidePlayable(slide)) return;
+
+        slide.querySelectorAll('.text-slide-background--image[data-bg-src]').forEach(element => {
+            const source = element.dataset.bgSrc;
+            const normalized = normalizeAssetUrl(source || '');
+            if (!source || element.style.backgroundImage) return;
+            if (isProbablyOffline() && isSameOriginAssetUrl(normalized) && !cachedAssetUrls.has(normalized)) {
+                element.classList.add('is-media-error');
+                return;
+            }
+            element.classList.remove('is-media-error');
+            element.style.backgroundImage = `url(${JSON.stringify(source)})`;
+        });
 
         slide.querySelectorAll('img[data-src], video[data-src], iframe[data-src]').forEach(element => {
             const source = element.dataset.src;
+            const normalized = normalizeAssetUrl(source || '');
             if (!source || element.getAttribute('src')) return;
+            if (element.tagName === 'IFRAME' && isProbablyOffline()) return;
+            if (isProbablyOffline() && isSameOriginAssetUrl(normalized) && !cachedAssetUrls.has(normalized)) {
+                element.classList.add('is-media-error');
+                return;
+            }
 
             bindMediaFallback(element);
             element.classList.remove('is-media-error');
@@ -774,19 +1047,29 @@
         slide.querySelectorAll('iframe[data-src]').forEach(iframe => {
             iframe.removeAttribute('src');
         });
+
+        slide.querySelectorAll('.text-slide-background--image[data-bg-src]').forEach(element => {
+            element.style.backgroundImage = '';
+        });
     };
 
     const prepareMediaAround = activeIndex => {
         ensureMediaLoaded(slides[activeIndex]);
         if (slides.length > 1) {
-            ensureMediaLoaded(slides[nextIndex(activeIndex)]);
+            const nextPlayable = nextPlayableIndex(activeIndex);
+            if (nextPlayable >= 0 && nextPlayable !== activeIndex) {
+                ensureMediaLoaded(slides[nextPlayable]);
+            }
         }
     };
 
     const cleanupFarMedia = activeIndex => {
         const keep = new Set([activeIndex]);
         if (slides.length > 1) {
-            keep.add(nextIndex(activeIndex));
+            const nextPlayable = nextPlayableIndex(activeIndex);
+            if (nextPlayable >= 0) {
+                keep.add(nextPlayable);
+            }
         }
 
         slides.forEach((slide, slideIndex) => {
@@ -806,7 +1089,7 @@
 
     const startVideo = slide => {
         const video = slide?.querySelector('video');
-        if (video) {
+        if (video && isSlidePlayable(slide)) {
             ensureMediaLoaded(slide);
             video.currentTime = 0;
             video.play().catch(() => {});
@@ -961,6 +1244,11 @@
                 if (!data.signature) return;
                 if (!currentSignature) {
                     currentSignature = data.signature;
+                    warmOfflineCache('state-check');
+                    return;
+                }
+                if (data.signature === currentSignature) {
+                    warmOfflineCache('state-check');
                     return;
                 }
                 if (data.signature !== currentSignature) {
@@ -993,15 +1281,25 @@
             return;
         }
 
+        const targetIndex = nextPlayableIndex(index);
+        if (targetIndex < 0 || targetIndex === index) {
+            nextSlideDueAt = 0;
+            return;
+        }
+
         const delay = durationForSlide(slides[index]);
         nextSlideDueAt = Date.now() + delay;
         timer = window.setTimeout(() => {
-            activate(nextIndex(index));
+            activate(targetIndex);
         }, delay);
     };
 
     const activate = nextSlideIndex => {
         if (!startupComplete) return;
+
+        if (!isSlidePlayable(slides[nextSlideIndex])) {
+            nextSlideIndex = nextPlayableIndex(index);
+        }
 
         const current = slides[index];
         const next = slides[nextSlideIndex];
@@ -1052,7 +1350,10 @@
 
             const lateBy = Date.now() - nextSlideDueAt;
             if (lateBy > Math.max(5000, durationForSlide(slides[index]))) {
-                activate(nextIndex(index));
+                const targetIndex = nextPlayableIndex(index);
+                if (targetIndex >= 0 && targetIndex !== index) {
+                    activate(targetIndex);
+                }
             }
         }, 5000);
     };
@@ -1061,10 +1362,19 @@
         startupComplete = true;
         slideshow.classList.remove('is-startup-sync-pending');
         document.documentElement.classList.remove('hugin-scheduled-sync-reload');
+        if (!isSlidePlayable(slides[index])) {
+            const playable = firstPlayableIndex();
+            if (playable >= 0 && playable !== index) {
+                slides[index].classList.remove('is-active');
+                slides[playable].classList.add('is-active');
+                index = playable;
+            }
+        }
         prepareMediaAround(index);
         startVideo(slides[index]);
         restartTextCardAnimation(slides[index]);
         cleanupFarMedia(index);
+        warmOfflineCache('startup');
         reloadIfChanged();
         queueStateCheck();
         queueMinuteAlignedStateCheck();
@@ -1074,7 +1384,16 @@
 
     window.addEventListener('online', () => {
         sendHeartbeat();
+        warmOfflineCache('online');
         reloadIfChanged();
+    });
+    window.addEventListener('offline', () => {
+        if (!isSlidePlayable(slides[index])) {
+            const playable = firstPlayableIndex();
+            if (playable >= 0 && playable !== index) {
+                activate(playable);
+            }
+        }
     });
     window.addEventListener('pagehide', () => sendHeartbeat({ preferBeacon: true }));
     window.addEventListener('resize', () => {

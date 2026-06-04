@@ -232,6 +232,36 @@ class FrontendController
         json_response($this->buildDisplayState($display, $activeAssignment, $resolvedSlides, $effect, $duration, $displayGroup));
     }
 
+    public function offlineManifest(string $slug): void
+    {
+        $display = $this->db->one('SELECT * FROM displays WHERE slug = ? AND is_active = 1', [$slug]);
+        if (!$display) {
+            json_response(['ok' => false, 'message' => __('frontend.state_message_display_not_found')], 404);
+        }
+
+        $displayGroup = $this->loadDisplayGroup((int)$display['id']);
+        $activeAssignment = $this->resolveActiveAssignment($display);
+        if (!$activeAssignment) {
+            json_response(['ok' => false, 'message' => __('frontend.state_message_no_channel')], 409);
+        }
+
+        $slides = $this->loadChannelSlides((int)$activeAssignment['channel_id']);
+        if (!$slides) {
+            json_response(['ok' => false, 'message' => __('frontend.state_message_no_slides')], 409);
+        }
+
+        $effect = $activeAssignment['transition_effect'] !== 'inherit'
+            ? $activeAssignment['transition_effect']
+            : $display['transition_effect'];
+        $duration = (int)($activeAssignment['slide_duration_seconds'] ?: $display['slide_duration_seconds']);
+        $heartbeat = $this->db->one('SELECT * FROM display_heartbeats WHERE display_id = ?', [$display['id']]);
+        [$resolvedSlides, $pluginAssets] = $this->resolveSlides($slides, $display, $activeAssignment, $heartbeat, $duration);
+        $state = $this->buildDisplayState($display, $activeAssignment, $resolvedSlides, $effect, $duration, $displayGroup);
+        $brandingSettings = $this->loadBrandingSettings();
+
+        json_response($this->buildOfflineManifest($display, $resolvedSlides, $pluginAssets, $state, $brandingSettings));
+    }
+
     public function heartbeat(string $slug): void
     {
         $display = $this->db->one('SELECT * FROM displays WHERE slug = ? AND is_active = 1', [$slug]);
@@ -332,8 +362,13 @@ class FrontendController
                     csa.sort_order AS assignment_sort_order,
                     csa.created_at AS assignment_created_at,
                     m.file_path AS media_file_path,
+                    m.file_size AS media_file_size,
+                    m.mime_type AS media_mime_type,
+                    m.media_kind AS media_kind,
                     m.created_at AS media_created_at,
                     bg.file_path AS background_media_file_path,
+                    bg.file_size AS background_media_file_size,
+                    bg.mime_type AS background_media_mime_type,
                     bg.media_kind AS background_media_kind,
                     bg.created_at AS background_media_created_at
              FROM channel_slide_assignments csa
@@ -423,6 +458,225 @@ class FrontendController
         }
 
         return [$resolved, $assets];
+    }
+
+    private function buildOfflineManifest(array $display, array $resolvedSlides, array $pluginAssets, array $state, array $brandingSettings): array
+    {
+        $assets = [];
+        $slideManifests = [];
+
+        $this->addManifestAsset($assets, url('/display/' . $display['slug']), 'shell', 'document', null, true);
+        $this->addManifestAsset($assets, url('/display/' . $display['slug'] . '/offline-manifest'), 'manifest', 'json', null, true);
+        $this->addManifestAsset($assets, url('/assets/css/display.css'), 'static', 'style', $this->publicFileSize('/assets/css/display.css'), true);
+        $this->addManifestAsset($assets, url('/assets/js/slideshow.js'), 'static', 'script', $this->publicFileSize('/assets/js/slideshow.js'), true);
+        $this->addManifestAsset($assets, url('/assets/img/hugin-logo.webp'), 'static', 'image', $this->publicFileSize('/assets/img/hugin-logo.webp'), true);
+
+        foreach (($pluginAssets['css'] ?? []) as $asset) {
+            $this->addManifestAsset($assets, (string)$asset, 'plugin', 'style', $this->publicFileSizeFromUrl((string)$asset), true);
+        }
+        foreach (($pluginAssets['js'] ?? []) as $asset) {
+            $this->addManifestAsset($assets, (string)$asset, 'plugin', 'script', $this->publicFileSizeFromUrl((string)$asset), true);
+        }
+
+        $loadedFontFamilies = array_values(array_unique(array_filter([
+            (string)($brandingSettings['default_font_heading'] ?? ''),
+            (string)($brandingSettings['default_font_text'] ?? ''),
+        ])));
+        $publicFonts = list_public_fonts();
+        foreach ($loadedFontFamilies as $family) {
+            foreach (($publicFonts[$family]['files'] ?? []) as $file) {
+                $path = '/assets/fonts/' . $file;
+                $this->addManifestAsset($assets, url($path), 'font', 'font', $this->publicFileSize($path), false);
+            }
+        }
+
+        foreach ($resolvedSlides as $slide) {
+            $slideAssets = [];
+            $policy = $this->offlinePolicyForSlide($slide);
+
+            if (in_array((string)$slide['slide_type'], ['image', 'video'], true)) {
+                $this->addSlideAsset($assets, $slideAssets, url((string)$slide['resolved_source_url']), 'media', (string)$slide['slide_type'], (int)($slide['media_file_size'] ?? 0), true);
+            }
+
+            if ((string)$slide['slide_type'] === 'text' && !empty($slide['text_background_url'])) {
+                $this->addSlideAsset(
+                    $assets,
+                    $slideAssets,
+                    url((string)$slide['text_background_url']),
+                    'media',
+                    (string)($slide['text_background_kind'] ?? 'image'),
+                    (int)($slide['background_media_file_size'] ?? 0),
+                    true
+                );
+            }
+
+            if (is_string($slide['plugin_rendered_html'] ?? null) && $slide['plugin_rendered_html'] !== '') {
+                foreach ($this->discoverSameOriginAssets((string)$slide['plugin_rendered_html']) as $assetUrl) {
+                    $this->addSlideAsset($assets, $slideAssets, $assetUrl, 'plugin-rendered', $this->assetKindFromUrl($assetUrl), $this->publicFileSizeFromUrl($assetUrl), false);
+                }
+            }
+
+            $slideManifests[] = [
+                'id' => (int)$slide['id'],
+                'type' => (string)$slide['slide_type'],
+                'policy' => $policy,
+                'required_asset_urls' => array_values(array_filter(array_map(
+                    static fn(array $asset): string => !empty($asset['required']) ? (string)$asset['url'] : '',
+                    $slideAssets
+                ))),
+                'asset_urls' => array_values(array_map(static fn(array $asset): string => (string)$asset['url'], $slideAssets)),
+            ];
+        }
+
+        return [
+            'ok' => true,
+            'version' => 1,
+            'generated_at' => date('c'),
+            'signature' => (string)$state['signature'],
+            'display_slug' => (string)$display['slug'],
+            'shell_url' => url('/display/' . $display['slug']),
+            'state_url' => url('/display/' . $display['slug'] . '/state'),
+            'assets' => array_values($assets),
+            'slides' => $slideManifests,
+        ];
+    }
+
+    private function offlinePolicyForSlide(array $slide): string
+    {
+        $slideType = (string)($slide['slide_type'] ?? '');
+        if ($slideType === 'website') {
+            return 'skip';
+        }
+        if (is_string($slide['plugin_rendered_html'] ?? null) && $slide['plugin_rendered_html'] !== '') {
+            return 'try';
+        }
+        if (in_array($slideType, ['image', 'video', 'text'], true)) {
+            return 'play';
+        }
+        return 'skip';
+    }
+
+    private function addSlideAsset(array &$assets, array &$slideAssets, string $url, string $type, string $kind, ?int $size, bool $required): void
+    {
+        if (!$this->isSameOriginUrl($url)) {
+            return;
+        }
+
+        $asset = $this->addManifestAsset($assets, $url, $type, $kind, $size, $required);
+        if ($asset !== null) {
+            $slideAssets[$asset['url']] = $asset;
+        }
+    }
+
+    private function addManifestAsset(array &$assets, string $url, string $type, string $kind, ?int $size, bool $required): ?array
+    {
+        if (!$this->isSameOriginUrl($url)) {
+            return null;
+        }
+
+        $normalized = $this->normalizeManifestUrl($url);
+        if ($normalized === '') {
+            return null;
+        }
+
+        if (isset($assets[$normalized])) {
+            $assets[$normalized]['required'] = $assets[$normalized]['required'] || $required;
+            return $assets[$normalized];
+        }
+
+        $asset = [
+            'url' => $normalized,
+            'type' => $type,
+            'kind' => $kind,
+            'size' => max(0, (int)($size ?? 0)),
+            'required' => $required,
+        ];
+        $assets[$normalized] = $asset;
+        return $asset;
+    }
+
+    private function discoverSameOriginAssets(string $html): array
+    {
+        $urls = [];
+        if (preg_match_all('/\b(?:src|href|data-src)=["\']([^"\']+)["\']/i', $html, $matches)) {
+            foreach ($matches[1] as $url) {
+                if ($this->isSameOriginUrl($url)) {
+                    $urls[$this->normalizeManifestUrl($url)] = true;
+                }
+            }
+        }
+        if (preg_match_all('/url\(["\']?([^"\')]+)["\']?\)/i', $html, $matches)) {
+            foreach ($matches[1] as $url) {
+                if ($this->isSameOriginUrl($url)) {
+                    $urls[$this->normalizeManifestUrl($url)] = true;
+                }
+            }
+        }
+
+        return array_keys($urls);
+    }
+
+    private function normalizeManifestUrl(string $url): string
+    {
+        $url = trim($url);
+        if ($url === '') {
+            return '';
+        }
+        if (preg_match('#^https?://#i', $url)) {
+            return $url;
+        }
+        return url($url);
+    }
+
+    private function isSameOriginUrl(string $url): bool
+    {
+        $url = trim($url);
+        if ($url === '') {
+            return false;
+        }
+        if (!preg_match('#^https?://#i', $url)) {
+            return str_starts_with($url, '/');
+        }
+
+        $base = parse_url(url('/'));
+        $parts = parse_url($url);
+        if (!$base || !$parts) {
+            return false;
+        }
+
+        return strtolower((string)($base['scheme'] ?? '')) === strtolower((string)($parts['scheme'] ?? ''))
+            && strtolower((string)($base['host'] ?? '')) === strtolower((string)($parts['host'] ?? ''))
+            && (int)($base['port'] ?? 0) === (int)($parts['port'] ?? 0);
+    }
+
+    private function publicFileSize(string $publicPath): int
+    {
+        $publicRoot = realpath((string)app_config('paths.public', dirname(__DIR__, 2) . '/public'));
+        $path = realpath((string)app_config('paths.public', dirname(__DIR__, 2) . '/public') . '/' . ltrim($publicPath, '/'));
+        if ($path === false || $publicRoot === false || !str_starts_with($path, $publicRoot . DIRECTORY_SEPARATOR) || !is_file($path)) {
+            return 0;
+        }
+        return (int)filesize($path);
+    }
+
+    private function publicFileSizeFromUrl(string $url): int
+    {
+        $parts = parse_url($url);
+        $path = is_array($parts) ? (string)($parts['path'] ?? '') : '';
+        return $path !== '' ? $this->publicFileSize($path) : 0;
+    }
+
+    private function assetKindFromUrl(string $url): string
+    {
+        $extension = strtolower(pathinfo((string)(parse_url($url, PHP_URL_PATH) ?: $url), PATHINFO_EXTENSION));
+        return match ($extension) {
+            'css' => 'style',
+            'js' => 'script',
+            'mp4', 'webm', 'ogv' => 'video',
+            'jpg', 'jpeg', 'png', 'gif', 'webp', 'svg' => 'image',
+            'otf', 'ttf', 'woff', 'woff2' => 'font',
+            default => 'asset',
+        };
     }
 
     private function loadBrandingSettings(): array

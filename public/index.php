@@ -24,8 +24,57 @@ if (is_string($staticUri) && in_array($staticMethod, ['GET', 'HEAD'], true)) {
             'woff' => 'font/woff',
             'woff2' => 'font/woff2',
         ];
+        $fileSize = (int)filesize($staticPath);
+        $isVideo = in_array($extension, ['mp4', 'webm'], true);
         header('Content-Type: ' . ($mimeMap[$extension] ?? 'application/octet-stream'));
-        header('Content-Length: ' . (string)filesize($staticPath));
+        if ($isVideo) {
+            header('Accept-Ranges: bytes');
+        }
+
+        $rangeHeader = $isVideo ? (string)($_SERVER['HTTP_RANGE'] ?? '') : '';
+        if ($rangeHeader !== '' && preg_match('/^bytes=(\d*)-(\d*)$/', $rangeHeader, $rangeMatch)) {
+            $start = $rangeMatch[1] !== '' ? (int)$rangeMatch[1] : null;
+            $end = $rangeMatch[2] !== '' ? (int)$rangeMatch[2] : null;
+
+            if ($start === null && $end !== null) {
+                $start = max(0, $fileSize - $end);
+                $end = $fileSize - 1;
+            } else {
+                $start = $start ?? 0;
+                $end = $end ?? ($fileSize - 1);
+            }
+
+            if ($start >= 0 && $end >= $start && $start < $fileSize) {
+                $end = min($end, $fileSize - 1);
+                $length = $end - $start + 1;
+                http_response_code(206);
+                header('Content-Range: bytes ' . $start . '-' . $end . '/' . $fileSize);
+                header('Content-Length: ' . (string)$length);
+                if ($staticMethod !== 'HEAD') {
+                    $handle = fopen($staticPath, 'rb');
+                    if ($handle !== false) {
+                        fseek($handle, $start);
+                        $remaining = $length;
+                        while ($remaining > 0 && !feof($handle)) {
+                            $chunk = fread($handle, min(8192, $remaining));
+                            if ($chunk === false || $chunk === '') {
+                                break;
+                            }
+                            $remaining -= strlen($chunk);
+                            echo $chunk;
+                        }
+                        fclose($handle);
+                    }
+                }
+                exit;
+            }
+
+            http_response_code(416);
+            header('Content-Range: bytes */' . $fileSize);
+            exit;
+        }
+
+        header('Content-Length: ' . (string)$fileSize);
         if ($staticMethod !== 'HEAD') {
             readfile($staticPath);
         }
@@ -145,6 +194,7 @@ if (preg_match('#^/plugin-assets/([a-zA-Z0-9\-_]+)/(.+)$#', $uri, $m) && $method
 if (preg_match('#^/preview-slide/(\d+)$#', $uri, $m) && $method === 'GET') { $frontend->previewSlide((int)$m[1]); exit; }
 if (preg_match('#^/preview-slide/(\d+)/heartbeat$#', $uri, $m) && $method === 'POST') { $frontend->previewHeartbeat((int)$m[1]); exit; }
 if (preg_match('#^/preview-slide/(\d+)/state$#', $uri, $m) && $method === 'GET') { $frontend->previewState((int)$m[1]); exit; }
+if (preg_match('#^/display/([a-zA-Z0-9\-_]+)/offline-manifest$#', $uri, $m) && $method === 'GET') { $frontend->offlineManifest($m[1]); exit; }
 if (preg_match('#^/display/([a-zA-Z0-9\-_]+)$#', $uri, $m) && $method === 'GET') { $frontend->display($m[1]); exit; }
 if (preg_match('#^/display/([a-zA-Z0-9\-_]+)/heartbeat$#', $uri, $m) && $method === 'POST') { $frontend->heartbeat($m[1]); exit; }
 if (preg_match('#^/display/([a-zA-Z0-9\-_]+)/state$#', $uri, $m) && $method === 'GET') { $frontend->state($m[1]); exit; }
