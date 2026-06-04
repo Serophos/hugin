@@ -2,7 +2,6 @@
 <div class="page-head">
     <div>
         <h1><?= e(__('display.plural')) ?></h1>
-        <p class="muted"><?= e(__('display.drag_hint')) ?></p>
     </div>
     <div class="actions">
         <a class="button button--normal" href="<?= e(url('/admin/locations')) ?>"><?= admin_icon('manage') ?><span><?= e(__('locations.manage')) ?></span></a>
@@ -15,7 +14,6 @@
     <table class="admin-table admin-table--displays" data-admin-table>
         <thead>
         <tr>
-            <th class="handle-col"></th>
             <th aria-sort="none"><button type="button" class="slide-library-sort" data-admin-sort="name" data-sort-type="text" aria-label="<?= e(__('slide.sort_by_column', ['column' => __('common.name')])) ?>"><?= e(__('common.name')) ?></button></th>
             <th aria-sort="none"><button type="button" class="slide-library-sort" data-admin-sort="url" data-sort-type="text" aria-label="<?= e(__('slide.sort_by_column', ['column' => __('display.url_label')])) ?>"><?= e(__('display.url_label')) ?></button></th>
             <th aria-sort="none"><button type="button" class="slide-library-sort" data-admin-sort="location" data-sort-type="text" aria-label="<?= e(__('slide.sort_by_column', ['column' => __('locations.singular')])) ?>"><?= e(__('locations.singular')) ?></button></th>
@@ -25,7 +23,6 @@
             <th><?= e(__('common.actions')) ?></th>
         </tr>
         <tr class="slide-library-filter-row">
-            <th></th>
             <th><input type="search" data-admin-filter="name" aria-label="<?= e(__('slide.filter_column', ['column' => __('common.name')])) ?>" placeholder="<?= e(__('common.name')) ?>"></th>
             <th><input type="search" data-admin-filter="url" aria-label="<?= e(__('slide.filter_column', ['column' => __('display.url_label')])) ?>" placeholder="<?= e(__('display.url_label')) ?>"></th>
             <th><input type="search" data-admin-filter="location" aria-label="<?= e(__('slide.filter_column', ['column' => __('locations.singular')])) ?>" placeholder="<?= e(__('locations.singular')) ?>"></th>
@@ -41,7 +38,7 @@
             <th></th>
         </tr>
         </thead>
-        <tbody class="sortable-list" data-sort-endpoint="<?= e(url('/admin/sort/displays')) ?>">
+        <tbody>
         <?php foreach ($displays as $display): ?>
             <?php
             $displayUrl = '/display/' . $display['slug'];
@@ -50,8 +47,7 @@
             $statusValue = $display['is_active'] ? 'active' : 'inactive';
             $statusLabel = $display['is_active'] ? __('common.active') : __('common.inactive');
             ?>
-            <tr draggable="true" data-id="<?= e((string)$display['id']) ?>" data-admin-row>
-                <td class="handle">↕</td>
+            <tr data-admin-row>
                 <td data-admin-cell="name" data-sort-value="<?= e((string)$display['name']) ?>" data-filter-value="<?= e((string)$display['name']) ?>"><?= e($display['name']) ?></td>
                 <td data-admin-cell="url" data-sort-value="<?= e($displayUrl) ?>" data-filter-value="<?= e($displayUrl) ?>"><a href="<?= e(url($displayUrl)) ?>" target="_blank"><?= e($displayUrl) ?></a></td>
                 <td data-admin-cell="location" data-sort-value="<?= e($locationLabel) ?>" data-filter-value="<?= e($locationLabel) ?>"><?= e($locationLabel) ?></td>

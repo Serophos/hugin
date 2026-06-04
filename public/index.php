@@ -131,7 +131,6 @@ if (preg_match('#^/admin/displays/(\d+)/edit$#', $uri, $m) && $method === 'GET')
 if (preg_match('#^/admin/displays/(\d+)/edit$#', $uri, $m) && $method === 'POST') { $admin->saveDisplay((int)$m[1]); exit; }
 if (preg_match('#^/admin/displays/(\d+)/reload$#', $uri, $m) && $method === 'POST') { $admin->reloadDisplay((int)$m[1]); exit; }
 if (preg_match('#^/admin/displays/(\d+)/delete$#', $uri, $m) && $method === 'POST') { $admin->deleteDisplay((int)$m[1]); exit; }
-if ($uri === '/admin/sort/displays' && $method === 'POST') { $admin->sortDisplays(); exit; }
 
 if ($uri === '/admin/locations' && $method === 'GET') { $admin->locations(); exit; }
 if ($uri === '/admin/locations/create' && $method === 'POST') { $admin->saveLocation(); exit; }

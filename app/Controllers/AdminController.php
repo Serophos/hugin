@@ -8,6 +8,7 @@ use App\Core\SlidePluginInterface;
 use App\Core\UploadManager;
 use App\Core\View;
 use App\Core\PluginManager;
+use App\Services\DisplayStatusService;
 use RuntimeException;
 
 class AdminController
@@ -294,13 +295,39 @@ class AdminController
     {
         $this->auth->requireLogin();
 
+        $displayStatusService = new DisplayStatusService($this->db);
+        $displayStatuses = $displayStatusService->getAllDisplayStatuses();
+        $healthTotals = [
+            'online' => 0,
+            'stale' => 0,
+            'offline' => 0,
+            'never_seen' => 0,
+            'inactive' => 0,
+        ];
+        $onlineDisplays = [];
+        $offlineDisplays = [];
+
+        foreach ($displayStatuses as $displayStatus) {
+            $status = (string)($displayStatus['monitoring_status'] ?? 'offline');
+            if (array_key_exists($status, $healthTotals)) {
+                $healthTotals[$status]++;
+            }
+
+            $dashboardRow = $this->dashboardDisplayRow($displayStatus);
+            if ($status === 'online') {
+                $onlineDisplays[] = $dashboardRow;
+            } else {
+                $offlineDisplays[] = $dashboardRow;
+            }
+        }
+
         $stats = [
             'displays' => $this->count('displays'),
             'channels' => $this->count('channels'),
+            'schedules' => $this->count('schedules'),
             'slides' => $this->count('slides'),
             'media' => $this->count('media_assets'),
             'users' => $this->count('users'),
-            'online_displays' => $this->countOnlineDisplays(),
             'plugins' => count($this->plugins->getEnabledPlugins()),
         ];
 
@@ -315,26 +342,12 @@ class AdminController
              LIMIT 5'
         );
 
-        $displayStatuses = $this->db->all(
-            'SELECT d.id, d.name, d.slug, d.timezone, d.is_active,
-                    h.last_seen_at, h.last_seen_ip, h.current_channel_id, h.current_channel_name
-             FROM displays d
-             LEFT JOIN display_heartbeats h ON h.display_id = d.id
-             ORDER BY d.sort_order ASC, d.name ASC'
-        );
-
-        foreach ($displayStatuses as &$displayStatus) {
-            $activeAssignment = $this->resolveActiveAssignment($displayStatus);
-            $displayStatus['resolved_channel_name'] = $activeAssignment['channel_name'] ?? ($displayStatus['current_channel_name'] ?: __('dashboard.no_channel'));
-            $displayStatus['status'] = $this->isDisplayOnline($displayStatus['last_seen_at']) ? 'online' : 'offline';
-            $displayStatus['minutes_since_seen'] = $this->minutesSinceSeen($displayStatus['last_seen_at']);
-        }
-        unset($displayStatus);
-
         $this->view->render('admin/dashboard', [
             'stats' => $stats,
+            'healthTotals' => $healthTotals,
+            'onlineDisplays' => $onlineDisplays,
+            'offlineDisplays' => $offlineDisplays,
             'recentSlides' => $recentSlides,
-            'displayStatuses' => $displayStatuses,
             'flash' => flash('success'),
         ]);
     }
@@ -352,7 +365,7 @@ class AdminController
              LEFT JOIN display_group_memberships dgm ON dgm.display_id = d.id
              LEFT JOIN display_groups g ON g.id = dgm.group_id
              LEFT JOIN display_locations l ON l.id = g.location_id
-             ORDER BY d.sort_order ASC, d.name ASC'
+             ORDER BY d.name ASC'
         );
 
         $this->view->render('admin/displays', [
@@ -521,16 +534,6 @@ class AdminController
         redirect($this->adminReturnPath('/admin/displays'));
     }
 
-    public function sortDisplays(): void
-    {
-        $this->auth->requireRole('admin');
-        $displayIds = $this->normalizeIds($this->request->input('ids', []));
-        foreach ($displayIds as $index => $id) {
-            $this->db->execute('UPDATE displays SET sort_order = ? WHERE id = ?', [$index + 1, $id]);
-        }
-        $this->requestReloadForDisplays($displayIds);
-        json_response(['ok' => true]);
-    }
 
     public function locations(): void
     {
@@ -2887,6 +2890,76 @@ class AdminController
         return ($display['orientation'] ?? 'landscape') === 'vertical'
             ? ['width' => 124, 'height' => 220]
             : ['width' => 220, 'height' => 124];
+    }
+
+    private function dashboardDisplayRow(array $display): array
+    {
+        $status = (string)($display['monitoring_status'] ?? 'offline');
+        $browserLabel = $this->compactPair($display['browser_name'] ?? null, $display['browser_version'] ?? null);
+        $osLabel = $this->compactPair($display['os_name'] ?? null, $display['os_version'] ?? null);
+        $screenLabel = $this->dashboardDimensionLabel($display['screen_width'] ?? null, $display['screen_height'] ?? null);
+        $viewportLabel = $this->dashboardDimensionLabel($display['viewport_width'] ?? null, $display['viewport_height'] ?? null);
+
+        return [
+            'id' => (int)$display['id'],
+            'name' => (string)$display['name'],
+            'slug' => (string)$display['slug'],
+            'status' => $status,
+            'status_label' => $this->displayMonitoringLabel($status),
+            'channel_label' => $display['resolved_channel_name'] ?: __('dashboard.no_channel'),
+            'last_seen_label' => $this->dashboardLastSeenLabel($display),
+            'ip_label' => $display['last_seen_ip'] ?: __('common.unknown'),
+            'client_label' => trim($browserLabel . ($browserLabel !== '' && $osLabel !== '' ? ' / ' : '') . $osLabel) ?: __('common.unknown'),
+            'screen_label' => $screenLabel !== '' ? $screenLabel : __('common.unknown'),
+            'detail_label' => $this->dashboardHeartbeatDetailLabel($display, $viewportLabel),
+            'preview_url' => '/display/' . (string)$display['slug'],
+            'edit_url' => '/admin/displays/' . (int)$display['id'] . '/edit',
+        ];
+    }
+
+    private function dashboardLastSeenLabel(array $display): string
+    {
+        if (empty($display['last_seen_at'])) {
+            return __('common.never');
+        }
+
+        $minutes = $display['minutes_since_seen'];
+        if ($minutes === null) {
+            return (string)$display['last_seen_at'];
+        }
+
+        return (string)$display['last_seen_at'] . ' (' . __('dashboard.min_ago', ['minutes' => (string)$minutes]) . ')';
+    }
+
+    private function dashboardHeartbeatDetailLabel(array $display, string $viewportLabel): string
+    {
+        $details = [
+            __('common.platform') . ': ' . ($display['platform'] ?: __('common.unknown')),
+            __('common.language') . ': ' . ($display['language'] ?: __('common.unknown')),
+            __('common.timezone') . ': ' . ($display['client_timezone'] ?: __('common.unknown')),
+            __('common.viewport') . ': ' . ($viewportLabel !== '' ? $viewportLabel : __('common.unknown')),
+            __('display.pixel_ratio') . ': ' . ($display['device_pixel_ratio'] !== null ? (string)$display['device_pixel_ratio'] : __('common.unknown')),
+            __('display.touch_points') . ': ' . ($display['max_touch_points'] !== null ? (string)$display['max_touch_points'] : __('common.unknown')),
+            __('display.cpu_threads') . ': ' . ($display['hardware_concurrency'] !== null ? (string)$display['hardware_concurrency'] : __('common.unknown')),
+            __('display.device_memory') . ': ' . ($display['device_memory_gb'] !== null ? (string)$display['device_memory_gb'] . ' GB' : __('common.unknown')),
+            __('display.navigator_online') . ': ' . ($display['is_online'] === null ? __('common.unknown') : ((int)$display['is_online'] === 1 ? __('common.yes') : __('common.no'))),
+            __('display.cookies_enabled') . ': ' . ($display['cookies_enabled'] === null ? __('common.unknown') : ((int)$display['cookies_enabled'] === 1 ? __('common.yes') : __('common.no'))),
+        ];
+
+        return implode(' | ', $details);
+    }
+
+    private function dashboardDimensionLabel(mixed $width, mixed $height): string
+    {
+        $width = (int)($width ?? 0);
+        $height = (int)($height ?? 0);
+
+        return $width > 0 && $height > 0 ? $width . ' x ' . $height : '';
+    }
+
+    private function compactPair(mixed $first, mixed $second): string
+    {
+        return trim((string)($first ?: '') . ' ' . (string)($second ?: ''));
     }
 
     private function resolutionLabel(array $display): string
