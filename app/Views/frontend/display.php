@@ -208,6 +208,7 @@ if (str_starts_with($display['slug'] ?? '', 'preview-slide-') && preg_match('#^p
         </section>
     <?php endforeach; ?>
 </div>
+<script src="<?= e(url('/assets/js/hugin-qr.js')) ?>"></script>
 <script src="<?= e(url('/assets/js/slideshow.js')) ?>"></script>
 <?php foreach (($pluginAssets['js'] ?? []) as $jsAsset): ?>
     <script src="<?= e($jsAsset) ?>"></script>

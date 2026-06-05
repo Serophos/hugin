@@ -40,17 +40,20 @@ Current application metadata:
 
 3. Edit `config/config.php`.
 
-4. Import the database schema and demo data:
+4. Create an empty database, then import the schema and demo data into it:
 
    ```bash
-   mysql -u root -p < database.sql
+   mysql -u root -p -e "CREATE DATABASE hugin CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+   mysql -u root -p hugin < database.sql
    ```
 
-5. Point the web server document root to `public/`.
+5. Set the same database name in `config/config.php`.
 
-6. Make sure PHP can write uploaded media below `public/uploads/`.
+6. Point the web server document root to `public/`.
 
-7. Open `/admin/login`.
+7. Make sure PHP can write uploaded media below `public/uploads/`.
+
+8. Open `/admin/login`.
 
 The seeded demo users both use the password `admin123!`:
 

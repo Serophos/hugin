@@ -1,5 +1,6 @@
 # Local config files
 config.php
+.vscode
 
 # Backup files
 *.bak

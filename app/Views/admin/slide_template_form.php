@@ -22,6 +22,7 @@ $editorI18n = [
     'field' => __('templates.property_field'),
     'field_key' => __('templates.field_key'),
     'field_label' => __('templates.field_label'),
+    'field_default' => __('templates.field_default'),
     'field_required' => __('templates.field_required'),
     'field_1' => __('templates.field_default_name', ['number' => '1']),
     'text' => __('templates.field_type_text'),
@@ -64,6 +65,13 @@ $editorI18n = [
     'add_field_tooltip' => __('templates.add_field_tooltip'),
     'remove_field_tooltip' => __('templates.remove_field_tooltip'),
     'select_layer_tooltip' => __('templates.select_layer_tooltip'),
+    'layer_group_background' => __('templates.layer_group_background'),
+    'layer_group_content' => __('templates.layer_group_content'),
+    'layer_group_overlay' => __('templates.layer_group_overlay'),
+    'layer_empty_group' => __('templates.layer_empty_group'),
+    'layer_locked' => __('templates.layer_locked'),
+    'layer_drag_tooltip' => __('templates.layer_drag_tooltip'),
+    'layer_position_hint' => __('templates.layer_position_hint'),
     'import_invalid' => __('templates.import_invalid'),
     'open_color_picker' => __('templates.open_color_picker'),
     'color_opacity' => __('templates.color_opacity'),
@@ -175,9 +183,17 @@ require __DIR__ . '/../layouts/admin_header.php';
         <a class="button button--normal" href="<?= e(url('/admin/slide-templates')) ?>"><?= admin_icon('cancel') ?><span><?= e(__('common.cancel')) ?></span></a>
     </div>
 </form>
+<script src="<?= e(url('/assets/js/hugin-qr.js')) ?>"></script>
 <script>
 (() => {
     const mediaAssets = <?= $mediaJson ?: '[]' ?>;
+    const mediaById = new Map(mediaAssets.map(asset => [Number(asset.id), asset]));
+    const previewQrUrl = 'https://hugin.local/template-preview';
+    const layerGroups = [
+        { key: 'background', base: 0, locked: true },
+        { key: 'content', base: 100, locked: false },
+        { key: 'overlay', base: 700, locked: false },
+    ];
     const i18n = <?= $editorI18nJson ?: '{}' ?>;
     const specs = {
         landscape: <?= $landscapeJson ?: '{}' ?>,
@@ -191,6 +207,7 @@ require __DIR__ . '/../layouts/admin_header.php';
     let orientation = 'landscape';
     let selectedId = null;
     let activeInspectorTab = 'element';
+    let draggedLayerElementId = '';
 
     const editor = document.querySelector('[data-template-editor]');
     const form = document.querySelector('[data-template-editor-form]');
@@ -218,6 +235,99 @@ require __DIR__ . '/../layouts/admin_header.php';
     function fieldOptions(selected) { return [`<option value="">${escapeHtml(i18n.none)}</option>`].concat(spec().fields.map(field => `<option value="${attr(field.key)}" ${field.key === selected ? 'selected' : ''}>${escapeHtml(field.label || field.key)}</option>`)).join(''); }
     function mediaOptions() { return [`<option value="0">${escapeHtml(i18n.none)}</option>`].concat(mediaAssets.map(asset => `<option value="${asset.id}">${escapeHtml(asset.name)} (${escapeHtml(asset.kind)})</option>`)).join(''); }
     function cssColor(value) { return String(value || '').trim() || 'transparent'; }
+    function mediaAsset(id) { return mediaById.get(Number(id || 0)) || null; }
+
+    function previewFieldValue(element) {
+        const field = fieldForElement(element);
+        if (!field) return '';
+        const value = String(field.default || '').trim();
+        return value || field.label || field.key || '';
+    }
+
+    function textPreviewValue(element) {
+        return previewFieldValue(element) || elementLabel(element);
+    }
+
+    function previewPlaceholder(label, modifier = '') {
+        const node = document.createElement('span');
+        node.className = `template-editor__element-placeholder ${modifier}`.trim();
+        node.textContent = label;
+        return node;
+    }
+
+    function renderMediaPreview(assetId, fit, emptyLabel) {
+        const asset = mediaAsset(assetId);
+        if (!asset) {
+            if (!emptyLabel) return document.createElement('span');
+            return previewPlaceholder(emptyLabel);
+        }
+        if (asset.kind === 'image' && asset.url) {
+            const image = document.createElement('img');
+            image.className = 'template-editor__media-preview';
+            image.src = asset.url;
+            image.alt = asset.name || asset.original_name || '';
+            image.loading = 'lazy';
+            image.decoding = 'async';
+            image.style.objectFit = ['cover', 'contain'].includes(fit) ? fit : 'cover';
+            return image;
+        }
+
+        const placeholder = document.createElement('span');
+        placeholder.className = 'template-editor__video-placeholder';
+        placeholder.innerHTML = `<span aria-hidden="true"></span><strong>${escapeHtml(i18n.media_video)}</strong><small>${escapeHtml(asset.name || asset.original_name || '')}</small>`;
+        return placeholder;
+    }
+
+    function renderElementPreview(element) {
+        const preview = document.createElement('span');
+        preview.className = 'template-editor__element-preview';
+        const fit = element.style?.fit || 'cover';
+
+        if (element.type === 'background') {
+            preview.appendChild(renderMediaPreview(element.style?.backgroundMediaAssetId || 0, fit, ''));
+            return preview;
+        }
+        if (element.type === 'media') {
+            const mediaAssetId = element.style?.mediaAssetId || (element.field ? previewFieldValue(element) : 0);
+            preview.appendChild(renderMediaPreview(mediaAssetId, fit, previewFieldValue(element) || elementLabel(element)));
+            return preview;
+        }
+        if (element.type === 'qr') {
+            const qr = document.createElement('canvas');
+            qr.className = 'template-editor__qr-preview';
+            qr.width = 1;
+            qr.height = 1;
+            qr.dataset.editorQr = '1';
+            qr.dataset.qrUrl = previewFieldValue(element) || previewQrUrl;
+            qr.dataset.qrForeground = element.style?.color || 'rgba(15, 23, 42, 1)';
+            qr.dataset.qrBackground = element.style?.backgroundColor || 'rgba(255, 255, 255, 1)';
+            preview.appendChild(qr);
+            return preview;
+        }
+        if (element.type === 'text') {
+            const text = document.createElement('span');
+            text.className = 'template-editor__text-preview';
+            text.textContent = textPreviewValue(element);
+            if (element.style?.fontSize) text.style.fontSize = `clamp(0.7rem, ${Number(element.style.fontSize)}cqw, 4rem)`;
+            if (element.style?.fontWeight) text.style.fontWeight = element.style.fontWeight;
+            if (element.style?.align) text.style.textAlign = element.style.align;
+            preview.appendChild(text);
+            return preview;
+        }
+
+        return preview;
+    }
+
+    function renderEditorQrCodes() {
+        canvas.querySelectorAll('[data-editor-qr]').forEach(qr => {
+            try {
+                if (!window.HuginQr?.drawCanvas) throw new Error('QR renderer is unavailable.');
+                window.HuginQr.drawCanvas(qr, qr.dataset.qrUrl || previewQrUrl, qr.dataset.qrForeground, qr.dataset.qrBackground);
+            } catch (error) {
+                qr.replaceWith(previewPlaceholder(previewQrUrl, 'template-editor__element-placeholder--qr'));
+            }
+        });
+    }
 
     function syncHidden() {
         hiddenLandscape.value = JSON.stringify(normalizedSpecForSave(specs.landscape || defaults.landscape()));
@@ -257,8 +367,8 @@ require __DIR__ . '/../layouts/admin_header.php';
             node.style.color = element.style?.color || '';
             node.style.background = element.style?.backgroundColor || (element.type === 'background' ? '#0f172a' : 'rgba(255,255,255,0.18)');
             node.style.borderRadius = `${Number(element.style?.radius || 0)}cqw`;
-            node.textContent = elementLabel(element);
             node.dataset.elementId = element.id;
+            node.appendChild(renderElementPreview(element));
             node.addEventListener('pointerdown', startDrag);
             node.addEventListener('click', () => { selectElement(element.id); });
             if (!isBackground(element)) {
@@ -269,6 +379,7 @@ require __DIR__ . '/../layouts/admin_header.php';
             }
             canvas.appendChild(node);
         });
+        renderEditorQrCodes();
     }
 
     function renderLiveCanvas() {
@@ -360,6 +471,29 @@ require __DIR__ . '/../layouts/admin_header.php';
         return `<select data-${dataKind}="${attr(key)}">${options}</select>`;
     }
 
+    function layerGroupForElement(element) {
+        if (isBackground(element)) return 'background';
+        return Number(element?.z || 0) >= 700 ? 'overlay' : 'content';
+    }
+
+    function layerGroupLabel(groupKey) {
+        return i18n[`layer_group_${groupKey}`] || groupKey;
+    }
+
+    function elementsInLayerGroup(groupKey) {
+        return spec().elements
+            .filter(element => layerGroupForElement(element) === groupKey)
+            .sort((a, b) => (Number(b.z || 0) - Number(a.z || 0)) || elementLabel(a).localeCompare(elementLabel(b)));
+    }
+
+    function layerPositionLabel(element) {
+        const groupKey = layerGroupForElement(element);
+        const groupElements = elementsInLayerGroup(groupKey);
+        const index = groupElements.findIndex(item => item.id === element.id);
+        const position = index >= 0 ? index + 1 : 1;
+        return `${layerGroupLabel(groupKey)} · ${i18n.layer_position_hint.replace(':position', String(position)).replace(':z', String(Number(element.z || 0)))}`;
+    }
+
     function renderElementInspector(element) {
         if (!element) {
             elementPanel.innerHTML = `${panelTitle(i18n.inspector_element)}<div class="template-editor__empty-state">${escapeHtml(i18n.no_selection)}</div>`;
@@ -378,7 +512,7 @@ require __DIR__ . '/../layouts/admin_header.php';
                 ${propertyRow(i18n.w, numberInput('prop', 'w', coordinateDisplay(element.w, 0.02, 1), 'step="0.0001" min="0.02" max="1"'))}
                 ${propertyRow(i18n.h, numberInput('prop', 'h', coordinateDisplay(element.h, 0.02, 1), 'step="0.0001" min="0.02" max="1"'))}
             </div>
-            ${propertyRow(i18n.z, numberInput('prop', 'z', element.z || 0, 'step="1" min="0" max="999"'))}
+            ${propertyRow(i18n.z, `<span class="template-editor__property-value">${escapeHtml(layerPositionLabel(element))}</span>`)}
         `);
 
         let content = '';
@@ -463,21 +597,31 @@ require __DIR__ . '/../layouts/admin_header.php';
                 <label>${escapeHtml(i18n.field_label)}<input value="${attr(field.label)}" data-field-label></label>
                 <label>${escapeHtml(i18n.field)}<select data-field-type><option value="text">${escapeHtml(i18n.text)}</option><option value="multiline">${escapeHtml(i18n.multiline)}</option><option value="url">${escapeHtml(i18n.url)}</option><option value="media_image">${escapeHtml(i18n.media_image)}</option><option value="media_video">${escapeHtml(i18n.media_video)}</option><option value="qr_url">${escapeHtml(i18n.qr_url)}</option><option value="color">${escapeHtml(i18n.color)}</option></select></label>
                 <label class="checkbox-row"><input type="checkbox" data-field-required ${field.required ? 'checked' : ''}> ${escapeHtml(i18n.field_required)}</label>
+                ${fieldDefaultControl(field)}
             </div>`;
         row.querySelector('[data-field-type]').value = field.type || defaultFieldTypeForElement(element);
-        row.querySelectorAll('input, select').forEach(input => {
+        const syncFieldMeta = () => {
+            const oldKey = field.key;
+            const newKey = normalizeKey(row.querySelector('[data-field-key]').value || `field_${index + 1}`);
+            field.key = newKey;
+            field.label = row.querySelector('[data-field-label]').value || field.key;
+            field.type = row.querySelector('[data-field-type]').value;
+            field.required = row.querySelector('[data-field-required]').checked;
+            field.default = row.querySelector('[data-field-default]')?.value ?? '';
+            if (oldKey !== newKey) {
+                spec().elements.forEach(item => { if (item.field === oldKey) item.field = newKey; });
+            }
+            element.field = newKey;
+        };
+        row.querySelectorAll('[data-field-key], [data-field-label], [data-field-type], [data-field-required]').forEach(input => {
+            const update = () => { syncFieldMeta(); render(); };
+            input.addEventListener('input', update);
+            input.addEventListener('change', update);
+        });
+        row.querySelectorAll('[data-field-default]').forEach(input => {
             const update = () => {
-                const oldKey = field.key;
-                const newKey = normalizeKey(row.querySelector('[data-field-key]').value || `field_${index + 1}`);
-                field.key = newKey;
-                field.label = row.querySelector('[data-field-label]').value || field.key;
-                field.type = row.querySelector('[data-field-type]').value;
-                field.required = row.querySelector('[data-field-required]').checked;
-                if (oldKey !== newKey) {
-                    spec().elements.forEach(item => { if (item.field === oldKey) item.field = newKey; });
-                }
-                element.field = newKey;
-                render();
+                field.default = input.value;
+                renderLiveCanvas();
             };
             input.addEventListener('input', update);
             input.addEventListener('change', update);
@@ -524,28 +668,185 @@ require __DIR__ . '/../layouts/admin_header.php';
         spec().elements.forEach(element => { if (element.field === fieldKey) element.field = ''; });
     }
 
+    function fieldDefaultControl(field) {
+        const type = field.type || 'text';
+        const value = String(field.default ?? '');
+        if (type === 'multiline') {
+            return `<label class="template-editor__field-default">${escapeHtml(i18n.field_default)}<textarea rows="3" data-field-default>${escapeHtml(value)}</textarea></label>`;
+        }
+        if (type === 'media_image' || type === 'media_video') {
+            const expected = type === 'media_image' ? 'image' : 'video';
+            const options = [`<option value="">${escapeHtml(i18n.none)}</option>`].concat(mediaAssets
+                .filter(asset => asset.kind === expected)
+                .map(asset => `<option value="${attr(asset.id)}" ${String(asset.id) === value ? 'selected' : ''}>${escapeHtml(asset.name)} (${escapeHtml(asset.kind)})</option>`));
+            return `<label class="template-editor__field-default">${escapeHtml(i18n.field_default)}<select data-field-default>${options.join('')}</select></label>`;
+        }
+        const inputType = type === 'url' || type === 'qr_url' ? 'url' : 'text';
+        return `<label class="template-editor__field-default">${escapeHtml(i18n.field_default)}<input type="${inputType}" value="${attr(value)}" data-field-default></label>`;
+    }
+
+    function layerElementsByGroup() {
+        return Object.fromEntries(layerGroups.map(group => [group.key, elementsInLayerGroup(group.key)]));
+    }
+
+    function recalculatedLayerZ(orderByGroup) {
+        layerGroups.forEach(group => {
+            const orderedIds = orderByGroup[group.key] || [];
+            const step = 10;
+            orderedIds.forEach((id, index) => {
+                const element = spec().elements.find(item => item.id === id);
+                if (!element) return;
+                const topOffset = (orderedIds.length - index - 1) * step;
+                element.z = Math.min(group.base + 99, group.base + topOffset);
+            });
+        });
+    }
+
+    function orderByRenderedLayers() {
+        const orderByGroup = {};
+        layerGroups.forEach(group => {
+            const list = layersPanel.querySelector(`[data-layer-group-list="${group.key}"]`);
+            orderByGroup[group.key] = list ? Array.from(list.querySelectorAll('[data-layer-element-id]')).map(row => row.dataset.layerElementId) : [];
+        });
+        return orderByGroup;
+    }
+
+    function moveElementToLayerGroup(elementId, groupKey, beforeId = '') {
+        const element = spec().elements.find(item => item.id === elementId);
+        const group = layerGroups.find(item => item.key === groupKey);
+        if (!element || !group || group.locked || isBackground(element)) return;
+
+        const orderByGroup = layerElementsByGroup();
+        Object.keys(orderByGroup).forEach(key => {
+            orderByGroup[key] = orderByGroup[key].map(item => item.id).filter(id => id !== elementId);
+        });
+        const target = orderByGroup[groupKey] || [];
+        const beforeIndex = beforeId ? target.indexOf(beforeId) : -1;
+        if (beforeIndex >= 0) {
+            target.splice(beforeIndex, 0, elementId);
+        } else {
+            target.push(elementId);
+        }
+        orderByGroup[groupKey] = target;
+        recalculatedLayerZ(orderByGroup);
+        selectedId = elementId;
+        render();
+    }
+
+    function nextContentLayerZ() {
+        const content = elementsInLayerGroup('content');
+        const maxZ = content.reduce((max, element) => Math.max(max, Number(element.z || 0)), 90);
+        return Math.min(690, maxZ + 10);
+    }
+
+    function applyRenderedLayerOrder() {
+        recalculatedLayerZ(orderByRenderedLayers());
+        render();
+    }
+
+    function layerRow(element, group) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'template-editor__layer';
+        button.dataset.layerElementId = element.id;
+        if (!group.locked) {
+            button.draggable = true;
+            button.title = i18n.layer_drag_tooltip;
+        } else {
+            button.title = i18n.layer_locked;
+            button.classList.add('is-locked');
+        }
+        if (element.id === selectedId) button.classList.add('is-selected');
+        button.setAttribute('aria-label', `${i18n.select_layer_tooltip}: ${elementLabel(element)}`);
+        button.innerHTML = `
+            <span class="template-editor__layer-icon" aria-hidden="true">${icons.move || ''}</span>
+            <span>${escapeHtml(elementLabel(element))}</span>
+            <small>${escapeHtml(element.type)} · ${escapeHtml(layerGroupLabel(group.key))} · z ${escapeHtml(element.z || 0)}</small>`;
+        button.addEventListener('click', () => { selectElement(element.id); });
+        if (!group.locked) {
+            button.addEventListener('dragstart', event => {
+                draggedLayerElementId = element.id;
+                selectedId = element.id;
+                button.classList.add('is-dragging');
+                event.dataTransfer.effectAllowed = 'move';
+                event.dataTransfer.setData('text/plain', element.id);
+            });
+            button.addEventListener('dragend', () => {
+                draggedLayerElementId = '';
+                button.classList.remove('is-dragging');
+                layersPanel.querySelectorAll('.is-drag-over').forEach(item => item.classList.remove('is-drag-over'));
+            });
+        }
+        return button;
+    }
+
+    function bindLayerGroupDrop(list, group) {
+        if (group.locked) return;
+        list.addEventListener('dragover', event => {
+            const draggedId = draggedLayerElementId || event.dataTransfer.getData('text/plain');
+            const dragged = spec().elements.find(element => element.id === draggedId);
+            if (!dragged || isBackground(dragged)) return;
+            event.preventDefault();
+            event.dataTransfer.dropEffect = 'move';
+            const target = event.target instanceof Element ? event.target.closest('[data-layer-element-id]') : null;
+            list.querySelectorAll('.is-drag-over').forEach(item => item.classList.remove('is-drag-over'));
+            if (target && target.parentElement === list && target.dataset.layerElementId !== draggedId) {
+                target.classList.add('is-drag-over');
+            }
+        });
+        list.addEventListener('dragleave', event => {
+            if (!list.contains(event.relatedTarget)) {
+                list.querySelectorAll('.is-drag-over').forEach(item => item.classList.remove('is-drag-over'));
+            }
+        });
+        list.addEventListener('drop', event => {
+            const draggedId = draggedLayerElementId || event.dataTransfer.getData('text/plain');
+            const dragged = spec().elements.find(element => element.id === draggedId);
+            if (!dragged || isBackground(dragged)) return;
+            event.preventDefault();
+            const target = event.target instanceof Element ? event.target.closest('[data-layer-element-id]') : null;
+            const draggedRow = Array.from(list.querySelectorAll('[data-layer-element-id]')).find(row => row.dataset.layerElementId === draggedId) || null;
+            const beforeId = target && target.parentElement === list && target.dataset.layerElementId !== draggedId ? target.dataset.layerElementId : '';
+            if (draggedRow && target && target.parentElement === list && target.dataset.layerElementId !== draggedId) {
+                list.insertBefore(draggedRow, target);
+                applyRenderedLayerOrder();
+                return;
+            }
+            moveElementToLayerGroup(draggedId, group.key, beforeId);
+        });
+    }
+
     function renderLayersPanel() {
         layersPanel.innerHTML = panelTitle(i18n.inspector_layers);
-        const list = document.createElement('div');
-        list.className = 'template-editor__layer-list';
-        spec().elements.slice().sort((a, b) => (b.z || 0) - (a.z || 0)).forEach(element => {
-            const button = document.createElement('button');
-            button.type = 'button';
-            button.className = 'template-editor__layer';
-            if (element.id === selectedId) button.classList.add('is-selected');
-            button.title = i18n.select_layer_tooltip;
-            button.setAttribute('aria-label', `${i18n.select_layer_tooltip}: ${elementLabel(element)}`);
-            button.innerHTML = `<span class="template-editor__layer-icon" aria-hidden="true">${icons.move || ''}</span><span>${escapeHtml(elementLabel(element))}</span><small>${escapeHtml(element.type)}</small>`;
-            button.addEventListener('click', () => { selectElement(element.id); });
-            list.appendChild(button);
+        const groups = layerElementsByGroup();
+        layerGroups.slice().reverse().forEach(group => {
+            const section = document.createElement('section');
+            section.className = 'template-editor__layer-group';
+            section.dataset.layerGroup = group.key;
+            section.innerHTML = `<h3>${escapeHtml(layerGroupLabel(group.key))}</h3>`;
+            const list = document.createElement('div');
+            list.className = 'template-editor__layer-list';
+            list.dataset.layerGroupList = group.key;
+            bindLayerGroupDrop(list, group);
+            (groups[group.key] || []).forEach(element => {
+                list.appendChild(layerRow(element, group));
+            });
+            if ((groups[group.key] || []).length === 0) {
+                list.classList.add('is-empty');
+                const empty = document.createElement('p');
+                empty.className = 'template-editor__layer-empty';
+                empty.textContent = i18n.layer_empty_group;
+                list.appendChild(empty);
+            }
+            section.appendChild(list);
+            layersPanel.appendChild(section);
         });
-        layersPanel.appendChild(list);
     }
 
     function normalizeKey(value) { return String(value || '').toLowerCase().replace(/[^a-z0-9_]+/g, '_').replace(/^_+|_+$/g, '') || 'field'; }
 
     function addElement(type) {
-        const z = Math.max(0, ...spec().elements.map(element => Number(element.z || 0))) + 1;
+        const z = type === 'background' ? 0 : nextContentLayerZ();
         const element = { id: uid(type), type, field: '', x: 0.2, y: 0.2, w: 0.35, h: 0.22, z, style: { backgroundColor: type === 'shape' ? 'rgba(255,255,255,0.35)' : 'rgba(15,23,42,0.55)', color: '#ffffff', fontSize: 4, radius: 1, fit: 'cover' } };
         if (type === 'qr') { element.w = 0.18; element.h = 0.32; element.style.backgroundColor = 'rgba(255,255,255,1)'; element.style.color = 'rgba(15,23,42,1)'; }
         if (type === 'media') { element.w = 0.42; element.h = 0.32; }

@@ -1,6 +1,3 @@
-CREATE DATABASE IF NOT EXISTS info_display CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-USE info_display;
-
 SET FOREIGN_KEY_CHECKS = 0;
 DROP TABLE IF EXISTS slide_plugin_data;
 DROP TABLE IF EXISTS slide_template_data;
