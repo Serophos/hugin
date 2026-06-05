@@ -163,6 +163,13 @@ if (preg_match('#^/admin/playlists/(\d+)/edit$#', $uri, $m) && $method === 'POST
 if (preg_match('#^/admin/playlists/(\d+)/delete$#', $uri, $m) && $method === 'POST') { $admin->deletePlaylist((int)$m[1]); exit; }
 if ($uri === '/admin/sort/playlists' && $method === 'POST') { $admin->sortPlaylists(); exit; }
 
+if ($uri === '/admin/slide-templates' && $method === 'GET') { $admin->slideTemplates(); exit; }
+if ($uri === '/admin/slide-templates/create' && $method === 'GET') { $admin->slideTemplateForm(); exit; }
+if ($uri === '/admin/slide-templates/create' && $method === 'POST') { $admin->saveSlideTemplate(); exit; }
+if (preg_match('#^/admin/slide-templates/(\d+)/edit$#', $uri, $m) && $method === 'GET') { $admin->slideTemplateForm((int)$m[1]); exit; }
+if (preg_match('#^/admin/slide-templates/(\d+)/edit$#', $uri, $m) && $method === 'POST') { $admin->saveSlideTemplate((int)$m[1]); exit; }
+if (preg_match('#^/admin/slide-templates/(\d+)/delete$#', $uri, $m) && $method === 'POST') { $admin->deleteSlideTemplate((int)$m[1]); exit; }
+
 if ($uri === '/admin/slides' && $method === 'GET') { $admin->slides(); exit; }
 if ($uri === '/admin/slides/create' && $method === 'GET') { $admin->slideForm(); exit; }
 if ($uri === '/admin/slides/create' && $method === 'POST') { $admin->saveSlide(); exit; }

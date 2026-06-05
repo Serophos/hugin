@@ -5,6 +5,7 @@ use App\Core\Auth;
 use App\Core\Database;
 use App\Core\Request;
 use App\Core\SlidePluginInterface;
+use App\Core\TemplateSlideService;
 use App\Core\UploadManager;
 use App\Core\View;
 use App\Core\PluginManager;
@@ -19,10 +20,12 @@ class AdminController
     private const DISPLAY_ICON_PUBLIC_DIRS = [
         '/assets/img/displays',
     ];
-    private const BUILT_IN_SLIDE_TYPES = ['image', 'video', 'website', 'text'];
+    private const BUILT_IN_SLIDE_TYPES = ['image', 'video', 'website', 'text', 'template'];
     private const SLIDE_ICON_PUBLIC_DIR = '/assets/img/slides';
     private const SLIDE_ICON_FILE_PATTERNS = ['slides_%s.png', 'slide_%s.png'];
     private const SLIDE_ICON_FALLBACK_FILES = ['slides_generic.png', 'slide_generic.png'];
+
+    private TemplateSlideService $templateSlides;
 
     public function __construct(
         private Database $db,
@@ -32,6 +35,7 @@ class AdminController
         private UploadManager $uploadManager,
         private PluginManager $plugins
     ) {
+        $this->templateSlides = new TemplateSlideService($db);
     }
 
     public function loginForm(): void
@@ -1419,6 +1423,162 @@ class AdminController
         redirect('/admin/schedules');
     }
 
+
+    public function slideTemplates(): void
+    {
+        $this->auth->requireLogin();
+
+        $templates = $this->db->all(
+            'SELECT t.*, (SELECT COUNT(*) FROM slide_template_data std WHERE std.template_id = t.id) AS slide_count
+             FROM slide_templates t
+             ORDER BY t.is_active DESC, t.name ASC'
+        );
+
+        $this->view->render('admin/slide_templates', [
+            'templates' => $templates,
+            'flash' => flash('success'),
+            'error' => flash('error'),
+        ]);
+    }
+
+    public function slideTemplateForm(?int $id = null): void
+    {
+        $this->auth->requireLogin();
+
+        $template = $id ? $this->db->one('SELECT * FROM slide_templates WHERE id = ?', [$id]) : null;
+        if ($id && !$template) {
+            flash('error', __('templates.not_found'));
+            redirect('/admin/slide-templates');
+        }
+
+        $old = form_has_old('template') ? old_input('template') : [];
+        if (!$template) {
+            $template = [
+                'id' => null,
+                'name' => '',
+                'description' => '',
+                'landscape_spec_json' => $this->templateSlides->encodeSpec($this->templateSlides->emptySpec('landscape'), 'landscape'),
+                'portrait_spec_json' => '',
+                'is_active' => 1,
+            ];
+        }
+        if (is_array($old) && $old !== []) {
+            $template = array_replace($template, $old);
+        }
+
+        $this->view->render('admin/slide_template_form', [
+            'templateModel' => $template,
+            'landscapeSpec' => $this->templateSlides->decodeSpec((string)($template['landscape_spec_json'] ?? ''), 'landscape'),
+            'portraitSpec' => trim((string)($template['portrait_spec_json'] ?? '')) !== '' ? $this->templateSlides->decodeSpec((string)$template['portrait_spec_json'], 'portrait') : null,
+            'mediaAssets' => $this->db->all('SELECT id, name, original_name, media_kind, file_path FROM media_assets ORDER BY created_at DESC, id DESC'),
+            'error' => flash('error'),
+        ]);
+    }
+
+    public function saveSlideTemplate(?int $id = null): void
+    {
+        $this->auth->requireLogin();
+
+        if ($id && !$this->db->one('SELECT id FROM slide_templates WHERE id = ?', [$id])) {
+            flash('error', __('templates.not_found'));
+            redirect('/admin/slide-templates');
+        }
+
+        $nameRaw = (string)$this->request->input('name');
+        $name = trim($nameRaw);
+        $description = trim((string)$this->request->input('description'));
+        $isActive = $this->request->input('is_active') ? 1 : 0;
+        $landscapeRaw = (string)$this->request->input('landscape_spec_json', '');
+        $portraitRaw = (string)$this->request->input('portrait_spec_json', '');
+        $old = [
+            'name' => $nameRaw,
+            'description' => $description,
+            'is_active' => $isActive,
+            'landscape_spec_json' => $landscapeRaw,
+            'portrait_spec_json' => $portraitRaw,
+        ];
+        $errors = [];
+
+        if ($name === '') {
+            $errors['name'] = __('templates.name_required');
+        }
+
+        try {
+            $landscapeDecoded = json_decode($landscapeRaw, true);
+            if (!is_array($landscapeDecoded)) {
+                throw new RuntimeException(__('templates.invalid_spec'));
+            }
+            $landscapeJson = $this->templateSlides->encodeSpec($landscapeDecoded, 'landscape');
+
+            $portraitJson = null;
+            if (trim($portraitRaw) !== '') {
+                $portraitDecoded = json_decode($portraitRaw, true);
+                if (!is_array($portraitDecoded)) {
+                    throw new RuntimeException(__('templates.invalid_spec'));
+                }
+                $portraitJson = $this->templateSlides->encodeSpec($portraitDecoded, 'portrait');
+            }
+        } catch (RuntimeException $e) {
+            $errors['landscape_spec_json'] = $e->getMessage();
+            $landscapeJson = $landscapeRaw;
+            $portraitJson = trim($portraitRaw) !== '' ? $portraitRaw : null;
+        }
+
+        if ($errors !== []) {
+            $this->redirectWithForm(
+                $id ? '/admin/slide-templates/' . $id . '/edit' : '/admin/slide-templates/create',
+                __('validation.fix_marked_fields'),
+                $old,
+                $errors,
+                'template'
+            );
+        }
+
+        if ($id) {
+            $this->db->execute(
+                'UPDATE slide_templates SET name = ?, description = ?, landscape_spec_json = ?, portrait_spec_json = ?, is_active = ?, updated_by_user_id = ? WHERE id = ?',
+                [$name, $description, $landscapeJson, $portraitJson, $isActive, $this->auth->id(), $id]
+            );
+            flash('success', __('templates.updated'));
+        } else {
+            $this->db->execute(
+                'INSERT INTO slide_templates (name, description, landscape_spec_json, portrait_spec_json, is_active, created_by_user_id, updated_by_user_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                [$name, $description, $landscapeJson, $portraitJson, $isActive, $this->auth->id(), $this->auth->id()]
+            );
+            flash('success', __('templates.created'));
+        }
+
+        $affectedSlides = $id ? $this->db->all('SELECT slide_id FROM slide_template_data WHERE template_id = ?', [$id]) : [];
+        $this->requestReloadForDisplays($this->displayIdsForSlides(array_map(static fn(array $row): int => (int)$row['slide_id'], $affectedSlides)));
+        redirect('/admin/slide-templates');
+    }
+
+    public function deleteSlideTemplate(int $id): void
+    {
+        $this->auth->requireLogin();
+
+        $template = $this->db->one(
+            'SELECT t.*, (SELECT COUNT(*) FROM slide_template_data std WHERE std.template_id = t.id) AS slide_count
+             FROM slide_templates t
+             WHERE t.id = ?',
+            [$id]
+        );
+        if (!$template) {
+            flash('error', __('templates.not_found'));
+            redirect('/admin/slide-templates');
+        }
+
+        if ((int)($template['slide_count'] ?? 0) > 0) {
+            $this->db->execute('UPDATE slide_templates SET is_active = 0, updated_by_user_id = ? WHERE id = ?', [$this->auth->id(), $id]);
+            flash('success', __('templates.archived'));
+        } else {
+            $this->db->execute('DELETE FROM slide_templates WHERE id = ?', [$id]);
+            flash('success', __('templates.deleted'));
+        }
+
+        redirect('/admin/slide-templates');
+    }
+
     public function slides(): void
     {
         $this->auth->requireLogin();
@@ -1461,6 +1621,10 @@ class AdminController
 
         $channels = $this->db->all('SELECT id, name AS label, is_active FROM channels ORDER BY name ASC');
         $mediaAssets = $this->db->all('SELECT * FROM media_assets ORDER BY created_at DESC, id DESC');
+        $slideTemplates = $this->db->all('SELECT * FROM slide_templates WHERE is_active = 1 OR id IN (SELECT template_id FROM slide_template_data WHERE slide_id = ?) ORDER BY is_active DESC, name ASC', [$id ?: 0]);
+        $templateData = $id ? $this->db->one('SELECT * FROM slide_template_data WHERE slide_id = ?', [$id]) : null;
+        $templateValues = $this->templateSlides->decodeValues((string)($templateData['values_json'] ?? ''));
+        $selectedTemplateId = (int)($templateData['template_id'] ?? 0);
         $imageMediaAssets = array_values(array_filter($mediaAssets, static fn(array $asset): bool => ($asset['media_kind'] ?? '') === 'image'));
         $backgroundMediaAssets = array_values(array_filter($mediaAssets, static fn(array $asset): bool => in_array(($asset['media_kind'] ?? ''), ['image', 'video'], true)));
         $assignedChannelIds = $id
@@ -1475,6 +1639,12 @@ class AdminController
             $assignedChannelIds = array_map(static fn(mixed $id): int => (int)$id, $oldSlideInput['channel_ids']);
         }
         $oldPluginSettings = is_array($oldSlideInput['plugin_settings'] ?? null) ? $oldSlideInput['plugin_settings'] : [];
+        if (isset($oldSlideInput['template_id'])) {
+            $selectedTemplateId = (int)$oldSlideInput['template_id'];
+        }
+        if (is_array($oldSlideInput['template_values'] ?? null)) {
+            $templateValues = $oldSlideInput['template_values'];
+        }
         $selectedCreateSlideType = 'image';
         if (!$id) {
             $requestedSlideType = trim((string)$this->request->input('slide_type', ''));
@@ -1518,6 +1688,13 @@ class AdminController
             'mediaAssets' => $mediaAssets,
             'imageMediaAssets' => $imageMediaAssets,
             'backgroundMediaAssets' => $backgroundMediaAssets,
+            'slideTemplates' => $slideTemplates,
+            'selectedTemplateId' => $selectedTemplateId,
+            'templateValues' => $templateValues,
+            'templateFieldDefinitions' => array_reduce($slideTemplates, function (array $carry, array $template): array {
+                $carry[(int)$template['id']] = $this->templateSlides->fieldsForTemplate($template);
+                return $carry;
+            }, []),
             'pluginDefinitions' => $pluginDefinitions,
             'pluginForms' => $pluginForms,
             'pluginLabels' => $this->plugins->getPluginLabelMap(),
@@ -1592,6 +1769,10 @@ class AdminController
         $qrRadiusBottomRightRem = $qrRadius['bottom_right'];
         $qrRadiusBottomLeftRem = $qrRadius['bottom_left'];
         $qrUrl = trim((string)$this->request->input('qr_url', ''));
+        $templateId = $this->request->input('template_id') ? (int)$this->request->input('template_id') : 0;
+        $templateValuesInput = (array)$this->request->input('template_values', []);
+        $templateValues = [];
+        $template = null;
         $plugin = $this->plugins->getPluginBySlideType($slideType, true);
         $isPluginType = $plugin !== null;
         $pluginSettingsInput = (array)$this->request->input('plugin_settings', []);
@@ -1635,6 +1816,8 @@ class AdminController
             'qr_radius_bottom_right_rem' => (string)$this->request->input('qr_radius_bottom_right_rem', ''),
             'qr_radius_bottom_left_rem' => (string)$this->request->input('qr_radius_bottom_left_rem', ''),
             'plugin_settings' => $pluginSettingsInput,
+            'template_id' => (string)$this->request->input('template_id', ''),
+            'template_values' => $templateValuesInput,
             'is_active' => $isActive,
             'return_to' => (string)$this->request->input('return_to', '/admin/slides'),
         ];
@@ -1669,6 +1852,43 @@ class AdminController
                 $submittedPluginSettings = (array)($pluginSettingsInput[$plugin->getName()] ?? []);
                 $existingPluginSettings = $id ? $this->plugins->loadSlideSettings($id, $plugin->getName()) : [];
                 $pluginSettings = $plugin->normalizeSettings($submittedPluginSettings, $existingPluginSettings, $this->plugins->buildApi(null, null, null, $this->auth->id()));
+                $sourceMode = 'external';
+                $sourceUrl = '';
+                $mediaAssetId = null;
+                $backgroundMediaAssetId = null;
+                $textMarkup = '';
+                $textColor = null;
+                $textBoxBackgroundColor = null;
+                $textBoxLayout = null;
+                $textBoxAnimation = null;
+                $textBoxAnimationDurationMs = null;
+                $textBoxAnimationDelayMs = null;
+                $textBoxBlurEnabled = null;
+                $textBoxWidthPercent = null;
+                $textBoxRadiusTopLeftRem = null;
+                $textBoxRadiusTopRightRem = null;
+                $textBoxRadiusBottomRightRem = null;
+                $textBoxRadiusBottomLeftRem = null;
+                $qrSizePercent = null;
+                $qrForegroundColor = null;
+                $qrBackgroundColor = null;
+                $qrPosition = null;
+                $qrAnimationEnabled = null;
+                $qrRadiusTopLeftRem = null;
+                $qrRadiusTopRightRem = null;
+                $qrRadiusBottomRightRem = null;
+                $qrRadiusBottomLeftRem = null;
+            } elseif ($slideType === 'template') {
+                if ($templateId <= 0) {
+                    throw new RuntimeException(__('templates.template_required'));
+                }
+                $template = $this->db->one('SELECT * FROM slide_templates WHERE id = ?', [$templateId]);
+                if (!$template || (int)($template['is_active'] ?? 0) !== 1) {
+                    throw new RuntimeException(__('templates.template_unavailable'));
+                }
+                $existingTemplateData = $id ? $this->db->one('SELECT values_json FROM slide_template_data WHERE slide_id = ?', [$id]) : null;
+                $existingTemplateValues = $this->templateSlides->decodeValues((string)($existingTemplateData['values_json'] ?? ''));
+                $templateValues = $this->templateSlides->normalizeValues($template, $templateValuesInput, $existingTemplateValues);
                 $sourceMode = 'external';
                 $sourceUrl = '';
                 $mediaAssetId = null;
@@ -1848,6 +2068,15 @@ class AdminController
             $this->plugins->deleteSlideSettings($slideId);
             if ($isPluginType) {
                 $this->plugins->saveSlideSettings($slideId, $plugin->getName(), $pluginSettings);
+            }
+
+            if ($slideType === 'template' && $template) {
+                $this->db->execute(
+                    'INSERT INTO slide_template_data (slide_id, template_id, values_json) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE template_id = VALUES(template_id), values_json = VALUES(values_json)',
+                    [$slideId, $templateId, $this->templateSlides->encodeValues($templateValues)]
+                );
+            } else {
+                $this->db->execute('DELETE FROM slide_template_data WHERE slide_id = ?', [$slideId]);
             }
 
             $pdo->commit();
@@ -2258,6 +2487,23 @@ class AdminController
 
             foreach ($this->mediaAssetIdsInPluginSettings($settings, $assetLookup) as $assetId) {
                 $usageByAsset[$assetId][$slideId] = true;
+            }
+        }
+
+        $templateRows = $this->db->all(
+            'SELECT t.id AS template_id, t.landscape_spec_json, t.portrait_spec_json, std.slide_id, std.values_json
+             FROM slide_templates t
+             LEFT JOIN slide_template_data std ON std.template_id = t.id'
+        );
+        foreach ($templateRows as $row) {
+            $templateId = (int)($row['template_id'] ?? 0);
+            $slideKey = (int)($row['slide_id'] ?? 0);
+            $usageKey = $slideKey > 0 ? $slideKey : ('template-' . $templateId);
+            $values = $this->templateSlides->decodeValues((string)($row['values_json'] ?? ''));
+            foreach ($this->templateSlides->mediaAssetIdsForTemplateSlide($row, $values) as $assetId) {
+                if (isset($assetLookup[$assetId])) {
+                    $usageByAsset[$assetId][$usageKey] = true;
+                }
             }
         }
 
@@ -2697,6 +2943,12 @@ class AdminController
             return ['plugin_settings.' . $pluginName => $message];
         }
 
+        if ($this->messageMatches($message, ['templates.template_required', 'templates.template_unavailable'])) {
+            return ['template_id' => $message];
+        }
+        if ($this->messageMatches($message, ['templates.invalid_media_value', 'templates.invalid_url_value', 'templates.required_value_missing'])) {
+            return ['template_values' => $message];
+        }
         if ($this->messageMatches($message, ['slide.website_requires_url'])) {
             return ['source_url' => $message];
         }

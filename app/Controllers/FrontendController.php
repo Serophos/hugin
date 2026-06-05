@@ -3,14 +3,18 @@ namespace App\Controllers;
 
 use App\Core\Database;
 use App\Core\PluginManager;
+use App\Core\TemplateSlideService;
 use App\Core\View;
 use DateTime;
 use DateTimeZone;
 
 class FrontendController
 {
+    private TemplateSlideService $templateSlides;
+
     public function __construct(private Database $db, private View $view, private PluginManager $plugins)
     {
+        $this->templateSlides = new TemplateSlideService($db);
     }
 
     public function display(string $slug): void
@@ -69,10 +73,14 @@ class FrontendController
     public function previewSlide(int $slideId): void
     {
         $slide = $this->db->one(
-            'SELECT s.*, m.file_path AS media_file_path, bg.file_path AS background_media_file_path, bg.media_kind AS background_media_kind
+            'SELECT s.*, m.file_path AS media_file_path, bg.file_path AS background_media_file_path, bg.media_kind AS background_media_kind,
+                    std.template_id, std.values_json AS template_values_json,
+                    t.name AS template_name, t.landscape_spec_json AS template_landscape_spec_json, t.portrait_spec_json AS template_portrait_spec_json, t.updated_at AS template_updated_at
              FROM slides s
              LEFT JOIN media_assets m ON m.id = s.media_asset_id
              LEFT JOIN media_assets bg ON bg.id = s.background_media_asset_id
+             LEFT JOIN slide_template_data std ON std.slide_id = s.id
+             LEFT JOIN slide_templates t ON t.id = std.template_id
              WHERE s.id = ?',
             [$slideId]
         );
@@ -139,10 +147,14 @@ class FrontendController
     public function previewState(int $slideId): void
     {
         $slide = $this->db->one(
-            'SELECT s.*, m.file_path AS media_file_path, bg.file_path AS background_media_file_path, bg.media_kind AS background_media_kind
+            'SELECT s.*, m.file_path AS media_file_path, bg.file_path AS background_media_file_path, bg.media_kind AS background_media_kind,
+                    std.template_id, std.values_json AS template_values_json,
+                    t.name AS template_name, t.landscape_spec_json AS template_landscape_spec_json, t.portrait_spec_json AS template_portrait_spec_json, t.updated_at AS template_updated_at
              FROM slides s
              LEFT JOIN media_assets m ON m.id = s.media_asset_id
              LEFT JOIN media_assets bg ON bg.id = s.background_media_asset_id
+             LEFT JOIN slide_template_data std ON std.slide_id = s.id
+             LEFT JOIN slide_templates t ON t.id = std.template_id
              WHERE s.id = ?',
             [$slideId]
         );
@@ -370,11 +382,15 @@ class FrontendController
                     bg.file_size AS background_media_file_size,
                     bg.mime_type AS background_media_mime_type,
                     bg.media_kind AS background_media_kind,
-                    bg.created_at AS background_media_created_at
+                    bg.created_at AS background_media_created_at,
+                    std.template_id, std.values_json AS template_values_json,
+                    t.name AS template_name, t.landscape_spec_json AS template_landscape_spec_json, t.portrait_spec_json AS template_portrait_spec_json, t.updated_at AS template_updated_at
              FROM channel_slide_assignments csa
              INNER JOIN slides s ON s.id = csa.slide_id
              LEFT JOIN media_assets m ON m.id = s.media_asset_id
              LEFT JOIN media_assets bg ON bg.id = s.background_media_asset_id
+             LEFT JOIN slide_template_data std ON std.slide_id = s.id
+             LEFT JOIN slide_templates t ON t.id = std.template_id
              WHERE csa.channel_id = ? AND s.is_active = 1
              ORDER BY csa.sort_order ASC, s.id ASC',
             [$channelId]
@@ -395,6 +411,7 @@ class FrontendController
             $slide['resolved_source_url'] = $slide['media_file_path'] ?: $slide['source_url'];
             $slide['resolved_duration'] = (int)($slide['duration_seconds'] ?: $duration);
             $slide['text_rendered_html'] = null;
+            $slide['template_rendered_html'] = null;
             $slide['text_background_url'] = $slide['background_media_file_path'] ?? null;
             $slide['text_background_kind'] = in_array(($slide['background_media_kind'] ?? ''), ['image', 'video'], true) ? (string)$slide['background_media_kind'] : '';
             $slide['resolved_background_color'] = normalize_hex_color((string)($slide['background_color'] ?? '#0f172a'), '#0f172a');
@@ -424,6 +441,17 @@ class FrontendController
             if (($slide['slide_type'] ?? '') === 'text') {
                 $slide['text_rendered_html'] = render_markup((string)($slide['text_markup'] ?? ''));
                 $slide['resolved_qr_url'] = trim((string)($slide['source_url'] ?? ''));
+                $slide['resolved_source_url'] = '';
+            }
+            if (($slide['slide_type'] ?? '') === 'template' && !empty($slide['template_id'])) {
+                $template = [
+                    'id' => (int)$slide['template_id'],
+                    'name' => (string)($slide['template_name'] ?? ''),
+                    'landscape_spec_json' => (string)($slide['template_landscape_spec_json'] ?? ''),
+                    'portrait_spec_json' => (string)($slide['template_portrait_spec_json'] ?? ''),
+                ];
+                $values = $this->templateSlides->decodeValues((string)($slide['template_values_json'] ?? ''));
+                $slide['template_rendered_html'] = $this->templateSlides->render($template, $values, (string)($display['orientation'] ?? 'landscape'));
                 $slide['resolved_source_url'] = '';
             }
             $slide['plugin_name'] = null;
@@ -516,6 +544,12 @@ class FrontendController
                 }
             }
 
+            if (is_string($slide['template_rendered_html'] ?? null) && $slide['template_rendered_html'] !== '') {
+                foreach ($this->discoverSameOriginAssets((string)$slide['template_rendered_html']) as $assetUrl) {
+                    $this->addSlideAsset($assets, $slideAssets, $assetUrl, 'template-rendered', $this->assetKindFromUrl($assetUrl), $this->publicFileSizeFromUrl($assetUrl), true);
+                }
+            }
+
             $slideManifests[] = [
                 'id' => (int)$slide['id'],
                 'type' => (string)$slide['slide_type'],
@@ -550,7 +584,7 @@ class FrontendController
         if (is_string($slide['plugin_rendered_html'] ?? null) && $slide['plugin_rendered_html'] !== '') {
             return 'try';
         }
-        if (in_array($slideType, ['image', 'video', 'text'], true)) {
+        if (in_array($slideType, ['image', 'video', 'text', 'template'], true)) {
             return 'play';
         }
         return 'skip';
@@ -598,7 +632,7 @@ class FrontendController
     private function discoverSameOriginAssets(string $html): array
     {
         $urls = [];
-        if (preg_match_all('/\b(?:src|href|data-src)=["\']([^"\']+)["\']/i', $html, $matches)) {
+        if (preg_match_all('/\b(?:src|href|data-src|data-bg-src)=["\']([^"\']+)["\']/i', $html, $matches)) {
             foreach ($matches[1] as $url) {
                 if ($this->isSameOriginUrl($url)) {
                     $urls[$this->normalizeManifestUrl($url)] = true;
@@ -771,6 +805,10 @@ class FrontendController
                     'background_media_created_at' => (string)($slide['background_media_created_at'] ?? ''),
                     'title_position' => (string)($slide['title_position'] ?? ''),
                     'text_rendered_hash' => is_string($slide['text_rendered_html'] ?? null) ? sha1((string)$slide['text_rendered_html']) : '',
+                    'template_id' => (int)($slide['template_id'] ?? 0),
+                    'template_updated_at' => (string)($slide['template_updated_at'] ?? ''),
+                    'template_values_hash' => is_string($slide['template_values_json'] ?? null) ? sha1((string)$slide['template_values_json']) : '',
+                    'template_rendered_hash' => is_string($slide['template_rendered_html'] ?? null) ? sha1((string)$slide['template_rendered_html']) : '',
                     'plugin_name' => (string)($slide['plugin_name'] ?? ''),
                     'plugin_state' => $slide['plugin_state'] ?? null,
                 ];
@@ -891,7 +929,7 @@ class FrontendController
 
     private function isBuiltInSlideType(string $slideType): bool
     {
-        return in_array($slideType, ['image', 'video', 'website', 'text'], true);
+        return in_array($slideType, ['image', 'video', 'website', 'text', 'template'], true);
     }
 
     private function normalizeJson(array $payload): ?string

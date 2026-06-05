@@ -943,7 +943,7 @@
     };
 
     const renderTextSlideQrCodes = () => {
-        document.querySelectorAll('.text-slide-qr[data-qr-url]').forEach(qr => {
+        document.querySelectorAll('[data-qr-url]').forEach(qr => {
             const canvas = qr.querySelector('canvas');
             const qrUrl = qr.dataset.qrUrl || '';
             if (!canvas || !qrUrl) return;

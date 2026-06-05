@@ -21,6 +21,7 @@
     <?php foreach ($pluginCssLinks as $cssHref): ?>
         <link rel="stylesheet" href="<?= e($cssHref) ?>">
     <?php endforeach; ?>
+    <script src="<?= e(url('/assets/js/admin-color-picker.js')) ?>"></script>
 </head>
 <body>
 <header class="topbar">
@@ -41,6 +42,7 @@
             <a href="<?= e(url('/admin/playlists')) ?>"><?= e(__('nav.playlists')) ?></a>
             <a href="<?= e(url('/admin/schedules')) ?>"><?= e(__('nav.schedules')) ?></a>
             <a href="<?= e(url('/admin/slides')) ?>"><?= e(__('nav.slides')) ?></a>
+            <a href="<?= e(url('/admin/slide-templates')) ?>"><?= e(__('nav.slide_templates')) ?></a>
             <a href="<?= e(url('/admin/media')) ?>"><?= e(__('nav.media')) ?></a>
             <?php if (is_admin()): ?>
                 <a href="<?= e(url('/admin/plugins')) ?>"><?= e(__('nav.plugins')) ?></a>

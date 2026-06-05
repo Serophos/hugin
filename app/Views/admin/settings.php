@@ -11,11 +11,17 @@
     <form method="post" action="<?= e(url('/admin/settings')) ?>" class="form-grid">
         <?= csrf_field() ?>
         <label><?= e(__('settings.default_background_color')) ?>
-            <input type="color" name="settings[default_background_color]" value="<?= e((string)old('default_background_color', $settings['default_background_color'] ?? '#0f172a', 'settings')) ?>">
+            <span class="admin-color-picker admin-color-picker--compact" data-admin-color-picker data-color-format="hex" data-color-alpha="false" data-default-color="#0f172a" data-default-alpha="1">
+                <input type="color" value="#0f172a" data-color-picker-swatch>
+                <input type="hidden" name="settings[default_background_color]" value="<?= e((string)old('default_background_color', $settings['default_background_color'] ?? '#0f172a', 'settings')) ?>" data-color-value>
+            </span>
             <?= field_error_html('default_background_color', 'settings') ?>
         </label>
         <label><?= e(__('settings.default_text_color')) ?>
-            <input type="color" name="settings[default_text_color]" value="<?= e((string)old('default_text_color', $settings['default_text_color'] ?? '#f8fafc', 'settings')) ?>">
+            <span class="admin-color-picker admin-color-picker--compact" data-admin-color-picker data-color-format="hex" data-color-alpha="false" data-default-color="#f8fafc" data-default-alpha="1">
+                <input type="color" value="#f8fafc" data-color-picker-swatch>
+                <input type="hidden" name="settings[default_text_color]" value="<?= e((string)old('default_text_color', $settings['default_text_color'] ?? '#f8fafc', 'settings')) ?>" data-color-value>
+            </span>
             <?= field_error_html('default_text_color', 'settings') ?>
         </label>
         <label><?= e(__('settings.default_font_heading')) ?>

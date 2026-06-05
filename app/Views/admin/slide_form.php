@@ -46,6 +46,10 @@ foreach ($pluginDefinitions as $p) {
 }
 $pluginCss = array_values(array_unique($pluginCss));
 $slideTypeDefinitions = array_values($slideTypeDefinitions ?? []);
+$slideTemplates = array_values($slideTemplates ?? []);
+$templateFieldDefinitions = $templateFieldDefinitions ?? [];
+$templateValues = is_array($templateValues ?? null) ? $templateValues : [];
+$selectedTemplateId = (int)old('template_id', $selectedTemplateId ?? 0, $formId);
 $slideTypeIconFallbackUrl = url('/assets/img/slides/slide_generic.png');
 $slideTypeIconMap = [];
 foreach ($slideTypeDefinitions as $definition) {
@@ -82,6 +86,7 @@ require __DIR__ . '/../layouts/admin_header.php';
                     <option value="video" <?= selected($selectedSlideType, 'video') ?>><?= e(enum_label('slide_types', 'video')) ?></option>
                     <option value="website" <?= selected($selectedSlideType, 'website') ?>><?= e(enum_label('slide_types', 'website')) ?></option>
                     <option value="text" <?= selected($selectedSlideType, 'text') ?>><?= e(enum_label('slide_types', 'text')) ?></option>
+                    <option value="template" <?= selected($selectedSlideType, 'template') ?>><?= e(enum_label('slide_types', 'template')) ?></option>
                     <?php foreach ($pluginDefinitions as $plugin): ?>
                         <option value="<?= e($plugin['slide_type']) ?>" <?= selected($selectedSlideType, $plugin['slide_type']) ?>><?= e($plugin['display_name']) ?></option>
                     <?php endforeach; ?>
@@ -169,7 +174,10 @@ require __DIR__ . '/../layouts/admin_header.php';
                 <legend><?= e(__('slide.text_slide_background')) ?></legend>
                 <div class="text-slide-group__grid">
                     <label><?= e(__('slide.background_color')) ?>
-                        <input type="color" name="background_color" value="<?= e((string)old('background_color', $slide['background_color'] ?? '#0f172a', $formId)) ?>"<?= field_attrs('background_color', $formId) ?>>
+                        <span class="admin-color-picker admin-color-picker--compact" data-admin-color-picker data-color-format="hex" data-color-alpha="false" data-default-color="#0f172a" data-default-alpha="1">
+                            <input type="color" value="#0f172a" data-color-picker-swatch>
+                            <input type="hidden" name="background_color" value="<?= e((string)old('background_color', $slide['background_color'] ?? '#0f172a', $formId)) ?>" data-color-value<?= field_attrs('background_color', $formId) ?>>
+                        </span>
                         <?= field_error_html('background_color', $formId) ?>
                     </label>
                     <label><?= e(__('slide.background_media')) ?>
@@ -200,24 +208,16 @@ require __DIR__ . '/../layouts/admin_header.php';
                 <legend><?= e(__('slide.text_slide_text_box')) ?></legend>
                 <div class="text-slide-group__grid text-slide-group__grid--compact">
                     <label><?= e(__('slide.text_color')) ?>
-                        <span class="rgba-control" data-rgba-control data-default-color="#f8fafc" data-default-alpha="1">
-                            <input type="color" value="#f8fafc" data-rgba-color>
-                            <span class="rgba-control__alpha">
-                                <span class="rgba-control__alpha-head"><span><?= e(__('slide.color_opacity')) ?></span><output data-rgba-output>100%</output></span>
-                                <input type="range" min="0" max="1" step="0.05" value="1" data-rgba-alpha>
-                            </span>
-                            <input type="hidden" name="text_color" value="<?= e((string)old('text_color', $slide['text_color'] ?? '', $formId)) ?>" data-rgba-value<?= field_attrs('text_color', $formId) ?>>
+                        <span class="admin-color-picker" data-admin-color-picker data-color-format="rgba" data-color-alpha="true" data-default-color="#f8fafc" data-default-alpha="1">
+                            <input type="color" value="#f8fafc" data-color-picker-swatch>
+                            <input type="hidden" name="text_color" value="<?= e((string)old('text_color', $slide['text_color'] ?? '', $formId)) ?>" data-color-value<?= field_attrs('text_color', $formId) ?>>
                         </span>
                         <?= field_error_html('text_color', $formId) ?>
                     </label>
                     <label><?= e(__('slide.text_box_background_color')) ?>
-                        <span class="rgba-control" data-rgba-control data-default-color="#0f172a" data-default-alpha="0.68">
-                            <input type="color" value="#0f172a" data-rgba-color>
-                            <span class="rgba-control__alpha">
-                                <span class="rgba-control__alpha-head"><span><?= e(__('slide.color_opacity')) ?></span><output data-rgba-output>68%</output></span>
-                                <input type="range" min="0" max="1" step="0.05" value="0.68" data-rgba-alpha>
-                            </span>
-                            <input type="hidden" name="text_box_background_color" value="<?= e((string)old('text_box_background_color', $slide['text_box_background_color'] ?? '', $formId)) ?>" data-rgba-value<?= field_attrs('text_box_background_color', $formId) ?>>
+                        <span class="admin-color-picker" data-admin-color-picker data-color-format="rgba" data-color-alpha="true" data-default-color="#0f172a" data-default-alpha="0.68">
+                            <input type="color" value="#0f172a" data-color-picker-swatch>
+                            <input type="hidden" name="text_box_background_color" value="<?= e((string)old('text_box_background_color', $slide['text_box_background_color'] ?? '', $formId)) ?>" data-color-value<?= field_attrs('text_box_background_color', $formId) ?>>
                         </span>
                         <?= field_error_html('text_box_background_color', $formId) ?>
                     </label>
@@ -348,27 +348,37 @@ require __DIR__ . '/../layouts/admin_header.php';
                         </div>
                     </div>
                     <label><?= e(__('slide.qr_foreground_color')) ?>
-                        <span class="rgba-control" data-rgba-control data-default-color="#0f172a" data-default-alpha="1">
-                            <input type="color" value="#0f172a" data-rgba-color>
-                            <span class="rgba-control__alpha">
-                                <span class="rgba-control__alpha-head"><span><?= e(__('slide.color_opacity')) ?></span><output data-rgba-output>100%</output></span>
-                                <input type="range" min="0" max="1" step="0.05" value="1" data-rgba-alpha>
-                            </span>
-                            <input type="hidden" name="qr_foreground_color" value="<?= e((string)old('qr_foreground_color', $slide['qr_foreground_color'] ?? '', $formId)) ?>" data-rgba-value<?= field_attrs('qr_foreground_color', $formId) ?>>
+                        <span class="admin-color-picker" data-admin-color-picker data-color-format="rgba" data-color-alpha="true" data-default-color="#0f172a" data-default-alpha="1">
+                            <input type="color" value="#0f172a" data-color-picker-swatch>
+                            <input type="hidden" name="qr_foreground_color" value="<?= e((string)old('qr_foreground_color', $slide['qr_foreground_color'] ?? '', $formId)) ?>" data-color-value<?= field_attrs('qr_foreground_color', $formId) ?>>
                         </span>
                         <?= field_error_html('qr_foreground_color', $formId) ?>
                     </label>
                     <label><?= e(__('slide.qr_background_color')) ?>
-                        <span class="rgba-control" data-rgba-control data-default-color="#ffffff" data-default-alpha="1">
-                            <input type="color" value="#ffffff" data-rgba-color>
-                            <span class="rgba-control__alpha">
-                                <span class="rgba-control__alpha-head"><span><?= e(__('slide.color_opacity')) ?></span><output data-rgba-output>100%</output></span>
-                                <input type="range" min="0" max="1" step="0.05" value="1" data-rgba-alpha>
-                            </span>
-                            <input type="hidden" name="qr_background_color" value="<?= e((string)old('qr_background_color', $slide['qr_background_color'] ?? '', $formId)) ?>" data-rgba-value<?= field_attrs('qr_background_color', $formId) ?>>
+                        <span class="admin-color-picker" data-admin-color-picker data-color-format="rgba" data-color-alpha="true" data-default-color="#ffffff" data-default-alpha="1">
+                            <input type="color" value="#ffffff" data-color-picker-swatch>
+                            <input type="hidden" name="qr_background_color" value="<?= e((string)old('qr_background_color', $slide['qr_background_color'] ?? '', $formId)) ?>" data-color-value<?= field_attrs('qr_background_color', $formId) ?>>
                         </span>
                         <?= field_error_html('qr_background_color', $formId) ?>
                     </label>
+                </div>
+            </fieldset>
+        </div>
+
+        <div id="template-slide-fields" class="form-grid full-width template-slide-settings" style="display:none;">
+            <fieldset class="text-slide-group full-width">
+                <legend><?= e(__('templates.singular')) ?></legend>
+                <label class="full-width"><?= e(__('templates.choose_template')) ?>
+                    <select name="template_id" data-template-select<?= field_attrs('template_id', $formId) ?>>
+                        <option value=""><?= e(__('templates.choose_template')) ?></option>
+                        <?php foreach ($slideTemplates as $template): ?>
+                            <option value="<?= e((string)$template['id']) ?>" <?= selected($selectedTemplateId, (string)$template['id']) ?>><?= e((string)$template['name']) ?><?= (int)($template['is_active'] ?? 1) !== 1 ? ' (' . e(__('common.inactive')) . ')' : '' ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                    <?= field_error_html('template_id', $formId) ?>
+                </label>
+                <div class="template-slide-value-fields full-width" data-template-value-fields>
+                    <?= field_error_html('template_values', $formId) ?>
                 </div>
             </fieldset>
         </div>
@@ -397,89 +407,8 @@ require __DIR__ . '/../layouts/admin_header.php';
 const huginPluginSlideTypes = <?= json_encode(array_column($pluginDefinitions, 'slide_type'), JSON_UNESCAPED_SLASHES) ?>;
 const huginSlideTypeIcons = <?= json_encode($slideTypeIconMap, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
 const huginSlideTypeFallbackIcon = <?= json_encode($slideTypeIconFallbackUrl, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
-
-function clampNumber(value, min, max) {
-    return Math.max(min, Math.min(max, value));
-}
-
-function hexToRgb(value) {
-    const hex = String(value || '').replace('#', '').trim();
-    if (!/^[0-9a-f]{6}$/i.test(hex)) {
-        return { red: 0, green: 0, blue: 0 };
-    }
-
-    return {
-        red: parseInt(hex.slice(0, 2), 16),
-        green: parseInt(hex.slice(2, 4), 16),
-        blue: parseInt(hex.slice(4, 6), 16),
-    };
-}
-
-function rgbToHex(red, green, blue) {
-    return '#' + [red, green, blue].map(value => clampNumber(value, 0, 255).toString(16).padStart(2, '0')).join('');
-}
-
-function parseRgbaColor(value, defaultColor, defaultAlpha) {
-    const fallback = {
-        color: /^#[0-9a-f]{6}$/i.test(defaultColor) ? defaultColor : '#000000',
-        alpha: clampNumber(parseFloat(defaultAlpha || '1'), 0, 1),
-    };
-    const input = String(value || '').trim();
-    if (input === '') return fallback;
-
-    const hexMatch = input.match(/^#([0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})$/i);
-    if (hexMatch) {
-        let hex = hexMatch[1].toLowerCase();
-        if (hex.length === 3 || hex.length === 4) {
-            hex = hex.split('').map(char => char + char).join('');
-        }
-        const alpha = hex.length === 8 ? parseInt(hex.slice(6, 8), 16) / 255 : fallback.alpha;
-        return { color: '#' + hex.slice(0, 6), alpha: clampNumber(alpha, 0, 1) };
-    }
-
-    const rgbaMatch = input.match(/^rgba?\(\s*([0-9]{1,3})\s*,\s*([0-9]{1,3})\s*,\s*([0-9]{1,3})(?:\s*,\s*([0-9]*\.?[0-9]+)\s*)?\)$/i);
-    if (rgbaMatch) {
-        const red = parseInt(rgbaMatch[1], 10);
-        const green = parseInt(rgbaMatch[2], 10);
-        const blue = parseInt(rgbaMatch[3], 10);
-        const alpha = rgbaMatch[4] === undefined ? fallback.alpha : parseFloat(rgbaMatch[4]);
-        if (red <= 255 && green <= 255 && blue <= 255 && alpha >= 0 && alpha <= 1) {
-            return { color: rgbToHex(red, green, blue), alpha };
-        }
-    }
-
-    return fallback;
-}
-
-function formatRgbaAlpha(value) {
-    const alpha = clampNumber(parseFloat(value || '1'), 0, 1);
-    return alpha.toFixed(2).replace(/0+$/, '').replace(/\.$/, '') || '0';
-}
-
-function initRgbaControl(control) {
-    const colorInput = control.querySelector('[data-rgba-color]');
-    const alphaInput = control.querySelector('[data-rgba-alpha]');
-    const hiddenInput = control.querySelector('[data-rgba-value]');
-    const output = control.querySelector('[data-rgba-output]');
-    if (!colorInput || !alphaInput || !hiddenInput) return;
-
-    const parsed = parseRgbaColor(hiddenInput.value, control.dataset.defaultColor, control.dataset.defaultAlpha);
-    colorInput.value = parsed.color;
-    alphaInput.value = String(parsed.alpha);
-
-    const sync = () => {
-        const rgb = hexToRgb(colorInput.value);
-        const alpha = formatRgbaAlpha(alphaInput.value);
-        hiddenInput.value = `rgba(${rgb.red}, ${rgb.green}, ${rgb.blue}, ${alpha})`;
-        if (output) {
-            output.textContent = `${Math.round(parseFloat(alpha) * 100)}%`;
-        }
-    };
-
-    colorInput.addEventListener('input', sync);
-    alphaInput.addEventListener('input', sync);
-    sync();
-}
+const huginTemplateFields = <?= json_encode($templateFieldDefinitions, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
+const huginTemplateValues = <?= json_encode($templateValues, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
 
 function initRangeInput(input) {
     const output = input.closest('.range-field')?.querySelector('[data-range-output]');
@@ -631,6 +560,90 @@ function updateSlideTypeIcon(slideType) {
     image.src = icon.icon_url || fallbackIcon;
 }
 
+
+function escapeTemplateHtml(value) {
+    const div = document.createElement('div');
+    div.textContent = String(value ?? '');
+    return div.innerHTML;
+}
+
+function renderTemplateValueFields() {
+    const wrapper = document.querySelector('[data-template-value-fields]');
+    const select = document.querySelector('[data-template-select]');
+    if (!wrapper || !select) return;
+    const fields = huginTemplateFields[String(select.value || '')] || [];
+    const existing = new Map(Array.from(wrapper.querySelectorAll('[name^="template_values["]')).map(input => [input.dataset.templateValueKey || '', input.value]));
+    wrapper.innerHTML = '';
+    if (fields.length === 0) {
+        const note = document.createElement('p');
+        note.className = 'muted';
+        note.textContent = select.value ? <?= json_encode(__('templates.no_fields')) ?> : <?= json_encode(__('templates.choose_template')) ?>;
+        wrapper.appendChild(note);
+        return;
+    }
+    fields.forEach(field => {
+        const key = String(field.key || '');
+        const label = document.createElement('label');
+        label.className = 'full-width';
+        label.textContent = String(field.label || key) + (field.required ? ' *' : '');
+        const value = existing.get(key) ?? huginTemplateValues[key] ?? field.default ?? '';
+        let control;
+        let controlMount = null;
+        if (field.type === 'multiline') {
+            control = document.createElement('textarea');
+            control.rows = 4;
+            control.value = value;
+        } else if (field.type === 'media_image' || field.type === 'media_video') {
+            control = document.createElement('select');
+            const empty = document.createElement('option');
+            empty.value = '';
+            empty.textContent = <?= json_encode(__('common.none')) ?>;
+            control.appendChild(empty);
+            const expected = field.type === 'media_image' ? 'image' : 'video';
+            document.querySelectorAll('select[name="media_asset_id"] option[data-media-kind]').forEach(option => {
+                if ((option.dataset.mediaKind || '') !== expected) return;
+                const item = document.createElement('option');
+                item.value = option.value;
+                item.textContent = option.textContent;
+                control.appendChild(item);
+            });
+            control.value = String(value || '');
+        } else if (field.type === 'color') {
+            const picker = document.createElement('span');
+            picker.className = 'admin-color-picker';
+            picker.dataset.adminColorPicker = '';
+            picker.dataset.colorFormat = 'rgba';
+            picker.dataset.colorAlpha = 'true';
+            picker.dataset.defaultColor = '#ffffff';
+            picker.dataset.defaultAlpha = '1';
+
+            const swatch = document.createElement('input');
+            swatch.type = 'color';
+            swatch.value = '#ffffff';
+            swatch.dataset.colorPickerSwatch = '';
+            picker.appendChild(swatch);
+
+            control = document.createElement('input');
+            control.type = 'hidden';
+            control.value = value;
+            control.dataset.colorValue = '';
+            picker.appendChild(control);
+            controlMount = picker;
+        } else {
+            control = document.createElement('input');
+            control.type = field.type === 'url' || field.type === 'qr_url' ? 'url' : 'text';
+            control.value = value;
+            if (field.type === 'url' || field.type === 'qr_url') control.maxLength = 1024;
+        }
+        control.name = `template_values[${key}]`;
+        control.dataset.templateValueKey = key;
+        if (field.required) control.required = true;
+        label.appendChild(controlMount || control);
+        wrapper.appendChild(label);
+    });
+    window.HuginColorPicker?.init(wrapper);
+}
+
 function updateSlideTypeUi() {
     const slideType = document.getElementById('slide_type').value;
     updateSlideTypeIcon(slideType);
@@ -641,18 +654,22 @@ function updateSlideTypeUi() {
     const mediaWrap = document.getElementById('media_asset_wrap');
     const uploadWrap = document.getElementById('upload_wrap');
     const textFields = document.getElementById('text-slide-fields');
+    const templateFields = document.getElementById('template-slide-fields');
 
     coreFields.style.display = isPlugin ? 'none' : 'block';
 
     const isText = !isPlugin && slideType === 'text';
+    const isTemplate = !isPlugin && slideType === 'template';
     const showWebsiteOnly = !isPlugin && slideType === 'website';
-    const useMedia = !isPlugin && !showWebsiteOnly && !isText && sourceMode.value === 'media';
+    const useMedia = !isPlugin && !showWebsiteOnly && !isText && !isTemplate && sourceMode.value === 'media';
 
-    sourceMode.parentElement.style.display = showWebsiteOnly || isText ? 'none' : 'grid';
-    sourceUrlWrap.style.display = showWebsiteOnly ? 'grid' : (!isPlugin && !useMedia && !isText ? 'grid' : 'none');
-    mediaWrap.style.display = !isPlugin && !showWebsiteOnly && !isText && useMedia ? 'grid' : 'none';
-    uploadWrap.style.display = !isPlugin && !showWebsiteOnly && !isText ? 'grid' : 'none';
+    sourceMode.parentElement.style.display = showWebsiteOnly || isText || isTemplate ? 'none' : 'grid';
+    sourceUrlWrap.style.display = showWebsiteOnly ? 'grid' : (!isPlugin && !useMedia && !isText && !isTemplate ? 'grid' : 'none');
+    mediaWrap.style.display = !isPlugin && !showWebsiteOnly && !isText && !isTemplate && useMedia ? 'grid' : 'none';
+    uploadWrap.style.display = !isPlugin && !showWebsiteOnly && !isText && !isTemplate ? 'grid' : 'none';
     textFields.style.display = isText ? 'grid' : 'none';
+    templateFields.style.display = isTemplate ? 'grid' : 'none';
+    renderTemplateValueFields();
 
     filterMediaByType(slideType);
 
@@ -677,6 +694,8 @@ function updateSlideTypeUi() {
 
     const textInputs = textFields.querySelectorAll('input, select, textarea');
     textInputs.forEach(el => el.disabled = textFields.style.display === 'none');
+    const templateInputs = templateFields.querySelectorAll('input, select, textarea');
+    templateInputs.forEach(el => el.disabled = templateFields.style.display === 'none');
     document.querySelectorAll('[data-radius-control]').forEach(updateRadiusControl);
 
     document.querySelectorAll('.plugin-settings-section').forEach(section => {
@@ -688,11 +707,12 @@ function updateSlideTypeUi() {
 document.querySelector('[data-slide-type-icon]')?.addEventListener('error', applySlideTypeFallbackIcon);
 document.getElementById('slide_type').addEventListener('change', updateSlideTypeUi);
 document.getElementById('source_mode').addEventListener('change', updateSlideTypeUi);
-document.querySelectorAll('[data-rgba-control]').forEach(initRgbaControl);
+window.HuginColorPicker?.init(document);
 document.querySelectorAll('[data-range-input]').forEach(initRangeInput);
 document.querySelectorAll('[data-radius-control]').forEach(initRadiusControl);
 const backgroundMediaSelect = document.querySelector('[data-background-media-select]');
 if (backgroundMediaSelect) initBackgroundMediaPreview(backgroundMediaSelect);
+document.querySelector('[data-template-select]')?.addEventListener('change', renderTemplateValueFields);
 updateSlideTypeUi();
 </script>
 <?php require __DIR__ . '/../layouts/admin_footer.php'; ?>

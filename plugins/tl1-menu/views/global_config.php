@@ -191,7 +191,10 @@ $setupI18n = [
         <legend><?= e(__('plugins.tl1-menu.global_config.background_title')) ?></legend>
         <div class="tl1menu-admin-grid">
             <label class="tl1menu-color-control"><?= e(__('plugins.tl1-menu.global_config.color_picker')) ?>
-                <input type="color" name="plugin_global_settings[<?= e($plugin->getName()) ?>][background_color]" value="<?= e($backgroundColor) ?>"<?= field_attrs('background_color', $formId) ?>>
+                <span class="admin-color-picker admin-color-picker--compact" data-admin-color-picker data-color-format="hex" data-color-alpha="false" data-default-color="#f1f5f9" data-default-alpha="1">
+                    <input type="color" value="#f1f5f9" data-color-picker-swatch>
+                    <input type="hidden" name="plugin_global_settings[<?= e($plugin->getName()) ?>][background_color]" value="<?= e($backgroundColor) ?>" data-color-value<?= field_attrs('background_color', $formId) ?>>
+                </span>
                 <?= field_error_html('background_color', $formId) ?>
             </label>
             <label><?= e(__('plugins.tl1-menu.global_config.media_library_image')) ?>

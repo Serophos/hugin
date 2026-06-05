@@ -588,3 +588,82 @@ html, body {
         bottom: 5vh;
     }
 }
+
+
+.template-slide {
+    width: 100%;
+    height: 100%;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    background: #000;
+}
+
+.template-slide__stage {
+    position: relative;
+    width: min(100vw, calc(100vh * var(--template-stage-ratio, 1.7778)));
+    height: min(100vh, calc(100vw / var(--template-stage-ratio, 1.7778)));
+    aspect-ratio: var(--template-stage-ratio, 1.7778);
+    overflow: hidden;
+    background: #0f172a;
+    container-type: inline-size;
+}
+
+.template-slide__element {
+    position: absolute;
+    box-sizing: border-box;
+    overflow: hidden;
+    display: grid;
+    min-width: 0;
+    min-height: 0;
+}
+
+.template-slide__element--text {
+    align-items: center;
+    padding: 1.8cqw;
+    line-height: 1.12;
+    text-wrap: balance;
+}
+
+.template-slide__text-content {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.template-slide__element--media,
+.template-slide__element--background {
+    background-size: cover;
+    background-position: center;
+}
+
+.template-slide__media {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+.template-slide__element--qr {
+    place-items: center;
+    padding: 0.8cqw;
+}
+
+.template-slide__qr-canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+.template-slide__qr-fallback {
+    display: none;
+    overflow-wrap: anywhere;
+    color: inherit;
+    font-size: clamp(0.7rem, 2cqw, 1.4rem);
+}
+
+.template-slide__element--qr.is-qr-fallback .template-slide__qr-canvas {
+    display: none;
+}
+
+.template-slide__element--qr.is-qr-fallback .template-slide__qr-fallback {
+    display: block;
+}

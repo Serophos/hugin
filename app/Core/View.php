@@ -29,7 +29,8 @@ class View
 
     public function render(string $template, array $data = []): void
     {
+        $viewFile = $this->basePath . '/' . $template . '.php';
         extract($data);
-        require $this->basePath . '/' . $template . '.php';
+        require $viewFile;
     }
 }

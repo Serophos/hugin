@@ -117,7 +117,7 @@ if (str_starts_with($display['slug'] ?? '', 'preview-slide-') && preg_match('#^p
             $offlinePolicy = 'skip';
         } elseif (is_string($slide['plugin_rendered_html'] ?? null) && $slide['plugin_rendered_html'] !== '') {
             $offlinePolicy = 'try';
-        } elseif (in_array((string)($slide['slide_type'] ?? ''), ['image', 'video', 'text'], true)) {
+        } elseif (in_array((string)($slide['slide_type'] ?? ''), ['image', 'video', 'text', 'template'], true)) {
             $offlinePolicy = 'play';
         }
         ?>
@@ -132,6 +132,8 @@ if (str_starts_with($display['slug'] ?? '', 'preview-slide-') && preg_match('#^p
                 <img data-src="<?= e(url($slide['resolved_source_url'])) ?>" alt="<?= e($slide['name']) ?>" decoding="async">
             <?php elseif ($slide['slide_type'] === 'video'): ?>
                 <video data-src="<?= e(url($slide['resolved_source_url'])) ?>" muted playsinline loop preload="metadata"></video>
+            <?php elseif ($slide['slide_type'] === 'template'): ?>
+                <?= $slide['template_rendered_html'] ?: '<div class="plugin-slide-error">' . e(__('templates.render_unavailable')) . '</div>' ?>
             <?php elseif ($slide['slide_type'] === 'text'): ?>
                 <?php
                 $textLayout = (string)($slide['resolved_text_box_layout'] ?? 'center');

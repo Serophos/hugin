@@ -3,6 +3,8 @@ USE info_display;
 
 SET FOREIGN_KEY_CHECKS = 0;
 DROP TABLE IF EXISTS slide_plugin_data;
+DROP TABLE IF EXISTS slide_template_data;
+DROP TABLE IF EXISTS slide_templates;
 DROP TABLE IF EXISTS plugin_global_settings;
 DROP TABLE IF EXISTS plugins;
 DROP TABLE IF EXISTS channel_slide_assignments;
@@ -236,6 +238,31 @@ CREATE TABLE channel_slide_assignments (
     UNIQUE KEY uniq_channel_slide (channel_id, slide_id),
     CONSTRAINT fk_csa_channel FOREIGN KEY (channel_id) REFERENCES channels(id) ON DELETE CASCADE,
     CONSTRAINT fk_csa_slide FOREIGN KEY (slide_id) REFERENCES slides(id) ON DELETE CASCADE
+);
+
+CREATE TABLE slide_templates (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(150) NOT NULL,
+    description TEXT NULL,
+    landscape_spec_json LONGTEXT NOT NULL,
+    portrait_spec_json LONGTEXT NULL,
+    is_active TINYINT(1) NOT NULL DEFAULT 1,
+    created_by_user_id INT UNSIGNED NULL,
+    updated_by_user_id INT UNSIGNED NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_slide_templates_created_by FOREIGN KEY (created_by_user_id) REFERENCES users(id) ON DELETE SET NULL,
+    CONSTRAINT fk_slide_templates_updated_by FOREIGN KEY (updated_by_user_id) REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE TABLE slide_template_data (
+    slide_id INT UNSIGNED PRIMARY KEY,
+    template_id INT UNSIGNED NOT NULL,
+    values_json LONGTEXT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_slide_template_data_slide FOREIGN KEY (slide_id) REFERENCES slides(id) ON DELETE CASCADE,
+    CONSTRAINT fk_slide_template_data_template FOREIGN KEY (template_id) REFERENCES slide_templates(id) ON DELETE RESTRICT
 );
 
 CREATE TABLE plugins (
