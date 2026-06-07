@@ -8,6 +8,10 @@ class TemplateSlideService
     private const SPEC_VERSION = 1;
     private const FIELD_TYPES = ['text', 'multiline', 'url', 'media_image', 'media_video', 'qr_url', 'color'];
     private const ELEMENT_TYPES = ['background', 'text', 'media', 'qr', 'shape'];
+    private const ENTRANCE_ANIMATIONS = ['none', 'fade-in', 'fade-up', 'fade-down', 'slide-left', 'slide-right', 'zoom-in', 'pop-in', 'blur-in'];
+    private const CONTINUOUS_ANIMATIONS = ['none', 'pulse', 'float', 'slow-zoom', 'wiggle', 'glow', 'rotate-slow'];
+    private const ANIMATION_EASINGS = ['ease', 'ease-out', 'ease-in-out', 'linear'];
+    private const ANIMATION_DIRECTIONS = ['normal', 'alternate', 'reverse'];
 
     public function __construct(private Database $db)
     {
@@ -324,7 +328,7 @@ class TemplateSlideService
                 }
             }
 
-            $normalized[] = [
+            $normalizedElement = [
                 'id' => preg_replace('/[^a-zA-Z0-9_-]+/', '-', (string)($element['id'] ?? ('element-' . $index))) ?: ('element-' . $index),
                 'type' => $type,
                 'field' => $field,
@@ -335,6 +339,12 @@ class TemplateSlideService
                 'z' => $this->intRange($element['z'] ?? $index, $index, 0, 999),
                 'style' => $this->normalizeStyle(is_array($element['style'] ?? null) ? $element['style'] : []),
             ];
+
+            if ($type !== 'background') {
+                $normalizedElement['animation'] = $this->normalizeAnimation(is_array($element['animation'] ?? null) ? $element['animation'] : []);
+            }
+
+            $normalized[] = $normalizedElement;
         }
 
         return $normalized;
@@ -367,13 +377,46 @@ class TemplateSlideService
         return $out;
     }
 
+    private function normalizeAnimation(array $animation): array
+    {
+        $entrance = (string)($animation['entrance'] ?? 'none');
+        if (!in_array($entrance, self::ENTRANCE_ANIMATIONS, true)) {
+            $entrance = 'none';
+        }
+
+        $continuous = (string)($animation['continuous'] ?? 'none');
+        if (!in_array($continuous, self::CONTINUOUS_ANIMATIONS, true)) {
+            $continuous = 'none';
+        }
+
+        $easing = (string)($animation['easing'] ?? 'ease-out');
+        if (!in_array($easing, self::ANIMATION_EASINGS, true)) {
+            $easing = 'ease-out';
+        }
+
+        $direction = (string)($animation['direction'] ?? 'normal');
+        if (!in_array($direction, self::ANIMATION_DIRECTIONS, true)) {
+            $direction = 'normal';
+        }
+
+        return [
+            'entrance' => $entrance,
+            'continuous' => $continuous,
+            'entranceDelayMs' => $this->intRange($animation['entranceDelayMs'] ?? 0, 0, 0, 30000),
+            'entranceDurationMs' => $this->intRange($animation['entranceDurationMs'] ?? 600, 600, 100, 10000),
+            'continuousDurationMs' => $this->intRange($animation['continuousDurationMs'] ?? 3000, 3000, 500, 30000),
+            'easing' => $easing,
+            'direction' => $direction,
+        ];
+    }
+
     private function renderElement(array $element, array $values, array $fieldMap): string
     {
         $type = (string)$element['type'];
         $style = is_array($element['style'] ?? null) ? $element['style'] : [];
         $field = (string)($element['field'] ?? '');
         $value = $field !== '' ? ($values[$field] ?? ($fieldMap[$field]['default'] ?? '')) : '';
-        $classes = 'template-slide__element template-slide__element--' . $type;
+        $classes = 'template-slide__element template-slide__element--' . $type . $this->animationClasses($element);
         $styleAttr = $this->elementStyle($element, $style);
 
         if ($type === 'background') {
@@ -407,6 +450,24 @@ class TemplateSlideService
         return '<div class="' . e($classes) . '" style="' . e($styleAttr) . '"><div class="template-slide__text-content">' . $html . '</div></div>';
     }
 
+    private function animationClasses(array $element): string
+    {
+        if (($element['type'] ?? '') === 'background' || !is_array($element['animation'] ?? null)) {
+            return '';
+        }
+
+        $animation = $this->normalizeAnimation($element['animation']);
+        $classes = [];
+        if ($animation['entrance'] !== 'none') {
+            $classes[] = 'template-slide__element--entrance-' . $animation['entrance'];
+        }
+        if ($animation['continuous'] !== 'none') {
+            $classes[] = 'template-slide__element--continuous-' . $animation['continuous'];
+        }
+
+        return $classes === [] ? '' : ' ' . implode(' ', $classes);
+    }
+
     private function elementStyle(array $element, array $style): string
     {
         $css = [
@@ -436,6 +497,14 @@ class TemplateSlideService
         }
         if (!empty($style['align'])) {
             $css[] = 'text-align:' . (string)$style['align'];
+        }
+        if (($element['type'] ?? '') !== 'background' && is_array($element['animation'] ?? null)) {
+            $animation = $this->normalizeAnimation($element['animation']);
+            $css[] = '--template-entrance-delay:' . $animation['entranceDelayMs'] . 'ms';
+            $css[] = '--template-entrance-duration:' . $animation['entranceDurationMs'] . 'ms';
+            $css[] = '--template-continuous-duration:' . $animation['continuousDurationMs'] . 'ms';
+            $css[] = '--template-animation-easing:' . $animation['easing'];
+            $css[] = '--template-animation-direction:' . $animation['direction'];
         }
 
         return implode(';', $css) . ';';

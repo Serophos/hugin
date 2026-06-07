@@ -616,6 +616,146 @@ html, body {
     display: grid;
     min-width: 0;
     min-height: 0;
+    --template-entrance-delay: 0ms;
+    --template-entrance-duration: 600ms;
+    --template-continuous-duration: 3000ms;
+    --template-animation-easing: ease-out;
+    --template-animation-direction: normal;
+    --template-entrance-animation: none;
+    --template-continuous-animation: none;
+}
+
+.template-slide__element--entrance-fade-in { --template-entrance-animation: template-entrance-fade-in; }
+.template-slide__element--entrance-fade-up { --template-entrance-animation: template-entrance-fade-up; }
+.template-slide__element--entrance-fade-down { --template-entrance-animation: template-entrance-fade-down; }
+.template-slide__element--entrance-slide-left { --template-entrance-animation: template-entrance-slide-left; }
+.template-slide__element--entrance-slide-right { --template-entrance-animation: template-entrance-slide-right; }
+.template-slide__element--entrance-zoom-in { --template-entrance-animation: template-entrance-zoom-in; }
+.template-slide__element--entrance-pop-in { --template-entrance-animation: template-entrance-pop-in; }
+.template-slide__element--entrance-blur-in { --template-entrance-animation: template-entrance-blur-in; }
+
+.template-slide__element--continuous-pulse { --template-continuous-animation: template-continuous-pulse; }
+.template-slide__element--continuous-float { --template-continuous-animation: template-continuous-float; }
+.template-slide__element--continuous-slow-zoom { --template-continuous-animation: template-continuous-slow-zoom; }
+.template-slide__element--continuous-wiggle { --template-continuous-animation: template-continuous-wiggle; }
+.template-slide__element--continuous-glow { --template-continuous-animation: template-continuous-glow; }
+.template-slide__element--continuous-rotate-slow { --template-continuous-animation: template-continuous-rotate-slow; }
+
+.slide.is-active .template-slide__element[class*="template-slide__element--entrance-"] {
+    opacity: 0;
+}
+
+.slide.is-active.is-template-animating .template-slide__element[class*="template-slide__element--entrance-"] {
+    animation-name: var(--template-entrance-animation);
+    animation-duration: var(--template-entrance-duration);
+    animation-timing-function: var(--template-animation-easing);
+    animation-delay: var(--template-entrance-delay);
+    animation-fill-mode: both;
+    animation-iteration-count: 1;
+}
+
+.slide.is-active .template-slide__element[class*="template-slide__element--continuous-"] {
+    animation-name: var(--template-continuous-animation);
+    animation-duration: var(--template-continuous-duration);
+    animation-timing-function: var(--template-animation-easing);
+    animation-delay: 0ms;
+    animation-fill-mode: none;
+    animation-iteration-count: infinite;
+    animation-direction: var(--template-animation-direction);
+}
+
+.slide.is-active.is-template-animating .template-slide__element[class*="template-slide__element--entrance-"][class*="template-slide__element--continuous-"] {
+    animation-name: var(--template-entrance-animation), var(--template-continuous-animation);
+    animation-duration: var(--template-entrance-duration), var(--template-continuous-duration);
+    animation-timing-function: var(--template-animation-easing), var(--template-animation-easing);
+    animation-delay: var(--template-entrance-delay), calc(var(--template-entrance-delay) + var(--template-entrance-duration));
+    animation-fill-mode: both, none;
+    animation-iteration-count: 1, infinite;
+    animation-direction: normal, var(--template-animation-direction);
+}
+
+@keyframes template-entrance-fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes template-entrance-fade-up {
+    from { opacity: 0; transform: translate3d(0, 7%, 0); }
+    to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+@keyframes template-entrance-fade-down {
+    from { opacity: 0; transform: translate3d(0, -7%, 0); }
+    to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+@keyframes template-entrance-slide-left {
+    from { opacity: 0; transform: translate3d(-12%, 0, 0); }
+    to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+@keyframes template-entrance-slide-right {
+    from { opacity: 0; transform: translate3d(12%, 0, 0); }
+    to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+@keyframes template-entrance-zoom-in {
+    from { opacity: 0; transform: scale(0.92); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes template-entrance-pop-in {
+    0% { opacity: 0; transform: scale(0.82); }
+    72% { opacity: 1; transform: scale(1.04); }
+    100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes template-entrance-blur-in {
+    from { opacity: 0; filter: blur(16px); transform: scale(1.02); }
+    to { opacity: 1; filter: blur(0); transform: scale(1); }
+}
+
+@keyframes template-continuous-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.72; }
+}
+
+@keyframes template-continuous-float {
+    0%, 100% { transform: translate3d(0, 0, 0); }
+    50% { transform: translate3d(0, -3%, 0); }
+}
+
+@keyframes template-continuous-slow-zoom {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.04); }
+}
+
+@keyframes template-continuous-wiggle {
+    0%, 100% { transform: rotate(0deg); }
+    25% { transform: rotate(-1.5deg); }
+    75% { transform: rotate(1.5deg); }
+}
+
+@keyframes template-continuous-glow {
+    0%, 100% { filter: drop-shadow(0 0 0 rgba(255, 255, 255, 0)); }
+    50% { filter: drop-shadow(0 0 1.2cqw rgba(255, 255, 255, 0.55)); }
+}
+
+@keyframes template-continuous-rotate-slow {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .slide.is-active .template-slide__element[class*="template-slide__element--entrance-"],
+    .slide.is-active.is-template-animating .template-slide__element[class*="template-slide__element--entrance-"],
+    .slide.is-active .template-slide__element[class*="template-slide__element--continuous-"],
+    .slide.is-active.is-template-animating .template-slide__element[class*="template-slide__element--entrance-"][class*="template-slide__element--continuous-"] {
+        opacity: inherit;
+        animation: none;
+        transform: none;
+        filter: none;
+    }
 }
 
 .template-slide__element--text {

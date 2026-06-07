@@ -66,6 +66,16 @@
         });
     };
 
+    const restartTemplateElementAnimations = slide => {
+        if (!slide?.querySelector('.template-slide__element[class*="template-slide__element--entrance-"]')) return;
+
+        slide.classList.remove('is-template-animating');
+        void slide.offsetWidth;
+        requestFrame(() => {
+            slide.classList.add('is-template-animating');
+        });
+    };
+
     const resolveEndpointUrl = value => {
         if (!value) return '';
 
@@ -853,9 +863,11 @@
             stopVideo(current);
             current.classList.remove('is-active');
             current.classList.remove('is-text-card-animating');
+            current.classList.remove('is-template-animating');
             next.classList.add('is-active');
             index = nextSlideIndex;
             restartTextCardAnimation(next);
+            restartTemplateElementAnimations(next);
             startVideo(next);
             prepareMediaAround(index);
             window.setTimeout(() => cleanupFarMedia(index), 1300);
@@ -905,6 +917,7 @@
             const playable = firstPlayableIndex();
             if (playable >= 0 && playable !== index) {
                 slides[index].classList.remove('is-active');
+                slides[index].classList.remove('is-template-animating');
                 slides[playable].classList.add('is-active');
                 index = playable;
             }
@@ -912,6 +925,7 @@
         prepareMediaAround(index);
         startVideo(slides[index]);
         restartTextCardAnimation(slides[index]);
+        restartTemplateElementAnimations(slides[index]);
         cleanupFarMedia(index);
         warmOfflineCache('startup');
         reloadIfChanged();

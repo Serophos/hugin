@@ -52,12 +52,17 @@ $editorI18n = [
     'inspector_element' => __('templates.inspector_element'),
     'inspector_fields' => __('templates.inspector_fields'),
     'inspector_layers' => __('templates.inspector_layers'),
+    'inspector_animations' => __('templates.inspector_animations'),
     'section_position' => __('templates.section_position'),
     'section_binding' => __('templates.section_binding'),
     'section_content' => __('templates.section_content'),
     'section_appearance' => __('templates.section_appearance'),
+    'section_entrance_animation' => __('templates.section_entrance_animation'),
+    'section_continuous_animation' => __('templates.section_continuous_animation'),
     'empty_fields' => __('templates.empty_fields'),
     'no_field_selection' => __('templates.no_field_selection'),
+    'no_animation_selection' => __('templates.no_animation_selection'),
+    'background_cannot_animate' => __('templates.background_cannot_animate'),
     'element_has_no_field' => __('templates.element_has_no_field'),
     'element_cannot_use_fields' => __('templates.element_cannot_use_fields'),
     'create_and_bind_field' => __('templates.create_and_bind_field'),
@@ -75,6 +80,33 @@ $editorI18n = [
     'import_invalid' => __('templates.import_invalid'),
     'open_color_picker' => __('templates.open_color_picker'),
     'color_opacity' => __('templates.color_opacity'),
+    'animation_entrance' => __('templates.animation_entrance'),
+    'animation_continuous' => __('templates.animation_continuous'),
+    'animation_delay' => __('templates.animation_delay'),
+    'animation_duration' => __('templates.animation_duration'),
+    'animation_easing' => __('templates.animation_easing'),
+    'animation_direction' => __('templates.animation_direction'),
+    'animation_fade_in' => __('templates.animation_fade_in'),
+    'animation_fade_up' => __('templates.animation_fade_up'),
+    'animation_fade_down' => __('templates.animation_fade_down'),
+    'animation_slide_left' => __('templates.animation_slide_left'),
+    'animation_slide_right' => __('templates.animation_slide_right'),
+    'animation_zoom_in' => __('templates.animation_zoom_in'),
+    'animation_pop_in' => __('templates.animation_pop_in'),
+    'animation_blur_in' => __('templates.animation_blur_in'),
+    'animation_pulse' => __('templates.animation_pulse'),
+    'animation_float' => __('templates.animation_float'),
+    'animation_slow_zoom' => __('templates.animation_slow_zoom'),
+    'animation_wiggle' => __('templates.animation_wiggle'),
+    'animation_glow' => __('templates.animation_glow'),
+    'animation_rotate_slow' => __('templates.animation_rotate_slow'),
+    'animation_ease' => __('templates.animation_ease'),
+    'animation_ease_out' => __('templates.animation_ease_out'),
+    'animation_ease_in_out' => __('templates.animation_ease_in_out'),
+    'animation_linear' => __('templates.animation_linear'),
+    'animation_direction_normal' => __('templates.animation_direction_normal'),
+    'animation_direction_alternate' => __('templates.animation_direction_alternate'),
+    'animation_direction_reverse' => __('templates.animation_direction_reverse'),
 ];
 $editorI18nJson = json_encode($editorI18n, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 $editorIconsJson = json_encode([
@@ -112,19 +144,19 @@ require __DIR__ . '/../layouts/admin_header.php';
             </div>
             <div class="template-editor__tools">
                 <button type="button" class="template-tool-button template-tool-button--text" data-add-element="text">
-                    <span class="template-tool-button__icon" aria-hidden="true"><span class="template-tool-glyph template-tool-glyph--text"></span></span>
+                    <span class="template-tool-button__icon" aria-hidden="true"><img src="<?= e(url('/assets/icons/admin/template-tool-text.png')) ?>" alt=""></span>
                     <span class="template-tool-button__label"><?= e(__('templates.element_text')) ?></span>
                 </button>
                 <button type="button" class="template-tool-button template-tool-button--media" data-add-element="media">
-                    <span class="template-tool-button__icon" aria-hidden="true"><span class="template-tool-glyph template-tool-glyph--media"></span></span>
+                    <span class="template-tool-button__icon" aria-hidden="true"><img src="<?= e(url('/assets/icons/admin/template-tool-media.png')) ?>" alt=""></span>
                     <span class="template-tool-button__label"><?= e(__('templates.element_media')) ?></span>
                 </button>
                 <button type="button" class="template-tool-button template-tool-button--qr" data-add-element="qr">
-                    <span class="template-tool-button__icon" aria-hidden="true"><span class="template-tool-glyph template-tool-glyph--qr"></span></span>
+                    <span class="template-tool-button__icon" aria-hidden="true"><img src="<?= e(url('/assets/icons/admin/template-tool-qr.png')) ?>" alt=""></span>
                     <span class="template-tool-button__label"><?= e(__('templates.element_qr')) ?></span>
                 </button>
                 <button type="button" class="template-tool-button template-tool-button--shape" data-add-element="shape">
-                    <span class="template-tool-button__icon" aria-hidden="true"><span class="template-tool-glyph template-tool-glyph--shape"></span></span>
+                    <span class="template-tool-button__icon" aria-hidden="true"><img src="<?= e(url('/assets/icons/admin/template-tool-shape.png')) ?>" alt=""></span>
                     <span class="template-tool-button__label"><?= e(__('templates.element_shape')) ?></span>
                 </button>
             </div>
@@ -136,15 +168,21 @@ require __DIR__ . '/../layouts/admin_header.php';
                 </div>
             </div>
             <aside class="template-editor__inspector" data-editor-inspector>
-                <div class="template-editor__inspector-tabs" role="tablist" aria-label="<?= e(__('templates.properties')) ?>">
-                    <button type="button" class="is-active" data-inspector-tab="element" title="<?= e(__('templates.inspector_element')) ?>" aria-label="<?= e(__('templates.inspector_element')) ?>"><?= admin_icon('settings') ?><span><?= e(__('templates.inspector_element')) ?></span></button>
-                    <button type="button" data-inspector-tab="fields" title="<?= e(__('templates.inspector_fields')) ?>" aria-label="<?= e(__('templates.inspector_fields')) ?>"><?= admin_icon('add') ?><span><?= e(__('templates.inspector_fields')) ?></span></button>
-                    <button type="button" data-inspector-tab="layers" title="<?= e(__('templates.inspector_layers')) ?>" aria-label="<?= e(__('templates.inspector_layers')) ?>"><?= admin_icon('move') ?><span><?= e(__('templates.inspector_layers')) ?></span></button>
+                <div class="template-editor__inspector-tabbar">
+                    <button type="button" class="template-editor__tab-scroll" data-tab-scroll="left" aria-label="<?= e(__('common.previous')) ?>">&#8249;</button>
+                    <div class="template-editor__inspector-tabs" role="tablist" aria-label="<?= e(__('templates.properties')) ?>" data-inspector-tabs-scroll>
+                        <button type="button" class="is-active" data-inspector-tab="element" title="<?= e(__('templates.inspector_element')) ?>" aria-label="<?= e(__('templates.inspector_element')) ?>"><?= admin_icon('settings') ?><span><?= e(__('templates.inspector_element')) ?></span></button>
+                        <button type="button" data-inspector-tab="fields" title="<?= e(__('templates.inspector_fields')) ?>" aria-label="<?= e(__('templates.inspector_fields')) ?>"><?= admin_icon('add') ?><span><?= e(__('templates.inspector_fields')) ?></span></button>
+                        <button type="button" data-inspector-tab="layers" title="<?= e(__('templates.inspector_layers')) ?>" aria-label="<?= e(__('templates.inspector_layers')) ?>"><?= admin_icon('move') ?><span><?= e(__('templates.inspector_layers')) ?></span></button>
+                        <button type="button" data-inspector-tab="animations" title="<?= e(__('templates.inspector_animations')) ?>" aria-label="<?= e(__('templates.inspector_animations')) ?>"><?= admin_icon('reload') ?><span><?= e(__('templates.inspector_animations')) ?></span></button>
+                    </div>
+                    <button type="button" class="template-editor__tab-scroll" data-tab-scroll="right" aria-label="<?= e(__('common.next')) ?>">&#8250;</button>
                 </div>
                 <div class="template-editor__inspector-body">
                     <section class="template-editor__inspector-panel" data-inspector-panel="element"></section>
                     <section class="template-editor__inspector-panel" data-inspector-panel="fields" hidden></section>
                     <section class="template-editor__inspector-panel" data-inspector-panel="layers" hidden></section>
+                    <section class="template-editor__inspector-panel" data-inspector-panel="animations" hidden></section>
                 </div>
             </aside>
         </div>
@@ -194,6 +232,11 @@ require __DIR__ . '/../layouts/admin_header.php';
         { key: 'content', base: 100, locked: false },
         { key: 'overlay', base: 700, locked: false },
     ];
+    const entranceAnimations = ['none', 'fade-in', 'fade-up', 'fade-down', 'slide-left', 'slide-right', 'zoom-in', 'pop-in', 'blur-in'];
+    const continuousAnimations = ['none', 'pulse', 'float', 'slow-zoom', 'wiggle', 'glow', 'rotate-slow'];
+    const animationEasings = ['ease', 'ease-out', 'ease-in-out', 'linear'];
+    const animationDirections = ['normal', 'alternate', 'reverse'];
+    const defaultAnimation = () => ({ entrance: 'none', continuous: 'none', entranceDelayMs: 0, entranceDurationMs: 600, continuousDurationMs: 3000, easing: 'ease-out', direction: 'normal' });
     const i18n = <?= $editorI18nJson ?: '{}' ?>;
     const specs = {
         landscape: <?= $landscapeJson ?: '{}' ?>,
@@ -213,10 +256,13 @@ require __DIR__ . '/../layouts/admin_header.php';
     const form = document.querySelector('[data-template-editor-form]');
     const canvas = editor.querySelector('[data-editor-canvas]');
     const inspectorTabs = editor.querySelectorAll('[data-inspector-tab]');
+    const inspectorTabsScroll = editor.querySelector('[data-inspector-tabs-scroll]');
+    const inspectorTabScrollButtons = editor.querySelectorAll('[data-tab-scroll]');
     const inspectorPanels = editor.querySelectorAll('[data-inspector-panel]');
     const elementPanel = editor.querySelector('[data-inspector-panel="element"]');
     const fieldsPanel = editor.querySelector('[data-inspector-panel="fields"]');
     const layersPanel = editor.querySelector('[data-inspector-panel="layers"]');
+    const animationsPanel = editor.querySelector('[data-inspector-panel="animations"]');
     const hiddenLandscape = form.querySelector('[data-template-spec="landscape"]');
     const hiddenPortrait = form.querySelector('[data-template-spec="portrait"]');
     const debugLandscape = form.querySelector('[data-json-debug="landscape"]');
@@ -343,8 +389,29 @@ require __DIR__ . '/../layouts/admin_header.php';
             y: rounded(element.y),
             w: rounded(element.w, 0.02, 1),
             h: rounded(element.h, 0.02, 1),
-        }));
+        })).map(element => {
+            if (isBackground(element)) {
+                delete element.animation;
+                return element;
+            }
+            element.animation = normalizedAnimation(element.animation);
+            return element;
+        });
         return copy;
+    }
+
+    function normalizedAnimation(animation) {
+        const input = animation && typeof animation === 'object' ? animation : {};
+        const fallback = defaultAnimation();
+        return {
+            entrance: entranceAnimations.includes(input.entrance) ? input.entrance : fallback.entrance,
+            continuous: continuousAnimations.includes(input.continuous) ? input.continuous : fallback.continuous,
+            entranceDelayMs: Math.round(clamp(input.entranceDelayMs ?? fallback.entranceDelayMs, 0, 30000) / 100) * 100,
+            entranceDurationMs: Math.round(clamp(input.entranceDurationMs ?? fallback.entranceDurationMs, 100, 10000) / 100) * 100,
+            continuousDurationMs: Math.round(clamp(input.continuousDurationMs ?? fallback.continuousDurationMs, 500, 30000) / 250) * 250,
+            easing: animationEasings.includes(input.easing) ? input.easing : fallback.easing,
+            direction: animationDirections.includes(input.direction) ? input.direction : fallback.direction,
+        };
     }
 
     function renderCanvas() {
@@ -416,6 +483,7 @@ require __DIR__ . '/../layouts/admin_header.php';
         renderElementInspector(selectedElement());
         renderFieldsPanel();
         renderLayersPanel();
+        renderAnimationsPanel();
     }
 
     function renderInspectorTabs() {
@@ -423,8 +491,26 @@ require __DIR__ . '/../layouts/admin_header.php';
             const active = tab.dataset.inspectorTab === activeInspectorTab;
             tab.classList.toggle('is-active', active);
             tab.setAttribute('aria-selected', active ? 'true' : 'false');
+            if (active) {
+                tab.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+            }
         });
         inspectorPanels.forEach(panel => { panel.hidden = panel.dataset.inspectorPanel !== activeInspectorTab; });
+        updateInspectorTabScroll();
+    }
+
+    function updateInspectorTabScroll() {
+        if (!inspectorTabsScroll) return;
+        const overflow = inspectorTabsScroll.scrollWidth > inspectorTabsScroll.clientWidth + 1;
+        const maxScroll = Math.max(0, inspectorTabsScroll.scrollWidth - inspectorTabsScroll.clientWidth);
+        inspectorTabScrollButtons.forEach(button => {
+            button.hidden = !overflow;
+            if (button.dataset.tabScroll === 'left') {
+                button.disabled = !overflow || inspectorTabsScroll.scrollLeft <= 1;
+            } else {
+                button.disabled = !overflow || inspectorTabsScroll.scrollLeft >= maxScroll - 1;
+            }
+        });
     }
 
     function panelTitle(label, action = '') {
@@ -469,6 +555,15 @@ require __DIR__ . '/../layouts/admin_header.php';
 
     function selectInput(dataKind, key, value, options) {
         return `<select data-${dataKind}="${attr(key)}">${options}</select>`;
+    }
+
+    function optionLabel(prefix, value) {
+        if (value === 'none') return i18n.none;
+        return i18n[`${prefix}_${value.replace(/-/g, '_')}`] || value;
+    }
+
+    function optionsFor(values, selected, prefix) {
+        return values.map(value => `<option value="${attr(value)}" ${value === selected ? 'selected' : ''}>${escapeHtml(optionLabel(prefix, value))}</option>`).join('');
     }
 
     function layerGroupForElement(element) {
@@ -636,6 +731,52 @@ require __DIR__ . '/../layouts/admin_header.php';
         list.className = 'template-editor__field-list';
         list.appendChild(row);
         fieldsPanel.appendChild(list);
+    }
+
+    function renderAnimationsPanel() {
+        const element = selectedElement();
+        animationsPanel.innerHTML = panelTitle(i18n.inspector_animations);
+        if (!element) {
+            animationsPanel.innerHTML += `<div class="template-editor__empty-state">${escapeHtml(i18n.no_animation_selection)}</div>`;
+            return;
+        }
+        if (isBackground(element)) {
+            animationsPanel.innerHTML += `<div class="template-editor__empty-state">${escapeHtml(i18n.background_cannot_animate)}</div>`;
+            delete element.animation;
+            syncHidden();
+            return;
+        }
+
+        element.animation = normalizedAnimation(element.animation);
+        const animation = element.animation;
+        const entrance = propertySection(i18n.section_entrance_animation, `
+            ${propertyRow(i18n.animation_entrance, selectInput('animation', 'entrance', animation.entrance, optionsFor(entranceAnimations, animation.entrance, 'animation')))}
+            ${propertyRow(i18n.animation_delay, numberInput('animation', 'entranceDelayMs', animation.entranceDelayMs, 'step="100" min="0" max="30000"'))}
+            ${propertyRow(i18n.animation_duration, numberInput('animation', 'entranceDurationMs', animation.entranceDurationMs, 'step="100" min="100" max="10000"'))}
+            ${propertyRow(i18n.animation_easing, selectInput('animation', 'easing', animation.easing, optionsFor(animationEasings, animation.easing, 'animation')))}
+        `);
+        const continuous = propertySection(i18n.section_continuous_animation, `
+            ${propertyRow(i18n.animation_continuous, selectInput('animation', 'continuous', animation.continuous, optionsFor(continuousAnimations, animation.continuous, 'animation')))}
+            ${propertyRow(i18n.animation_duration, numberInput('animation', 'continuousDurationMs', animation.continuousDurationMs, 'step="250" min="500" max="30000"'))}
+            ${propertyRow(i18n.animation_direction, selectInput('animation', 'direction', animation.direction, optionsFor(animationDirections, animation.direction, 'animation_direction')))}
+        `);
+
+        animationsPanel.innerHTML += entrance + continuous;
+        bindAnimationsPanel(element);
+    }
+
+    function bindAnimationsPanel(element) {
+        animationsPanel.querySelectorAll('[data-animation]').forEach(input => {
+            const update = () => {
+                if (isBackground(element)) return;
+                element.animation = normalizedAnimation(Object.assign({}, element.animation || {}, {
+                    [input.dataset.animation]: input.type === 'number' ? Number(input.value) : input.value,
+                }));
+                renderLiveCanvas();
+                renderAnimationsPanel();
+            };
+            input.addEventListener('change', update);
+        });
     }
 
     function fieldCapableElement(element) {
@@ -848,6 +989,7 @@ require __DIR__ . '/../layouts/admin_header.php';
     function addElement(type) {
         const z = type === 'background' ? 0 : nextContentLayerZ();
         const element = { id: uid(type), type, field: '', x: 0.2, y: 0.2, w: 0.35, h: 0.22, z, style: { backgroundColor: type === 'shape' ? 'rgba(255,255,255,0.35)' : 'rgba(15,23,42,0.55)', color: '#ffffff', fontSize: 4, radius: 1, fit: 'cover' } };
+        if (type !== 'background') element.animation = defaultAnimation();
         if (type === 'qr') { element.w = 0.18; element.h = 0.32; element.style.backgroundColor = 'rgba(255,255,255,1)'; element.style.color = 'rgba(15,23,42,1)'; }
         if (type === 'media') { element.w = 0.42; element.h = 0.32; }
         spec().elements.push(element);
@@ -891,6 +1033,12 @@ require __DIR__ . '/../layouts/admin_header.php';
         render();
     }));
     inspectorTabs.forEach(button => button.addEventListener('click', () => { setInspectorTab(button.dataset.inspectorTab); }));
+    inspectorTabScrollButtons.forEach(button => button.addEventListener('click', () => {
+        const direction = button.dataset.tabScroll === 'left' ? -1 : 1;
+        inspectorTabsScroll?.scrollBy({ left: direction * Math.max(120, inspectorTabsScroll.clientWidth * 0.72), behavior: 'smooth' });
+    }));
+    inspectorTabsScroll?.addEventListener('scroll', updateInspectorTabScroll, { passive: true });
+    window.addEventListener('resize', updateInspectorTabScroll);
     editor.querySelectorAll('[data-add-element]').forEach(button => button.addEventListener('click', () => addElement(button.dataset.addElement)));
     function exportJson(orientationName) {
         const source = orientationName === 'portrait' ? specs.portrait : specs.landscape;

@@ -1,6 +1,6 @@
 # Local config files
 config.php
-.vscode
+.vscode/*
 
 # Backup files
 *.bak
@@ -19,5 +19,3 @@ public/assets/fonts/*
 # Composer dependencies
 /vendor/
 composer.phar
-
-
