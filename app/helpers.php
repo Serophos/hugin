@@ -237,8 +237,11 @@ function csrf_field(): string
 function admin_icon(string $name): string
 {
     static $icons = [
-        'add', 'back', 'cancel', 'delete', 'edit', 'login', 'manage', 'move',
-        'open', 'preview', 'remove', 'reload', 'save', 'settings', 'upload',
+        'about', 'add', 'back', 'cancel', 'dashboard', 'delete', 'displays',
+        'edit', 'locations', 'login', 'logout', 'manage', 'media', 'menu',
+        'move', 'open', 'playlists', 'plugins', 'preview', 'reload',
+        'remove', 'save', 'schedules', 'settings', 'slides', 'templates',
+        'upload', 'users',
     ];
 
     if (!in_array($name, $icons, true)) {

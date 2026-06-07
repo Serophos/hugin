@@ -1,4 +1,8 @@
 </main>
+<?php if (!empty($adminShellActive)): ?>
+    </div>
+</div>
+<?php endif; ?>
 <dialog class="admin-dialog" data-confirm-dialog>
     <form method="dialog" class="admin-dialog__panel">
         <h2 data-confirm-dialog-title></h2>
@@ -13,5 +17,6 @@
 <script src="<?= e(url('/assets/js/display-groups.js')) ?>"></script>
 <script src="<?= e(url('/assets/js/admin-confirm.js')) ?>"></script>
 <script src="<?= e(url('/assets/js/admin-table.js')) ?>"></script>
+<script src="<?= e(url('/assets/js/admin-layout.js')) ?>"></script>
 </body>
 </html>
