@@ -92,7 +92,6 @@ if (!$isUnused) {
             <table class="admin-table admin-table--playlists" data-admin-table>
                 <thead>
                 <tr>
-                    <th class="handle-col"></th>
                     <th aria-sort="none"><button type="button" class="slide-library-sort" data-admin-sort="name" data-sort-type="text" aria-label="<?= e(__('slide.sort_by_column', ['column' => __('common.name')])) ?>"><?= e(__('common.name')) ?></button></th>
                     <th aria-sort="none"><button type="button" class="slide-library-sort" data-admin-sort="schedule" data-sort-type="text" aria-label="<?= e(__('slide.sort_by_column', ['column' => __('schedule.singular')])) ?>"><?= e(__('schedule.singular')) ?></button></th>
                     <th aria-sort="none"><button type="button" class="slide-library-sort" data-admin-sort="priority" data-sort-type="number" aria-label="<?= e(__('slide.sort_by_column', ['column' => __('channel.priority')])) ?>"><?= e(__('channel.priority')) ?></button></th>
@@ -102,7 +101,6 @@ if (!$isUnused) {
                     <th><?= e(__('common.actions')) ?></th>
                 </tr>
                 <tr class="slide-library-filter-row">
-                    <th></th>
                     <th><input type="search" data-admin-filter="name" aria-label="<?= e(__('slide.filter_column', ['column' => __('common.name')])) ?>" placeholder="<?= e(__('common.name')) ?>"></th>
                     <th><input type="search" data-admin-filter="schedule" aria-label="<?= e(__('slide.filter_column', ['column' => __('schedule.singular')])) ?>" placeholder="<?= e(__('schedule.singular')) ?>"></th>
                     <th><input type="search" data-admin-filter="priority" aria-label="<?= e(__('slide.filter_column', ['column' => __('channel.priority')])) ?>" placeholder="<?= e(__('channel.priority')) ?>"></th>
@@ -118,7 +116,7 @@ if (!$isUnused) {
                     <th></th>
                 </tr>
                 </thead>
-                <tbody<?php if (!$isUnused): ?> class="sortable-list" data-sort-endpoint="<?= e(url('/admin/sort/playlists')) ?>" data-extra-name="display_id" data-extra-value="<?= e((string)$display['id']) ?>"<?php endif; ?>>
+                <tbody>
         <?php foreach ($group['channels'] as $channel): ?>
             <?php
             $scheduleLabel = $channel['schedule_name'] ?: __('common.none');
@@ -128,8 +126,7 @@ if (!$isUnused) {
             $statusValue = $channel['is_active'] ? 'active' : 'inactive';
             $statusLabel = $channel['is_active'] ? __('common.active') : __('common.inactive');
             ?>
-            <tr<?php if (!$isUnused): ?> draggable="true" data-id="<?= e((string)$channel['assignment_id']) ?>"<?php endif; ?> data-admin-row>
-                <td class="handle"><?= $isUnused ? '' : '↕' ?></td>
+            <tr data-admin-row>
                 <td data-admin-cell="name" data-sort-value="<?= e((string)$channel['channel_name']) ?>" data-filter-value="<?= e((string)$channel['channel_name']) ?>"><?= e($channel['channel_name']) ?></td>
                 <td data-admin-cell="schedule" data-sort-value="<?= e($scheduleLabel) ?>" data-filter-value="<?= e($scheduleLabel) ?>"><?= e($scheduleLabel) ?></td>
                 <td data-admin-cell="priority" data-sort-value="<?= e($prioritySort) ?>" data-filter-value="<?= e($priorityLabel) ?>"><?= e($priorityLabel) ?></td>

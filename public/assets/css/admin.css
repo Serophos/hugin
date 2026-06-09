@@ -1007,7 +1007,7 @@ tbody tr:hover {
     outline: var(--focus-outline);
     outline-offset: var(--focus-outline-offset);
 }
-.handle {
+.sortable-list .handle {
     width: 36px;
     text-align: center;
     cursor: grab;
@@ -1726,20 +1726,20 @@ td.actions .button span {
     width: 28%;
 }
 
-.admin-table--playlists th:nth-child(4),
-.admin-table--playlists td:nth-child(4),
-.admin-table--playlists th:nth-child(6),
-.admin-table--playlists td:nth-child(6) {
+.admin-table--playlists th:nth-child(3),
+.admin-table--playlists td:nth-child(3),
+.admin-table--playlists th:nth-child(5),
+.admin-table--playlists td:nth-child(5) {
     width: 8%;
 }
 
-.admin-table--playlists th:nth-child(5),
-.admin-table--playlists td:nth-child(5) {
+.admin-table--playlists th:nth-child(4),
+.admin-table--playlists td:nth-child(4) {
     width: 12%;
 }
 
-.admin-table--playlists th:nth-child(7),
-.admin-table--playlists td:nth-child(7) {
+.admin-table--playlists th:nth-child(6),
+.admin-table--playlists td:nth-child(6) {
     width: 10%;
 }
 

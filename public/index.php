@@ -152,7 +152,6 @@ if ($uri === '/admin/channels/create' && $method === 'POST') { $admin->savePlayl
 if (preg_match('#^/admin/channels/(\d+)/edit$#', $uri, $m) && $method === 'GET') { $admin->playlistForm((int)$m[1]); exit; }
 if (preg_match('#^/admin/channels/(\d+)/edit$#', $uri, $m) && $method === 'POST') { $admin->savePlaylist((int)$m[1]); exit; }
 if (preg_match('#^/admin/channels/(\d+)/delete$#', $uri, $m) && $method === 'POST') { $admin->deletePlaylist((int)$m[1]); exit; }
-if ($uri === '/admin/sort/channels' && $method === 'POST') { $admin->sortPlaylists(); exit; }
 if (preg_match('#^/admin/channels/(\d+)/slides/add$#', $uri, $m) && $method === 'POST') { $admin->addSlidesToPlaylist((int)$m[1]); exit; }
 if (preg_match('#^/admin/channels/(\d+)/slides/(\d+)/remove$#', $uri, $m) && $method === 'POST') { $admin->removeSlideFromPlaylist((int)$m[2], (int)$m[1]); exit; }
 
@@ -162,7 +161,6 @@ if ($uri === '/admin/playlists/create' && $method === 'POST') { $admin->savePlay
 if (preg_match('#^/admin/playlists/(\d+)/edit$#', $uri, $m) && $method === 'GET') { $admin->playlistForm((int)$m[1]); exit; }
 if (preg_match('#^/admin/playlists/(\d+)/edit$#', $uri, $m) && $method === 'POST') { $admin->savePlaylist((int)$m[1]); exit; }
 if (preg_match('#^/admin/playlists/(\d+)/delete$#', $uri, $m) && $method === 'POST') { $admin->deletePlaylist((int)$m[1]); exit; }
-if ($uri === '/admin/sort/playlists' && $method === 'POST') { $admin->sortPlaylists(); exit; }
 
 if ($uri === '/admin/slide-templates' && $method === 'GET') { $admin->slideTemplates(); exit; }
 if ($uri === '/admin/slide-templates/create' && $method === 'GET') { $admin->slideTemplateForm(); exit; }

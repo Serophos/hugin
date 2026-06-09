@@ -1294,17 +1294,6 @@ class AdminController
         redirect('/admin/playlists');
     }
 
-    public function sortPlaylists(): void
-    {
-        $this->auth->requireLogin();
-        $displayId = (int)$this->request->input('display_id');
-        foreach ($this->normalizeIds($this->request->input('ids', [])) as $index => $assignmentId) {
-            $this->db->execute('UPDATE channel_display_schedule_assignments SET priority = ? WHERE id = ? AND display_id = ?', [$index + 1, $assignmentId, $displayId]);
-        }
-        $this->requestReloadForDisplays([$displayId]);
-        json_response(['ok' => true]);
-    }
-
     public function schedules(): void
     {
         $this->auth->requireLogin();
