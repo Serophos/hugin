@@ -1,5 +1,5 @@
 <?php
-$heartbeatInterval = max(30, min(120, (int)floor(((int)app_config('monitoring.online_threshold_seconds', 180)) / 2)));
+$heartbeatInterval = max(30, min(120, (int)floor(((int)app_core_setting('monitoring.online_threshold_seconds', 180)) / 2)));
 $displayGroup = $displayGroup ?? null;
 $syncReloadToFullMinute = !empty($displayGroup['sync_reload_to_full_minute']);
 ?>

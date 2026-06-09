@@ -42,8 +42,7 @@ foreach ($groups as $group) {
 }
 require __DIR__ . '/../layouts/admin_header.php';
 ?>
-<div class="page-head">
-    <div><h1><?= e(__('channel.plural')) ?></h1><p class="muted"><?= e(__('channel.overview_hint')) ?></p></div>
+<div class="page-actions">
     <a class="button button--default" href="<?= e(url('/admin/playlists/create')) ?>"><?= admin_icon('add') ?><span><?= e(__('channel.new')) ?></span></a>
 </div>
 <?php if ($flash): ?><div class="alert success"><?= e($flash) ?></div><?php endif; ?>

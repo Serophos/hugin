@@ -12,19 +12,12 @@ natcasesort($slideTypeOptions);
 
 require __DIR__ . '/../layouts/admin_header.php';
 ?>
-<div class="page-head">
-    <div><h1><?= e(__('slide.plural')) ?></h1><p class="muted"><?= e(__('slide.library_hint')) ?></p></div>
+<div class="page-actions">
     <a class="button button--default" href="<?= e(url('/admin/slides/create?return_to=' . rawurlencode('/admin/slides'))) ?>" data-open-slide-type-dialog data-create-url="<?= e(url('/admin/slides/create')) ?>" data-return-to="/admin/slides" aria-haspopup="dialog"><?= admin_icon('add') ?><span><?= e(__('slide.new')) ?></span></a>
 </div>
 <?php if ($flash): ?><div class="alert success"><?= e($flash) ?></div><?php endif; ?>
 
 <section class="slide-workspace-section">
-    <!--div class="section-head">
-        <div>
-            <h2><?= e(__('slide.library')) ?></h2>
-            <p class="muted"><?= e(__('slide.library_hint')) ?></p>
-        </div>
-    </div-->
     <details class="card slide-group" open>
         <summary>
             <span class="slide-group__title">

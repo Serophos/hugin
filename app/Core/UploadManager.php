@@ -39,7 +39,7 @@ class UploadManager
             throw new RuntimeException(__('errors.upload_failed', [], 'Upload failed.'));
         }
 
-        $maxSize = (int)($this->config['upload']['max_size_bytes'] ?? 52428800);
+        $maxSize = (int)app_core_setting('upload.max_size_bytes', 52428800);
         if (($file['size'] ?? 0) > $maxSize) {
             throw new RuntimeException(__('errors.uploaded_file_too_large', [], 'Uploaded file is too large.'));
         }

@@ -19,7 +19,6 @@ if (form_has_old($formId)) {
 }
 require __DIR__ . '/../layouts/admin_header.php';
 ?>
-<h1><?= e($title) ?></h1>
 <?php if ($error): ?><div class="alert error"><?= e($error) ?></div><?php endif; ?>
 <div class="card">
     <form method="post" action="<?= e($schedule ? url('/admin/schedules/' . $schedule['id'] . '/edit') : url('/admin/schedules/create')) ?>" class="form-grid">

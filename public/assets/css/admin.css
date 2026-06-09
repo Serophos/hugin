@@ -329,20 +329,14 @@ body.a11y-motion-reduced *::after {
     min-width: 0;
 }
 
-.admin-topbar strong {
+.admin-topbar__title {
+    margin: 0;
     overflow: hidden;
+    font-size: 1.08rem;
+    font-weight: 700;
     line-height: 1.2;
     text-overflow: ellipsis;
     white-space: nowrap;
-}
-
-.admin-topbar__eyebrow {
-    color: var(--muted);
-    font-size: 0.78rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    line-height: 1.1;
-    text-transform: uppercase;
 }
 
 .admin-menu-toggle {
@@ -506,6 +500,15 @@ body.a11y-motion-reduced *::after {
     justify-content: space-between;
     align-items: center;
     gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.page-actions {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
     margin-bottom: 1rem;
 }
 
@@ -675,6 +678,32 @@ fieldset legend {
 
 fieldset > :last-child {
     margin-bottom: 0;
+}
+
+.settings-form {
+    gap: 1rem;
+}
+
+.settings-card {
+    display: grid;
+    gap: 0.8rem;
+    margin-bottom: 0;
+}
+
+.settings-card legend {
+    padding: 0;
+    font-size: 1rem;
+}
+
+.settings-card-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.85rem 1rem;
+}
+
+.settings-card-toggle {
+    align-self: end;
+    min-height: var(--control-height);
 }
 
 .form-grid input,
@@ -877,6 +906,12 @@ fieldset > :last-child {
 
 .checkbox-row input { width: auto; }
 .full-width { grid-column: 1 / -1; }
+
+@media (max-width: 760px) {
+    .settings-card-grid {
+        grid-template-columns: 1fr;
+    }
+}
 
 .alert {
     border-radius: var(--radius-card);
@@ -2610,8 +2645,11 @@ td.actions .button span {
     gap: 0.75rem;
 }
 
-.about-title h1 {
+.about-title__name {
     margin: 0;
+    font-size: 1.75rem;
+    font-weight: 700;
+    line-height: 1.2;
 }
 
 .about-version {

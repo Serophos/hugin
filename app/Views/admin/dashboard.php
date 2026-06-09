@@ -1,5 +1,4 @@
 <?php $title = __('dashboard.title'); require __DIR__ . '/../layouts/admin_header.php'; ?>
-<div class="page-head"><h1><?= e(__('dashboard.title')) ?></h1></div>
 <?php if ($flash): ?><div class="alert success"><?= e($flash) ?></div><?php endif; ?>
 
 <section class="dashboard-section">

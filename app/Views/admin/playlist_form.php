@@ -26,7 +26,6 @@ if (form_has_old($formId)) {
 }
 require __DIR__ . '/../layouts/admin_header.php';
 ?>
-<h1><?= e($title) ?></h1>
 <?php if ($error): ?><div class="alert error"><?= e($error) ?></div><?php endif; ?>
 <div class="card">
     <form method="post" action="<?= e($channel ? url('/admin/playlists/' . $channel['id'] . '/edit') : url('/admin/playlists/create')) ?>" class="form-grid">

@@ -101,8 +101,7 @@ $bodyClasses = trim(($adminShellActive ? 'admin-shell-body' : 'admin-guest-body'
                 <?= admin_icon('menu') ?>
             </button>
             <div>
-                <span class="admin-topbar__eyebrow"><?= e(__('app.admin')) ?></span>
-                <strong><?= e($title ?? __('app.admin')) ?></strong>
+                <h1 class="admin-topbar__title"><?= e($title ?? __('app.admin')) ?></h1>
             </div>
             <span class="user-pill"><?= e(current_user_name()) ?></span>
         </header>

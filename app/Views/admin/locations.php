@@ -3,11 +3,7 @@ $locationCreateForm = 'location_create';
 $title = __('locations.plural');
 require __DIR__ . '/../layouts/admin_header.php';
 ?>
-<div class="page-head">
-    <div>
-        <h1><?= e(__('locations.plural')) ?></h1>
-        <p class="muted"><?= e(__('locations.overview_hint')) ?></p>
-    </div>
+<div class="page-actions">
     <a class="button button--normal" href="<?= e(url('/admin/displays')) ?>"><?= admin_icon('back') ?><span><?= e(__('display.plural')) ?></span></a>
 </div>
 

@@ -2,6 +2,7 @@ SET FOREIGN_KEY_CHECKS = 0;
 DROP TABLE IF EXISTS slide_plugin_data;
 DROP TABLE IF EXISTS slide_template_data;
 DROP TABLE IF EXISTS slide_templates;
+DROP TABLE IF EXISTS app_settings;
 DROP TABLE IF EXISTS plugin_global_settings;
 DROP TABLE IF EXISTS plugins;
 DROP TABLE IF EXISTS channel_slide_assignments;

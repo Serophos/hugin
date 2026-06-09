@@ -69,7 +69,6 @@ $selectedSlideTypeIcon = $slideTypeIconMap[$selectedSlideType] ?? [
 ];
 require __DIR__ . '/../layouts/admin_header.php';
 ?>
-<h1><?= e($title) ?></h1>
 <?php if ($error): ?><div class="alert error"><?= e($error) ?></div><?php endif; ?>
 <div class="card">
     <form method="post" enctype="multipart/form-data" action="<?= e(($slide && isset($slide['id'])) ? url('/admin/slides/' . $slide['id'] . '/edit') : url('/admin/slides/create')) ?>" class="form-grid" id="slide-form">

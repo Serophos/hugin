@@ -3,8 +3,7 @@ $title = __('templates.plural');
 $templates = $templates ?? [];
 require __DIR__ . '/../layouts/admin_header.php';
 ?>
-<div class="page-head">
-    <div><h1><?= e(__('templates.plural')) ?></h1><p class="muted"><?= e(__('templates.library_hint')) ?></p></div>
+<div class="page-actions">
     <a class="button button--default" href="<?= e(url('/admin/slide-templates/create')) ?>"><?= admin_icon('add') ?><span><?= e(__('templates.new')) ?></span></a>
 </div>
 <?php if ($flash): ?><div class="alert success"><?= e($flash) ?></div><?php endif; ?>

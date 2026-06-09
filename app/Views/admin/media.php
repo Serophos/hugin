@@ -3,12 +3,6 @@ $uploadForm = 'media_upload';
 $title = __('media.title');
 require __DIR__ . '/../layouts/admin_header.php';
 ?>
-<div class="page-head">
-    <div>
-        <h1><?= e(__('media.title')) ?></h1>
-        <p class="muted"><?= e(__('media.intro')) ?></p>
-    </div>
-</div>
 <?php if ($flash): ?><div class="alert success"><?= e($flash) ?></div><?php endif; ?>
 <?php if ($error): ?><div class="alert error"><?= e($error) ?></div><?php endif; ?>
 

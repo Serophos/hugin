@@ -14,8 +14,7 @@ $ruleSummary = static function (array $rules) use ($formatTime): string {
 };
 require __DIR__ . '/../layouts/admin_header.php';
 ?>
-<div class="page-head">
-    <div><h1><?= e(__('schedule.plural')) ?></h1><p class="muted"><?= e(__('schedule.overview_hint')) ?></p></div>
+<div class="page-actions">
     <a class="button button--default" href="<?= e(url('/admin/schedules/create')) ?>"><?= admin_icon('add') ?><span><?= e(__('schedule.new')) ?></span></a>
 </div>
 <?php if ($flash): ?><div class="alert success"><?= e($flash) ?></div><?php endif; ?>

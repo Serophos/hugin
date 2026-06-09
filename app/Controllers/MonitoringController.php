@@ -57,14 +57,16 @@ class MonitoringController
 
     private function authorize(): void
     {
-        if (!app_config('monitoring.enabled', false)) {
+        $settings = app_monitoring_settings();
+
+        if (!$settings['enabled']) {
             json_response([
                 'ok' => false,
                 'message' => __('monitoring.disabled', [], 'Monitoring API is disabled.'),
             ], 404);
         }
 
-        $expectedToken = trim((string) app_config('monitoring.api_token', ''));
+        $expectedToken = trim((string)$settings['api_token']);
         if ($expectedToken === '') {
             json_response([
                 'ok' => false,

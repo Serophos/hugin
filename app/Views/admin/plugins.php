@@ -9,12 +9,6 @@ $pluginDialogStrings = [
 ];
 require __DIR__ . '/../layouts/admin_header.php';
 ?>
-<div class="page-head">
-    <div>
-        <h1><?= e(__('plugins.title')) ?></h1>
-        <p class="muted"><?= e(__('plugins.intro')) ?></p>
-    </div>
-</div>
 <?php if ($flash): ?><div class="alert success"><?= e($flash) ?></div><?php endif; ?>
 <?php if ($error): ?><div class="alert error"><?= e($error) ?></div><?php endif; ?>
 <div class="card">

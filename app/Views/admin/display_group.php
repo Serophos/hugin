@@ -3,19 +3,13 @@ $groupEditForm = 'display_group_edit';
 $title = $group['name'];
 require __DIR__ . '/../layouts/admin_header.php';
 ?>
-<div class="page-head">
-    <div>
-        <h1><?= e($group['name']) ?></h1>
-        <p class="muted"><?= e($group['location_name']) ?> &middot; <?= e(__('display_groups.arrangement_hint')) ?></p>
-    </div>
-    <div class="actions">
-        <a class="button button--normal" href="<?= e(url('/admin/locations/' . $group['location_id'] . '/edit')) ?>"><?= admin_icon('back') ?><span><?= e(__('locations.plural')) ?></span></a>
-        <form method="post" action="<?= e(url('/admin/display-groups/' . $group['id'] . '/delete')) ?>" class="inline-form" data-confirm-submit data-confirm-title="<?= e(__('common.delete')) ?>" data-confirm-message="<?= e(__('display_groups.delete_confirm')) ?>" data-confirm-accept="<?= e(__('common.delete')) ?>">
-            <?= csrf_field() ?>
-            <input type="hidden" name="return_to" value="<?= e('/admin/locations/' . $group['location_id'] . '/edit') ?>">
-            <button type="submit" class="button button--danger button--small"><?= admin_icon('delete') ?><span><?= e(__('common.delete')) ?></span></button>
-        </form>
-    </div>
+<div class="page-actions">
+    <a class="button button--normal" href="<?= e(url('/admin/locations/' . $group['location_id'] . '/edit')) ?>"><?= admin_icon('back') ?><span><?= e(__('locations.plural')) ?></span></a>
+    <form method="post" action="<?= e(url('/admin/display-groups/' . $group['id'] . '/delete')) ?>" class="inline-form" data-confirm-submit data-confirm-title="<?= e(__('common.delete')) ?>" data-confirm-message="<?= e(__('display_groups.delete_confirm')) ?>" data-confirm-accept="<?= e(__('common.delete')) ?>">
+        <?= csrf_field() ?>
+        <input type="hidden" name="return_to" value="<?= e('/admin/locations/' . $group['location_id'] . '/edit') ?>">
+        <button type="submit" class="button button--danger button--small"><?= admin_icon('delete') ?><span><?= e(__('common.delete')) ?></span></button>
+    </form>
 </div>
 
 <?php if ($flash): ?><div class="alert success"><?= e($flash) ?></div><?php endif; ?>

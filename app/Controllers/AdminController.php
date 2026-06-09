@@ -16,6 +16,9 @@ class AdminController
 {
     private const MEDIA_PAGE_SIZE = 20;
     private const BRANDING_SETTINGS_NAMESPACE = 'branding';
+    private const UPLOAD_SETTINGS_NAMESPACE = 'upload';
+    private const MONITORING_SETTINGS_NAMESPACE = 'monitoring';
+    private const ACCESSIBILITY_SETTINGS_NAMESPACE = 'accessibility';
     private const DEFAULT_DISPLAY_ICON = 'display_16_9.png';
     private const DISPLAY_ICON_PUBLIC_DIRS = [
         '/assets/img/displays',
@@ -253,6 +256,11 @@ class AdminController
     {
         $this->auth->requireRole('admin');
         $settings = array_replace($this->loadBrandingSettings(), [
+            'upload_max_size_mb' => (string)max(1, (int)ceil(((int)app_core_setting('upload.max_size_bytes', 52428800)) / 1048576)),
+            'monitoring_enabled' => app_core_setting('monitoring.enabled', false) ? '1' : '0',
+            'monitoring_api_token' => (string)app_core_setting('monitoring.api_token', ''),
+            'monitoring_online_threshold_seconds' => (string)app_core_setting('monitoring.online_threshold_seconds', 180),
+            'monitoring_stale_threshold_seconds' => (string)app_core_setting('monitoring.stale_threshold_seconds', 1800),
             'accessibility_contact_email' => '',
             'accessibility_feedback_url' => '',
             'accessibility_enforcement_url' => '',
@@ -285,6 +293,11 @@ class AdminController
         $defaultTextColor = normalize_hex_color((string)($input['default_text_color'] ?? '#f8fafc'), '#f8fafc');
         $defaultFontHeading = trim((string)($input['default_font_heading'] ?? ''));
         $defaultFontText = trim((string)($input['default_font_text'] ?? ''));
+        $uploadMaxSizeMb = (int)($input['upload_max_size_mb'] ?? 50);
+        $monitoringEnabled = !empty($input['monitoring_enabled']);
+        $monitoringApiToken = trim((string)($input['monitoring_api_token'] ?? ''));
+        $monitoringOnlineThreshold = (int)($input['monitoring_online_threshold_seconds'] ?? 180);
+        $monitoringStaleThreshold = (int)($input['monitoring_stale_threshold_seconds'] ?? 1800);
         $contactEmail = trim((string)($input['accessibility_contact_email'] ?? ''));
         $feedbackUrl = trim((string)($input['accessibility_feedback_url'] ?? ''));
         $enforcementUrl = trim((string)($input['accessibility_enforcement_url'] ?? ''));
@@ -292,12 +305,23 @@ class AdminController
         $focusStyle = (string)($input['accessibility_focus_style'] ?? 'standard');
         $motion = (string)($input['accessibility_motion'] ?? 'system');
 
+        $input['monitoring_enabled'] = $monitoringEnabled ? '1' : '0';
+
         $errors = [];
         if ($defaultFontHeading !== '' && !in_array($defaultFontHeading, $availableFonts, true)) {
             $errors['default_font_heading'] = __('settings.invalid_font');
         }
         if ($defaultFontText !== '' && !in_array($defaultFontText, $availableFonts, true)) {
             $errors['default_font_text'] = __('settings.invalid_font');
+        }
+        if ($uploadMaxSizeMb < 1) {
+            $errors['upload_max_size_mb'] = __('settings.invalid_upload_size', [], 'Please enter a positive upload size.');
+        }
+        if ($monitoringOnlineThreshold < 30) {
+            $errors['monitoring_online_threshold_seconds'] = __('settings.invalid_online_threshold', [], 'Online threshold must be at least 30 seconds.');
+        }
+        if ($monitoringStaleThreshold < max(30, $monitoringOnlineThreshold)) {
+            $errors['monitoring_stale_threshold_seconds'] = __('settings.invalid_stale_threshold', [], 'Stale threshold must be at least the online threshold.');
         }
         if ($contactEmail !== '' && !filter_var($contactEmail, FILTER_VALIDATE_EMAIL)) {
             $errors['accessibility_contact_email'] = __('settings.invalid_email', [], 'Please enter a valid email address.');
@@ -327,19 +351,30 @@ class AdminController
             );
         }
 
-        $this->saveBrandingSettings([
-            'default_background_color' => $defaultBackgroundColor,
-            'default_text_color' => $defaultTextColor,
-            'default_font_heading' => $defaultFontHeading,
-            'default_font_text' => $defaultFontText,
-        ]);
-        $this->saveAccessibilitySettings([
-            'contact_email' => $contactEmail,
-            'feedback_url' => $feedbackUrl,
-            'enforcement_url' => $enforcementUrl,
-            'visual_mode' => $visualMode,
-            'focus_style' => $focusStyle,
-            'motion' => $motion,
+        $this->saveAppSettingsNamespaces([
+            self::BRANDING_SETTINGS_NAMESPACE => [
+                'default_background_color' => $defaultBackgroundColor,
+                'default_text_color' => $defaultTextColor,
+                'default_font_heading' => $defaultFontHeading,
+                'default_font_text' => $defaultFontText,
+            ],
+            self::UPLOAD_SETTINGS_NAMESPACE => [
+                'max_size_bytes' => (string)($uploadMaxSizeMb * 1048576),
+            ],
+            self::MONITORING_SETTINGS_NAMESPACE => [
+                'enabled' => $monitoringEnabled ? '1' : '0',
+                'api_token' => $monitoringApiToken,
+                'online_threshold_seconds' => (string)max(30, $monitoringOnlineThreshold),
+                'stale_threshold_seconds' => (string)max($monitoringOnlineThreshold, $monitoringStaleThreshold),
+            ],
+            self::ACCESSIBILITY_SETTINGS_NAMESPACE => [
+                'contact_email' => $contactEmail,
+                'feedback_url' => $feedbackUrl,
+                'enforcement_url' => $enforcementUrl,
+                'visual_mode' => $visualMode,
+                'focus_style' => $focusStyle,
+                'motion' => $motion,
+            ],
         ]);
         $this->requestReloadForDisplays($this->allDisplayIds());
 
@@ -2824,26 +2859,17 @@ class AdminController
         return array_replace($defaults, $settings);
     }
 
-    private function saveAccessibilitySettings(array $settings): void
-    {
-        $this->db->execute('DELETE FROM app_settings WHERE namespace = ?', ['accessibility']);
-
-        $sql = 'INSERT INTO app_settings (namespace, setting_key, setting_value) VALUES (?, ?, ?)';
-        foreach ($settings as $key => $value) {
-            $this->db->execute($sql, ['accessibility', $key, $value]);
-        }
-    }
-
-    private function saveBrandingSettings(array $settings): void
+    private function saveAppSettingsNamespaces(array $namespaces): void
     {
         $pdo = $this->db->pdo();
         $pdo->beginTransaction();
         try {
-            $this->db->execute('DELETE FROM app_settings WHERE namespace = ?', [self::BRANDING_SETTINGS_NAMESPACE]);
-
             $sql = 'INSERT INTO app_settings (namespace, setting_key, setting_value) VALUES (?, ?, ?)';
-            foreach ($settings as $key => $value) {
-                $this->db->execute($sql, [self::BRANDING_SETTINGS_NAMESPACE, $key, $value]);
+            foreach ($namespaces as $namespace => $settings) {
+                $this->db->execute('DELETE FROM app_settings WHERE namespace = ?', [(string)$namespace]);
+                foreach ($settings as $key => $value) {
+                    $this->db->execute($sql, [(string)$namespace, (string)$key, (string)$value]);
+                }
             }
 
             $pdo->commit();
@@ -3316,12 +3342,12 @@ class AdminController
 
     private function monitoringOnlineThresholdSeconds(): int
     {
-        return max(30, (int)app_config('monitoring.online_threshold_seconds', 180));
+        return max(30, (int)app_core_setting('monitoring.online_threshold_seconds', 180));
     }
 
     private function monitoringStaleThresholdSeconds(): int
     {
-        return max($this->monitoringOnlineThresholdSeconds(), (int)app_config('monitoring.stale_threshold_seconds', 1800));
+        return max($this->monitoringOnlineThresholdSeconds(), (int)app_core_setting('monitoring.stale_threshold_seconds', 1800));
     }
 
     private function clampInt(mixed $value, int $min, int $max): int

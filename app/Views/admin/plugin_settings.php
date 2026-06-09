@@ -1,7 +1,6 @@
 <?php
 $pluginCss = url('/plugin-assets/' . $plugin->getName() . '/assets/' . $plugin->getName() . '.css');
 $title = __('plugins.settings_title', ['plugin' => $plugin->getDisplayName()]); require __DIR__ . '/../layouts/admin_header.php'; ?>
-<h1><?= e($title) ?></h1>
 <?php if ($error): ?><div class="alert error"><?= e($error) ?></div><?php endif; ?>
 <div class="card">
     <div class="section-head">

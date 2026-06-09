@@ -13,7 +13,6 @@ $selectedDisplayIconUrl = (string)($displayIcons[$selectedDisplayIcon]['url'] ??
 $selectedDisplayIconLabel = (string)($displayIcons[$selectedDisplayIcon]['label'] ?? __('display.icon'));
 require __DIR__ . '/../layouts/admin_header.php';
 ?>
-<h1><?= e($title) ?></h1>
 <?php if ($error): ?><div class="alert error"><?= e($error) ?></div><?php endif; ?>
 <div class="display-form-layout">
     <div class="card">

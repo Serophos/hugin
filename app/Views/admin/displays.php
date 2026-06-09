@@ -1,12 +1,7 @@
 <?php $title = __('display.plural'); require __DIR__ . '/../layouts/admin_header.php'; ?>
-<div class="page-head">
-    <div>
-        <h1><?= e(__('display.plural')) ?></h1>
-    </div>
-    <div class="actions">
-        <a class="button button--normal" href="<?= e(url('/admin/locations')) ?>"><?= admin_icon('manage') ?><span><?= e(__('locations.manage')) ?></span></a>
-        <a class="button button--default" href="<?= e(url('/admin/displays/create')) ?>"><?= admin_icon('add') ?><span><?= e(__('display.new')) ?></span></a>
-    </div>
+<div class="page-actions">
+    <a class="button button--normal" href="<?= e(url('/admin/locations')) ?>"><?= admin_icon('manage') ?><span><?= e(__('locations.manage')) ?></span></a>
+    <a class="button button--default" href="<?= e(url('/admin/displays/create')) ?>"><?= admin_icon('add') ?><span><?= e(__('display.new')) ?></span></a>
 </div>
 <?php if ($flash): ?><div class="alert success"><?= e($flash) ?></div><?php endif; ?>
 <div class="card">

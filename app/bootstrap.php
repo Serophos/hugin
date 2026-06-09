@@ -79,6 +79,7 @@ $GLOBALS['i18n_locale'] = $locale;
 
 $db = new App\Core\Database($config['db']);
 $GLOBALS['app_db'] = $db;
+app_import_legacy_config_settings($config);
 $view = new App\Core\View(__DIR__ . '/Views');
 $request = new App\Core\Request();
 $auth = new App\Core\Auth($db);

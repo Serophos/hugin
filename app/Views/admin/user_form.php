@@ -3,7 +3,6 @@ $formId = 'user';
 $title = $user ? __('users.edit_title') : __('users.create_title');
 require __DIR__ . '/../layouts/admin_header.php';
 ?>
-<h1><?= e($title) ?></h1>
 <?php if ($error): ?><div class="alert error"><?= e($error) ?></div><?php endif; ?>
 <div class="card">
     <form method="post" action="<?= e($user ? url('/admin/users/' . $user['id'] . '/edit') : url('/admin/users/create')) ?>" class="form-grid">

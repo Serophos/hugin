@@ -1,7 +1,4 @@
 <?php $title = __('about.title'); require __DIR__ . '/../layouts/admin_header.php'; ?>
-<div class="page-head">
-    <h1><?= e(__('about.heading')) ?></h1>
-</div>
 <div class="about-layout">
     <section class="card about-logo-card">
         <img src="<?= e(url('/assets/img/hugin-logo.webp')) ?>" alt="<?= e(__('about.logo_alt')) ?>" class="about-logo">
@@ -10,7 +7,7 @@
 
     <section class="card">
         <div class="about-title">
-            <h1><?= e(__('app.name', [], 'Hugin')) ?></h1>
+            <div class="about-title__name"><?= e(__('app.name', [], 'Hugin')) ?></div>
             <span class="about-version"><?= e(__('common.version', [], 'Version')) ?> <?= e($software['version']) ?></span>
         </div>
         <h2><?= e(__('about.software_information')) ?></h2>

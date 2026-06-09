@@ -117,7 +117,6 @@ $editorIconsJson = json_encode([
 ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 require __DIR__ . '/../layouts/admin_header.php';
 ?>
-<h1><?= e($title) ?></h1>
 <?php if ($error): ?><div class="alert error"><?= e($error) ?></div><?php endif; ?>
 <form method="post" action="<?= e(!empty($template['id']) ? url('/admin/slide-templates/' . $template['id'] . '/edit') : url('/admin/slide-templates/create')) ?>" class="form-grid template-editor-form" data-template-editor-form>
     <?= csrf_field() ?>

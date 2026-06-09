@@ -4,11 +4,7 @@ $groupCreateForm = 'display_group_create';
 $title = __('common.edit') . ': ' . $location['name'];
 require __DIR__ . '/../layouts/admin_header.php';
 ?>
-<div class="page-head">
-    <div>
-        <h1><?= e($location['name']) ?></h1>
-        <p class="muted"><?= e(__('locations.counts', ['groups' => (int)$location['group_count'], 'displays' => (int)$location['display_count']])) ?></p>
-    </div>
+<div class="page-actions">
     <a class="button button--normal" href="<?= e(url('/admin/locations')) ?>"><?= admin_icon('back') ?><span><?= e(__('locations.plural')) ?></span></a>
 </div>
 

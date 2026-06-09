@@ -64,7 +64,7 @@ Change these passwords immediately on a real installation.
 
 ### `config.php`
 
-Hugin requires `config/config.php` at runtime. Copy `config/config.example.php` to `config/config.php` during setup and configure it for your installation. The most important options are:
+Hugin requires `config/config.php` at runtime. Copy `config/config.example.php` to `config/config.php` during setup and configure the boot, web server, and database values for your installation. Runtime settings such as uploads, monitoring, branding, and accessibility are managed in `/admin/settings`.
 
 ```php
 <?php
@@ -85,15 +85,6 @@ return [
         'password' => '',
         'charset' => 'utf8mb4',
     ],
-    'upload' => [
-        'max_size_bytes' => 52428800, // 50 MB
-    ],
-    'monitoring' => [
-        'enabled' => false,
-        'api_token' => 'put_a_secure_random_token_here',
-        'online_threshold_seconds' => 180,
-        'stale_threshold_seconds' => 1800,
-    ],
 ];
 ```
 
@@ -101,8 +92,7 @@ Notes:
 
 - `app.base_url` may be empty when Hugin runs at the domain root. Set it when the app is served from a subdirectory or behind a proxy path.
 - `app.locale` and `app.fallback_locale` select language files from `app/lang/` and plugin language files from `plugins/<plugin>/lang/`.
-- `upload.max_size_bytes` is enforced by Hugin, but PHP and the web server must also allow the same upload size.
-- Monitoring API endpoints return `404` until `monitoring.enabled` is `true`.
+- Upload limits, Monitoring API settings, branding defaults, and accessibility contact/preferences are stored in the `app_settings` table and edited in Hugin's Global settings form.
 - Public routes are handled by `public/index.php`; Apache installs can use the bundled `public/.htaccess`.
 
 ## 3. Feature List
@@ -205,16 +195,7 @@ Plugins can add custom slide types, slide settings, global plugin settings, fron
 
 ## 4. Monitoring API
 
-The Monitoring API exposes JSON status data for external monitoring systems. Enable it in `config/config.php`:
-
-```php
-'monitoring' => [
-    'enabled' => true,
-    'api_token' => 'replace_with_a_long_random_token',
-    'online_threshold_seconds' => 180,
-    'stale_threshold_seconds' => 1800,
-],
-```
+The Monitoring API exposes JSON status data for external monitoring systems. Enable it in `/admin/settings`, set a Bearer token, and adjust the online/stale thresholds if needed.
 
 All monitoring endpoints require a Bearer token:
 

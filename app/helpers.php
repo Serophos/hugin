@@ -225,41 +225,155 @@ function field_error_html(string $key, string $form = 'default'): string
     return '<small id="' . e(field_error_id($key, $form)) . '" class="field-error" role="alert">' . e($message) . '</small>';
 }
 
-function app_accessibility_settings(): array
+function app_core_settings_defaults(string $namespace): array
 {
-    static $settings = null;
-    if ($settings !== null) {
-        return $settings;
+    $defaults = [
+        'upload' => [
+            'max_size_bytes' => 52428800,
+        ],
+        'monitoring' => [
+            'enabled' => false,
+            'api_token' => '',
+            'online_threshold_seconds' => 180,
+            'stale_threshold_seconds' => 1800,
+        ],
+        'accessibility' => [
+            'contact_email' => '',
+            'feedback_url' => '',
+            'enforcement_url' => '',
+            'visual_mode' => 'default',
+            'focus_style' => 'standard',
+            'motion' => 'system',
+        ],
+    ];
+
+    return $defaults[$namespace] ?? [];
+}
+
+function app_core_settings(string $namespace): array
+{
+    static $cache = [];
+    if (array_key_exists($namespace, $cache)) {
+        return $cache[$namespace];
     }
 
-    $defaults = [
-        'contact_email' => (string)app_config('accessibility.contact_email', ''),
-        'feedback_url' => (string)app_config('accessibility.feedback_url', ''),
-        'enforcement_url' => (string)app_config('accessibility.enforcement_url', ''),
-        'visual_mode' => (string)app_config('accessibility.visual_mode', 'default'),
-        'focus_style' => (string)app_config('accessibility.focus_style', 'standard'),
-        'motion' => (string)app_config('accessibility.motion', 'system'),
-    ];
+    $settings = app_core_settings_defaults($namespace);
 
     $db = $GLOBALS['app_db'] ?? null;
     if ($db && method_exists($db, 'all')) {
         try {
-            $rows = $db->all('SELECT setting_key, setting_value FROM app_settings WHERE namespace = ?', ['accessibility']);
+            $rows = $db->all('SELECT setting_key, setting_value FROM app_settings WHERE namespace = ?', [$namespace]);
             foreach ($rows as $row) {
-                if (is_string($row['setting_key']) && array_key_exists($row['setting_key'], $defaults)) {
-                    $defaults[$row['setting_key']] = (string)($row['setting_value'] ?? '');
+                if (is_string($row['setting_key']) && array_key_exists($row['setting_key'], $settings)) {
+                    $settings[$row['setting_key']] = (string)($row['setting_value'] ?? '');
                 }
             }
         } catch (\Throwable) {
-            // Keep config defaults when the database or schema is not ready yet.
+            // Keep hard-coded defaults when the database or schema is not ready yet.
         }
     }
 
-    $defaults['visual_mode'] = in_array($defaults['visual_mode'], ['default', 'high_contrast', 'system'], true) ? $defaults['visual_mode'] : 'default';
-    $defaults['focus_style'] = in_array($defaults['focus_style'], ['standard', 'strong'], true) ? $defaults['focus_style'] : 'standard';
-    $defaults['motion'] = in_array($defaults['motion'], ['system', 'reduced'], true) ? $defaults['motion'] : 'system';
+    return $cache[$namespace] = app_normalize_core_settings($namespace, $settings);
+}
 
-    return $settings = $defaults;
+function app_normalize_core_settings(string $namespace, array $settings): array
+{
+    if ($namespace === 'upload') {
+        $settings['max_size_bytes'] = max(1, (int)($settings['max_size_bytes'] ?? 52428800));
+    }
+
+    if ($namespace === 'monitoring') {
+        $settings['enabled'] = filter_var($settings['enabled'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        $settings['api_token'] = trim((string)($settings['api_token'] ?? ''));
+        $settings['online_threshold_seconds'] = max(30, (int)($settings['online_threshold_seconds'] ?? 180));
+        $settings['stale_threshold_seconds'] = max($settings['online_threshold_seconds'], (int)($settings['stale_threshold_seconds'] ?? 1800));
+    }
+
+    if ($namespace === 'accessibility') {
+        $settings['contact_email'] = (string)($settings['contact_email'] ?? '');
+        $settings['feedback_url'] = (string)($settings['feedback_url'] ?? '');
+        $settings['enforcement_url'] = (string)($settings['enforcement_url'] ?? '');
+        $settings['visual_mode'] = in_array($settings['visual_mode'] ?? '', ['default', 'high_contrast', 'system'], true) ? $settings['visual_mode'] : 'default';
+        $settings['focus_style'] = in_array($settings['focus_style'] ?? '', ['standard', 'strong'], true) ? $settings['focus_style'] : 'standard';
+        $settings['motion'] = in_array($settings['motion'] ?? '', ['system', 'reduced'], true) ? $settings['motion'] : 'system';
+    }
+
+    return $settings;
+}
+
+function app_import_legacy_config_settings(array $config): void
+{
+    $db = $GLOBALS['app_db'] ?? null;
+    if (!$db || !method_exists($db, 'one') || !method_exists($db, 'execute')) {
+        return;
+    }
+
+    $legacy = [];
+    foreach (app_core_settings_defaults('upload') as $key => $default) {
+        if (array_key_exists($key, $config['upload'] ?? [])) {
+            $legacy['upload'][$key] = $config['upload'][$key];
+        }
+    }
+    foreach (app_core_settings_defaults('monitoring') as $key => $default) {
+        if (array_key_exists($key, $config['monitoring'] ?? [])) {
+            $legacy['monitoring'][$key] = $config['monitoring'][$key];
+        }
+    }
+    foreach (app_core_settings_defaults('accessibility') as $key => $default) {
+        if (array_key_exists($key, $config['accessibility'] ?? [])) {
+            $legacy['accessibility'][$key] = $config['accessibility'][$key];
+        }
+    }
+
+    try {
+        foreach ($legacy as $namespace => $settings) {
+            $settings = app_normalize_core_settings($namespace, $settings);
+            foreach ($settings as $key => $value) {
+                $exists = $db->one(
+                    'SELECT setting_key FROM app_settings WHERE namespace = ? AND setting_key = ?',
+                    [$namespace, $key]
+                );
+                if ($exists) {
+                    continue;
+                }
+                if (is_bool($value)) {
+                    $value = $value ? '1' : '0';
+                }
+                $db->execute(
+                    'INSERT INTO app_settings (namespace, setting_key, setting_value) VALUES (?, ?, ?)',
+                    [$namespace, $key, (string)$value]
+                );
+            }
+        }
+    } catch (\Throwable) {
+        // The schema may not exist on first boot before database.sql has been imported.
+    }
+}
+
+function app_upload_settings(): array
+{
+    return app_core_settings('upload');
+}
+
+function app_monitoring_settings(): array
+{
+    return app_core_settings('monitoring');
+}
+
+function app_accessibility_settings(): array
+{
+    return app_core_settings('accessibility');
+}
+
+function app_core_setting(string $key, mixed $default = null): mixed
+{
+    $segments = explode('.', $key, 2);
+    if (count($segments) !== 2) {
+        return $default;
+    }
+
+    $settings = app_core_settings($segments[0]);
+    return $settings[$segments[1]] ?? $default;
 }
 
 function admin_accessibility_body_classes(): string
