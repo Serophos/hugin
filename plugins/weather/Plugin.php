@@ -16,7 +16,10 @@ class Plugin extends AbstractSlidePlugin
     {
         parent::__construct($manifest, $rootPath);
         $file = $rootPath . '/config.php';
-        $this->config = is_file($file) ? (array) require $file : [];
+        if (!is_file($file)) {
+            throw new RuntimeException('Weather plugin setup incomplete: missing plugins/weather/config.php.');
+        }
+        $this->config = (array) require $file;
     }
 
     public function getDefaultSettings(): array

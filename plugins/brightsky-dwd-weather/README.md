@@ -9,7 +9,7 @@ This plugin has two configuration layers:
 - `plugins/brightsky-dwd-weather/config.php`: file-based defaults and local runtime settings.
 - `/admin/plugins/brightsky-dwd-weather/settings`: Hugin global plugin settings stored in the database for the Bright Sky endpoint, cache TTL, timeout, and timezone.
 
-The admin global settings are initialized from `config.php` defaults and can override several runtime values without editing files.
+The admin global settings are initialized from `config.php` defaults and can override several runtime values without editing files. The file is required at runtime; a missing `config.php` is treated as an incomplete plugin setup.
 
 ## `config.php` Map
 

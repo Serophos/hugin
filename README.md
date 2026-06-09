@@ -64,7 +64,7 @@ Change these passwords immediately on a real installation.
 
 ### `config.php`
 
-Hugin loads `config/config.php` if it exists and falls back to `config/config.example.php` during development. The most important options are:
+Hugin requires `config/config.php` at runtime. Copy `config/config.example.php` to `config/config.php` during setup and configure it for your installation. The most important options are:
 
 ```php
 <?php

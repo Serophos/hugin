@@ -9,7 +9,7 @@ This plugin has two configuration layers:
 - `plugins/weather/config.php`: file-based runtime defaults for cache and HTTP behavior.
 - `/admin/plugins/weather/settings`: Hugin global plugin settings stored in the database for Open-Meteo endpoints and an optional API key.
 
-This README documents the file-based `config.php` settings.
+This README documents the file-based `config.php` settings. The file is required at runtime; a missing `config.php` is treated as an incomplete plugin setup.
 
 ## `config.php` Map
 

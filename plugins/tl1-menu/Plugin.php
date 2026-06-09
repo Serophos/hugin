@@ -478,9 +478,9 @@ class Plugin extends AbstractSlidePlugin
         if ($this->config === null) {
             $configFile = __DIR__ . '/config.php';
             if (!is_file($configFile)) {
-                $configFile = __DIR__ . '/config.example.php';
+                throw new RuntimeException('TL1 Menu plugin setup incomplete: missing plugins/tl1-menu/config.php. Generate it from the TL1 Menu setup panel.');
             }
-            $loaded = is_file($configFile) ? require $configFile : [];
+            $loaded = require $configFile;
             $this->config = is_array($loaded) ? $loaded : [];
         }
         return $this->config;

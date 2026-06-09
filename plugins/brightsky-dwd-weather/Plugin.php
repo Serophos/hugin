@@ -19,7 +19,10 @@ class Plugin extends AbstractSlidePlugin
     {
         parent::__construct($manifest, $rootPath);
         $file = $rootPath . '/config.php';
-        $this->config = is_file($file) ? (array) require $file : [];
+        if (!is_file($file)) {
+            throw new RuntimeException('BrightSky DWD Weather plugin setup incomplete: missing plugins/brightsky-dwd-weather/config.php.');
+        }
+        $this->config = (array) require $file;
     }
 
     public function getDefaultSettings(): array

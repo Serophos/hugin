@@ -1,7 +1,7 @@
 <?php
 $configFile = __DIR__ . '/../config/config.php';
 if (!file_exists($configFile)) {
-    $configFile = __DIR__ . '/../config/config.example.php';
+    throw new RuntimeException('Hugin setup incomplete: missing config/config.php. Copy config/config.example.php to config/config.php and configure it for this installation.');
 }
 
 $config = require $configFile;
