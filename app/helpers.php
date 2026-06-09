@@ -191,13 +191,28 @@ function field_error_id(string $key, string $form = 'default'): string
     return 'error-' . preg_replace('/[^a-zA-Z0-9_-]+/', '-', $form . '-' . $key);
 }
 
-function field_attrs(string $key, string $form = 'default'): string
+function field_note_id(string $key, string $form = 'default'): string
 {
-    if (!field_error($key, $form)) {
-        return '';
+    return 'note-' . preg_replace('/[^a-zA-Z0-9_-]+/', '-', $form . '-' . $key);
+}
+
+function field_attrs(string $key, string $form = 'default', array|string $describedBy = []): string
+{
+    $describedBy = is_array($describedBy) ? $describedBy : [$describedBy];
+    $describedBy = array_values(array_filter(array_map('strval', $describedBy), static fn (string $id): bool => $id !== ''));
+    $attrs = [];
+
+    if (field_error($key, $form)) {
+        $attrs[] = 'class="is-invalid"';
+        $attrs[] = 'aria-invalid="true"';
+        $describedBy[] = field_error_id($key, $form);
     }
 
-    return ' class="is-invalid" aria-invalid="true" aria-describedby="' . e(field_error_id($key, $form)) . '"';
+    if ($describedBy !== []) {
+        $attrs[] = 'aria-describedby="' . e(implode(' ', array_unique($describedBy))) . '"';
+    }
+
+    return $attrs === [] ? '' : ' ' . implode(' ', $attrs);
 }
 
 function field_error_html(string $key, string $form = 'default'): string
@@ -207,7 +222,55 @@ function field_error_html(string $key, string $form = 'default'): string
         return '';
     }
 
-    return '<small id="' . e(field_error_id($key, $form)) . '" class="field-error">' . e($message) . '</small>';
+    return '<small id="' . e(field_error_id($key, $form)) . '" class="field-error" role="alert">' . e($message) . '</small>';
+}
+
+function app_accessibility_settings(): array
+{
+    static $settings = null;
+    if ($settings !== null) {
+        return $settings;
+    }
+
+    $defaults = [
+        'contact_email' => (string)app_config('accessibility.contact_email', ''),
+        'feedback_url' => (string)app_config('accessibility.feedback_url', ''),
+        'enforcement_url' => (string)app_config('accessibility.enforcement_url', ''),
+        'visual_mode' => (string)app_config('accessibility.visual_mode', 'default'),
+        'focus_style' => (string)app_config('accessibility.focus_style', 'standard'),
+        'motion' => (string)app_config('accessibility.motion', 'system'),
+    ];
+
+    $db = $GLOBALS['app_db'] ?? null;
+    if ($db && method_exists($db, 'all')) {
+        try {
+            $rows = $db->all('SELECT setting_key, setting_value FROM app_settings WHERE namespace = ?', ['accessibility']);
+            foreach ($rows as $row) {
+                if (is_string($row['setting_key']) && array_key_exists($row['setting_key'], $defaults)) {
+                    $defaults[$row['setting_key']] = (string)($row['setting_value'] ?? '');
+                }
+            }
+        } catch (\Throwable) {
+            // Keep config defaults when the database or schema is not ready yet.
+        }
+    }
+
+    $defaults['visual_mode'] = in_array($defaults['visual_mode'], ['default', 'high_contrast', 'system'], true) ? $defaults['visual_mode'] : 'default';
+    $defaults['focus_style'] = in_array($defaults['focus_style'], ['standard', 'strong'], true) ? $defaults['focus_style'] : 'standard';
+    $defaults['motion'] = in_array($defaults['motion'], ['system', 'reduced'], true) ? $defaults['motion'] : 'system';
+
+    return $settings = $defaults;
+}
+
+function admin_accessibility_body_classes(): string
+{
+    $settings = app_accessibility_settings();
+    return trim(sprintf(
+        'a11y-visual-%s a11y-focus-%s a11y-motion-%s',
+        preg_replace('/[^a-z0-9_-]/i', '', $settings['visual_mode']),
+        preg_replace('/[^a-z0-9_-]/i', '', $settings['focus_style']),
+        preg_replace('/[^a-z0-9_-]/i', '', $settings['motion'])
+    ));
 }
 
 function selected(mixed $a, mixed $b): string

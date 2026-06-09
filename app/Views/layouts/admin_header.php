@@ -55,10 +55,13 @@ $adminNavItems = [
     ['label' => __('nav.plugins'), 'url' => '/admin/plugins', 'icon' => 'plugins', 'active' => ['/admin/plugins'], 'admin' => true],
     ['label' => __('nav.users'), 'url' => '/admin/users', 'icon' => 'users', 'active' => ['/admin/users'], 'admin' => true],
     ['label' => __('nav.settings'), 'url' => '/admin/settings', 'icon' => 'settings', 'active' => ['/admin/settings'], 'admin' => true],
+    ['label' => __('nav.accessibility', [], 'Accessibility'), 'url' => '/admin/accessibility', 'icon' => 'about', 'active' => ['/admin/accessibility']],
     ['label' => __('nav.about'), 'url' => '/admin/about', 'icon' => 'about', 'active' => ['/admin/about']],
 ];
+$bodyClasses = trim(($adminShellActive ? 'admin-shell-body' : 'admin-guest-body') . ' ' . admin_accessibility_body_classes());
 ?>
-<body class="<?= e($adminShellActive ? 'admin-shell-body' : 'admin-guest-body') ?>">
+<body class="<?= e($bodyClasses) ?>">
+<a class="skip-link" href="#admin-main-content"><?= e(__('accessibility.skip_to_content', [], 'Skip to main content')) ?></a>
 <?php if ($adminShellActive): ?>
 <div class="admin-shell">
     <aside class="admin-sidebar" id="admin-sidebar">
@@ -103,7 +106,7 @@ $adminNavItems = [
             </div>
             <span class="user-pill"><?= e(current_user_name()) ?></span>
         </header>
-        <main class="container">
+        <main id="admin-main-content" class="container" tabindex="-1">
 <?php else: ?>
 <header class="topbar topbar--guest">
     <div class="brand">
@@ -111,5 +114,5 @@ $adminNavItems = [
         <strong><?= e(__('app.name', [], 'Hugin')) ?></strong>
     </div>
 </header>
-<main class="container">
+<main id="admin-main-content" class="container" tabindex="-1">
 <?php endif; ?>

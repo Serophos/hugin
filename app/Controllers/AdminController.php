@@ -96,6 +96,16 @@ class AdminController
         ]);
     }
 
+    public function accessibility(): void
+    {
+        $this->auth->requireLogin();
+
+        $this->view->render('admin/accessibility', [
+            'settings' => app_accessibility_settings(),
+            'reviewDate' => date('Y-m-d'),
+        ]);
+    }
+
 
     public function plugins(): void
     {
@@ -242,7 +252,18 @@ class AdminController
     public function settingsForm(): void
     {
         $this->auth->requireRole('admin');
-        $settings = $this->loadBrandingSettings();
+        $settings = array_replace($this->loadBrandingSettings(), [
+            'accessibility_contact_email' => '',
+            'accessibility_feedback_url' => '',
+            'accessibility_enforcement_url' => '',
+            'accessibility_visual_mode' => 'default',
+            'accessibility_focus_style' => 'standard',
+            'accessibility_motion' => 'system',
+        ]);
+        $accessibilitySettings = app_accessibility_settings();
+        foreach ($accessibilitySettings as $key => $value) {
+            $settings['accessibility_' . $key] = $value;
+        }
         if (form_has_old('settings')) {
             $settings = array_replace($settings, old_input('settings'));
         }
@@ -264,6 +285,12 @@ class AdminController
         $defaultTextColor = normalize_hex_color((string)($input['default_text_color'] ?? '#f8fafc'), '#f8fafc');
         $defaultFontHeading = trim((string)($input['default_font_heading'] ?? ''));
         $defaultFontText = trim((string)($input['default_font_text'] ?? ''));
+        $contactEmail = trim((string)($input['accessibility_contact_email'] ?? ''));
+        $feedbackUrl = trim((string)($input['accessibility_feedback_url'] ?? ''));
+        $enforcementUrl = trim((string)($input['accessibility_enforcement_url'] ?? ''));
+        $visualMode = (string)($input['accessibility_visual_mode'] ?? 'default');
+        $focusStyle = (string)($input['accessibility_focus_style'] ?? 'standard');
+        $motion = (string)($input['accessibility_motion'] ?? 'system');
 
         $errors = [];
         if ($defaultFontHeading !== '' && !in_array($defaultFontHeading, $availableFonts, true)) {
@@ -271,6 +298,23 @@ class AdminController
         }
         if ($defaultFontText !== '' && !in_array($defaultFontText, $availableFonts, true)) {
             $errors['default_font_text'] = __('settings.invalid_font');
+        }
+        if ($contactEmail !== '' && !filter_var($contactEmail, FILTER_VALIDATE_EMAIL)) {
+            $errors['accessibility_contact_email'] = __('settings.invalid_email', [], 'Please enter a valid email address.');
+        }
+        foreach (['accessibility_feedback_url' => $feedbackUrl, 'accessibility_enforcement_url' => $enforcementUrl] as $key => $value) {
+            if ($value !== '' && !filter_var($value, FILTER_VALIDATE_URL)) {
+                $errors[$key] = __('settings.invalid_url', [], 'Please enter a valid URL.');
+            }
+        }
+        if (!in_array($visualMode, ['default', 'high_contrast', 'system'], true)) {
+            $errors['accessibility_visual_mode'] = __('settings.invalid_accessibility_option', [], 'Please choose a supported accessibility option.');
+        }
+        if (!in_array($focusStyle, ['standard', 'strong'], true)) {
+            $errors['accessibility_focus_style'] = __('settings.invalid_accessibility_option', [], 'Please choose a supported accessibility option.');
+        }
+        if (!in_array($motion, ['system', 'reduced'], true)) {
+            $errors['accessibility_motion'] = __('settings.invalid_accessibility_option', [], 'Please choose a supported accessibility option.');
         }
 
         if ($errors !== []) {
@@ -288,6 +332,14 @@ class AdminController
             'default_text_color' => $defaultTextColor,
             'default_font_heading' => $defaultFontHeading,
             'default_font_text' => $defaultFontText,
+        ]);
+        $this->saveAccessibilitySettings([
+            'contact_email' => $contactEmail,
+            'feedback_url' => $feedbackUrl,
+            'enforcement_url' => $enforcementUrl,
+            'visual_mode' => $visualMode,
+            'focus_style' => $focusStyle,
+            'motion' => $motion,
         ]);
         $this->requestReloadForDisplays($this->allDisplayIds());
 
@@ -2781,6 +2833,16 @@ class AdminController
         }
 
         return array_replace($defaults, $settings);
+    }
+
+    private function saveAccessibilitySettings(array $settings): void
+    {
+        $this->db->execute('DELETE FROM app_settings WHERE namespace = ?', ['accessibility']);
+
+        $sql = 'INSERT INTO app_settings (namespace, setting_key, setting_value) VALUES (?, ?, ?)';
+        foreach ($settings as $key => $value) {
+            $this->db->execute($sql, ['accessibility', $key, $value]);
+        }
     }
 
     private function saveBrandingSettings(array $settings): void

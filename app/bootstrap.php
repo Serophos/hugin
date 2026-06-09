@@ -78,6 +78,7 @@ $GLOBALS['i18n'] = $i18n;
 $GLOBALS['i18n_locale'] = $locale;
 
 $db = new App\Core\Database($config['db']);
+$GLOBALS['app_db'] = $db;
 $view = new App\Core\View(__DIR__ . '/Views');
 $request = new App\Core\Request();
 $auth = new App\Core\Auth($db);

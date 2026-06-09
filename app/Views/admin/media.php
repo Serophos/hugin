@@ -33,9 +33,9 @@ $nextPageUrl = $baseMediaUrl . ($kind !== '' ? '?kind=' . rawurlencode($kind) . 
                 <?= field_error_html('name', $uploadForm) ?>
             </label>
             <label><?= e(__('media.file')) ?>
-                <input type="file" name="media_file" accept="image/*,video/*" required<?= field_attrs('media_file', $uploadForm) ?>>
+                <input type="file" name="media_file" accept="image/*,video/*" required<?= field_attrs('media_file', $uploadForm, field_note_id('media_file', $uploadForm)) ?>>
                 <?= field_error_html('media_file', $uploadForm) ?>
-                <small class="field-note"><?= e(__('forms.file_reselect_hint')) ?></small>
+                <small id="<?= e(field_note_id('media_file', $uploadForm)) ?>" class="field-note"><?= e(__('forms.file_reselect_hint')) ?></small>
             </label>
             <button type="submit" class="button button--default"><?= admin_icon('upload') ?><span><?= e(__('media.upload_title')) ?></span></button>
         </form>
@@ -152,7 +152,7 @@ $nextPageUrl = $baseMediaUrl . ($kind !== '' ? '?kind=' . rawurlencode($kind) . 
         </div>
     </div>
 </div>
-<dialog class="media-preview-dialog" data-media-preview-dialog aria-labelledby="media-preview-title">
+<dialog class="media-preview-dialog" data-media-preview-dialog aria-labelledby="media-preview-title" aria-describedby="media-preview-description">
     <div class="media-preview-shell">
         <div class="media-preview-stage" data-media-preview-stage tabindex="-1">
             <img class="media-preview-asset" data-media-preview-image alt="" hidden>
@@ -161,7 +161,7 @@ $nextPageUrl = $baseMediaUrl . ($kind !== '' ? '?kind=' . rawurlencode($kind) . 
         <aside class="media-preview-details">
             <div class="media-preview-details__head">
                 <div>
-                    <p class="media-preview-kind" data-media-preview-kind></p>
+                    <p id="media-preview-description" class="media-preview-kind" data-media-preview-kind></p>
                     <h2 id="media-preview-title" data-media-preview-title></h2>
                 </div>
                 <button type="button" class="button button--normal button--small button--icon-only" data-media-preview-close aria-label="<?= e(__('common.close')) ?>">
@@ -215,6 +215,7 @@ $nextPageUrl = $baseMediaUrl . ($kind !== '' ? '?kind=' . rawurlencode($kind) . 
     const stage = dialog.querySelector('[data-media-preview-stage]');
     const durationRow = dialog.querySelector('[data-media-preview-duration-row]');
     let activeKind = '';
+    let opener = null;
     const fields = {
         title: dialog.querySelector('[data-media-preview-title]'),
         kind: dialog.querySelector('[data-media-preview-kind]'),
@@ -308,9 +309,12 @@ $nextPageUrl = $baseMediaUrl . ($kind !== '' ? '?kind=' . rawurlencode($kind) . 
         }
         dialog.removeAttribute('open');
         clearPreview();
+        opener?.focus?.({ preventScroll: true });
+        opener = null;
     };
 
-    const openPreview = (row) => {
+    const openPreview = (row, trigger = null) => {
+        opener = trigger instanceof HTMLElement ? trigger : (document.activeElement instanceof HTMLElement ? document.activeElement : null);
         const media = row.dataset;
         clearPreview();
         setText(fields.title, media.mediaName);
@@ -370,11 +374,15 @@ $nextPageUrl = $baseMediaUrl . ($kind !== '' ? '?kind=' . rawurlencode($kind) . 
         const row = trigger.closest('[data-media-preview-row]');
         if (!row) return;
         event.preventDefault();
-        openPreview(row);
+        openPreview(row, trigger);
     });
 
     dialog.querySelector('[data-media-preview-close]')?.addEventListener('click', closePreview);
-    dialog.addEventListener('close', clearPreview);
+    dialog.addEventListener('close', () => {
+        clearPreview();
+        opener?.focus?.({ preventScroll: true });
+        opener = null;
+    });
 })();
 </script>
 <?php require __DIR__ . '/../layouts/admin_footer.php'; ?>

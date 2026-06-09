@@ -30,9 +30,46 @@
     --control-height: 2.35rem;
     --field-padding: 0.55rem 0.7rem;
     --focus-ring: 0 0 0 3px rgba(60, 141, 188, 0.2);
+    --focus-outline: 3px solid rgba(60, 141, 188, 0.72);
+    --focus-outline-offset: 2px;
 }
 
 * { box-sizing: border-box; }
+
+.visually-hidden,
+.sr-only {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    margin: -1px !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    clip: rect(0, 0, 0, 0) !important;
+    white-space: nowrap !important;
+    border: 0 !important;
+}
+
+.skip-link {
+    position: fixed;
+    top: 0.75rem;
+    left: 0.75rem;
+    z-index: 1000;
+    transform: translateY(-150%);
+    border: 2px solid #fff;
+    border-radius: var(--radius-control);
+    background: #111827;
+    color: #fff;
+    padding: 0.7rem 0.95rem;
+    font-weight: 700;
+    text-decoration: none;
+    box-shadow: var(--shadow-raised);
+}
+
+.skip-link:focus {
+    transform: translateY(0);
+    outline: var(--focus-outline);
+    outline-offset: var(--focus-outline-offset);
+}
 
 body {
     margin: 0;
@@ -41,6 +78,64 @@ body {
     line-height: 1.5;
     color: var(--text);
     background: var(--bg);
+}
+
+body.a11y-focus-strong {
+    --focus-ring: 0 0 0 4px rgba(0, 95, 204, 0.34);
+    --focus-outline: 4px solid #005fcc;
+    --focus-outline-offset: 3px;
+}
+
+body.a11y-visual-high_contrast,
+body.a11y-visual-system {
+    --bg: #f7f7f7;
+    --sidebar-bg: #111827;
+    --sidebar-panel: #000;
+    --sidebar-hover: #243244;
+    --sidebar-text: #f8fafc;
+    --sidebar-muted: #dbeafe;
+    --text: #111827;
+    --muted: #3f4b5b;
+    --accent: #005fcc;
+    --accent-dark: #004a9f;
+    --accent-soft: #e6f0ff;
+    --border: #9aa4b2;
+    --border-strong: #667085;
+    --focus-ring: 0 0 0 4px rgba(0, 95, 204, 0.28);
+    --focus-outline: 3px solid #005fcc;
+}
+
+@media (prefers-contrast: more) {
+    body.a11y-visual-system {
+        --bg: #fff;
+        --text: #000;
+        --muted: #333;
+        --accent: #0047a8;
+        --accent-dark: #00357d;
+        --border: #666;
+        --border-strong: #333;
+        --focus-outline: 4px solid #000;
+    }
+}
+
+body.a11y-motion-reduced *,
+body.a11y-motion-reduced *::before,
+body.a11y-motion-reduced *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        scroll-behavior: auto !important;
+        transition-duration: 0.01ms !important;
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+    }
 }
 
 .admin-shell-body {
@@ -171,7 +266,8 @@ body {
     background: var(--sidebar-hover);
     color: #fff;
     text-decoration: none;
-    outline: none;
+    outline: var(--focus-outline);
+    outline-offset: -3px;
 }
 
 .admin-nav__item.is-active {
@@ -481,8 +577,8 @@ h3 {
 }
 
 .button:focus-visible {
-    outline: 3px solid rgba(60, 141, 188, 0.22);
-    outline-offset: 2px;
+    outline: var(--focus-outline);
+    outline-offset: var(--focus-outline-offset);
 }
 
 .button:active {
@@ -615,7 +711,8 @@ fieldset > :last-child {
 .form-grid textarea:focus-visible {
     border-color: var(--accent);
     box-shadow: var(--focus-ring);
-    outline: none;
+    outline: var(--focus-outline);
+    outline-offset: 1px;
 }
 
 .form-grid input.is-invalid,
@@ -883,6 +980,33 @@ tbody tr:hover {
 }
 
 .handle-col { width: 36px; }
+
+.handle {
+    min-width: 4.5rem;
+}
+
+.sortable-move-button {
+    display: inline-grid;
+    place-items: center;
+    width: 1.8rem;
+    height: 1.8rem;
+    margin: 0 0.1rem;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-control);
+    background: #fff;
+    color: var(--text);
+    cursor: pointer;
+    font: inherit;
+    font-weight: 700;
+}
+
+.sortable-move-button:hover,
+.sortable-move-button:focus-visible {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+    outline: var(--focus-outline);
+    outline-offset: var(--focus-outline-offset);
+}
 .handle {
     width: 36px;
     text-align: center;

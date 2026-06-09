@@ -50,6 +50,9 @@
             <?php endforeach; ?>
         </ul>
 
+        <h2><?= e(__('nav.accessibility', [], 'Accessibility')) ?></h2>
+        <p><a class="button button--normal" href="<?= e(url('/admin/accessibility')) ?>"><?= admin_icon('about') ?><span><?= e(__('accessibility.title', [], 'Accessibility statement')) ?></span></a></p>
+
         <h2><?= e(__('about.licensing')) ?></h2>
         <div class="license-box">
             <p><strong><?= e($license['name']) ?> (<?= e($license['short_name']) ?>)</strong></p>

@@ -2,6 +2,12 @@
     document.querySelectorAll('[data-admin-table]').forEach((table) => {
         const tbody = table.tBodies[0];
         if (!tbody) return;
+        if (!table.caption) {
+            const caption = document.createElement('caption');
+            caption.className = 'visually-hidden';
+            caption.textContent = table.dataset.tableLabel || document.title || 'Admin data table';
+            table.prepend(caption);
+        }
 
         const rows = Array.from(tbody.querySelectorAll('tr[data-admin-row]'));
         const sortButtons = Array.from(table.querySelectorAll('[data-admin-sort]'));
@@ -81,6 +87,10 @@
                 row.hidden = !rowMatchesFilters(row);
             });
             updateSortHeaders();
+            table.dispatchEvent(new CustomEvent('admin-table-updated', {
+                bubbles: true,
+                detail: { visible: rows.filter((row) => !row.hidden).length, total: rows.length },
+            }));
         }
 
         sortButtons.forEach((button) => {

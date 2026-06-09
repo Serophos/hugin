@@ -196,10 +196,11 @@
         const dialog = document.createElement('dialog');
         dialog.className = 'admin-color-dialog';
         dialog.dataset.adminColorDialog = '';
+        dialog.setAttribute('aria-labelledby', 'admin-color-dialog-title');
         dialog.innerHTML = `
             <form method="dialog" class="admin-color-dialog__panel">
                 <div class="admin-color-dialog__head">
-                    <h2>${DIALOG_LABELS.title}</h2>
+                    <h2 id="admin-color-dialog-title">${DIALOG_LABELS.title}</h2>
                     <button type="button" class="admin-color-dialog__close" data-color-dialog-cancel aria-label="${DIALOG_LABELS.cancel}">&times;</button>
                 </div>
                 <div class="admin-color-dialog__body">
@@ -222,16 +223,20 @@
         document.body.appendChild(dialog);
 
         const close = () => {
-            dialogState = null;
             if (typeof dialog.close === 'function') {
                 dialog.close();
             } else {
                 dialog.removeAttribute('open');
+                dialogState?.opener?.focus?.({ preventScroll: true });
+                dialogState = null;
             }
         };
 
         dialog.querySelectorAll('[data-color-dialog-cancel]').forEach(button => button.addEventListener('click', close));
-        dialog.addEventListener('cancel', () => { dialogState = null; });
+        dialog.addEventListener('close', () => {
+            dialogState?.opener?.focus?.({ preventScroll: true });
+            dialogState = null;
+        });
         dialog.addEventListener('click', event => {
             if (event.target === dialog) {
                 close();
@@ -279,7 +284,11 @@
     function openAlphaDialog(control, config) {
         const dialog = createDialog();
         const parsed = parsedControlValue(control, config);
-        dialogState = { control, config };
+        dialogState = {
+            control,
+            config,
+            opener: document.activeElement instanceof HTMLElement ? document.activeElement : null,
+        };
 
         const color = dialog.querySelector('[data-color-dialog-color]');
         const alpha = dialog.querySelector('[data-color-dialog-alpha]');

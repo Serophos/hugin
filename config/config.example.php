@@ -24,5 +24,13 @@ return [
         'api_token' => 'put_a_secure_random_token_here',
         'online_threshold_seconds' => 180,
         'stale_threshold_seconds' => 1800,
-    ],    
+    ],
+    'accessibility' => [
+        'contact_email' => '',
+        'feedback_url' => '',
+        'enforcement_url' => '',
+        'visual_mode' => 'default', // default, high_contrast, system
+        'focus_style' => 'standard', // standard, strong
+        'motion' => 'system', // system, reduced
+    ],
 ];

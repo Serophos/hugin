@@ -4,6 +4,7 @@
 
     const dialog = document.querySelector('[data-confirm-dialog]');
     let pendingForm = null;
+    let opener = null;
 
     function submitPendingForm() {
         if (!pendingForm) return;
@@ -23,6 +24,7 @@
                 if (form.dataset.confirmed === '1') return;
                 event.preventDefault();
                 pendingForm = form;
+                opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
                 if (title) title.textContent = form.dataset.confirmTitle || '';
                 if (message) message.textContent = form.dataset.confirmMessage || '';
                 if (acceptLabel) acceptLabel.textContent = form.dataset.confirmAccept || acceptLabel.dataset.defaultLabel || 'Yes';
@@ -35,6 +37,11 @@
                 pendingForm = null;
                 dialog.close();
             });
+        });
+        dialog.addEventListener('close', () => {
+            pendingForm = null;
+            opener?.focus?.({ preventScroll: true });
+            opener = null;
         });
         accept?.addEventListener('click', submitPendingForm);
         return;

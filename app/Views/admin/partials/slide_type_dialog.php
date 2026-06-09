@@ -16,16 +16,16 @@ $firstSlideTypeCreateUrl = $slideTypeCreateUrl
     . 'slide_type=' . rawurlencode((string)$firstSlideType['slide_type'])
     . '&return_to=' . rawurlencode($slideTypeReturnTo);
 ?>
-<dialog class="admin-dialog slide-type-dialog" data-slide-type-dialog>
+<dialog class="admin-dialog slide-type-dialog" data-slide-type-dialog aria-labelledby="slide-type-dialog-title" aria-describedby="slide-type-dialog-description">
     <form method="dialog" class="admin-dialog__panel slide-type-dialog__panel">
         <div class="section-head">
             <div>
-                <h2><?= e(__('slide.choose_type_title')) ?></h2>
-                <p class="muted"><?= e(__('slide.choose_type_hint')) ?></p>
+                <h2 id="slide-type-dialog-title"><?= e(__('slide.choose_type_title')) ?></h2>
+                <p id="slide-type-dialog-description" class="muted"><?= e(__('slide.choose_type_hint')) ?></p>
             </div>
         </div>
         <div class="slide-type-dialog__layout">
-            <div class="slide-type-grid" data-slide-type-options>
+            <div class="slide-type-grid" data-slide-type-options role="radiogroup" aria-labelledby="slide-type-dialog-title">
                 <?php foreach ($slideTypeDefinitions as $index => $slideType): ?>
                     <?php
                     $description = trim((string)($slideType['description'] ?? ''));
@@ -43,6 +43,8 @@ $firstSlideTypeCreateUrl = $slideTypeCreateUrl
                         data-icon="<?= e((string)$slideType['icon_url']) ?>"
                         data-fallback-icon="<?= e((string)$slideType['icon_fallback_url']) ?>"
                         aria-pressed="<?= $index === 0 ? 'true' : 'false' ?>"
+                        role="radio"
+                        aria-checked="<?= $index === 0 ? 'true' : 'false' ?>"
                     >
                         <span class="slide-type-card__icon">
                             <img src="<?= e((string)$slideType['icon_url']) ?>" data-fallback-icon="<?= e((string)$slideType['icon_fallback_url']) ?>" alt="">
@@ -78,6 +80,7 @@ $firstSlideTypeCreateUrl = $slideTypeCreateUrl
         const continueLink = slideTypeDialog.querySelector('[data-slide-type-continue]');
         const fallbackDescription = <?= json_encode(__('slide.type_description_unavailable'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
         let selectedSlideTypeOption = slideTypeOptions.find((option) => option.getAttribute('aria-pressed') === 'true') || slideTypeOptions[0] || null;
+        let opener = null;
 
         function buildSlideTypeUrl(slideType) {
             const target = new URL(openSlideTypeDialog.dataset.createUrl || openSlideTypeDialog.href, window.location.href);
@@ -98,6 +101,8 @@ $firstSlideTypeCreateUrl = $slideTypeCreateUrl
             selectedSlideTypeOption = option;
             slideTypeOptions.forEach((item) => {
                 item.setAttribute('aria-pressed', item === option ? 'true' : 'false');
+                item.setAttribute('aria-checked', item === option ? 'true' : 'false');
+                item.tabIndex = item === option ? 0 : -1;
             });
 
             const label = option.dataset.label || option.textContent.trim();
@@ -121,20 +126,39 @@ $firstSlideTypeCreateUrl = $slideTypeCreateUrl
             image.addEventListener('error', useFallbackIcon);
         });
         slideTypeOptions.forEach((option) => {
+            option.tabIndex = option === selectedSlideTypeOption ? 0 : -1;
             option.addEventListener('click', () => selectSlideType(option));
             option.addEventListener('dblclick', () => {
                 selectSlideType(option);
                 if (continueLink) window.location.href = continueLink.href;
             });
+            option.addEventListener('keydown', (event) => {
+                if (!['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
+                event.preventDefault();
+                const current = slideTypeOptions.indexOf(selectedSlideTypeOption);
+                const last = slideTypeOptions.length - 1;
+                let next = current;
+                if (event.key === 'Home') next = 0;
+                if (event.key === 'End') next = last;
+                if (event.key === 'ArrowRight' || event.key === 'ArrowDown') next = current >= last ? 0 : current + 1;
+                if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') next = current <= 0 ? last : current - 1;
+                selectSlideType(slideTypeOptions[next]);
+                selectedSlideTypeOption?.focus();
+            });
         });
         openSlideTypeDialog.addEventListener('click', (event) => {
             event.preventDefault();
+            opener = openSlideTypeDialog;
             selectSlideType(selectedSlideTypeOption);
             slideTypeDialog.showModal();
             selectedSlideTypeOption?.focus();
         });
         slideTypeDialog.querySelectorAll('[data-slide-type-close]').forEach((button) => {
             button.addEventListener('click', () => slideTypeDialog.close());
+        });
+        slideTypeDialog.addEventListener('close', () => {
+            opener?.focus?.({ preventScroll: true });
+            opener = null;
         });
     }
 })();

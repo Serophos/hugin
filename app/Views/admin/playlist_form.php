@@ -87,11 +87,11 @@ require __DIR__ . '/../layouts/admin_header.php';
                             <span class="label-heading-with-help">
                                 <?= e(__('channel.priority')) ?>
                                 <span class="label-help-wrap">
-                                    <button type="button" class="field-help-toggle" aria-label="<?= e(__('channel.priority_help_label')) ?>" aria-expanded="false" data-help-toggle>?</button>
-                                    <span class="field-help-popover" hidden data-help-popover><?= e(__('channel.priority_help')) ?></span>
+                                    <button type="button" class="field-help-toggle" aria-label="<?= e(__('channel.priority_help_label')) ?>" aria-expanded="false" aria-controls="assignment-priority-help-<?= e((string)$index) ?>" data-help-toggle>?</button>
+                                    <span id="assignment-priority-help-<?= e((string)$index) ?>" class="field-help-popover" hidden data-help-popover><?= e(__('channel.priority_help')) ?></span>
                                 </span>
                             </span>
-                            <input type="number" min="1" name="assignment_priority[]" value="<?= e((string)($assignment['priority'] ?? '')) ?>" placeholder="<?= e(__('channel.priority_placeholder')) ?>" title="<?= e(__('channel.priority_help')) ?>"<?= field_attrs('assignment_priority.' . $index, $formId) ?>>
+                            <input type="number" min="1" name="assignment_priority[]" value="<?= e((string)($assignment['priority'] ?? '')) ?>" placeholder="<?= e(__('channel.priority_placeholder')) ?>" title="<?= e(__('channel.priority_help')) ?>"<?= field_attrs('assignment_priority.' . $index, $formId, 'assignment-priority-help-' . $index) ?>>
                             <?= field_error_html('assignment_priority.' . $index, $formId) ?>
                         </label>
                         <button type="button" class="button button--normal assignment-remove"><?= admin_icon('remove') ?><span><?= e(__('common.remove')) ?></span></button>
@@ -198,14 +198,14 @@ $slideTypeReturnTo = '/admin/playlists/' . $channel['id'] . '/edit';
 </div>
 
 <!-- Slide Picker Dialog -->
-<dialog class="admin-dialog slide-picker-dialog" data-slide-picker-dialog>
+<dialog class="admin-dialog slide-picker-dialog" data-slide-picker-dialog aria-labelledby="slide-picker-title" aria-describedby="slide-picker-description">
     <form method="post" class="admin-dialog__panel form-grid" data-slide-picker-form action="<?= e(url('/admin/playlists/' . $channel['id'] . '/slides/add')) ?>">
         <?= csrf_field() ?>
         <input type="hidden" name="return_to" data-slide-picker-return-to value="<?= e('/admin/playlists/' . $channel['id'] . '/edit') ?>">
         <div class="section-head">
             <div>
-                <h2 data-slide-picker-title><?= e(__('slide.add_existing_title', ['playlist' => $channel['name']])) ?></h2>
-                <p class="muted"><?= e(__('slide.add_existing_hint')) ?></p>
+                <h2 id="slide-picker-title" data-slide-picker-title><?= e(__('slide.add_existing_title', ['playlist' => $channel['name']])) ?></h2>
+                <p id="slide-picker-description" class="muted"><?= e(__('slide.add_existing_hint')) ?></p>
             </div>
             <button type="button" class="button button--normal button--small" data-slide-picker-close>
                 <?= admin_icon('cancel') ?><span><?= e(__('common.cancel')) ?></span>
@@ -259,6 +259,7 @@ $slideTypeReturnTo = '/admin/playlists/' . $channel['id'] . '/edit';
     const pickerEmpty = pickerDialog.querySelector('[data-slide-picker-empty]');
     const pickerSubmit = pickerDialog.querySelector('[data-slide-picker-submit]');
     let currentAvailableSlides = [];
+    let pickerOpener = null;
 
     function updatePickerSubmit() {
         if (!pickerSubmit) return;
@@ -301,7 +302,8 @@ $slideTypeReturnTo = '/admin/playlists/' . $channel['id'] . '/edit';
         updatePickerSubmit();
     }
 
-    document.getElementById('add-existing-slide')?.addEventListener('click', () => {
+    document.getElementById('add-existing-slide')?.addEventListener('click', (event) => {
+        pickerOpener = event.currentTarget instanceof HTMLElement ? event.currentTarget : null;
         currentAvailableSlides = slideLibrary.filter((slide) => !assignedSlideIds.has(slide.id));
         if (pickerSearch) pickerSearch.value = '';
         renderPickerList();
@@ -319,6 +321,10 @@ $slideTypeReturnTo = '/admin/playlists/' . $channel['id'] . '/edit';
     });
     pickerDialog.querySelectorAll('[data-slide-picker-close]').forEach((button) => {
         button.addEventListener('click', () => pickerDialog.close());
+    });
+    pickerDialog.addEventListener('close', () => {
+        pickerOpener?.focus?.({ preventScroll: true });
+        pickerOpener = null;
     });
 
     <?php endif; ?>
@@ -341,6 +347,7 @@ $slideTypeReturnTo = '/admin/playlists/' . $channel['id'] . '/edit';
 
     const list = document.getElementById('assignment-list');
     const addButton = document.getElementById('add-assignment');
+    let generatedHelpId = 0;
 
     function buildSelect(name, placeholder, items, selectedValue) {
         const select = document.createElement('select');
@@ -378,10 +385,12 @@ $slideTypeReturnTo = '/admin/playlists/' . $channel['id'] . '/edit';
         priorityInput.value = values.priority || '';
         priorityInput.placeholder = labels.priorityPlaceholder;
         priorityInput.title = labels.priorityHelp;
+        const helpId = `assignment-priority-help-generated-${++generatedHelpId}`;
+        priorityInput.setAttribute('aria-describedby', helpId);
         const priorityLabel = document.createElement('label');
         const priorityHeading = document.createElement('span');
         priorityHeading.className = 'label-heading-with-help';
-        priorityHeading.append(document.createTextNode(labels.priority), buildHelpControl());
+        priorityHeading.append(document.createTextNode(labels.priority), buildHelpControl(helpId));
         priorityLabel.append(priorityHeading, priorityInput);
         row.appendChild(priorityLabel);
 
@@ -393,7 +402,7 @@ $slideTypeReturnTo = '/admin/playlists/' . $channel['id'] . '/edit';
         list.appendChild(row);
     }
 
-    function buildHelpControl() {
+    function buildHelpControl(helpId) {
         const wrap = document.createElement('span');
         wrap.className = 'label-help-wrap';
 
@@ -402,10 +411,12 @@ $slideTypeReturnTo = '/admin/playlists/' . $channel['id'] . '/edit';
         toggle.className = 'field-help-toggle';
         toggle.setAttribute('aria-label', labels.priorityHelpLabel);
         toggle.setAttribute('aria-expanded', 'false');
+        toggle.setAttribute('aria-controls', helpId);
         toggle.dataset.helpToggle = '';
         toggle.textContent = '?';
 
         const popover = document.createElement('span');
+        popover.id = helpId;
         popover.className = 'field-help-popover';
         popover.hidden = true;
         popover.dataset.helpPopover = '';

@@ -153,12 +153,12 @@ if (!$isUnused) {
 <?php endforeach; ?>
 
 <?php if ($playlistAddTargets !== []): ?>
-<dialog class="admin-dialog playlist-add-dialog" data-playlist-add-dialog>
+<dialog class="admin-dialog playlist-add-dialog" data-playlist-add-dialog aria-labelledby="playlist-add-title" aria-describedby="playlist-add-description">
     <form method="dialog" class="admin-dialog__panel playlist-add-dialog__panel">
         <div class="section-head">
             <div>
-                <h2 data-playlist-add-title><?= e(__('channel.add_existing_playlist_title')) ?></h2>
-                <p class="muted" data-playlist-add-display></p>
+                <h2 id="playlist-add-title" data-playlist-add-title><?= e(__('channel.add_existing_playlist_title')) ?></h2>
+                <p id="playlist-add-description" class="muted" data-playlist-add-display></p>
             </div>
             <button type="button" class="button button--normal button--small" data-playlist-add-close><?= admin_icon('cancel') ?><span><?= e(__('common.cancel')) ?></span></button>
         </div>
@@ -185,6 +185,7 @@ if (!$isUnused) {
     const empty = dialog.querySelector('[data-playlist-add-empty]');
     const addNew = dialog.querySelector('[data-playlist-add-new]');
     let activeTarget = null;
+    let opener = null;
 
     function renderList() {
         if (!activeTarget) return;
@@ -218,6 +219,7 @@ if (!$isUnused) {
             event.stopPropagation();
             activeTarget = targets[String(button.dataset.displayId || '')];
             if (!activeTarget) return;
+            opener = button;
 
             displayLabel.textContent = activeTarget.displayName || '';
             addNew.href = activeTarget.createUrl || addNew.href;
@@ -244,8 +246,14 @@ if (!$isUnused) {
                 dialog.close();
             } else {
                 dialog.removeAttribute('open');
+                opener?.focus?.({ preventScroll: true });
+                opener = null;
             }
         });
+    });
+    dialog.addEventListener('close', () => {
+        opener?.focus?.({ preventScroll: true });
+        opener = null;
     });
 })();
 </script>
