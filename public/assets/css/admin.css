@@ -2900,6 +2900,12 @@ td.actions .button span {
     display: none;
 }
 
+.plugin-global-settings-form {
+    display: grid;
+    gap: 0.9rem;
+    min-width: 0;
+}
+
 .plugin-settings-card {
     display: grid;
     gap: 0.9rem;

@@ -49,7 +49,11 @@ require_once __DIR__ . '/Controllers/AdminController.php';
 require_once __DIR__ . '/Controllers/FrontendController.php';
 require_once __DIR__ . '/Controllers/MonitoringController.php';
 
-$locale = (string)($config['app']['locale'] ?? 'en');
+$db = new App\Core\Database($config['db']);
+$GLOBALS['app_db'] = $db;
+app_import_legacy_config_settings($config);
+
+$locale = (string)app_core_setting('system.locale', $config['app']['locale'] ?? 'en');
 $fallbackLocale = (string)($config['app']['fallback_locale'] ?? $locale);
 $i18n = new App\Core\I18n($locale, $fallbackLocale);
 $i18n->loadFile($fallbackLocale, __DIR__ . '/lang/' . $fallbackLocale . '.php');
@@ -77,9 +81,6 @@ if (is_dir($pluginsRoot)) {
 $GLOBALS['i18n'] = $i18n;
 $GLOBALS['i18n_locale'] = $locale;
 
-$db = new App\Core\Database($config['db']);
-$GLOBALS['app_db'] = $db;
-app_import_legacy_config_settings($config);
 $view = new App\Core\View(__DIR__ . '/Views');
 $request = new App\Core\Request();
 $auth = new App\Core\Auth($db);

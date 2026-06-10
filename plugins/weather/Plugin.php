@@ -9,18 +9,9 @@ class Plugin extends AbstractSlidePlugin
 {
     private const DEFAULT_GEOCODING_BASE_URL = 'https://geocoding-api.open-meteo.com/v1/search';
     private const DEFAULT_WEATHER_BASE_URL = 'https://api.open-meteo.com/v1/forecast';
-
-    private array $config;
-
-    public function __construct(array $manifest, string $rootPath)
-    {
-        parent::__construct($manifest, $rootPath);
-        $file = $rootPath . '/config.php';
-        if (!is_file($file)) {
-            throw new RuntimeException('Weather plugin setup incomplete: missing plugins/weather/config.php.');
-        }
-        $this->config = (array) require $file;
-    }
+    private const DEFAULT_CACHE_TTL_SECONDS = 3600;
+    private const DEFAULT_HTTP_TIMEOUT_SECONDS = 12;
+    private const DEFAULT_USER_AGENT = 'Hugin Weather Plugin/1.0';
 
     public function getDefaultSettings(): array
     {
@@ -44,6 +35,9 @@ class Plugin extends AbstractSlidePlugin
             'weather_base_url' => self::DEFAULT_WEATHER_BASE_URL,
             'geocoding_base_url' => self::DEFAULT_GEOCODING_BASE_URL,
             'api_key' => '',
+            'cache_ttl_seconds' => self::DEFAULT_CACHE_TTL_SECONDS,
+            'http_timeout_seconds' => self::DEFAULT_HTTP_TIMEOUT_SECONDS,
+            'user_agent' => self::DEFAULT_USER_AGENT,
         ];
     }
 
@@ -102,6 +96,19 @@ class Plugin extends AbstractSlidePlugin
                 'Weather plugin: invalid geocoding API endpoint.'
             ),
             'api_key' => trim((string)($settings['api_key'] ?? '')),
+            'cache_ttl_seconds' => $this->normalizePositiveInteger(
+                $settings['cache_ttl_seconds'] ?? self::DEFAULT_CACHE_TTL_SECONDS,
+                self::DEFAULT_CACHE_TTL_SECONDS,
+                'plugin.weather.error.invalid_cache_ttl',
+                'Weather plugin: invalid cache TTL.'
+            ),
+            'http_timeout_seconds' => $this->normalizePositiveInteger(
+                $settings['http_timeout_seconds'] ?? self::DEFAULT_HTTP_TIMEOUT_SECONDS,
+                self::DEFAULT_HTTP_TIMEOUT_SECONDS,
+                'plugin.weather.error.invalid_timeout',
+                'Weather plugin: invalid HTTP timeout.'
+            ),
+            'user_agent' => $this->normalizeStringSetting($settings['user_agent'] ?? '', self::DEFAULT_USER_AGENT),
         ];
     }
 
@@ -248,6 +255,12 @@ class Plugin extends AbstractSlidePlugin
             'api_key' => $this->t('plugin.weather.global.api_key', 'API key'),
             'api_key_placeholder' => $this->t('plugin.weather.global.api_key_placeholder', 'Optional, e.g. open-meteo commercial key'),
             'api_key_help' => $this->t('plugin.weather.global.api_key_help', 'The key is stored in the database and sent only from server-side API requests.'),
+            'cache_ttl' => $this->t('plugin.weather.global.cache_ttl', 'Cache TTL in seconds'),
+            'cache_ttl_help' => $this->t('plugin.weather.global.cache_ttl_help', 'Number of seconds that fetched weather data may be reused. Default: 3600.'),
+            'timeout' => $this->t('plugin.weather.global.timeout', 'HTTP timeout in seconds'),
+            'timeout_help' => $this->t('plugin.weather.global.timeout_help', 'Minimum effective timeout is 3 seconds. Default: 12.'),
+            'user_agent' => $this->t('plugin.weather.global.user_agent', 'User-Agent header'),
+            'user_agent_help' => $this->t('plugin.weather.global.user_agent_help', 'Sent with server-side Open-Meteo requests. Default: Hugin Weather Plugin/1.0'),
         ];
     }
 
@@ -287,6 +300,24 @@ class Plugin extends AbstractSlidePlugin
         return rtrim($url, '?&');
     }
 
+    private function normalizePositiveInteger(mixed $value, int $default, string $errorKey, string $errorDefault): int
+    {
+        $string = trim((string)$value);
+        if ($string === '') {
+            return $default;
+        }
+        if (!ctype_digit($string) || (int)$string < 1) {
+            throw new RuntimeException($this->t($errorKey, $errorDefault));
+        }
+        return (int)$string;
+    }
+
+    private function normalizeStringSetting(mixed $value, string $default): string
+    {
+        $string = trim((string)$value);
+        return $string !== '' ? $string : $default;
+    }
+
     private function windUnitLabel(string $value): string
     {
         return match ($value) {
@@ -311,7 +342,7 @@ class Plugin extends AbstractSlidePlugin
         }
 
         $url = $this->buildUrlWithQuery($this->getGeocodingBaseUrl($globalSettings), $queryParams);
-        $payload = $this->httpGetJson($url);
+        $payload = $this->httpGetJson($url, $globalSettings);
         $result = is_array($payload['results'][0] ?? null) ? $payload['results'][0] : null;
         if (!$result) {
             throw new RuntimeException($this->t('plugin.weather.error.location_not_found', 'Weather plugin: no matching location found.'));
@@ -345,7 +376,7 @@ class Plugin extends AbstractSlidePlugin
             $settings['precipitation_unit'],
         ], JSON_UNESCAPED_SLASHES));
         $cacheFile = $api->pluginCachePath($this->getName(), $cacheKey . '.json');
-        $ttl = (int)($this->config['cache_ttl_seconds'] ?? 3600);
+        $ttl = max(1, (int)($globalSettings['cache_ttl_seconds'] ?? self::DEFAULT_CACHE_TTL_SECONDS));
         if (is_file($cacheFile) && (filemtime($cacheFile) ?: 0) >= time() - $ttl) {
             $cached = json_decode((string)file_get_contents($cacheFile), true);
             if (is_array($cached)) {
@@ -354,7 +385,7 @@ class Plugin extends AbstractSlidePlugin
         }
 
         $url = $this->buildWeatherUrl($settings, $globalSettings);
-        $payload = $this->httpGetJson($url);
+        $payload = $this->httpGetJson($url, $globalSettings);
         $current = is_array($payload['current'] ?? null) ? $payload['current'] : null;
         if (!$current) {
             throw new RuntimeException($this->t('plugin.weather.error.current_weather_missing', 'Weather plugin: weather API did not return current data.'));
@@ -395,12 +426,12 @@ class Plugin extends AbstractSlidePlugin
         return $base . $separator . http_build_query($query, '', '&', PHP_QUERY_RFC3986);
     }
 
-    private function httpGetJson(string $url): array
+    private function httpGetJson(string $url, array $globalSettings): array
     {
-        $timeout = max(3, (int)($this->config['http_timeout_seconds'] ?? 12));
+        $timeout = max(3, (int)($globalSettings['http_timeout_seconds'] ?? self::DEFAULT_HTTP_TIMEOUT_SECONDS));
         $headers = [
             'Accept: application/json',
-            'User-Agent: ' . (string)($this->config['user_agent'] ?? 'Hugin Weather Plugin/1.0'),
+            'User-Agent: ' . (string)($globalSettings['user_agent'] ?? self::DEFAULT_USER_AGENT),
         ];
 
         if (function_exists('curl_init')) {

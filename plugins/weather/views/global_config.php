@@ -2,7 +2,7 @@
 $strings = $strings ?? [];
 $formId = 'plugin_settings';
 ?>
-<div class="plugin-settings-card weather-global-config">
+<div class="plugin-global-settings-form weather-global-config">
     <h3><?= e($strings['title'] ?? 'Open-Meteo API settings') ?></h3>
     <p class="muted"><?= e($strings['description'] ?? '') ?></p>
 
@@ -53,4 +53,44 @@ $formId = 'plugin_settings';
         </label>
         <p class="muted small"><?= e($strings['api_key_help'] ?? '') ?></p>
     </fieldset>
+
+    <div class="grid-2 compact-grid">
+        <label><?= e($strings['cache_ttl'] ?? 'Cache TTL in seconds') ?>
+            <input
+                type="number"
+                name="plugin_global_settings[<?= e($plugin->getName()) ?>][cache_ttl_seconds]"
+                value="<?= e((string)($settings['cache_ttl_seconds'] ?? 3600)) ?>"
+                min="1"
+                step="1"
+                <?= field_attrs('cache_ttl_seconds', $formId) ?>
+            >
+            <?= field_error_html('cache_ttl_seconds', $formId) ?>
+            <span class="muted small"><?= e($strings['cache_ttl_help'] ?? '') ?></span>
+        </label>
+
+        <label><?= e($strings['timeout'] ?? 'HTTP timeout in seconds') ?>
+            <input
+                type="number"
+                name="plugin_global_settings[<?= e($plugin->getName()) ?>][http_timeout_seconds]"
+                value="<?= e((string)($settings['http_timeout_seconds'] ?? 12)) ?>"
+                min="1"
+                step="1"
+                <?= field_attrs('http_timeout_seconds', $formId) ?>
+            >
+            <?= field_error_html('http_timeout_seconds', $formId) ?>
+            <span class="muted small"><?= e($strings['timeout_help'] ?? '') ?></span>
+        </label>
+    </div>
+
+    <label class="full-width"><?= e($strings['user_agent'] ?? 'User-Agent header') ?>
+        <input
+            type="text"
+            name="plugin_global_settings[<?= e($plugin->getName()) ?>][user_agent]"
+            value="<?= e((string)($settings['user_agent'] ?? 'Hugin Weather Plugin/1.0')) ?>"
+            autocomplete="off"
+            <?= field_attrs('user_agent', $formId) ?>
+        >
+        <?= field_error_html('user_agent', $formId) ?>
+        <span class="muted small"><?= e($strings['user_agent_help'] ?? '') ?></span>
+    </label>
 </div>

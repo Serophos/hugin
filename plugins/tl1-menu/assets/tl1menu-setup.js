@@ -765,7 +765,7 @@
             headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRF-Token': csrfToken},
             body: params.toString()
         });
-        const payload = await response.json();
+        const payload = await parseJsonResponse(response);
         if (!payload.ok) throw new Error(payload.error || t('errors.request_failed'));
         return payload;
     }
@@ -780,9 +780,19 @@
             headers: {'X-CSRF-Token': csrfToken},
             body: formData
         });
-        const payload = await response.json();
+        const payload = await parseJsonResponse(response);
         if (!payload.ok) throw new Error(payload.error || t('errors.request_failed'));
         return payload;
+    }
+
+    async function parseJsonResponse(response) {
+        const text = await response.text();
+        try {
+            return JSON.parse(text);
+        } catch (error) {
+            const message = text.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+            throw new Error(message || `${t('errors.request_failed')} (${response.status})`);
+        }
     }
 
     categoryIconUploadButton?.addEventListener('click', async () => {
@@ -859,8 +869,12 @@
         })) return;
         setStatus(t('status.saving'));
         try {
-            const payload = await post('save-config', {config_json: JSON.stringify(state), global_settings_json: JSON.stringify(collectGlobalSettings())});
-            showOutput(payload.saved || payload);
+            await post('save-config', {config_json: JSON.stringify(state), global_settings_json: JSON.stringify(collectGlobalSettings())});
+            if (activePreview === 'test') {
+                showTestPreview();
+            } else {
+                showSchemaPreview();
+            }
             setStatus(t('status.saved'));
         } catch (error) {
             setStatus(error.message, true);

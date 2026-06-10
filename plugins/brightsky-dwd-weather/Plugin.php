@@ -10,20 +10,15 @@ use RuntimeException;
 class Plugin extends AbstractSlidePlugin
 {
     private const DEFAULT_CURRENT_WEATHER_URL = 'https://api.brightsky.dev/current_weather';
+    private const DEFAULT_STATION_DATA_PATH = 'data/stations.json';
+    private const DEFAULT_CACHE_TTL_SECONDS = 900;
+    private const DEFAULT_HTTP_TIMEOUT_SECONDS = 12;
+    private const DEFAULT_MAX_DIST_METERS = 50000;
+    private const DEFAULT_TIMEZONE = 'Europe/Berlin';
+    private const DEFAULT_USER_AGENT = 'Hugin BrightSky DWD Weather Plugin/1.0';
 
-    private array $config;
     private ?array $stations = null;
     private array $activeGlobalSettings = [];
-
-    public function __construct(array $manifest, string $rootPath)
-    {
-        parent::__construct($manifest, $rootPath);
-        $file = $rootPath . '/config.php';
-        if (!is_file($file)) {
-            throw new RuntimeException('BrightSky DWD Weather plugin setup incomplete: missing plugins/brightsky-dwd-weather/config.php.');
-        }
-        $this->config = (array) require $file;
-    }
 
     public function getDefaultSettings(): array
     {
@@ -46,10 +41,13 @@ class Plugin extends AbstractSlidePlugin
     public function getDefaultGlobalSettings(): array
     {
         return [
-            'brightsky_current_weather_url' => (string)($this->config['brightsky_current_weather_url'] ?? self::DEFAULT_CURRENT_WEATHER_URL),
-            'cache_ttl_seconds' => (int)($this->config['cache_ttl_seconds'] ?? 900),
-            'http_timeout_seconds' => (int)($this->config['http_timeout_seconds'] ?? 12),
-            'timezone' => (string)($this->config['timezone'] ?? 'Europe/Berlin'),
+            'brightsky_current_weather_url' => self::DEFAULT_CURRENT_WEATHER_URL,
+            'cache_ttl_seconds' => self::DEFAULT_CACHE_TTL_SECONDS,
+            'http_timeout_seconds' => self::DEFAULT_HTTP_TIMEOUT_SECONDS,
+            'timezone' => self::DEFAULT_TIMEZONE,
+            'station_data_path' => self::DEFAULT_STATION_DATA_PATH,
+            'max_dist_meters' => self::DEFAULT_MAX_DIST_METERS,
+            'user_agent' => self::DEFAULT_USER_AGENT,
         ];
     }
 
@@ -75,23 +73,28 @@ class Plugin extends AbstractSlidePlugin
             'cache_ttl_seconds' => $this->normalizeIntegerSetting($settings['cache_ttl_seconds'] ?? 900, 60, 86400, 'errors.invalid_cache_ttl', 'BrightSky DWD Weather: invalid cache TTL.'),
             'http_timeout_seconds' => $this->normalizeIntegerSetting($settings['http_timeout_seconds'] ?? 12, 3, 60, 'errors.invalid_timeout', 'BrightSky DWD Weather: invalid HTTP timeout.'),
             'timezone' => $this->normalizeTimezone((string)($settings['timezone'] ?? 'Europe/Berlin')),
+            'station_data_path' => $this->normalizeRelativePath((string)($settings['station_data_path'] ?? self::DEFAULT_STATION_DATA_PATH)),
+            'max_dist_meters' => $this->normalizeIntegerSetting($settings['max_dist_meters'] ?? self::DEFAULT_MAX_DIST_METERS, 1, PHP_INT_MAX, 'errors.invalid_max_dist', 'BrightSky DWD Weather: invalid maximum station distance.'),
+            'user_agent' => $this->normalizeStringSetting($settings['user_agent'] ?? '', self::DEFAULT_USER_AGENT),
         ];
     }
 
     public function renderAdminSettings(array $slide, array $settings, PluginApi $api): string
     {
         $settings = array_replace($this->getDefaultSettings(), $settings);
+        $globalSettings = array_replace($this->getDefaultGlobalSettings(), $api->loadGlobalSettings($this->getName()));
 
         return $this->renderView('views/config.php', [
             'plugin' => $this,
             'settings' => $settings,
-            'stationDataUrl' => $api->pluginAssetUrl($this->getName(), (string)($this->config['station_data_path'] ?? 'data/stations.json')),
+            'stationDataUrl' => $api->pluginAssetUrl($this->getName(), (string)($globalSettings['station_data_path'] ?? self::DEFAULT_STATION_DATA_PATH)),
             'strings' => $this->adminStrings(),
         ]);
     }
 
     public function normalizeSettings(array $input, array $existingSettings, PluginApi $api): array
     {
+        $this->activeGlobalSettings = array_replace($this->getDefaultGlobalSettings(), $api->loadGlobalSettings($this->getName()));
         $settings = array_replace($this->getDefaultSettings(), $existingSettings, $input);
         $settings['station_query'] = trim((string)($settings['station_query'] ?? ''));
         $settings['display_name'] = trim((string)($settings['display_name'] ?? ''));
@@ -256,10 +259,6 @@ class Plugin extends AbstractSlidePlugin
             return false;
         }
 
-        if (!empty($this->config['debug_force_rain_effect'])) {
-            return true;
-        }
-
         if (empty($settings['enable_weather_animations']) && empty($settings['enable_rain_effect'])) {
             return false;
         }
@@ -290,10 +289,6 @@ class Plugin extends AbstractSlidePlugin
     {
         if (!$hasWeather) {
             return false;
-        }
-
-        if (!empty($this->config['debug_force_lightning_effect'])) {
-            return true;
         }
 
         if (empty($settings['enable_weather_animations']) && empty($settings['enable_rain_effect'])) {
@@ -391,12 +386,20 @@ class Plugin extends AbstractSlidePlugin
             'description' => $this->t('global.description', 'Configure the Bright Sky endpoint and request behavior used by all BrightSky DWD Weather slides.'),
             'endpoint' => $this->t('global.endpoint', 'Bright Sky current weather endpoint'),
             'endpoint_help' => $this->t('global.endpoint_help', 'Default: https://api.brightsky.dev/current_weather'),
+            'request_settings' => $this->t('global.request_settings', 'Request behavior'),
             'cache_ttl' => $this->t('global.cache_ttl', 'Cache TTL in seconds'),
             'cache_ttl_help' => $this->t('global.cache_ttl_help', 'Minimum 60, maximum 86400.'),
             'timeout' => $this->t('global.timeout', 'HTTP timeout in seconds'),
             'timeout_help' => $this->t('global.timeout_help', 'Minimum 3, maximum 60.'),
             'timezone' => $this->t('global.timezone', 'Timezone'),
             'timezone_help' => $this->t('global.timezone_help', 'IANA timezone used for Bright Sky responses and timestamps, for example Europe/Berlin.'),
+            'station_settings' => $this->t('global.station_settings', 'Station data'),
+            'station_data_path' => $this->t('global.station_data_path', 'Station data path'),
+            'station_data_path_help' => $this->t('global.station_data_path_help', 'Plugin-relative JSON station list path. Default: data/stations.json'),
+            'max_dist' => $this->t('global.max_dist', 'Maximum station distance in meters'),
+            'max_dist_help' => $this->t('global.max_dist_help', 'Passed to Bright Sky as max_dist. Default: 50000.'),
+            'user_agent' => $this->t('global.user_agent', 'User-Agent header'),
+            'user_agent_help' => $this->t('global.user_agent_help', 'Sent with server-side Bright Sky requests. Default: Hugin BrightSky DWD Weather Plugin/1.0'),
             'notice' => $this->t('global.notice', 'Bright Sky is open source. You can run your own Bright Sky API server and point this plugin at it.'),
             'notice_link' => $this->t('global.notice_link', 'Official Bright Sky infrastructure guide'),
         ];
@@ -408,7 +411,7 @@ class Plugin extends AbstractSlidePlugin
             $this->currentWeatherUrl(),
             $dwdStationId,
             $this->globalSetting('timezone', 'Europe/Berlin'),
-            $this->config['max_dist_meters'] ?? 50000,
+            $this->globalSetting('max_dist_meters', self::DEFAULT_MAX_DIST_METERS),
         ], JSON_UNESCAPED_SLASHES));
         $cacheFile = $api->pluginCachePath($this->getName(), $cacheKey . '.json');
         $ttl = max(60, (int)$this->globalSetting('cache_ttl_seconds', 900));
@@ -424,7 +427,7 @@ class Plugin extends AbstractSlidePlugin
             'dwd_station_id' => $dwdStationId,
             'tz' => (string)$this->globalSetting('timezone', 'Europe/Berlin'),
             'units' => 'dwd',
-            'max_dist' => (int)($this->config['max_dist_meters'] ?? 50000),
+            'max_dist' => (int)$this->globalSetting('max_dist_meters', self::DEFAULT_MAX_DIST_METERS),
         ]);
         $payload = $this->httpGetJson($url);
 
@@ -481,6 +484,21 @@ class Plugin extends AbstractSlidePlugin
         return $timezone;
     }
 
+    private function normalizeRelativePath(string $path): string
+    {
+        $path = trim($path);
+        if ($path === '') {
+            return self::DEFAULT_STATION_DATA_PATH;
+        }
+        return trim(str_replace('\\', '/', $path), '/');
+    }
+
+    private function normalizeStringSetting(mixed $value, string $default): string
+    {
+        $string = trim((string)$value);
+        return $string !== '' ? $string : $default;
+    }
+
     private function currentWeatherUrl(): string
     {
         $url = trim((string)$this->globalSetting('brightsky_current_weather_url', self::DEFAULT_CURRENT_WEATHER_URL));
@@ -499,7 +517,7 @@ class Plugin extends AbstractSlidePlugin
         $timeout = max(3, (int)$this->globalSetting('http_timeout_seconds', 12));
         $headers = [
             'Accept: application/json',
-            'User-Agent: ' . (string)($this->config['user_agent'] ?? 'Hugin BrightSky DWD Weather Plugin/1.0'),
+            'User-Agent: ' . (string)$this->globalSetting('user_agent', self::DEFAULT_USER_AGENT),
         ];
 
         if (function_exists('curl_init')) {
@@ -553,7 +571,7 @@ class Plugin extends AbstractSlidePlugin
             return $this->stations;
         }
 
-        $relative = trim((string)($this->config['station_data_path'] ?? 'data/stations.json'), '/');
+        $relative = trim((string)$this->globalSetting('station_data_path', self::DEFAULT_STATION_DATA_PATH), '/');
         $file = $this->rootPath . '/' . $relative;
         $data = is_file($file) ? json_decode((string)file_get_contents($file), true) : null;
         $stations = is_array($data['stations'] ?? null) ? $data['stations'] : [];

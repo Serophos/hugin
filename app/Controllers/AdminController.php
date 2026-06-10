@@ -19,6 +19,7 @@ class AdminController
     private const UPLOAD_SETTINGS_NAMESPACE = 'upload';
     private const MONITORING_SETTINGS_NAMESPACE = 'monitoring';
     private const ACCESSIBILITY_SETTINGS_NAMESPACE = 'accessibility';
+    private const SYSTEM_SETTINGS_NAMESPACE = 'system';
     private const DEFAULT_DISPLAY_ICON = 'display_16_9.png';
     private const DISPLAY_ICON_PUBLIC_DIRS = [
         '/assets/img/displays',
@@ -299,10 +300,18 @@ class AdminController
         }
 
         $input = (array)$this->request->input('plugin_action', []);
+        $outputLevel = ob_get_level();
+        ob_start();
         try {
             $result = $plugin->handleAdminAction($action, $input, $this->plugins->buildApi(null, null, null, $this->auth->id()));
+            while (ob_get_level() > $outputLevel) {
+                ob_end_clean();
+            }
             $this->jsonResponse(array_replace(['ok' => true], $result));
         } catch (\Throwable $e) {
+            while (ob_get_level() > $outputLevel) {
+                ob_end_clean();
+            }
             $this->jsonResponse(['ok' => false, 'error' => $e->getMessage()], 400);
         }
     }
@@ -311,6 +320,7 @@ class AdminController
     {
         $this->auth->requireRole('admin');
         $settings = array_replace($this->loadBrandingSettings(), [
+            'locale' => (string)app_core_setting('system.locale', app_config('app.locale', 'en')),
             'upload_max_size_mb' => (string)max(1, (int)ceil(((int)app_core_setting('upload.max_size_bytes', 52428800)) / 1048576)),
             'monitoring_enabled' => app_core_setting('monitoring.enabled', false) ? '1' : '0',
             'monitoring_api_token' => (string)app_core_setting('monitoring.api_token', ''),
@@ -333,6 +343,7 @@ class AdminController
 
         $this->view->render('admin/settings', [
             'settings' => $settings,
+            'availableLocales' => app_available_locales(),
             'fonts' => list_public_fonts(),
             'error' => flash('error'),
         ]);
@@ -343,7 +354,9 @@ class AdminController
         $this->auth->requireRole('admin');
         $input = (array)$this->request->input('settings', []);
         $availableFonts = array_keys(list_public_fonts());
+        $availableLocales = app_available_locales();
 
+        $locale = trim((string)($input['locale'] ?? app_core_setting('system.locale', app_config('app.locale', 'en'))));
         $defaultBackgroundColor = normalize_hex_color((string)($input['default_background_color'] ?? '#0f172a'), '#0f172a');
         $defaultTextColor = normalize_hex_color((string)($input['default_text_color'] ?? '#f8fafc'), '#f8fafc');
         $defaultFontHeading = trim((string)($input['default_font_heading'] ?? ''));
@@ -363,6 +376,9 @@ class AdminController
         $input['monitoring_enabled'] = $monitoringEnabled ? '1' : '0';
 
         $errors = [];
+        if (!array_key_exists($locale, $availableLocales)) {
+            $errors['locale'] = __('settings.invalid_locale', [], 'Please choose an available language.');
+        }
         if ($defaultFontHeading !== '' && !in_array($defaultFontHeading, $availableFonts, true)) {
             $errors['default_font_heading'] = __('settings.invalid_font');
         }
@@ -407,6 +423,9 @@ class AdminController
         }
 
         $this->saveAppSettingsNamespaces([
+            self::SYSTEM_SETTINGS_NAMESPACE => [
+                'locale' => $locale,
+            ],
             self::BRANDING_SETTINGS_NAMESPACE => [
                 'default_background_color' => $defaultBackgroundColor,
                 'default_text_color' => $defaultTextColor,

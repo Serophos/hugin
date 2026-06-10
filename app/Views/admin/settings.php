@@ -46,6 +46,20 @@
         <?php endif; ?>
     </fieldset>
     <fieldset class="card settings-card">
+        <legend><?= e(__('settings.system_heading', [], 'System')) ?></legend>
+        <p class="muted"><?= e(__('settings.system_intro', [], 'Configure application-wide behavior for the admin backend and displays.')) ?></p>
+        <div class="settings-card-grid">
+            <label><?= e(__('settings.locale', [], 'System language')) ?>
+                <select name="settings[locale]"<?= field_attrs('locale', 'settings') ?>>
+                    <?php foreach (($availableLocales ?? []) as $locale => $label): ?>
+                        <option value="<?= e((string)$locale) ?>" <?= old_selected('locale', (string)$locale, $settings['locale'] ?? current_locale(), 'settings') ?>><?= e((string)$label) ?></option>
+                    <?php endforeach; ?>
+                </select>
+                <?= field_error_html('locale', 'settings') ?>
+            </label>
+        </div>
+    </fieldset>
+    <fieldset class="card settings-card">
         <legend><?= e(__('settings.accessibility_heading', [], 'Accessibility')) ?></legend>
         <p class="muted"><?= e(__('settings.accessibility_intro', [], 'Configure compliant admin accessibility preferences and deployment-specific WAD contact details.')) ?></p>
         <div class="settings-card-grid">

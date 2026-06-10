@@ -38,15 +38,18 @@ final class MenuRepository
             return $this->cacheFile;
         }
 
-        $xml = $this->downloadXml();
-        if (file_put_contents($this->cacheFile, $xml) === false) {
-            throw new RuntimeException('Could not write XML cache file: ' . $this->cacheFile);
-        }
+        return $this->refreshCache(true);
+    }
 
+    public function refreshCache(bool $allowCachedFallback = false): string
+    {
+        $this->ensureCacheDirectoryExists();
+        $xml = $this->downloadXml($allowCachedFallback);
+        $this->writeCache($xml);
         return $this->cacheFile;
     }
 
-    private function downloadXml(): string
+    private function downloadXml(bool $allowCachedFallback): string
     {
         $url = (string)($this->config['menu_url'] ?? '');
         if ($url === '') {
@@ -67,13 +70,20 @@ final class MenuRepository
 
         $xml = @file_get_contents($url, false, $context);
         if (!is_string($xml) || trim($xml) === '') {
-            if (is_file($this->cacheFile)) {
+            if ($allowCachedFallback && is_file($this->cacheFile)) {
                 return (string)file_get_contents($this->cacheFile);
             }
             throw new RuntimeException('Could not download TL1 menu XML from ' . $url);
         }
 
         return $xml;
+    }
+
+    private function writeCache(string $xml): void
+    {
+        if (file_put_contents($this->cacheFile, $xml) === false) {
+            throw new RuntimeException('Could not write XML cache file: ' . $this->cacheFile);
+        }
     }
 
     private function resolveCacheFile(): string

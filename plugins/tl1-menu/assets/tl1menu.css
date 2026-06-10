@@ -796,14 +796,16 @@
     background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
 }
 
-.tl1menu-slide-settings .tl1menu-admin-checklist {
+.tl1menu-slide-settings .tl1menu-admin-checklist,
+.tl1menu-global-settings .tl1menu-admin-checklist {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     max-height: none;
     overflow: visible;
     padding: 0.25rem 0 0;
 }
 
-.tl1menu-slide-settings .checkbox-row {
+.tl1menu-slide-settings .checkbox-row,
+.tl1menu-global-settings .checkbox-row {
     min-height: 2.65rem;
     padding: 0.6rem 0.7rem;
     border: 1px solid var(--border);
@@ -814,22 +816,26 @@
     transition: background 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
 }
 
-.tl1menu-slide-settings .checkbox-row:hover {
+.tl1menu-slide-settings .checkbox-row:hover,
+.tl1menu-global-settings .checkbox-row:hover {
     border-color: #cbd5e1;
     background: #f8fafc;
 }
 
-.tl1menu-slide-settings .checkbox-row:focus-within {
+.tl1menu-slide-settings .checkbox-row:focus-within,
+.tl1menu-global-settings .checkbox-row:focus-within {
     border-color: var(--accent);
     box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.14);
 }
 
-.tl1menu-slide-settings .checkbox-row:has(input:checked) {
+.tl1menu-slide-settings .checkbox-row:has(input:checked),
+.tl1menu-global-settings .checkbox-row:has(input:checked) {
     border-color: rgba(37, 99, 235, 0.38);
     background: #eff6ff;
 }
 
-.tl1menu-slide-settings .checkbox-row input {
+.tl1menu-slide-settings .checkbox-row input,
+.tl1menu-global-settings .checkbox-row input {
     accent-color: var(--accent);
 }
 
@@ -873,7 +879,8 @@
     .tl1menu-admin-grid,
     .tl1menu-display-mode-options,
     .tl1menu-admin-env-preview__surfaces,
-    .tl1menu-slide-settings .tl1menu-admin-checklist {
+    .tl1menu-slide-settings .tl1menu-admin-checklist,
+    .tl1menu-global-settings .tl1menu-admin-checklist {
         grid-template-columns: 1fr;
     }
 }

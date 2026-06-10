@@ -26,23 +26,22 @@ final class Tl1SetupAnalyzer
         return $this->analyzeXml($xml, $url);
     }
 
+    /** @return array<string, mixed> */
+    public function analyzeCachedXml(string $sourceUrl = ''): array
+    {
+        return $this->analyzeXml($this->readCache(), $sourceUrl);
+    }
+
     /** @param array<string, mixed> $config @return array<string, mixed> */
     public function analyzeCachedWithConfig(array $config): array
     {
-        if (!is_file($this->cacheFile)) {
-            throw new RuntimeException(__('plugins.tl1-menu.errors.setup_xml_missing'));
-        }
-        $xml = (string)file_get_contents($this->cacheFile);
-        return $this->analyzeRows($xml, $config);
+        return $this->analyzeRows($this->readCache(), $config);
     }
 
     /** @param array<string, mixed> $config @return array<string, mixed> */
     public function previewCachedRow(array $config, int $rowIndex): array
     {
-        if (!is_file($this->cacheFile)) {
-            throw new RuntimeException(__('plugins.tl1-menu.errors.setup_xml_missing'));
-        }
-        $dom = $this->loadXml((string)file_get_contents($this->cacheFile));
+        $dom = $this->loadXml($this->readCache());
         $xpath = new DOMXPath($dom);
         $nodes = $xpath->query('/DATAPACKET/ROWDATA/ROW');
         if ($nodes === false || $nodes->length === 0) {
@@ -59,6 +58,18 @@ final class Tl1SetupAnalyzer
             'row_count' => $nodes->length,
             'row' => $this->rowAttributes($row),
         ];
+    }
+
+    private function readCache(): string
+    {
+        if (!is_file($this->cacheFile)) {
+            throw new RuntimeException(__('plugins.tl1-menu.errors.setup_xml_missing'));
+        }
+        $xml = file_get_contents($this->cacheFile);
+        if (!is_string($xml) || trim($xml) === '') {
+            throw new RuntimeException(__('plugins.tl1-menu.errors.setup_xml_missing'));
+        }
+        return $xml;
     }
 
     /** @return array<string, mixed> */

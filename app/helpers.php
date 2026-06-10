@@ -49,6 +49,32 @@ function current_locale(): string
     return (string)($GLOBALS['i18n_locale'] ?? app_config('app.locale', 'en'));
 }
 
+function app_available_locales(): array
+{
+    $langDir = rtrim((string)app_config('paths.root', dirname(__DIR__)), '/') . '/app/lang';
+    $labels = [
+        'en' => 'English',
+        'de' => 'Deutsch',
+    ];
+    $locales = [];
+
+    foreach (glob($langDir . '/*.php') ?: [] as $file) {
+        $locale = basename($file, '.php');
+        if ($locale === '' || preg_match('/^[a-z]{2}(?:[-_][A-Z]{2})?$/', $locale) !== 1) {
+            continue;
+        }
+        $locales[$locale] = $labels[$locale] ?? $locale;
+    }
+
+    if ($locales === []) {
+        $locale = (string)app_config('app.locale', 'en');
+        $locales[$locale] = $labels[$locale] ?? $locale;
+    }
+
+    ksort($locales, SORT_NATURAL | SORT_FLAG_CASE);
+    return $locales;
+}
+
 function __(string $key, array $replace = [], ?string $default = null): string
 {
     $i18n = $GLOBALS['i18n'] ?? null;
@@ -245,6 +271,9 @@ function app_core_settings_defaults(string $namespace): array
             'focus_style' => 'standard',
             'motion' => 'system',
         ],
+        'system' => [
+            'locale' => (string)app_config('app.locale', 'en'),
+        ],
     ];
 
     return $defaults[$namespace] ?? [];
@@ -298,6 +327,15 @@ function app_normalize_core_settings(string $namespace, array $settings): array
         $settings['motion'] = in_array($settings['motion'] ?? '', ['system', 'reduced'], true) ? $settings['motion'] : 'system';
     }
 
+    if ($namespace === 'system') {
+        $availableLocales = app_available_locales();
+        $locale = trim((string)($settings['locale'] ?? app_config('app.locale', 'en')));
+        $settings['locale'] = array_key_exists($locale, $availableLocales) ? $locale : (string)app_config('app.locale', 'en');
+        if (!array_key_exists($settings['locale'], $availableLocales)) {
+            $settings['locale'] = array_key_first($availableLocales) ?: 'en';
+        }
+    }
+
     return $settings;
 }
 
@@ -322,6 +360,11 @@ function app_import_legacy_config_settings(array $config): void
     foreach (app_core_settings_defaults('accessibility') as $key => $default) {
         if (array_key_exists($key, $config['accessibility'] ?? [])) {
             $legacy['accessibility'][$key] = $config['accessibility'][$key];
+        }
+    }
+    foreach (app_core_settings_defaults('system') as $key => $default) {
+        if (array_key_exists($key, $config['app'] ?? [])) {
+            $legacy['system'][$key] = $config['app'][$key];
         }
     }
 
@@ -363,6 +406,11 @@ function app_monitoring_settings(): array
 function app_accessibility_settings(): array
 {
     return app_core_settings('accessibility');
+}
+
+function app_system_settings(): array
+{
+    return app_core_settings('system');
 }
 
 function app_core_setting(string $key, mixed $default = null): mixed

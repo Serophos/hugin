@@ -122,7 +122,7 @@ $setupI18n = [
     'errors.duplicate_key' => __('plugins.tl1-menu.setup.errors.duplicate_key'),
 ];
 ?>
-<div class="plugin-settings-card tl1menu-global-settings" data-tl1menu-settings data-tl1menu-setup data-plugin-name="<?= e($plugin->getName()) ?>" data-action-base="<?= e($setupActionBaseUrl) ?>" data-i18n="<?= e(json_encode($setupI18n, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_APOS | JSON_HEX_QUOT) ?: '{}') ?>" data-category-icons="<?= e(json_encode($categoryIconChoices, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_APOS | JSON_HEX_QUOT) ?: '[]') ?>">
+<div class="plugin-global-settings-form tl1menu-global-settings" data-tl1menu-settings data-tl1menu-setup data-plugin-name="<?= e($plugin->getName()) ?>" data-action-base="<?= e($setupActionBaseUrl) ?>" data-i18n="<?= e(json_encode($setupI18n, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_APOS | JSON_HEX_QUOT) ?: '{}') ?>" data-category-icons="<?= e(json_encode($categoryIconChoices, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_APOS | JSON_HEX_QUOT) ?: '[]') ?>">
     <h3><?= e(__('plugins.tl1-menu.global_config.title')) ?></h3>
     <p class="muted"><?= e(__('plugins.tl1-menu.global_config.intro')) ?></p>
 
@@ -164,18 +164,6 @@ $setupI18n = [
                     <?php endforeach; ?>
                 </select>
             </label>
-            <fieldset class="full-width tl1menu-admin-nested-fieldset">
-                <legend><?= e(__('plugins.tl1-menu.config.exclude_types')) ?></legend>
-                <p class="muted"><?= e(__('plugins.tl1-menu.config.exclude_types_help')) ?></p>
-                <div class="tl1menu-admin-checklist">
-                    <?php foreach ($foodTypes as $typeId => $typeKey): ?>
-                        <label class="checkbox-row">
-                            <input type="checkbox" name="plugin_global_settings[<?= e($plugin->getName()) ?>][default_exclude][]" value="<?= e((string)$typeId) ?>" <?= in_array((int)$typeId, $defaultExclude, true) ? 'checked' : '' ?>>
-                            <span><?= e($menuService->getFoodTypeLabel((int)$typeId, (string)$typeKey, current_locale())) ?> (<?= e((string)$typeId) ?>)</span>
-                        </label>
-                    <?php endforeach; ?>
-                </div>
-            </fieldset>
             <div class="tl1menu-admin-checklist full-width">
                 <?php foreach (['default_show_header', 'default_display_co2', 'default_display_water', 'default_display_animal_welfare', 'default_display_rainforest'] as $key): ?>
                     <label class="checkbox-row">
@@ -184,6 +172,19 @@ $setupI18n = [
                     </label>
                 <?php endforeach; ?>
             </div>
+        </div>
+    </fieldset>
+
+    <fieldset class="full-width">
+        <legend><?= e(__('plugins.tl1-menu.config.exclude_types')) ?></legend>
+        <p class="muted"><?= e(__('plugins.tl1-menu.config.exclude_types_help')) ?></p>
+        <div class="tl1menu-admin-checklist">
+            <?php foreach ($foodTypes as $typeId => $typeKey): ?>
+                <label class="checkbox-row">
+                    <input type="checkbox" name="plugin_global_settings[<?= e($plugin->getName()) ?>][default_exclude][]" value="<?= e((string)$typeId) ?>" <?= in_array((int)$typeId, $defaultExclude, true) ? 'checked' : '' ?>>
+                    <span><?= e($menuService->getFoodTypeLabel((int)$typeId, (string)$typeKey, current_locale())) ?> (<?= e((string)$typeId) ?>)</span>
+                </label>
+            <?php endforeach; ?>
         </div>
     </fieldset>
 

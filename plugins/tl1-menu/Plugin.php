@@ -9,7 +9,6 @@ use App\Core\PluginApi;
 use Plugins\Tl1Menu\Menu\MenuRepository;
 use Plugins\Tl1Menu\Menu\MenuService;
 use Plugins\Tl1Menu\Menu\MensaXmlParser;
-use Plugins\Tl1Menu\Setup\ConfigWriter;
 use Plugins\Tl1Menu\Setup\Tl1SetupAnalyzer;
 use RuntimeException;
 
@@ -18,12 +17,9 @@ require_once __DIR__ . '/Menu/MensaXmlParser.php';
 require_once __DIR__ . '/Menu/MenuRepository.php';
 require_once __DIR__ . '/Menu/MenuService.php';
 require_once __DIR__ . '/Setup/Tl1SetupAnalyzer.php';
-require_once __DIR__ . '/Setup/ConfigWriter.php';
 
 class Plugin extends AbstractSlidePlugin
 {
-    /** @var array<string, mixed>|null */
-    private ?array $config = null;
     private ?MenuService $service = null;
 
     public function getDefaultSettings(): array
@@ -33,30 +29,28 @@ class Plugin extends AbstractSlidePlugin
 
     public function getDefaultGlobalSettings(): array
     {
-        $config = $this->getPluginConfig();
-        $environmentIcons = is_array($config['environment_rating_icons'] ?? null) ? $config['environment_rating_icons'] : [];
-
         return [
-            'menu_url' => (string)($config['menu_url'] ?? ''),
-            'cache_ttl' => max(60, (int)($config['cache_ttl'] ?? 1800)),
-            'debug_date' => $config['debug_date'] ?? null,
-            'default_language' => $this->normalizeLanguage($config['default_language'] ?? 'de'),
-            'default_mensa' => (string)($config['default_mensa'] ?? ''),
-            'default_exclude' => array_values(array_map('intval', is_array($config['default_exclude'] ?? null) ? $config['default_exclude'] : [])),
-            'default_display_co2' => (bool)($config['default_display_co2'] ?? true),
-            'default_display_water' => (bool)($config['default_display_water'] ?? false),
-            'default_display_animal_welfare' => (bool)($config['default_display_animal_welfare'] ?? false),
-            'default_display_rainforest' => (bool)($config['default_display_rainforest'] ?? false),
-            'default_show_header' => (bool)($config['default_show_header'] ?? true),
-            'background_color' => $this->normalizeColor((string)($config['default_background_color'] ?? '#f1f5f9')),
+            'menu_url' => '',
+            'cache_ttl' => 1800,
+            'debug_date' => null,
+            'default_language' => 'de',
+            'default_mensa' => '',
+            'default_exclude' => [],
+            'default_display_co2' => true,
+            'default_display_water' => false,
+            'default_display_animal_welfare' => false,
+            'default_display_rainforest' => false,
+            'default_show_header' => true,
+            'background_color' => '#f1f5f9',
             'background_media_asset_id' => null,
-            'environment_display_style' => $this->normalizeEnvironmentalDisplayStyle($config['default_environment_display_style'] ?? 'symbols', false),
-            'environment_rating_icons' => array_replace([
+            'environment_display_style' => 'symbols',
+            'environment_rating_icons' => [
                 'co2' => 'assets/img/environment/leaf-filled.svg',
                 'water' => 'assets/img/environment/drop-filled.svg',
                 'animal_welfare' => 'assets/img/environment/heart-filled.svg',
                 'rainforest' => 'assets/img/environment/tree-filled.svg',
-            ], array_filter(array_map('strval', $environmentIcons))),
+            ],
+            'parser_config' => $this->runtimeSafeDefaults(),
         ];
     }
 
@@ -95,7 +89,7 @@ class Plugin extends AbstractSlidePlugin
             $backgroundAsset = null;
         }
 
-        return $this->renderView('views/config.php', [
+        return $this->renderView('views/slide_settings.php', [
             'settings' => $settings,
             'globalSettings' => $globalSettings,
             'plugin' => $this,
@@ -123,7 +117,7 @@ class Plugin extends AbstractSlidePlugin
 
         $service = $this->getMenuService($settings);
 
-        return $this->renderView('views/global_config.php', [
+        return $this->renderView('views/global_settings.php', [
             'settings' => $settings,
             'plugin' => $this,
             'menuService' => $service,
@@ -134,7 +128,7 @@ class Plugin extends AbstractSlidePlugin
             'environmentIconAssets' => $this->getEnvironmentalIconAssets($api),
             'categoryIconChoices' => $this->getCategoryIconChoices($api),
             'setupActionBaseUrl' => url('/admin/plugins/' . $this->getName() . '/actions'),
-            'parserConfig' => $this->getPluginConfig(),
+            'parserConfig' => is_array($settings['parser_config'] ?? null) ? $settings['parser_config'] : $this->runtimeSafeDefaults(),
         ]);
     }
 
@@ -170,10 +164,15 @@ class Plugin extends AbstractSlidePlugin
         if ($menuUrl !== '' && filter_var($menuUrl, FILTER_VALIDATE_URL) === false) {
             throw new RuntimeException(__('plugins.tl1-menu.errors.invalid_menu_url'));
         }
+        $menuUrlScheme = strtolower((string)(parse_url($menuUrl, PHP_URL_SCHEME) ?? ''));
+        if ($menuUrl !== '' && !in_array($menuUrlScheme, ['http', 'https'], true)) {
+            throw new RuntimeException(__('plugins.tl1-menu.errors.invalid_menu_url'));
+        }
+        $cacheTtl = max(60, (int)($input['cache_ttl'] ?? $existingSettings['cache_ttl'] ?? 1800));
 
-        return [
+        $normalized = [
             'menu_url' => $menuUrl,
-            'cache_ttl' => max(60, (int)($input['cache_ttl'] ?? $existingSettings['cache_ttl'] ?? 1800)),
+            'cache_ttl' => $cacheTtl,
             'debug_date' => trim((string)($input['debug_date'] ?? $existingSettings['debug_date'] ?? '')) ?: null,
             'default_language' => $this->normalizeLanguage($input['default_language'] ?? $existingSettings['default_language'] ?? 'de'),
             'default_mensa' => trim((string)($input['default_mensa'] ?? $existingSettings['default_mensa'] ?? '')),
@@ -187,7 +186,14 @@ class Plugin extends AbstractSlidePlugin
             'background_media_asset_id' => $backgroundMediaAssetId,
             'environment_display_style' => $environmentDisplayStyle,
             'environment_rating_icons' => $this->normalizeEnvironmentIconInput($input['environment_rating_icons'] ?? $existingSettings['environment_rating_icons'] ?? []),
+            'parser_config' => is_array($existingSettings['parser_config'] ?? null) ? $existingSettings['parser_config'] : $this->runtimeSafeDefaults(),
         ];
+
+        if ($menuUrl !== '') {
+            $this->refreshMenuXmlCache($normalized, $api);
+        }
+
+        return $normalized;
     }
 
     public function normalizeSettings(array $input, array $existingSettings, PluginApi $api): array
@@ -378,10 +384,15 @@ class Plugin extends AbstractSlidePlugin
             return $this->storeCategoryIconUpload($api->pluginUploadedFile($this->getName(), 'category_icon_file'), $api);
         }
 
-        $analyzer = new Tl1SetupAnalyzer($api->pluginCachePath($this->getName(), 'setup.xml'));
+        $analyzer = new Tl1SetupAnalyzer($api->pluginCachePath($this->getName(), 'speiseplan.xml'));
 
         if ($action === 'analyze-url') {
-            return $analyzer->downloadAndAnalyze((string)($input['menu_url'] ?? ''));
+            $sourceUrl = trim((string)($input['menu_url'] ?? ''));
+            if ($sourceUrl === '') {
+                $globalSettings = array_replace($this->getDefaultGlobalSettings(), $api->loadGlobalSettings($this->getName()));
+                $sourceUrl = (string)($globalSettings['menu_url'] ?? '');
+            }
+            return $analyzer->analyzeCachedXml($sourceUrl);
         }
 
         if ($action === 'analyze-mapping') {
@@ -416,22 +427,18 @@ class Plugin extends AbstractSlidePlugin
             $config = $this->decodeGeneratedConfig((string)($input['config_json'] ?? ''));
             $config['setup']['generated_at'] = date('c');
             $globalSettingsJson = (string)($input['global_settings_json'] ?? '');
-            $normalizedGlobal = null;
+            $existingGlobal = array_replace($this->getDefaultGlobalSettings(), $api->loadGlobalSettings($this->getName()));
+            $normalizedGlobal = $existingGlobal;
             if ($globalSettingsJson !== '') {
                 $globalInput = json_decode($globalSettingsJson, true);
                 if (is_array($globalInput)) {
-                    $existingGlobal = array_replace($this->getDefaultGlobalSettings(), $api->loadGlobalSettings($this->getName()));
                     $normalizedGlobal = $this->normalizeGlobalSettings($globalInput, $existingGlobal, $api);
                 }
             }
-            $writer = new ConfigWriter(__DIR__ . '/config.php');
-            $result = $writer->write($config);
-            if ($normalizedGlobal !== null) {
-                $api->saveGlobalSettings($this->getName(), $normalizedGlobal);
-            }
-            $this->config = null;
+            $normalizedGlobal['parser_config'] = $config;
+            $api->saveGlobalSettings($this->getName(), $normalizedGlobal);
             $this->service = null;
-            return ['saved' => $result];
+            return ['saved' => ['storage' => 'database', 'parser_config' => true]];
         }
 
         return parent::handleAdminAction($action, $input, $api);
@@ -444,6 +451,7 @@ class Plugin extends AbstractSlidePlugin
         if (!is_array($decoded)) {
             throw new RuntimeException(__('plugins.tl1-menu.errors.config_invalid_generated'));
         }
+        $this->assertGeneratedConfig($decoded);
         return $decoded;
     }
 
@@ -472,20 +480,6 @@ class Plugin extends AbstractSlidePlugin
         ];
     }
 
-    /** @return array<string, mixed> */
-    private function getPluginConfig(): array
-    {
-        if ($this->config === null) {
-            $configFile = __DIR__ . '/config.php';
-            if (!is_file($configFile)) {
-                throw new RuntimeException('TL1 Menu plugin setup incomplete: missing plugins/tl1-menu/config.php. Generate it from the TL1 Menu setup panel.');
-            }
-            $loaded = require $configFile;
-            $this->config = is_array($loaded) ? $loaded : [];
-        }
-        return $this->config;
-    }
-
     /** @param array<string, mixed> $globalSettings */
     public function getMenuService(array $globalSettings = []): MenuService
     {
@@ -504,11 +498,30 @@ class Plugin extends AbstractSlidePlugin
         return $this->service;
     }
 
+    /** @param array<string, mixed> $globalSettings */
+    private function refreshMenuXmlCache(array $globalSettings, PluginApi $api): void
+    {
+        $config = $this->runtimeConfig($globalSettings);
+        $parser = new MensaXmlParser($config);
+        $repository = new MenuRepository($parser, $config, $api->pluginCachePath($this->getName(), 'speiseplan.xml'));
+
+        try {
+            $repository->refreshCache(false);
+        } catch (RuntimeException $e) {
+            $message = $e->getMessage();
+            if (str_contains($message, 'write XML cache file') || str_contains($message, 'cache directory')) {
+                throw new RuntimeException(__('plugins.tl1-menu.errors.setup_cache_failed'), 0, $e);
+            }
+            throw new RuntimeException(__('plugins.tl1-menu.errors.setup_download_failed'), 0, $e);
+        }
+    }
+
     /** @param array<string, mixed> $globalSettings @return array<string, mixed> */
     private function runtimeConfig(array $globalSettings = []): array
     {
         $globalSettings = array_replace($this->getDefaultGlobalSettings(), $globalSettings);
-        $config = array_replace($this->runtimeSafeDefaults(), $this->getPluginConfig());
+        $parserConfig = is_array($globalSettings['parser_config'] ?? null) ? $globalSettings['parser_config'] : [];
+        $config = array_replace($this->runtimeSafeDefaults(), $parserConfig);
         foreach ([
             'menu_url', 'cache_ttl', 'debug_date', 'default_language', 'default_mensa', 'default_exclude',
             'default_display_co2', 'default_display_water', 'default_display_animal_welfare', 'default_display_rainforest',
@@ -536,13 +549,24 @@ class Plugin extends AbstractSlidePlugin
             'food_types' => [],
             'categories' => [],
             'token_catalog' => [],
-            'menu_url' => '',
-            'cache_ttl' => 1800,
-            'debug_date' => null,
-            'default_language' => 'de',
-            'default_mensa' => '',
-            'default_exclude' => [],
+            'setup' => [
+                'source_url' => '',
+                'generated_at' => null,
+            ],
         ];
+    }
+
+    /** @param array<string, mixed> $config */
+    private function assertGeneratedConfig(array $config): void
+    {
+        if ((int)($config['schema_version'] ?? 0) !== 2) {
+            throw new RuntimeException(__('plugins.tl1-menu.errors.config_invalid_generated'));
+        }
+        foreach (['field_definitions', 'field_mapping', 'price_groups', 'mensen', 'food_types', 'categories', 'token_catalog'] as $key) {
+            if (!is_array($config[$key] ?? null)) {
+                throw new RuntimeException(__('plugins.tl1-menu.errors.config_invalid_generated'));
+            }
+        }
     }
 
     /** @return array<int, array{key: string, setting: string, label: string, value: string, rating: string}> */

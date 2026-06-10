@@ -30,6 +30,12 @@ return [
     'plugin.weather.global.api_key' => 'API key',
     'plugin.weather.global.api_key_placeholder' => 'Optional, e.g. open-meteo commercial key',
     'plugin.weather.global.api_key_help' => 'The key is stored in the database and sent only from server-side API requests.',
+    'plugin.weather.global.cache_ttl' => 'Cache TTL in seconds',
+    'plugin.weather.global.cache_ttl_help' => 'Number of seconds that fetched weather data may be reused. Default: 3600.',
+    'plugin.weather.global.timeout' => 'HTTP timeout in seconds',
+    'plugin.weather.global.timeout_help' => 'Minimum effective timeout is 3 seconds. Default: 12.',
+    'plugin.weather.global.user_agent' => 'User-Agent header',
+    'plugin.weather.global.user_agent_help' => 'Sent with server-side Open-Meteo requests. Default: Hugin Weather Plugin/1.0',
 
     'plugin.weather.unknown_location' => 'Unknown location',
     'plugin.weather.label.feels_like' => 'Feels like',
@@ -58,4 +64,6 @@ return [
     'plugin.weather.error.invalid_api_response' => 'Weather plugin: invalid API response.',
     'plugin.weather.error.invalid_weather_endpoint' => 'Weather plugin: invalid weather API endpoint.',
     'plugin.weather.error.invalid_geocoding_endpoint' => 'Weather plugin: invalid geocoding API endpoint.',
+    'plugin.weather.error.invalid_cache_ttl' => 'Weather plugin: invalid cache TTL.',
+    'plugin.weather.error.invalid_timeout' => 'Weather plugin: invalid HTTP timeout.',
 ];
