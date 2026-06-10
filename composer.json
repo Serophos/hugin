@@ -3,12 +3,17 @@
     "description": "Info display application",
     "type": "project",
     "require": {
-        "php": ">=8.0",
+        "php": ">=8.1",
         "erusev/parsedown": "^1.8"
     },
     "autoload": {
         "psr-4": {
-            "App\\": "app/"
+            "App\\": "app/",
+            "Plugins\\BrightSkyDwdWeather\\": "plugins/brightsky-dwd-weather/",
+            "Plugins\\FlipClock\\": "plugins/flip-clock/",
+            "Plugins\\ScreenMeta\\": "plugins/screen-meta/",
+            "Plugins\\Tl1Menu\\": "plugins/tl1-menu/",
+            "Plugins\\Weather\\": "plugins/weather/"
         }
     }
 }
