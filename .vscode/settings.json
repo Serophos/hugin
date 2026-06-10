@@ -1,7 +1,0 @@
-{
-    "chat.tools.terminal.autoApprove": {
-        "true": true
-    },
-    "chat.commandCenter.enabled": false,
-    "php.validate.executablePath": "/usr/bin/php"
-}
