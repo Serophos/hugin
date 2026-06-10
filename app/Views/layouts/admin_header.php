@@ -106,6 +106,12 @@ $bodyClasses = trim(($adminShellActive ? 'admin-shell-body' : 'admin-guest-body'
             <span class="user-pill"><?= e(current_user_name()) ?></span>
         </header>
         <main id="admin-main-content" class="container" tabindex="-1">
+            <?php if (current_user_needs_password_change()): ?>
+                <div class="alert warning">
+                    <?= e(__('auth.password_change_required_warning')) ?>
+                    <a href="<?= e(url('/admin/account/password')) ?>"><?= e(__('auth.password_change_required_action')) ?></a>
+                </div>
+            <?php endif; ?>
 <?php else: ?>
 <header class="topbar topbar--guest">
     <div class="brand">

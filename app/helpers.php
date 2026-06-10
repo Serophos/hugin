@@ -488,6 +488,27 @@ function is_admin(): bool
     return current_user_role() === 'admin';
 }
 
+function current_user_needs_password_change(): bool
+{
+    $userId = (int)(current_user()['id'] ?? 0);
+    if ($userId <= 0) {
+        return false;
+    }
+
+    $db = $GLOBALS['app_db'] ?? null;
+    if (!$db || !method_exists($db, 'one')) {
+        return false;
+    }
+
+    try {
+        $user = $db->one('SELECT password_changed_at FROM users WHERE id = ? AND is_active = 1 LIMIT 1', [$userId]);
+    } catch (Throwable) {
+        return false;
+    }
+
+    return $user !== null && empty($user['password_changed_at']);
+}
+
 function slugify(string $value): string
 {
     $value = strtolower(trim($value));

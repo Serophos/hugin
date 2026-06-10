@@ -55,12 +55,12 @@ Current application metadata:
 
 8. Open `/admin/login`.
 
-The seeded demo users both use the password `admin123!`:
+The seeded demo users use the password `admin123!`:
 
-- `admin`, role `admin`
-- `editor`, role `editor`
+- `admin`, role `admin`, active by default
+- `editor`, role `editor`, inactive by default
 
-Change these passwords immediately on a real installation.
+Change initial passwords immediately on a real installation. Hugin shows a warning to users until their password has been changed after account creation.
 
 ### `config.php`
 

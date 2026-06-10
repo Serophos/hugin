@@ -109,6 +109,61 @@ class AdminController
         ]);
     }
 
+    public function passwordForm(): void
+    {
+        $this->auth->requireLogin();
+
+        $this->view->render('admin/password_form', [
+            'error' => flash('error'),
+            'flash' => flash('success'),
+        ]);
+    }
+
+    public function savePassword(): void
+    {
+        $this->auth->requireLogin();
+
+        $currentPassword = (string)$this->request->input('current_password');
+        $password = (string)$this->request->input('password');
+        $passwordConfirmation = (string)$this->request->input('password_confirmation');
+        $errors = [];
+
+        if ($currentPassword === '') {
+            $errors['current_password'] = __('auth.current_password_required');
+        }
+        if ($password === '') {
+            $errors['password'] = __('auth.new_password_required');
+        }
+        if ($passwordConfirmation === '') {
+            $errors['password_confirmation'] = __('auth.password_confirmation_required');
+        } elseif ($password !== $passwordConfirmation) {
+            $errors['password_confirmation'] = __('auth.password_confirmation_mismatch');
+        }
+
+        $user = $this->db->one('SELECT id, password_hash FROM users WHERE id = ? AND is_active = 1 LIMIT 1', [$this->auth->id()]);
+        if (!$user || ($currentPassword !== '' && !password_verify($currentPassword, (string)$user['password_hash']))) {
+            $errors['current_password'] = __('auth.current_password_invalid');
+        }
+
+        if ($errors !== []) {
+            $this->redirectWithForm(
+                '/admin/account/password',
+                __('validation.fix_marked_fields'),
+                [],
+                $errors,
+                'password'
+            );
+        }
+
+        $this->db->execute('UPDATE users SET password_hash = ?, password_changed_at = CURRENT_TIMESTAMP WHERE id = ?', [
+            password_hash($password, PASSWORD_DEFAULT),
+            $this->auth->id(),
+        ]);
+
+        flash('success', __('auth.password_updated'));
+        redirect('/admin/account/password');
+    }
+
 
     public function plugins(): void
     {
@@ -2454,7 +2509,7 @@ class AdminController
 
         if ($id) {
             if ($password !== '') {
-                $this->db->execute('UPDATE users SET username = ?, display_name = ?, role = ?, password_hash = ?, is_active = ? WHERE id = ?', [$username, $displayName, $role, password_hash($password, PASSWORD_DEFAULT), $isActive, $id]);
+                $this->db->execute('UPDATE users SET username = ?, display_name = ?, role = ?, password_hash = ?, password_changed_at = CURRENT_TIMESTAMP, is_active = ? WHERE id = ?', [$username, $displayName, $role, password_hash($password, PASSWORD_DEFAULT), $isActive, $id]);
             } else {
                 $this->db->execute('UPDATE users SET username = ?, display_name = ?, role = ?, is_active = ? WHERE id = ?', [$username, $displayName, $role, $isActive, $id]);
             }
@@ -2465,7 +2520,7 @@ class AdminController
             }
             flash('success', __('users.updated'));
         } else {
-            $this->db->execute('INSERT INTO users (username, display_name, role, password_hash, is_active) VALUES (?, ?, ?, ?, ?)', [$username, $displayName, $role, password_hash($password, PASSWORD_DEFAULT), $isActive]);
+            $this->db->execute('INSERT INTO users (username, display_name, role, password_hash, password_changed_at, is_active) VALUES (?, ?, ?, ?, NULL, ?)', [$username, $displayName, $role, password_hash($password, PASSWORD_DEFAULT), $isActive]);
             flash('success', __('users.created'));
         }
         redirect('/admin/users');

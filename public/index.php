@@ -110,6 +110,8 @@ if ($uri === '/admin/logout' && $method === 'POST') { $admin->logout(); exit; }
 if ($uri === '/admin' && $method === 'GET') { $admin->dashboard(); exit; }
 if ($uri === '/admin/about' && $method === 'GET') { $admin->about(); exit; }
 if ($uri === '/admin/accessibility' && $method === 'GET') { $admin->accessibility(); exit; }
+if ($uri === '/admin/account/password' && $method === 'GET') { $admin->passwordForm(); exit; }
+if ($uri === '/admin/account/password' && $method === 'POST') { $admin->savePassword(); exit; }
 if ($uri === '/admin/plugins' && $method === 'GET') { $admin->plugins(); exit; }
 if ($uri === '/admin/settings' && $method === 'GET') { $admin->settingsForm(); exit; }
 if ($uri === '/admin/settings' && $method === 'POST') { $admin->saveSettings(); exit; }

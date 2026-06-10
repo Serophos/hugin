@@ -28,6 +28,7 @@ CREATE TABLE users (
     display_name VARCHAR(150) NULL,
     role ENUM('admin', 'editor') NOT NULL DEFAULT 'editor',
     password_hash VARCHAR(255) NOT NULL,
+    password_changed_at TIMESTAMP NULL DEFAULT NULL,
     is_active TINYINT(1) NOT NULL DEFAULT 1,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
@@ -304,7 +305,7 @@ CREATE TABLE app_settings (
 
 INSERT INTO users (username, display_name, role, password_hash, is_active) VALUES
 ('admin', 'Administrator', 'admin', '$2y$12$IoewkYyycR./iDEV.rq5/eZU61ixU5l222mohQBYtC.uLg40bXmHK', 1),
-('editor', 'Content Editor', 'editor', '$2y$12$IoewkYyycR./iDEV.rq5/eZU61ixU5l222mohQBYtC.uLg40bXmHK', 1);
+('editor', 'Content Editor', 'editor', '$2y$12$IoewkYyycR./iDEV.rq5/eZU61ixU5l222mohQBYtC.uLg40bXmHK', 0);
 
 INSERT INTO display_locations (name, address, description, sort_order) VALUES
 ('Milliways', 'Frogstar World B, Milliways Approach 42', 'The Restaurant at the End of the Universe; a safe, fictional demo location for Hugin displays.', 1);
