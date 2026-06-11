@@ -534,6 +534,42 @@
         }));
     }
 
+    function sortedObjectFromEntries(entries) {
+        return Object.fromEntries(entries.sort((a, b) => compareSetupKeys(a[0], b[0])));
+    }
+
+    function sortSetupState(config) {
+        if (!config || typeof config !== 'object') return {};
+
+        if (Array.isArray(config.price_groups)) {
+            config.price_groups = config.price_groups
+                .slice()
+                .sort((a, b) => compareSetupKeys(a && a.key, b && b.key));
+        }
+
+        if (config.mensen && typeof config.mensen === 'object' && !Array.isArray(config.mensen)) {
+            config.mensen = sortedObjectFromEntries(Object.entries(config.mensen));
+        }
+
+        if (config.food_types && typeof config.food_types === 'object' && !Array.isArray(config.food_types)) {
+            config.food_types = Object.fromEntries(Object.entries(config.food_types)
+                .sort((a, b) => compareSetupKeys(
+                    a[1] && a[1].key ? a[1].key : a[0],
+                    b[1] && b[1].key ? b[1].key : b[0]
+                )));
+        }
+
+        if (config.token_catalog && typeof config.token_catalog === 'object' && !Array.isArray(config.token_catalog)) {
+            config.token_catalog = sortedObjectFromEntries(Object.entries(config.token_catalog));
+        }
+
+        if (config.categories && typeof config.categories === 'object' && !Array.isArray(config.categories)) {
+            config.categories = sortedObjectFromEntries(Object.entries(config.categories));
+        }
+
+        return config;
+    }
+
     function setupSectionForType(type) {
         return {
             price_group: 'price_groups',
@@ -577,7 +613,7 @@
         }
     }
 
-    function render(viewState) {
+    function render(viewState, focusPath) {
         if (!editor) return;
         const preserveSections = !!viewState || setupGrid.querySelector('[data-setup-section]') !== null;
         const currentView = viewState || captureEditorView();
@@ -623,6 +659,35 @@
         setupGrid.querySelectorAll('[data-remove-row]').forEach(button => {
             button.addEventListener('click', () => removeRow(button.getAttribute('data-remove-row'), button.getAttribute('data-row-key')));
         });
+        if (focusPath) {
+            requestAnimationFrame(() => focusControlInTable(focusPath));
+        }
+    }
+
+    function findControlByPath(path) {
+        return Array.from(setupGrid.querySelectorAll('[data-path]'))
+            .find(control => control.getAttribute('data-path') === path) || null;
+    }
+
+    function focusControlInTable(path) {
+        const control = findControlByPath(path);
+        if (!control) return;
+
+        const section = control.closest('[data-setup-section]');
+        if (section && 'open' in section) {
+            section.open = true;
+        }
+
+        const prefersReducedMotion = typeof window.matchMedia === 'function'
+            && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        const row = control.closest('tr') || control;
+        row.scrollIntoView({block: 'center', inline: 'nearest', behavior: prefersReducedMotion ? 'auto' : 'smooth'});
+
+        window.setTimeout(() => {
+            if (typeof control.focus === 'function') {
+                control.focus({preventScroll: true});
+            }
+        }, prefersReducedMotion ? 0 : 120);
     }
 
     function renderMapping(mapping) {
@@ -674,8 +739,9 @@
         if (type === 'price_group') {
             state.price_groups = Array.isArray(state.price_groups) ? state.price_groups : [];
             state.price_groups.push({key: '', field: '', labels: {de: '', en: ''}});
+            const index = state.price_groups.length - 1;
             syncJson();
-            render(viewState);
+            render(viewState, `price_groups.${index}.key`);
             return;
         }
 
@@ -711,7 +777,16 @@
         }
 
         syncJson();
-        render(viewState);
+        render(viewState, newRowFocusPath(type, normalizedKey));
+    }
+
+    function newRowFocusPath(type, key) {
+        const pathKey = escapePath(key);
+        if (type === 'location') return `mensen.${pathKey}.label`;
+        if (type === 'food_type') return `food_types.${pathKey}.key`;
+        if (type === 'token') return `token_catalog.${pathKey}.kind`;
+        if (type === 'category') return `categories.${pathKey}.icon`;
+        return '';
     }
 
     async function removeRow(type, key) {
@@ -914,7 +989,7 @@
         setStatus(t('status.analyzing'));
         try {
             const payload = await post('analyze-url', {menu_url: menuUrlInput ? menuUrlInput.value : ''});
-            state = payload.generated_config || {};
+            state = sortSetupState(payload.generated_config || {});
             state._analysis = payload.analysis || {};
             sampleRows = payload.sample_rows || [];
             schemaPreview = payload.analysis || state;
@@ -974,6 +1049,9 @@
     function escapeAttr(value) { return escapeHtml(value); }
     function escapePath(value) { return String(value).replace(/\./g, '%2E'); }
     function unescapePath(value) { return String(value).replace(/%2E/g, '.'); }
+
+    state = sortSetupState(state);
+    syncJson();
 
     if (hasSetupConfig()) {
         schemaPreview = state._analysis || state || schemaPreview;

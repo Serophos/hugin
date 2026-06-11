@@ -119,6 +119,8 @@ class Plugin extends AbstractSlidePlugin
 
         $service = $this->getMenuService($settings);
 
+        $parserConfig = is_array($settings['parser_config'] ?? null) ? $settings['parser_config'] : $this->runtimeSafeDefaults();
+
         return $this->renderView('views/global_settings.php', [
             'settings' => $settings,
             'plugin' => $this,
@@ -130,7 +132,7 @@ class Plugin extends AbstractSlidePlugin
             'environmentIconAssets' => $this->getEnvironmentalIconAssets($api),
             'categoryIconChoices' => $this->getCategoryIconChoices($api),
             'setupActionBaseUrl' => url('/admin/plugins/' . $this->getName() . '/actions'),
-            'parserConfig' => is_array($settings['parser_config'] ?? null) ? $settings['parser_config'] : $this->runtimeSafeDefaults(),
+            'parserConfig' => $this->sortParserConfigForSetup($parserConfig),
         ]);
     }
 
@@ -394,7 +396,11 @@ class Plugin extends AbstractSlidePlugin
                 $globalSettings = array_replace($this->getDefaultGlobalSettings(), $api->loadGlobalSettings($this->getName()));
                 $sourceUrl = (string)($globalSettings['menu_url'] ?? '');
             }
-            return $analyzer->analyzeCachedXml($sourceUrl);
+            $analysis = $analyzer->analyzeCachedXml($sourceUrl);
+            if (is_array($analysis['generated_config'] ?? null)) {
+                $analysis['generated_config'] = $this->sortParserConfigForSetup($analysis['generated_config']);
+            }
+            return $analysis;
         }
 
         if ($action === 'analyze-mapping') {
@@ -454,7 +460,33 @@ class Plugin extends AbstractSlidePlugin
             throw new RuntimeException(__('plugins.tl1-menu.errors.config_invalid_generated'));
         }
         $this->assertGeneratedConfig($decoded);
-        return $decoded;
+        return $this->sortParserConfigForSetup($decoded);
+    }
+
+    /** @param array<string, mixed> $config @return array<string, mixed> */
+    private function sortParserConfigForSetup(array $config): array
+    {
+        if (is_array($config['price_groups'] ?? null)) {
+            usort($config['price_groups'], static fn (mixed $a, mixed $b): int => strnatcasecmp(
+                (string)(is_array($a) ? ($a['key'] ?? '') : ''),
+                (string)(is_array($b) ? ($b['key'] ?? '') : '')
+            ));
+        }
+
+        foreach (['mensen', 'categories', 'token_catalog'] as $key) {
+            if (is_array($config[$key] ?? null)) {
+                ksort($config[$key], SORT_NATURAL | SORT_FLAG_CASE);
+            }
+        }
+
+        if (is_array($config['food_types'] ?? null)) {
+            uasort($config['food_types'], static fn (mixed $a, mixed $b): int => strnatcasecmp(
+                (string)(is_array($a) ? ($a['key'] ?? '') : ''),
+                (string)(is_array($b) ? ($b['key'] ?? '') : '')
+            ));
+        }
+
+        return $config;
     }
 
     private function menuItemToArray(\Plugins\Tl1Menu\Menu\MenuItem $item): array

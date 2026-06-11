@@ -257,7 +257,7 @@ $setupI18n = [
         </div>
         <p class="muted"><?= e(__('plugins.tl1-menu.setup.help')) ?></p>
         <p class="muted"><?= e(__('plugins.tl1-menu.setup.save_scope_help')) ?></p>
-        <div class="tl1menu-setup__status" data-tl1menu-setup-status></div>
+        <div class="tl1menu-setup__status" data-tl1menu-setup-status role="status" aria-live="polite" aria-atomic="true"></div>
         <div class="tl1menu-setup__grid" data-tl1menu-setup-grid>
             <div data-tl1menu-setup-summary></div>
             <div class="tl1menu-setup__field-editor" data-tl1menu-setup-field-editor></div>
