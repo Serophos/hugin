@@ -59,7 +59,19 @@ $editorI18n = [
     'section_appearance' => __('templates.section_appearance'),
     'section_entrance_animation' => __('templates.section_entrance_animation'),
     'section_continuous_animation' => __('templates.section_continuous_animation'),
+    'canvas_label' => __('templates.canvas_label'),
+    'canvas_instructions' => __('templates.canvas_instructions'),
+    'element_accessible_label' => __('templates.element_accessible_label'),
+    'element_selected_accessible_label' => __('templates.element_selected_accessible_label'),
+    'element_position_status' => __('templates.element_position_status'),
+    'element_selected_status' => __('templates.element_selected_status'),
+    'element_added_status' => __('templates.element_added_status'),
+    'element_deleted_status' => __('templates.element_deleted_status'),
+    'element_not_movable_status' => __('templates.element_not_movable_status'),
+    'layer_keyboard_hint' => __('templates.layer_keyboard_hint'),
+    'layer_moved_status' => __('templates.layer_moved_status'),
     'empty_fields' => __('templates.empty_fields'),
+    'no_selection' => __('templates.no_selection'),
     'no_field_selection' => __('templates.no_field_selection'),
     'no_animation_selection' => __('templates.no_animation_selection'),
     'background_cannot_animate' => __('templates.background_cannot_animate'),
@@ -67,6 +79,10 @@ $editorI18n = [
     'element_cannot_use_fields' => __('templates.element_cannot_use_fields'),
     'create_and_bind_field' => __('templates.create_and_bind_field'),
     'delete_element' => __('templates.delete_element'),
+    'shortcut_add_text' => __('templates.shortcut_add_text'),
+    'shortcut_add_media' => __('templates.shortcut_add_media'),
+    'shortcut_add_qr' => __('templates.shortcut_add_qr'),
+    'shortcut_add_shape' => __('templates.shortcut_add_shape'),
     'add_field_tooltip' => __('templates.add_field_tooltip'),
     'remove_field_tooltip' => __('templates.remove_field_tooltip'),
     'select_layer_tooltip' => __('templates.select_layer_tooltip'),
@@ -141,20 +157,24 @@ require __DIR__ . '/../layouts/admin_header.php';
                 <button type="button" class="is-active" data-orientation-tab="landscape"><?= e(__('orientations.landscape')) ?></button>
                 <button type="button" data-orientation-tab="portrait"><?= e(__('orientations.vertical')) ?></button>
             </div>
+            <label class="template-editor__snap-toggle">
+                <input type="checkbox" data-snap-to-grid checked>
+                <span><?= e(__('templates.snap_to_grid')) ?></span>
+            </label>
             <div class="template-editor__tools">
-                <button type="button" class="template-tool-button template-tool-button--text" data-add-element="text">
+                <button type="button" class="template-tool-button template-tool-button--text" data-add-element="text" aria-label="<?= e(__('templates.add_element_accessible_label', ['type' => __('templates.element_text')])) ?>" title="<?= e(__('templates.add_element_shortcut_tooltip', ['type' => __('templates.element_text'), 'shortcut' => __('templates.shortcut_add_text')])) ?>">
                     <span class="template-tool-button__icon" aria-hidden="true"><img src="<?= e(url('/assets/icons/admin/template-tool-text.png')) ?>" alt=""></span>
                     <span class="template-tool-button__label"><?= e(__('templates.element_text')) ?></span>
                 </button>
-                <button type="button" class="template-tool-button template-tool-button--media" data-add-element="media">
+                <button type="button" class="template-tool-button template-tool-button--media" data-add-element="media" aria-label="<?= e(__('templates.add_element_accessible_label', ['type' => __('templates.element_media')])) ?>" title="<?= e(__('templates.add_element_shortcut_tooltip', ['type' => __('templates.element_media'), 'shortcut' => __('templates.shortcut_add_media')])) ?>">
                     <span class="template-tool-button__icon" aria-hidden="true"><img src="<?= e(url('/assets/icons/admin/template-tool-media.png')) ?>" alt=""></span>
                     <span class="template-tool-button__label"><?= e(__('templates.element_media')) ?></span>
                 </button>
-                <button type="button" class="template-tool-button template-tool-button--qr" data-add-element="qr">
+                <button type="button" class="template-tool-button template-tool-button--qr" data-add-element="qr" aria-label="<?= e(__('templates.add_element_accessible_label', ['type' => __('templates.element_qr')])) ?>" title="<?= e(__('templates.add_element_shortcut_tooltip', ['type' => __('templates.element_qr'), 'shortcut' => __('templates.shortcut_add_qr')])) ?>">
                     <span class="template-tool-button__icon" aria-hidden="true"><img src="<?= e(url('/assets/icons/admin/template-tool-qr.png')) ?>" alt=""></span>
                     <span class="template-tool-button__label"><?= e(__('templates.element_qr')) ?></span>
                 </button>
-                <button type="button" class="template-tool-button template-tool-button--shape" data-add-element="shape">
+                <button type="button" class="template-tool-button template-tool-button--shape" data-add-element="shape" aria-label="<?= e(__('templates.add_element_accessible_label', ['type' => __('templates.element_shape')])) ?>" title="<?= e(__('templates.add_element_shortcut_tooltip', ['type' => __('templates.element_shape'), 'shortcut' => __('templates.shortcut_add_shape')])) ?>">
                     <span class="template-tool-button__icon" aria-hidden="true"><img src="<?= e(url('/assets/icons/admin/template-tool-shape.png')) ?>" alt=""></span>
                     <span class="template-tool-button__label"><?= e(__('templates.element_shape')) ?></span>
                 </button>
@@ -163,7 +183,9 @@ require __DIR__ . '/../layouts/admin_header.php';
         <div class="template-editor__layout">
             <div class="template-editor__canvas-shell">
                 <div class="template-editor__canvas-frame">
-                    <div class="template-editor__canvas" data-editor-canvas></div>
+                    <p id="template-editor-canvas-instructions" class="sr-only"><?= e(__('templates.canvas_instructions')) ?></p>
+                    <div id="template-editor-canvas-status" class="sr-only" aria-live="polite" aria-atomic="true" data-editor-status></div>
+                    <div class="template-editor__canvas" data-editor-canvas role="group" aria-label="<?= e(__('templates.canvas_label')) ?>" aria-describedby="template-editor-canvas-instructions"></div>
                 </div>
             </div>
             <aside class="template-editor__inspector" data-editor-inspector>
@@ -235,6 +257,8 @@ require __DIR__ . '/../layouts/admin_header.php';
     const continuousAnimations = ['none', 'pulse', 'float', 'slow-zoom', 'wiggle', 'glow', 'rotate-slow'];
     const animationEasings = ['ease', 'ease-out', 'ease-in-out', 'linear'];
     const animationDirections = ['normal', 'alternate', 'reverse'];
+    const addElementShortcuts = { Digit1: 'text', Digit2: 'media', Digit3: 'qr', Digit4: 'shape' };
+    const snapColumns = 24;
     const defaultAnimation = () => ({ entrance: 'none', continuous: 'none', entranceDelayMs: 0, entranceDurationMs: 600, continuousDurationMs: 3000, easing: 'ease-out', direction: 'normal' });
     const i18n = <?= $editorI18nJson ?: '{}' ?>;
     const specs = {
@@ -250,6 +274,7 @@ require __DIR__ . '/../layouts/admin_header.php';
     let selectedId = null;
     let activeInspectorTab = 'element';
     let draggedLayerElementId = '';
+    let pendingFocusElementId = '';
 
     const editor = document.querySelector('[data-template-editor]');
     const form = document.querySelector('[data-template-editor-form]');
@@ -266,6 +291,8 @@ require __DIR__ . '/../layouts/admin_header.php';
     const hiddenPortrait = form.querySelector('[data-template-spec="portrait"]');
     const debugLandscape = form.querySelector('[data-json-debug="landscape"]');
     const debugPortrait = form.querySelector('[data-json-debug="portrait"]');
+    const snapToGridToggle = editor.querySelector('[data-snap-to-grid]');
+    const editorStatus = editor.querySelector('[data-editor-status]');
 
     function uid(prefix) { return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`; }
     function spec() { if (!specs[orientation]) specs[orientation] = defaults[orientation](); return specs[orientation]; }
@@ -273,6 +300,64 @@ require __DIR__ . '/../layouts/admin_header.php';
     function rounded(value, min = 0, max = 1) { return Number(clamp(value, min, max).toFixed(4)); }
     function coordinateDisplay(value, min = 0, max = 1) { return rounded(value, min, max).toFixed(4); }
     function pct(value) { return `${clamp(value, 0, 1) * 100}%`; }
+    function snapEnabled() { return snapToGridToggle?.checked !== false; }
+    function snapSteps() {
+        const current = spec();
+        const ratio = Math.max(0.1, Number(current.canvas?.width || 1) / Math.max(1, Number(current.canvas?.height || 1)));
+        return { x: 1 / snapColumns, y: (1 / snapColumns) * ratio };
+    }
+    function snapValue(value, step, min = 0, max = 1) {
+        if (!snapEnabled()) return rounded(value, min, max);
+        return rounded(Math.round(clamp(value, min, max) / step) * step, min, max);
+    }
+    function snapCenterPosition(value, size, step, min = 0, max = 1) {
+        const snapped = snapValue(value, step, min, max);
+        const centered = 0.5 - (Number(size) || 0) / 2;
+        const threshold = step / 2;
+        return Math.abs((snapped + (Number(size) || 0) / 2) - 0.5) <= threshold ? rounded(centered, min, max) : snapped;
+    }
+    function snapElementPosition(element, x, y) {
+        const steps = snapSteps();
+        return {
+            x: snapCenterPosition(x, element.w, steps.x, 0, 1 - element.w),
+            y: snapCenterPosition(y, element.h, steps.y, 0, 1 - element.h),
+        };
+    }
+    function snapElementSize(element, w, h) {
+        const steps = snapSteps();
+        return {
+            w: snapValue(w, steps.x, 0.02, 1 - element.x),
+            h: snapValue(h, steps.y, 0.02, 1 - element.y),
+        };
+    }
+    function setElementCoordinate(element, key, value) {
+        const parsed = Number(String(value).replace(',', '.')) || 0;
+        if (!snapEnabled()) {
+            element[key] = ['x', 'y'].includes(key) ? rounded(parsed, 0, key === 'x' ? 1 - element.w : 1 - element.h) : rounded(parsed, 0.02, key === 'w' ? 1 - element.x : 1 - element.y);
+            return;
+        }
+        if (key === 'x' || key === 'y') {
+            const next = snapElementPosition(element, key === 'x' ? parsed : element.x, key === 'y' ? parsed : element.y);
+            element.x = next.x;
+            element.y = next.y;
+            return;
+        }
+        const next = snapElementSize(element, key === 'w' ? parsed : element.w, key === 'h' ? parsed : element.h);
+        element.w = next.w;
+        element.h = next.h;
+    }
+    function templateText(key, replacements = {}) {
+        let text = i18n[key] || '';
+        Object.entries(replacements).forEach(([name, value]) => { text = text.split(`:${name}`).join(String(value)); });
+        return text;
+    }
+    function percentLabel(value) { return `${Math.round(clamp(value, 0, 1) * 1000) / 10}%`; }
+    function elementPositionLabel(element) { return `x ${percentLabel(element.x)}, y ${percentLabel(element.y)}, ${i18n.w} ${percentLabel(element.w)}, ${i18n.h} ${percentLabel(element.h)}`; }
+    function announce(message) { if (editorStatus) editorStatus.textContent = message; }
+    function isTextEntryTarget(target) {
+        if (!(target instanceof Element)) return false;
+        return Boolean(target.closest('input, textarea, select, [contenteditable="true"]'));
+    }
     function selectedElement() { return spec().elements.find(element => element.id === selectedId) || null; }
     function escapeHtml(value) { const div = document.createElement('div'); div.textContent = String(value ?? ''); return div.innerHTML; }
     function attr(value) { return escapeHtml(value).replace(/"/g, '&quot;'); }
@@ -417,14 +502,24 @@ require __DIR__ . '/../layouts/admin_header.php';
         const current = spec();
         const ratio = `${current.canvas.width} / ${current.canvas.height}`;
         const ratioValue = current.canvas.width / current.canvas.height;
+        const steps = snapSteps();
         canvas.style.aspectRatio = ratio;
         canvas.style.width = ratioValue >= 1 ? '100%' : `min(100%, ${Number((ratioValue * 76).toFixed(3))}vh)`;
+        canvas.style.setProperty('--template-grid-x', `${steps.x * 100}%`);
+        canvas.style.setProperty('--template-grid-y', `${steps.y * 100}%`);
         canvas.innerHTML = '';
         current.elements.slice().sort((a, b) => (a.z || 0) - (b.z || 0)).forEach(element => {
             const node = document.createElement('button');
             node.type = 'button';
             node.className = `template-editor__element template-editor__element--${element.type}`;
             if (element.id === selectedId) node.classList.add('is-selected');
+            node.setAttribute('aria-pressed', element.id === selectedId ? 'true' : 'false');
+            node.setAttribute('aria-describedby', 'template-editor-canvas-instructions');
+            node.setAttribute('aria-label', templateText(element.id === selectedId ? 'element_selected_accessible_label' : 'element_accessible_label', {
+                label: elementLabel(element),
+                type: i18n[`element_${element.type}`] || element.type,
+                position: elementPositionLabel(element),
+            }));
             node.style.left = pct(element.x);
             node.style.top = pct(element.y);
             node.style.width = pct(element.w);
@@ -436,7 +531,8 @@ require __DIR__ . '/../layouts/admin_header.php';
             node.dataset.elementId = element.id;
             node.appendChild(renderElementPreview(element));
             node.addEventListener('pointerdown', startDrag);
-            node.addEventListener('click', () => { selectElement(element.id); });
+            node.addEventListener('click', () => { selectElement(element.id, false, true); });
+            node.addEventListener('keydown', handleCanvasElementKeydown);
             if (!isBackground(element)) {
                 const handle = document.createElement('span');
                 handle.className = 'template-editor__resize';
@@ -446,6 +542,7 @@ require __DIR__ . '/../layouts/admin_header.php';
             canvas.appendChild(node);
         });
         renderEditorQrCodes();
+        focusPendingCanvasElement();
     }
 
     function renderLiveCanvas() {
@@ -471,9 +568,21 @@ require __DIR__ . '/../layouts/admin_header.php';
         renderInspectorTabs();
     }
 
-    function selectElement(id, focusElementTab = false) {
+    function focusPendingCanvasElement() {
+        if (!pendingFocusElementId) return;
+        const id = pendingFocusElementId;
+        pendingFocusElementId = '';
+        window.requestAnimationFrame(() => {
+            Array.from(canvas.querySelectorAll('[data-element-id]')).find(node => node.dataset.elementId === id)?.focus();
+        });
+    }
+
+    function selectElement(id, focusElementTab = false, focusCanvasElement = false) {
         selectedId = id;
         if (focusElementTab) activeInspectorTab = 'element';
+        const element = spec().elements.find(item => item.id === id);
+        if (element) announce(templateText('element_selected_status', { label: elementLabel(element), position: elementPositionLabel(element) }));
+        if (focusCanvasElement) pendingFocusElementId = id;
         render();
     }
 
@@ -488,8 +597,22 @@ require __DIR__ . '/../layouts/admin_header.php';
     function renderInspectorTabs() {
         inspectorTabs.forEach(tab => {
             const active = tab.dataset.inspectorTab === activeInspectorTab;
+            const tabName = tab.dataset.inspectorTab;
+            const panel = editor.querySelector(`[data-inspector-panel="${tabName}"]`);
+            const tabId = `template-editor-tab-${tabName}`;
+            const panelId = `template-editor-panel-${tabName}`;
+            tab.id = tabId;
+            tab.setAttribute('role', 'tab');
             tab.classList.toggle('is-active', active);
             tab.setAttribute('aria-selected', active ? 'true' : 'false');
+            tab.setAttribute('aria-controls', panelId);
+            tab.tabIndex = active ? 0 : -1;
+            if (panel) {
+                panel.id = panelId;
+                panel.setAttribute('role', 'tabpanel');
+                panel.setAttribute('aria-labelledby', tabId);
+                panel.tabIndex = 0;
+            }
             if (active) {
                 tab.scrollIntoView({ block: 'nearest', inline: 'nearest' });
             }
@@ -638,7 +761,11 @@ require __DIR__ . '/../layouts/admin_header.php';
                     render();
                     return;
                 }
-                element[input.dataset.prop] = ['x', 'y'].includes(input.dataset.prop) ? rounded(input.value) : (['w', 'h'].includes(input.dataset.prop) ? rounded(input.value, 0.02, 1) : Number(input.value));
+                if (['x', 'y', 'w', 'h'].includes(input.dataset.prop)) {
+                    setElementCoordinate(element, input.dataset.prop, input.value);
+                } else {
+                    element[input.dataset.prop] = Number(input.value);
+                }
                 renderLiveCanvas();
             };
             input.addEventListener('input', update);
@@ -654,10 +781,7 @@ require __DIR__ . '/../layouts/admin_header.php';
             input.addEventListener('change', update);
         });
         elementPanel.querySelectorAll('[data-delete-element]').forEach(button => button.addEventListener('click', () => {
-            if (isBackground(element)) return;
-            spec().elements = spec().elements.filter(item => item.id !== element.id);
-            selectedId = null;
-            render();
+            deleteSelectedElement();
         }));
     }
 
@@ -870,7 +994,35 @@ require __DIR__ . '/../layouts/admin_header.php';
         orderByGroup[groupKey] = target;
         recalculatedLayerZ(orderByGroup);
         selectedId = elementId;
+        announce(templateText('layer_moved_status', { label: elementLabel(element), group: layerGroupLabel(groupKey) }));
         render();
+    }
+
+    function moveLayerByKeyboard(element, direction) {
+        if (!element || isBackground(element)) return false;
+        const groupKey = layerGroupForElement(element);
+        const currentGroupIndex = layerGroups.findIndex(group => group.key === groupKey);
+        const current = elementsInLayerGroup(groupKey);
+        const currentIndex = current.findIndex(item => item.id === element.id);
+        if (direction === 'up' || direction === 'down') {
+            const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+            if (targetIndex < 0 || targetIndex >= current.length) return false;
+            const orderedIds = current.map(item => item.id);
+            orderedIds.splice(currentIndex, 1);
+            orderedIds.splice(targetIndex, 0, element.id);
+            const orderByGroup = layerElementsByGroup();
+            orderByGroup[groupKey] = orderedIds;
+            recalculatedLayerZ(Object.fromEntries(Object.entries(orderByGroup).map(([key, value]) => [key, value.map(item => typeof item === 'string' ? item : item.id)])));
+            selectedId = element.id;
+            announce(templateText('layer_moved_status', { label: elementLabel(element), group: layerGroupLabel(groupKey) }));
+            pendingFocusElementId = '';
+            render();
+            return true;
+        }
+        const targetGroup = layerGroups[currentGroupIndex + (direction === 'right' ? 1 : -1)];
+        if (!targetGroup || targetGroup.locked) return false;
+        moveElementToLayerGroup(element.id, targetGroup.key);
+        return true;
     }
 
     function nextContentLayerZ() {
@@ -897,13 +1049,21 @@ require __DIR__ . '/../layouts/admin_header.php';
             button.classList.add('is-locked');
         }
         if (element.id === selectedId) button.classList.add('is-selected');
-        button.setAttribute('aria-label', `${i18n.select_layer_tooltip}: ${elementLabel(element)}`);
+        button.setAttribute('aria-label', `${i18n.select_layer_tooltip}: ${elementLabel(element)}. ${group.locked ? i18n.layer_locked : i18n.layer_keyboard_hint}`);
         button.innerHTML = `
             <span class="template-editor__layer-icon" aria-hidden="true">${icons.move || ''}</span>
             <span>${escapeHtml(elementLabel(element))}</span>
             <small>${escapeHtml(element.type)} · ${escapeHtml(layerGroupLabel(group.key))} · z ${escapeHtml(element.z || 0)}</small>`;
         button.addEventListener('click', () => { selectElement(element.id); });
         if (!group.locked) {
+            button.addEventListener('keydown', event => {
+                if (!event.altKey || !['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)) return;
+                event.preventDefault();
+                const directions = { ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right' };
+                if (moveLayerByKeyboard(element, directions[event.key])) {
+                    window.requestAnimationFrame(() => Array.from(layersPanel.querySelectorAll('[data-layer-element-id]')).find(node => node.dataset.layerElementId === element.id)?.focus());
+                }
+            });
             button.addEventListener('dragstart', event => {
                 draggedLayerElementId = element.id;
                 selectedId = element.id;
@@ -991,10 +1151,85 @@ require __DIR__ . '/../layouts/admin_header.php';
         if (type !== 'background') element.animation = defaultAnimation();
         if (type === 'qr') { element.w = 0.18; element.h = 0.32; element.style.backgroundColor = 'rgba(255,255,255,1)'; element.style.color = 'rgba(15,23,42,1)'; }
         if (type === 'media') { element.w = 0.42; element.h = 0.32; }
+        if (!isBackground(element) && snapEnabled()) {
+            const size = snapElementSize(element, element.w, element.h);
+            element.w = size.w;
+            element.h = size.h;
+            const position = snapElementPosition(element, element.x, element.y);
+            element.x = position.x;
+            element.y = position.y;
+        }
         spec().elements.push(element);
         selectedId = element.id;
         activeInspectorTab = 'element';
+        pendingFocusElementId = element.id;
+        announce(templateText('element_added_status', { label: elementLabel(element), position: elementPositionLabel(element) }));
         render();
+    }
+
+    function deleteSelectedElement() {
+        const element = selectedElement();
+        if (!element || isBackground(element)) return false;
+        const label = elementLabel(element);
+        spec().elements = spec().elements.filter(item => item.id !== element.id);
+        selectedId = null;
+        announce(templateText('element_deleted_status', { label }));
+        render();
+        return true;
+    }
+
+    function keyboardMoveStep(axis, large = false) {
+        const steps = snapSteps();
+        const base = snapEnabled() ? steps[axis] : 0.005;
+        return base * (large ? 5 : 1);
+    }
+
+    function moveElementWithKeyboard(element, key, largeStep) {
+        if (!element || isBackground(element)) {
+            if (element) announce(templateText('element_not_movable_status', { label: elementLabel(element) }));
+            return;
+        }
+        const dx = key === 'ArrowLeft' ? -keyboardMoveStep('x', largeStep) : (key === 'ArrowRight' ? keyboardMoveStep('x', largeStep) : 0);
+        const dy = key === 'ArrowUp' ? -keyboardMoveStep('y', largeStep) : (key === 'ArrowDown' ? keyboardMoveStep('y', largeStep) : 0);
+        const next = snapEnabled()
+            ? snapElementPosition(element, element.x + dx, element.y + dy)
+            : { x: rounded(element.x + dx, 0, 1 - element.w), y: rounded(element.y + dy, 0, 1 - element.h) };
+        element.x = next.x;
+        element.y = next.y;
+        selectedId = element.id;
+        pendingFocusElementId = element.id;
+        announce(templateText('element_position_status', { label: elementLabel(element), position: elementPositionLabel(element) }));
+        render();
+    }
+
+    function handleCanvasElementKeydown(event) {
+        const element = spec().elements.find(item => item.id === event.currentTarget.dataset.elementId);
+        if (!element) return;
+        if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            selectElement(element.id, false, true);
+            return;
+        }
+        if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)) {
+            event.preventDefault();
+            moveElementWithKeyboard(element, event.key, event.shiftKey);
+        }
+    }
+
+    function handleEditorShortcuts(event) {
+        if (!editor.contains(event.target) || isTextEntryTarget(event.target)) return;
+        if (event.key === 'Delete') {
+            const focusedElement = event.target instanceof Element ? event.target.closest('[data-element-id], [data-layer-element-id]') : null;
+            const focusedId = focusedElement?.dataset.elementId || focusedElement?.dataset.layerElementId || '';
+            if (focusedId) selectedId = focusedId;
+            if (deleteSelectedElement()) event.preventDefault();
+            return;
+        }
+        if (!event.shiftKey || event.ctrlKey || event.altKey || event.metaKey) return;
+        const type = addElementShortcuts[event.code];
+        if (!type) return;
+        event.preventDefault();
+        addElement(type);
     }
 
     function startDrag(event) {
@@ -1006,7 +1241,12 @@ require __DIR__ . '/../layouts/admin_header.php';
         const box = canvas.getBoundingClientRect();
         const start = { x: event.clientX, y: event.clientY, left: element.x, top: element.y };
         event.currentTarget.setPointerCapture(event.pointerId);
-        const move = (moveEvent) => { element.x = rounded(start.left + ((moveEvent.clientX - start.x) / box.width), 0, 1 - element.w); element.y = rounded(start.top + ((moveEvent.clientY - start.y) / box.height), 0, 1 - element.h); render(); };
+        const move = (moveEvent) => {
+            const next = snapElementPosition(element, start.left + ((moveEvent.clientX - start.x) / box.width), start.top + ((moveEvent.clientY - start.y) / box.height));
+            element.x = next.x;
+            element.y = next.y;
+            render();
+        };
         const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); };
         window.addEventListener('pointermove', move);
         window.addEventListener('pointerup', up);
@@ -1018,7 +1258,12 @@ require __DIR__ . '/../layouts/admin_header.php';
         if (!element || isBackground(element)) return;
         const box = canvas.getBoundingClientRect();
         const start = { x: event.clientX, y: event.clientY, w: element.w, h: element.h };
-        const move = (moveEvent) => { element.w = rounded(start.w + ((moveEvent.clientX - start.x) / box.width), 0.02, 1 - element.x); element.h = rounded(start.h + ((moveEvent.clientY - start.y) / box.height), 0.02, 1 - element.y); render(); };
+        const move = (moveEvent) => {
+            const next = snapElementSize(element, start.w + ((moveEvent.clientX - start.x) / box.width), start.h + ((moveEvent.clientY - start.y) / box.height));
+            element.w = next.w;
+            element.h = next.h;
+            render();
+        };
         const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); };
         window.addEventListener('pointermove', move);
         window.addEventListener('pointerup', up);
@@ -1031,13 +1276,27 @@ require __DIR__ . '/../layouts/admin_header.php';
         spec();
         render();
     }));
-    inspectorTabs.forEach(button => button.addEventListener('click', () => { setInspectorTab(button.dataset.inspectorTab); }));
+    inspectorTabs.forEach(button => {
+        button.addEventListener('click', () => { setInspectorTab(button.dataset.inspectorTab); });
+        button.addEventListener('keydown', event => {
+            const tabs = Array.from(inspectorTabs);
+            const currentIndex = tabs.indexOf(button);
+            const nextIndex = event.key === 'ArrowRight' ? currentIndex + 1 : (event.key === 'ArrowLeft' ? currentIndex - 1 : -1);
+            if (nextIndex < 0) return;
+            event.preventDefault();
+            const next = tabs[(nextIndex + tabs.length) % tabs.length];
+            setInspectorTab(next.dataset.inspectorTab);
+            next.focus();
+        });
+    });
     inspectorTabScrollButtons.forEach(button => button.addEventListener('click', () => {
         const direction = button.dataset.tabScroll === 'left' ? -1 : 1;
         inspectorTabsScroll?.scrollBy({ left: direction * Math.max(120, inspectorTabsScroll.clientWidth * 0.72), behavior: 'smooth' });
     }));
     inspectorTabsScroll?.addEventListener('scroll', updateInspectorTabScroll, { passive: true });
     window.addEventListener('resize', updateInspectorTabScroll);
+    document.addEventListener('keydown', handleEditorShortcuts);
+    snapToGridToggle?.addEventListener('change', () => { editor.classList.toggle('is-snap-enabled', snapEnabled()); });
     editor.querySelectorAll('[data-add-element]').forEach(button => button.addEventListener('click', () => addElement(button.dataset.addElement)));
     function exportJson(orientationName) {
         const source = orientationName === 'portrait' ? specs.portrait : specs.landscape;
@@ -1076,6 +1335,7 @@ require __DIR__ . '/../layouts/admin_header.php';
         input.value = '';
     }));
     form.addEventListener('submit', syncHidden);
+    editor.classList.toggle('is-snap-enabled', snapEnabled());
     render();
 })();
 </script>

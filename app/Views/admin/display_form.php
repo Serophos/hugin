@@ -107,7 +107,10 @@ require __DIR__ . '/../layouts/admin_header.php';
         <?php elseif (!$heartbeat): ?>
             <p class="muted"><?= e(__('display.heartbeat_none')) ?></p>
         <?php else: ?>
-            <?php $isOnline = ((strtotime((string)$heartbeat['last_seen_at']) ?: 0) >= (time() - 1800)); ?>
+            <?php
+            $heartbeatAgeSeconds = ($heartbeat['heartbeat_age_seconds'] ?? null) === null ? null : max(0, (int)$heartbeat['heartbeat_age_seconds']);
+            $isOnline = $heartbeatAgeSeconds !== null && $heartbeatAgeSeconds <= max(30, (int)app_core_setting('monitoring.online_threshold_seconds', 180));
+            ?>
             <dl class="meta-list">
                 <div><dt><?= e(__('common.status')) ?></dt><dd><span class="status-dot status-<?= e($isOnline ? 'online' : 'offline') ?>"></span> <?= e($isOnline ? __('common.online') : __('common.offline')) ?></dd></div>
                 <div><dt><?= e(__('display.current_channel')) ?></dt><dd><?= e($heartbeat['current_channel_name'] ?: __('common.unknown')) ?></dd></div>

@@ -21,7 +21,8 @@ class DisplayStatusService
                        h.avail_screen_width, h.avail_screen_height, h.viewport_width, h.viewport_height,
                        h.device_pixel_ratio, h.color_depth, h.max_touch_points, h.hardware_concurrency,
                        h.device_memory_gb, h.screen_orientation, h.is_online, h.cookies_enabled,
-                       h.user_agent
+                       h.user_agent,
+                       TIMESTAMPDIFF(SECOND, h.last_seen_at, NOW()) AS heartbeat_age_seconds
                 FROM displays d
                 LEFT JOIN display_heartbeats h ON h.display_id = d.id';
 
@@ -52,7 +53,8 @@ class DisplayStatusService
                     h.avail_screen_width, h.avail_screen_height, h.viewport_width, h.viewport_height,
                     h.device_pixel_ratio, h.color_depth, h.max_touch_points, h.hardware_concurrency,
                     h.device_memory_gb, h.screen_orientation, h.is_online, h.cookies_enabled,
-                    h.user_agent
+                    h.user_agent,
+                    TIMESTAMPDIFF(SECOND, h.last_seen_at, NOW()) AS heartbeat_age_seconds
              FROM displays d
              LEFT JOIN display_heartbeats h ON h.display_id = d.id
              WHERE d.slug = ?
@@ -203,15 +205,16 @@ class DisplayStatusService
         $activeAssignment = $this->resolveActiveAssignment($display);
         $display['resolved_channel_id'] = $activeAssignment['channel_id'] ?? ($display['current_channel_id'] ?: null);
         $display['resolved_channel_name'] = $activeAssignment['channel_name'] ?? ($display['current_channel_name'] ?: null);
-        $display['seconds_since_seen'] = $this->secondsSinceSeen($display['last_seen_at'] ?? null);
-        $display['minutes_since_seen'] = $this->minutesSinceSeen($display['last_seen_at'] ?? null);
-        $display['monitoring_status'] = $this->determineMonitoringStatus((int)$display['is_active'], $display['last_seen_at'] ?? null);
+        $heartbeatAgeSeconds = $this->heartbeatAgeSeconds($display['heartbeat_age_seconds'] ?? null);
+        $display['seconds_since_seen'] = $this->secondsSinceSeen($display['last_seen_at'] ?? null, $heartbeatAgeSeconds);
+        $display['minutes_since_seen'] = $this->minutesSinceSeen($display['last_seen_at'] ?? null, $heartbeatAgeSeconds);
+        $display['monitoring_status'] = $this->determineMonitoringStatus((int)$display['is_active'], $display['last_seen_at'] ?? null, $heartbeatAgeSeconds);
         $display['online'] = $display['monitoring_status'] === 'online';
 
         return $display;
     }
 
-    private function determineMonitoringStatus(int $isActive, ?string $lastSeenAt): string
+    private function determineMonitoringStatus(int $isActive, ?string $lastSeenAt, ?int $heartbeatAgeSeconds = null): string
     {
         if ($isActive !== 1) {
             return 'inactive';
@@ -221,7 +224,7 @@ class DisplayStatusService
             return 'never_seen';
         }
 
-        $seconds = $this->secondsSinceSeen($lastSeenAt);
+        $seconds = $this->secondsSinceSeen($lastSeenAt, $heartbeatAgeSeconds);
         if ($seconds === null) {
             return 'never_seen';
         }
@@ -237,10 +240,19 @@ class DisplayStatusService
         return 'offline';
     }
 
-    private function secondsSinceSeen(?string $lastSeenAt): ?int
+    private function heartbeatAgeSeconds(mixed $value): ?int
+    {
+        return $value === null ? null : max(0, (int)$value);
+    }
+
+    private function secondsSinceSeen(?string $lastSeenAt, ?int $heartbeatAgeSeconds = null): ?int
     {
         if (!$lastSeenAt) {
             return null;
+        }
+
+        if ($heartbeatAgeSeconds !== null) {
+            return $heartbeatAgeSeconds;
         }
 
         $timestamp = strtotime($lastSeenAt);
@@ -251,9 +263,9 @@ class DisplayStatusService
         return max(0, time() - $timestamp);
     }
 
-    private function minutesSinceSeen(?string $lastSeenAt): ?int
+    private function minutesSinceSeen(?string $lastSeenAt, ?int $heartbeatAgeSeconds = null): ?int
     {
-        $seconds = $this->secondsSinceSeen($lastSeenAt);
+        $seconds = $this->secondsSinceSeen($lastSeenAt, $heartbeatAgeSeconds);
         return $seconds === null ? null : (int) floor($seconds / 60);
     }
 

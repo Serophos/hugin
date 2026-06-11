@@ -1,8 +1,8 @@
 {
   "name": "hugin",
   "display_name": "Hugin",
-  "version": "0.8",
-  "release_date": "2026-05-17",
+  "version": "1.0",
+  "release_date": "2026-06-12s",
   "description": "Open source digital signage and information display management.",
   "license": "AGPL-3.0-or-later",
   "source_url": "https://github.com/Serophos/hugin",

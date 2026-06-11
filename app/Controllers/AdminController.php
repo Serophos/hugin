@@ -553,7 +553,8 @@ class AdminController
 
         if ($id) {
             $heartbeat = $this->db->one(
-                'SELECT h.*, d.name AS display_name
+                'SELECT h.*, d.name AS display_name,
+                        TIMESTAMPDIFF(SECOND, h.last_seen_at, NOW()) AS heartbeat_age_seconds
                  FROM display_heartbeats h
                  INNER JOIN displays d ON d.id = h.display_id
                  WHERE h.display_id = ?',
@@ -1818,7 +1819,7 @@ class AdminController
         $pluginDefinitions = [];
         $pluginForms = [];
         foreach ($this->plugins->getEnabledPlugins() as $plugin) {
-            $settings = $id ? $this->plugins->loadSlideSettings($id, $plugin->getName()) : $plugin->getDefaultSettings();
+            $settings = $id ? $this->plugins->loadSlideSettings($id, $plugin->getName()) : [];
             if (is_array($oldPluginSettings[$plugin->getName()] ?? null)) {
                 $settings = array_replace($settings, $oldPluginSettings[$plugin->getName()]);
             }
@@ -3171,7 +3172,8 @@ class AdminController
                        dgm.bezel_left, dgm.sort_order AS group_sort_order,
                        g.name AS group_name, g.location_id,
                        l.name AS location_name,
-                       h.last_seen_at, h.screen_width, h.screen_height, h.avail_screen_width,
+                       h.last_seen_at, TIMESTAMPDIFF(SECOND, h.last_seen_at, NOW()) AS heartbeat_age_seconds,
+                       h.screen_width, h.screen_height, h.avail_screen_width,
                        h.avail_screen_height, h.screen_orientation, h.current_channel_name
                 FROM displays d
                 LEFT JOIN display_group_memberships dgm ON dgm.display_id = d.id
@@ -3195,9 +3197,10 @@ class AdminController
         foreach ($rows as &$row) {
             $row['display_icon_file'] = $this->normalizeDisplayIcon((string)($row['icon_file'] ?? ''), $displayIcons);
             $row['display_icon_url'] = $this->displayIconUrl($row['display_icon_file'], $displayIcons);
-            $row['monitoring_status'] = $this->displayMonitoringStatus((int)$row['is_active'], $row['last_seen_at'] ?? null);
+            $heartbeatAgeSeconds = $this->heartbeatAgeSeconds($row['heartbeat_age_seconds'] ?? null);
+            $row['monitoring_status'] = $this->displayMonitoringStatus((int)$row['is_active'], $row['last_seen_at'] ?? null, $heartbeatAgeSeconds);
             $row['monitoring_label'] = $this->displayMonitoringLabel($row['monitoring_status']);
-            $row['minutes_since_seen'] = $this->minutesSinceSeen($row['last_seen_at'] ?? null);
+            $row['minutes_since_seen'] = $this->minutesSinceSeen($row['last_seen_at'] ?? null, $heartbeatAgeSeconds);
             $row['resolution_label'] = $this->resolutionLabel($row);
         }
         unset($row);
@@ -3375,7 +3378,7 @@ class AdminController
             : __('common.unknown');
     }
 
-    private function displayMonitoringStatus(int $isActive, ?string $lastSeenAt): string
+    private function displayMonitoringStatus(int $isActive, ?string $lastSeenAt, ?int $heartbeatAgeSeconds = null): string
     {
         if ($isActive !== 1) {
             return 'inactive';
@@ -3385,12 +3388,11 @@ class AdminController
             return 'never_seen';
         }
 
-        $timestamp = strtotime($lastSeenAt);
-        if ($timestamp === false) {
+        $seconds = $this->secondsSinceSeen($lastSeenAt, $heartbeatAgeSeconds);
+        if ($seconds === null) {
             return 'never_seen';
         }
 
-        $seconds = max(0, time() - $timestamp);
         if ($seconds <= $this->monitoringOnlineThresholdSeconds()) {
             return 'online';
         }
@@ -3455,16 +3457,37 @@ class AdminController
             return false;
         }
 
-        return strtotime($lastSeenAt) >= (time() - 1800);
+        $seconds = $this->secondsSinceSeen($lastSeenAt);
+        return $seconds !== null && $seconds <= 1800;
     }
 
-    private function minutesSinceSeen(?string $lastSeenAt): ?int
+    private function heartbeatAgeSeconds(mixed $value): ?int
+    {
+        return $value === null ? null : max(0, (int)$value);
+    }
+
+    private function secondsSinceSeen(?string $lastSeenAt, ?int $heartbeatAgeSeconds = null): ?int
     {
         if (!$lastSeenAt) {
             return null;
         }
 
-        return max(0, (int) floor((time() - strtotime($lastSeenAt)) / 60));
+        if ($heartbeatAgeSeconds !== null) {
+            return $heartbeatAgeSeconds;
+        }
+
+        $timestamp = strtotime($lastSeenAt);
+        if ($timestamp === false) {
+            return null;
+        }
+
+        return max(0, time() - $timestamp);
+    }
+
+    private function minutesSinceSeen(?string $lastSeenAt, ?int $heartbeatAgeSeconds = null): ?int
+    {
+        $seconds = $this->secondsSinceSeen($lastSeenAt, $heartbeatAgeSeconds);
+        return $seconds === null ? null : (int)floor($seconds / 60);
     }
 
     private function resolveActiveAssignment(array $display): ?array
