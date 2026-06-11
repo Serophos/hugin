@@ -80,7 +80,15 @@
         if (root.dataset.tl1menuToggleBound === '1') return;
         root.dataset.tl1menuToggleBound = '1';
 
-        root.querySelectorAll('[data-tl1menu-toggle], [data-tl1menu-env-preview-control]').forEach(control => {
+        root.querySelectorAll([
+            '[data-tl1menu-toggle]',
+            '[data-tl1menu-env-preview-control]',
+            'input[name$="[display_mode]"]',
+            'input[name$="[display_co2]"]',
+            'input[name$="[display_water]"]',
+            'input[name$="[display_animal_welfare]"]',
+            'input[name$="[display_rainforest]"]'
+        ].join(', ')).forEach(control => {
             control.addEventListener('change', () => syncRoot(root));
         });
 

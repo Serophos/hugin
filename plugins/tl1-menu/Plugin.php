@@ -83,6 +83,7 @@ class Plugin extends AbstractSlidePlugin
     {
         $globalSettings = array_replace($this->getDefaultGlobalSettings(), $api->loadGlobalSettings($this->getName()));
         $settings = array_replace($this->defaultSlideSettings($globalSettings), $settings);
+        $service = $this->getMenuService($globalSettings);
         $backgroundAssetId = $this->normalizeOptionalId($settings['background_media_asset_id'] ?? null);
         $backgroundAsset = $backgroundAssetId !== null ? $api->getMediaAsset($backgroundAssetId) : null;
         if (($backgroundAsset['media_kind'] ?? null) !== 'image') {
@@ -93,9 +94,10 @@ class Plugin extends AbstractSlidePlugin
             'settings' => $settings,
             'globalSettings' => $globalSettings,
             'plugin' => $this,
-            'mensen' => $this->getMenuService($globalSettings)->getAvailableMensen(),
-            'foodTypes' => $this->getMenuService($globalSettings)->getFoodTypes(),
-            'priceGroups' => $this->getMenuService($globalSettings)->getPriceGroups(),
+            'menuService' => $service,
+            'mensen' => $service->getAvailableMensen(),
+            'foodTypes' => $service->getFoodTypes(),
+            'priceGroups' => $service->getPriceGroups(),
             'imageMediaAssets' => $api->listMediaAssets('image'),
             'backgroundImageUrl' => $api->mediaAssetUrl($backgroundAsset),
             'displayModePreviews' => [

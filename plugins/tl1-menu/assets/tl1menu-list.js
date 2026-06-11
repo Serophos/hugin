@@ -14,7 +14,7 @@
 
     const stateFor = root => {
         if (!roots.has(root)) {
-            roots.set(root, { frame: 0, fitting: false });
+            roots.set(root, { frame: 0, fitting: false, ignoreMutations: false });
         }
         return roots.get(root);
     };
@@ -34,6 +34,7 @@
         root.querySelector('.tl1menu-list__stage'),
         root.querySelector('.tl1menu-list__food'),
         root.querySelector('.tl1menu-list__flow'),
+        ...root.querySelectorAll('.tl1menu-list__column'),
     ].filter(Boolean);
 
     const hasOverflow = root => relevantBoxes(root).some(element => (
@@ -61,8 +62,13 @@
             const itemRect = firstItem.getBoundingClientRect();
             const titleCenter = titleRect.left + titleRect.width / 2;
             const itemCenter = itemRect.left + itemRect.width / 2;
+            const hasRepeatWithItem = Array.from(category.querySelectorAll(".tl1menu-list__category-title--repeat")).some(repeat => {
+                const repeatRect = repeat.getBoundingClientRect();
+                const repeatCenter = repeatRect.left + repeatRect.width / 2;
+                return Math.abs(repeatCenter - itemCenter) <= tolerance;
+            });
 
-            return Math.abs(titleCenter - itemCenter) > tolerance;
+            return Math.abs(titleCenter - itemCenter) > tolerance && !hasRepeatWithItem;
         });
     };
 
@@ -71,6 +77,15 @@
     const usedFoodColumns = root => {
         const columns = parseInt(root.dataset.foodColumns || "1", 10) || 1;
         if (columns <= 1) return columns;
+
+        const explicitColumns = Array.from(root.querySelectorAll(".tl1menu-list__column"));
+        if (explicitColumns.length > 0) {
+            return explicitColumns.reduce((used, column, index) => (
+                column.querySelector(".tl1menu-list__category-title, .tl1menu-list__item")
+                    ? Math.max(used, index + 1)
+                    : used
+            ), 0);
+        }
 
         const flow = root.querySelector(".tl1menu-list__flow");
         if (!flow) return 0;
@@ -89,6 +104,141 @@
         });
 
         return used;
+    };
+
+    const directChildWithClass = (element, className) => Array.from(element.children)
+        .find(child => child.classList?.contains(className));
+
+    const categoryTitle = category => directChildWithClass(category, "tl1menu-list__category-title");
+    const categoryItemsContainer = category => directChildWithClass(category, "tl1menu-list__items");
+    const categoryItems = category => {
+        const container = categoryItemsContainer(category);
+        return container
+            ? Array.from(container.children).filter(child => child.classList?.contains("tl1menu-list__item"))
+            : [];
+    };
+
+    const captureSourceCategories = root => {
+        const state = stateFor(root);
+        if (state.sourceCategories) return state.sourceCategories;
+
+        const flow = root.querySelector(".tl1menu-list__flow");
+        if (!flow) return [];
+
+        state.sourceCategories = Array.from(flow.children)
+            .filter(child => child.classList?.contains("tl1menu-list__category"))
+            .map(category => ({
+                className: category.className,
+                title: categoryTitle(category)?.cloneNode(true) || null,
+                items: categoryItems(category),
+            }))
+            .filter(category => category.title && category.items.length > 0);
+
+        return state.sourceCategories;
+    };
+
+    const removeChildren = element => {
+        while (element.firstChild) {
+            element.removeChild(element.firstChild);
+        }
+    };
+
+    const createColumn = index => {
+        const column = document.createElement("div");
+        column.className = "tl1menu-list__column";
+        column.dataset.tl1menuListColumn = String(index + 1);
+        return column;
+    };
+
+    const createCategorySection = (category, repeat) => {
+        const section = document.createElement("section");
+        section.className = category.className;
+        if (repeat) {
+            section.classList.add("tl1menu-list__category--continuation");
+        }
+
+        const title = category.title.cloneNode(true);
+        if (repeat) {
+            title.classList.add("tl1menu-list__category-title--repeat");
+        }
+
+        const items = document.createElement("div");
+        items.className = "tl1menu-list__items";
+        section.append(title, items);
+        return { section, items };
+    };
+
+    const columnOverflows = (column, flow) => (
+        column.scrollHeight > flow.clientHeight + 2
+        || column.scrollWidth > column.clientWidth + 2
+    );
+
+    const buildExplicitColumns = root => {
+        const state = stateFor(root);
+        const sourceCategories = captureSourceCategories(root);
+        const flow = root.querySelector(".tl1menu-list__flow");
+        const columnCount = parseInt(root.dataset.foodColumns || "1", 10) || 1;
+        if (!flow || sourceCategories.length === 0) return;
+
+        state.ignoreMutations = true;
+        root.classList.add("tl1menu-list--explicit-columns");
+        removeChildren(flow);
+
+        const columns = Array.from({ length: Math.max(1, columnCount) }, (_, index) => createColumn(index));
+        columns.forEach(column => flow.appendChild(column));
+
+        let currentColumnIndex = 0;
+        let currentColumn = columns[currentColumnIndex];
+
+        const nextColumn = () => {
+            if (currentColumnIndex < columns.length - 1) {
+                currentColumnIndex += 1;
+                currentColumn = columns[currentColumnIndex];
+                return true;
+            }
+            return false;
+        };
+
+        sourceCategories.forEach(category => {
+            let segment = createCategorySection(category, false);
+            let segmentHadItems = false;
+            const previousColumnChildCount = currentColumn.children.length;
+            currentColumn.appendChild(segment.section);
+
+            category.items.forEach(item => {
+                segment.items.appendChild(item);
+
+                if (!columnOverflows(currentColumn, flow)) {
+                    segmentHadItems = true;
+                    return;
+                }
+
+                if (!segmentHadItems && previousColumnChildCount > 0 && nextColumn()) {
+                    segment.items.removeChild(item);
+                    currentColumn.appendChild(segment.section);
+                    segment.items.appendChild(item);
+                    segmentHadItems = true;
+                    return;
+                }
+
+                if (segmentHadItems && nextColumn()) {
+                    segment.items.removeChild(item);
+                    segment = createCategorySection(category, true);
+                    currentColumn.appendChild(segment.section);
+                    segment.items.appendChild(item);
+                    segmentHadItems = true;
+                    return;
+                }
+
+                segmentHadItems = true;
+            });
+
+            if (segment.items.children.length === 0) {
+                segment.section.remove();
+            }
+        });
+
+        requestFrame(() => { state.ignoreMutations = false; });
     };
 
     const hasLayoutProblems = root => hasOverflow(root) || hasHeadingOrphans(root) || hasSplitItems(root);
@@ -158,6 +308,7 @@
         for (const mode of modes) {
             for (let fontSize = range.max; fontSize >= range.min; fontSize -= 1) {
                 applyMode(root, mode, fontSize);
+                buildExplicitColumns(root);
                 if (!hasLayoutProblems(root)) {
                     candidates.push({ mode, fontSize, usedColumns: usedFoodColumns(root) });
                     break;
@@ -189,6 +340,7 @@
             const compact = { ...MODES[2], image: false };
             for (let fontSize = range.min - 1; fontSize >= 7 && chosen === null; fontSize -= 1) {
                 applyMode(root, compact, fontSize);
+                buildExplicitColumns(root);
                 if (!hasLayoutProblems(root)) {
                     chosen = { mode: compact, fontSize };
                 }
@@ -199,6 +351,7 @@
         }
 
         applyMode(root, chosen.mode, chosen.fontSize);
+        buildExplicitColumns(root);
         root.classList.toggle("tl1menu-list--overflow-warning", hasLayoutProblems(root));
         root.classList.remove("tl1menu-list--measuring");
         state.fitting = false;
@@ -227,7 +380,10 @@
         }
 
         if (window.MutationObserver) {
-            const mutationObserver = new MutationObserver(() => schedule(root));
+            const mutationObserver = new MutationObserver(() => {
+                if (stateFor(root).ignoreMutations) return;
+                schedule(root);
+            });
             mutationObserver.observe(root, { childList: true, characterData: true, subtree: true });
         }
 

@@ -450,19 +450,20 @@ final class Tl1SetupAnalyzer
     /** @return array<string,array{icon:string,labels:array<string,string>}> */
     private function defaultCategories(): array
     {
-        return [
+        $categories = [
             'vegan' => ['icon' => $this->categoryIconPath('vegan'), 'labels' => ['de' => 'Vegan', 'en' => 'Vegan']],
             'vegetarian' => ['icon' => $this->categoryIconPath('vegetarian'), 'labels' => ['de' => 'Vegetarisch', 'en' => 'Vegetarian']],
             'fish' => ['icon' => $this->categoryIconPath('fish'), 'labels' => ['de' => 'Fisch', 'en' => 'Fish']],
-            'fish_higher_welfare' => ['icon' => $this->categoryIconPath('fish'), 'labels' => ['de' => 'Fisch aus artgerechter Haltung', 'en' => 'Fish from higher-welfare sourcing']],
+            'fish_higher_welfare' => ['icon' => $this->categoryIconPath('fish-higher-welfare'), 'labels' => ['de' => 'Fisch aus artgerechter Haltung', 'en' => 'Fish from higher-welfare sourcing']],
             'meat' => ['icon' => $this->categoryIconPath('meat'), 'labels' => ['de' => 'Fleisch', 'en' => 'Meat']],
             'pork' => ['icon' => $this->categoryIconPath('pork'), 'labels' => ['de' => 'Schwein', 'en' => 'Pork']],
-            'pork_higher_welfare' => ['icon' => $this->categoryIconPath('pork'), 'labels' => ['de' => 'Schwein aus artgerechter Haltung', 'en' => 'Pork from higher-welfare farming']],
+            'pork_higher_welfare' => ['icon' => $this->categoryIconPath('pork-higher-welfare'), 'labels' => ['de' => 'Schwein aus artgerechter Haltung', 'en' => 'Pork from higher-welfare farming']],
             'beef' => ['icon' => $this->categoryIconPath('beef'), 'labels' => ['de' => 'Rind', 'en' => 'Beef']],
-            'beef_higher_welfare' => ['icon' => $this->categoryIconPath('beef'), 'labels' => ['de' => 'Rind aus artgerechter Haltung', 'en' => 'Beef from higher-welfare farming']],
+            'beef_higher_welfare' => ['icon' => $this->categoryIconPath('beef-higher-welfare'), 'labels' => ['de' => 'Rind aus artgerechter Haltung', 'en' => 'Beef from higher-welfare farming']],
             'poultry' => ['icon' => $this->categoryIconPath('poultry'), 'labels' => ['de' => 'Geflügel', 'en' => 'Poultry']],
+            'poultry_higher_welfare' => ['icon' => $this->categoryIconPath('poultry-higher-welfare'), 'labels' => ['de' => 'Geflügel aus artgerechter Haltung', 'en' => 'Poultry from higher-welfare farming']],
             'lamb' => ['icon' => $this->categoryIconPath('lamb'), 'labels' => ['de' => 'Lamm', 'en' => 'Lamb']],
-            'lamb_higher_welfare' => ['icon' => $this->categoryIconPath('lamb'), 'labels' => ['de' => 'Lamm aus artgerechter Haltung', 'en' => 'Lamb from higher-welfare farming']],
+            'lamb_higher_welfare' => ['icon' => $this->categoryIconPath('lamb-higher-welfare'), 'labels' => ['de' => 'Lamm aus artgerechter Haltung', 'en' => 'Lamb from higher-welfare farming']],
             'dessert' => ['icon' => $this->categoryIconPath('dessert'), 'labels' => ['de' => 'Dessert', 'en' => 'Dessert']],
             'your_favorite' => ['icon' => $this->categoryIconPath('favorite'), 'labels' => ['de' => 'Your Favorite', 'en' => 'Your Favorite']],
             'streetfood' => ['icon' => $this->categoryIconPath('streetfood'), 'labels' => ['de' => 'Streetfood', 'en' => 'Streetfood']],
@@ -477,6 +478,9 @@ final class Tl1SetupAnalyzer
             'sh_teller' => ['icon' => $this->categoryIconPath('default'), 'labels' => ['de' => 'SH Teller', 'en' => 'SH Teller']],
             'kuechenklassiker' => ['icon' => $this->categoryIconPath('default'), 'labels' => ['de' => 'Küchenklassiker', 'en' => 'Kitchen classic']],
         ];
+        ksort($categories, SORT_NATURAL | SORT_FLAG_CASE);
+
+        return $categories;
     }
 
     private function categoryIconPath(string $icon): string
@@ -518,6 +522,7 @@ final class Tl1SetupAnalyzer
             'pork' => ['schwein', 'pork'],
             'beef_higher_welfare' => ['rind aus artgerechter', 'beef from higher-welfare'],
             'beef' => ['rind', 'beef'],
+            'poultry_higher_welfare' => ['geflügel aus artgerechter', 'gefluegel aus artgerechter', 'hähnchen aus artgerechter', 'haehnchen aus artgerechter', 'poultry from higher-welfare', 'chicken from higher-welfare'],
             'poultry' => ['geflügel', 'gefluegel', 'huhn', 'hähnchen', 'haehnchen', 'poultry', 'chicken'],
             'lamb_higher_welfare' => ['lamm aus artgerechter', 'lamb from higher-welfare'],
             'lamb' => ['lamm', 'lamb'],

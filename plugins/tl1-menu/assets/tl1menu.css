@@ -995,6 +995,22 @@
     line-height: 1.16;
 }
 
+.tl1menu-list--explicit-columns .tl1menu-list__flow {
+    display: grid;
+    grid-template-columns: repeat(var(--tl1menu-list-food-columns), minmax(0, 1fr));
+    gap: clamp(0.65rem, 1vw, 1.25rem);
+    column-count: auto;
+    column-gap: normal;
+    align-items: stretch;
+}
+
+.tl1menu-list__column {
+    min-width: 0;
+    min-height: 0;
+    max-height: 100%;
+    overflow: visible;
+}
+
 .tl1menu-list__category {
     display: block;
     break-inside: avoid-column;
@@ -1022,6 +1038,24 @@
     line-height: 1.08;
     font-weight: 900;
     overflow-wrap: anywhere;
+}
+
+.tl1menu-list__category--continuation {
+    break-before: column;
+    page-break-before: always;
+    -webkit-column-break-before: always;
+}
+
+.tl1menu-list__category--empty-continuation-source {
+    display: none;
+}
+
+.tl1menu-list__category-title--repeat {
+    margin-top: 0;
+}
+
+.tl1menu-list--tight .tl1menu-list__category-title--repeat {
+    margin-top: 0;
 }
 
 .tl1menu-list__items {

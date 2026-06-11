@@ -39,7 +39,8 @@
             path: String(choice && choice.path || '').trim(),
             label: String(choice && choice.label || '').trim(),
             url: String(choice && choice.url || '').trim()
-        })).filter(choice => choice.path !== '' && choice.url !== '');
+        })).filter(choice => choice.path !== '' && choice.url !== '')
+            .sort((a, b) => compareSetupKeys(a.label || a.path, b.label || b.path));
     }
 
     function t(key) {
@@ -504,6 +505,35 @@
         return `<tr><td colspan="${escapeAttr(String(colspan))}" class="tl1menu-setup__empty-row">${escapeHtml(t('empty_table'))}</td></tr>`;
     }
 
+    function compareSetupKeys(a, b) {
+        return String(a || '').localeCompare(String(b || ''), undefined, {numeric: true, sensitivity: 'base'});
+    }
+
+    function sortedObjectEntries(value, keySelector) {
+        return Object.entries(value || {}).sort((a, b) => compareSetupKeys(
+            keySelector ? keySelector(a) : a[0],
+            keySelector ? keySelector(b) : b[0]
+        ));
+    }
+
+    function sortedKeyedRows(value, rowKey) {
+        if (Array.isArray(value)) {
+            return value
+                .map((row, index) => ({
+                    displayKey: String(row && row[rowKey] || index),
+                    pathKey: String(index),
+                    row: row && typeof row === 'object' ? row : {}
+                }))
+                .sort((a, b) => compareSetupKeys(a.displayKey, b.displayKey));
+        }
+
+        return sortedObjectEntries(value).map(([key, row]) => ({
+            displayKey: key,
+            pathKey: key,
+            row: row && typeof row === 'object' ? row : {}
+        }));
+    }
+
     function setupSectionForType(type) {
         return {
             price_group: 'price_groups',
@@ -577,8 +607,12 @@
         `;
         restoreEditorView(currentView, preserveSections);
         setupGrid.querySelectorAll('[data-path]').forEach(control => {
+            if (control.hasAttribute('data-token-kind-select')) return;
             control.addEventListener('input', () => updatePath(control.getAttribute('data-path'), control.value));
             control.addEventListener('change', () => updatePath(control.getAttribute('data-path'), control.value));
+        });
+        setupGrid.querySelectorAll('[data-token-kind-select]').forEach(select => {
+            select.addEventListener('change', () => updateTokenKind(select));
         });
         setupGrid.querySelectorAll('[data-category-icon-select]').forEach(select => {
             select.addEventListener('change', () => updateCategoryIconPreview(select));
@@ -607,29 +641,31 @@
     }
 
     function renderPriceGroups() {
-        const rows = Array.isArray(state.price_groups) ? state.price_groups : [];
-        return `<details class="tl1menu-setup__section" data-setup-section="price_groups" open><summary>${escapeHtml(t('sections.price_groups'))}</summary>${sectionTools('price_group')}<div class="tl1menu-setup__table-wrap"><table><thead><tr><th>${escapeHtml(t('fields.key'))}</th><th>${escapeHtml(t('fields.field'))}</th><th>${escapeHtml(t('fields.de'))}</th><th>${escapeHtml(t('fields.en'))}</th><th>${escapeHtml(t('fields.actions'))}</th></tr></thead><tbody>${rows.length ? rows.map((row, i) => `<tr><td>${input(row.key, `price_groups.${i}.key`)}</td><td>${selectField(row.field, `price_groups.${i}.field`)}</td><td>${input(row.labels && row.labels.de, `price_groups.${i}.labels.de`)}</td><td>${input(row.labels && row.labels.en, `price_groups.${i}.labels.en`)}</td><td>${removeButton('price_group', String(i))}</td></tr>`).join('') : emptyRow(5)}</tbody></table></div></details>`;
+        const rows = (Array.isArray(state.price_groups) ? state.price_groups : [])
+            .map((row, index) => ({row, index}))
+            .sort((a, b) => compareSetupKeys(a.row && a.row.key, b.row && b.row.key));
+        return `<details class="tl1menu-setup__section" data-setup-section="price_groups" open><summary>${escapeHtml(t('sections.price_groups'))}</summary>${sectionTools('price_group')}<div class="tl1menu-setup__table-wrap"><table><thead><tr><th>${escapeHtml(t('fields.key'))}</th><th>${escapeHtml(t('fields.field'))}</th><th>${escapeHtml(t('fields.de'))}</th><th>${escapeHtml(t('fields.en'))}</th><th>${escapeHtml(t('fields.actions'))}</th></tr></thead><tbody>${rows.length ? rows.map(({row, index}) => `<tr><td>${input(row.key, `price_groups.${index}.key`)}</td><td>${selectField(row.field, `price_groups.${index}.field`)}</td><td>${input(row.labels && row.labels.de, `price_groups.${index}.labels.de`)}</td><td>${input(row.labels && row.labels.en, `price_groups.${index}.labels.en`)}</td><td>${removeButton('price_group', String(index))}</td></tr>`).join('') : emptyRow(5)}</tbody></table></div></details>`;
     }
 
     function renderMensen() {
-        const rows = Object.entries(state.mensen || {});
+        const rows = sortedObjectEntries(state.mensen);
         return `<details class="tl1menu-setup__section" data-setup-section="locations"><summary>${escapeHtml(t('sections.locations'))}</summary>${sectionTools('location')}<div class="tl1menu-setup__table-wrap"><table><thead><tr><th>${escapeHtml(t('fields.key'))}</th><th>${escapeHtml(t('fields.label'))}</th><th>${escapeHtml(t('fields.location_ids'))}</th><th>${escapeHtml(t('fields.actions'))}</th></tr></thead><tbody>${rows.length ? rows.map(([key, row]) => `<tr><td>${escapeHtml(key)}</td><td>${input(row.label, `mensen.${escapePath(key)}.label`)}</td><td>${textarea(row.locations || [], `mensen.${escapePath(key)}.locations`)}</td><td>${removeButton('location', key)}</td></tr>`).join('') : emptyRow(4)}</tbody></table></div></details>`;
     }
 
     function renderFoodTypes() {
-        const rows = Object.entries(state.food_types || {});
+        const rows = sortedObjectEntries(state.food_types, ([id, row]) => row && row.key ? row.key : id);
         return `<details class="tl1menu-setup__section" data-setup-section="food_types"><summary>${escapeHtml(t('sections.food_types'))}</summary>${sectionTools('food_type')}<div class="tl1menu-setup__table-wrap"><table><thead><tr><th>${escapeHtml(t('fields.id'))}</th><th>${escapeHtml(t('fields.key'))}</th><th>${escapeHtml(t('fields.de'))}</th><th>${escapeHtml(t('fields.en'))}</th><th>${escapeHtml(t('fields.categories'))}</th><th>${escapeHtml(t('fields.actions'))}</th></tr></thead><tbody>${rows.length ? rows.map(([id, row]) => `<tr><td>${escapeHtml(id)}</td><td>${input(row.key, `food_types.${escapePath(id)}.key`)}</td><td>${input(row.labels && row.labels.de, `food_types.${escapePath(id)}.labels.de`)}</td><td>${input(row.labels && row.labels.en, `food_types.${escapePath(id)}.labels.en`)}</td><td>${textarea(row.categories || [], `food_types.${escapePath(id)}.categories`)}</td><td>${removeButton('food_type', id)}</td></tr>`).join('') : emptyRow(6)}</tbody></table></div></details>`;
     }
 
     function renderTokens() {
-        const rows = Object.entries(state.token_catalog || {});
+        const rows = sortedObjectEntries(state.token_catalog);
         const kinds = ['allergen','additive','category','ignore'];
-        return `<details class="tl1menu-setup__section" data-setup-section="tokens"><summary>${escapeHtml(t('sections.tokens'))}</summary>${sectionTools('token')}<div class="tl1menu-setup__table-wrap"><table><thead><tr><th>${escapeHtml(t('fields.code'))}</th><th>${escapeHtml(t('fields.kind'))}</th><th>${escapeHtml(t('fields.category'))}</th><th>${escapeHtml(t('fields.de'))}</th><th>${escapeHtml(t('fields.en'))}</th><th>${escapeHtml(t('fields.actions'))}</th></tr></thead><tbody>${rows.length ? rows.map(([code, row]) => `<tr><td>${escapeHtml(code)}</td><td><select data-path="${escapeAttr(`token_catalog.${escapePath(code)}.kind`)}">${kinds.map(kind => `<option value="${kind}" ${row.kind === kind ? 'selected' : ''}>${escapeHtml(t(`kind.${kind}`))}</option>`).join('')}</select></td><td>${input(row.category, `token_catalog.${escapePath(code)}.category`)}</td><td>${input(row.labels && row.labels.de, `token_catalog.${escapePath(code)}.labels.de`)}</td><td>${input(row.labels && row.labels.en, `token_catalog.${escapePath(code)}.labels.en`)}</td><td>${removeButton('token', code)}</td></tr>`).join('') : emptyRow(6)}</tbody></table></div></details>`;
+        return `<details class="tl1menu-setup__section" data-setup-section="tokens"><summary>${escapeHtml(t('sections.tokens'))}</summary>${sectionTools('token')}<div class="tl1menu-setup__table-wrap"><table><thead><tr><th>${escapeHtml(t('fields.code'))}</th><th>${escapeHtml(t('fields.kind'))}</th><th>${escapeHtml(t('fields.category'))}</th><th>${escapeHtml(t('fields.de'))}</th><th>${escapeHtml(t('fields.en'))}</th><th>${escapeHtml(t('fields.actions'))}</th></tr></thead><tbody>${rows.length ? rows.map(([code, row]) => `<tr><td>${escapeHtml(code)}</td><td><select data-path="${escapeAttr(`token_catalog.${escapePath(code)}.kind`)}" data-token-kind-select data-token-code="${escapeAttr(code)}">${kinds.map(kind => `<option value="${kind}" ${row.kind === kind ? 'selected' : ''}>${escapeHtml(t(`kind.${kind}`))}</option>`).join('')}</select></td><td>${input(row.category, `token_catalog.${escapePath(code)}.category`)}</td><td>${input(row.labels && row.labels.de, `token_catalog.${escapePath(code)}.labels.de`)}</td><td>${input(row.labels && row.labels.en, `token_catalog.${escapePath(code)}.labels.en`)}</td><td>${removeButton('token', code)}</td></tr>`).join('') : emptyRow(6)}</tbody></table></div></details>`;
     }
 
     function renderCategories() {
-        const rows = Object.entries(state.categories || {});
-        return `<details class="tl1menu-setup__section" data-setup-section="categories"><summary>${escapeHtml(t('sections.categories'))}</summary>${sectionTools('category')}<div class="tl1menu-setup__table-wrap"><table><thead><tr><th>${escapeHtml(t('fields.key'))}</th><th>${escapeHtml(t('fields.icon'))}</th><th>${escapeHtml(t('fields.de'))}</th><th>${escapeHtml(t('fields.en'))}</th><th>${escapeHtml(t('fields.actions'))}</th></tr></thead><tbody>${rows.length ? rows.map(([key, row]) => `<tr><td>${escapeHtml(key)}</td><td>${categoryIconSelect(row.icon, `categories.${escapePath(key)}.icon`)}</td><td>${input(row.labels && row.labels.de, `categories.${escapePath(key)}.labels.de`)}</td><td>${input(row.labels && row.labels.en, `categories.${escapePath(key)}.labels.en`)}</td><td>${removeButton('category', key)}</td></tr>`).join('') : emptyRow(5)}</tbody></table></div></details>`;
+        const rows = sortedKeyedRows(state.categories, 'key');
+        return `<details class="tl1menu-setup__section" data-setup-section="categories"><summary>${escapeHtml(t('sections.categories'))}</summary>${sectionTools('category')}<div class="tl1menu-setup__table-wrap"><table><thead><tr><th>${escapeHtml(t('fields.key'))}</th><th>${escapeHtml(t('fields.icon'))}</th><th>${escapeHtml(t('fields.de'))}</th><th>${escapeHtml(t('fields.en'))}</th><th>${escapeHtml(t('fields.actions'))}</th></tr></thead><tbody>${rows.length ? rows.map(({displayKey, pathKey, row}) => `<tr><td>${escapeHtml(displayKey)}</td><td>${categoryIconSelect(row.icon, `categories.${escapePath(pathKey)}.icon`)}</td><td>${input(row.labels && row.labels.de, `categories.${escapePath(pathKey)}.labels.de`)}</td><td>${input(row.labels && row.labels.en, `categories.${escapePath(pathKey)}.labels.en`)}</td><td>${removeButton('category', pathKey)}</td></tr>`).join('') : emptyRow(5)}</tbody></table></div></details>`;
     }
 
     async function addRow(type) {
@@ -727,6 +763,57 @@
             ? splitList(rawValue)
             : rawValue;
         syncJson();
+    }
+
+    function updateTokenKind(select) {
+        const pathSegments = String(select.getAttribute('data-path') || '').split('.').map(unescapePath);
+        const code = pathSegments[0] === 'token_catalog' && pathSegments[2] === 'kind'
+            ? pathSegments[1]
+            : (select.getAttribute('data-token-code') || '');
+        if (code === '') return;
+
+        state.token_catalog = state.token_catalog && typeof state.token_catalog === 'object' ? state.token_catalog : {};
+        const row = state.token_catalog[code];
+        if (!row || typeof row !== 'object') return;
+
+        row.kind = select.value;
+        if (row.kind === 'category') {
+            const categoryKey = safeCategoryKey(row.labels && row.labels.en, code);
+            row.category = categoryKey;
+            ensureCategory(categoryKey, row.labels || {}, code);
+        } else {
+            row.category = '';
+        }
+
+        syncJson();
+        render(captureEditorView('tokens'));
+    }
+
+    function ensureCategory(key, labels, fallback) {
+        if (!key) return;
+        state.categories = state.categories && typeof state.categories === 'object' ? state.categories : {};
+        if (state.categories[key]) return;
+
+        const labelEn = String(labels && labels.en || fallback || key).trim() || key;
+        const labelDe = String(labels && labels.de || labelEn).trim() || labelEn;
+        state.categories[key] = {
+            icon: 'assets/img/categories/default.svg',
+            labels: {de: labelDe, en: labelEn}
+        };
+    }
+
+    function safeCategoryKey(label, fallback) {
+        const source = String(label || fallback || '').trim();
+        const normalized = source.normalize ? source.normalize('NFKD') : source;
+        const ascii = normalized.replace(/[\u0300-\u036f]/g, '');
+        const key = ascii
+            .toLowerCase()
+            .replace(/&/g, ' and ')
+            .replace(/[^a-z0-9]+/g, '_')
+            .replace(/^_+|_+$/g, '')
+            .replace(/_{2,}/g, '_');
+
+        return key || 'category';
     }
 
     function splitList(value) {
