@@ -243,6 +243,7 @@ return [
         'property_fit' => 'Fit',
         'fit_cover' => 'Cover',
         'fit_contain' => 'Contain',
+        'fit_contain_blur' => 'Contain with blur',
         'advanced_json' => 'Advanced JSON',
         'export_json' => 'Export',
         'import_json' => 'Import',

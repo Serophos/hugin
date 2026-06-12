@@ -358,10 +358,14 @@ class TemplateSlideService
                 $out[$key] = substr(trim((string)$style[$key]), 0, 40);
             }
         }
-        foreach (['fontWeight', 'align', 'fit'] as $key) {
+        foreach (['fontWeight', 'align'] as $key) {
             if (isset($style[$key]) && is_scalar($style[$key])) {
                 $out[$key] = substr(trim((string)$style[$key]), 0, 24);
             }
+        }
+        if (isset($style['fit']) && is_scalar($style['fit'])) {
+            $fit = substr(trim((string)$style['fit']), 0, 24);
+            $out['fit'] = in_array($fit, ['cover', 'contain', 'contain-blur'], true) ? $fit : 'cover';
         }
         foreach (['fontSize', 'radius', 'opacity', 'borderWidth'] as $key) {
             if (isset($style[$key])) {
@@ -420,7 +424,7 @@ class TemplateSlideService
         $styleAttr = $this->elementStyle($element, $style);
 
         if ($type === 'background') {
-            return '<div class="' . e($classes) . '" style="' . e($styleAttr) . '">' . $this->renderMediaById((int)($style['backgroundMediaAssetId'] ?? 0), 'cover') . '</div>';
+            return '<div class="' . e($classes) . '" style="' . e($styleAttr) . '">' . $this->renderMediaById((int)($style['backgroundMediaAssetId'] ?? 0), (string)($style['fit'] ?? 'cover')) . '</div>';
         }
         if ($type === 'media') {
             $assetId = (int)($style['mediaAssetId'] ?? 0);
@@ -521,9 +525,18 @@ class TemplateSlideService
             return '';
         }
 
-        $fit = in_array($fit, ['cover', 'contain'], true) ? $fit : 'cover';
+        $fit = in_array($fit, ['cover', 'contain', 'contain-blur'], true) ? $fit : 'cover';
         if (($asset['media_kind'] ?? '') === 'video') {
+            if ($fit === 'contain-blur') {
+                $fit = 'contain';
+            }
             return '<video class="template-slide__media" data-src="' . e(url((string)$asset['file_path'])) . '" muted playsinline loop preload="metadata" style="object-fit:' . e($fit) . '"></video>';
+        }
+
+        if ($fit === 'contain-blur') {
+            $url = e(url((string)$asset['file_path']));
+            $alt = e((string)($asset['name'] ?? ''));
+            return '<span class="template-slide__media-stack"><img class="template-slide__media template-slide__media--blurred" data-src="' . $url . '" alt="" aria-hidden="true" decoding="async"><img class="template-slide__media template-slide__media--contained" data-src="' . $url . '" alt="' . $alt . '" decoding="async"></span>';
         }
 
         return '<img class="template-slide__media" data-src="' . e(url((string)$asset['file_path'])) . '" alt="' . e((string)($asset['name'] ?? '')) . '" decoding="async" style="object-fit:' . e($fit) . '">';

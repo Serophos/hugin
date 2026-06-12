@@ -782,6 +782,29 @@ html, body {
     display: block;
 }
 
+.template-slide__media-stack {
+    position: absolute;
+    inset: 0;
+    display: block;
+    overflow: hidden;
+}
+
+.template-slide__media-stack .template-slide__media {
+    position: absolute;
+    inset: 0;
+}
+
+.template-slide__media--blurred {
+    object-fit: cover;
+    filter: blur(18px);
+    transform: scale(1.08);
+}
+
+.template-slide__media--contained {
+    z-index: 1;
+    object-fit: contain;
+}
+
 .template-slide__element--qr {
     place-items: center;
     padding: 0.8cqw;

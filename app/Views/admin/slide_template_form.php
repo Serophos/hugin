@@ -46,6 +46,7 @@ $editorI18n = [
     'fit' => __('templates.property_fit'),
     'cover' => __('templates.fit_cover'),
     'contain' => __('templates.fit_contain'),
+    'contain_blur' => __('templates.fit_contain_blur'),
     'remove' => __('common.remove'),
     'delete' => __('common.delete'),
     'none' => __('common.none'),
@@ -153,9 +154,9 @@ require __DIR__ . '/../layouts/admin_header.php';
 
     <section class="template-editor full-width" data-template-editor>
         <div class="template-editor__topbar">
-            <div class="segmented-control" role="tablist">
-                <button type="button" class="is-active" data-orientation-tab="landscape"><?= e(__('orientations.landscape')) ?></button>
-                <button type="button" data-orientation-tab="portrait"><?= e(__('orientations.vertical')) ?></button>
+            <div class="segmented-control" role="group" aria-label="<?= e(__('common.orientation')) ?>">
+                <button type="button" class="is-active" data-orientation-tab="landscape" aria-pressed="true"><?= e(__('orientations.landscape')) ?></button>
+                <button type="button" data-orientation-tab="portrait" aria-pressed="false"><?= e(__('orientations.vertical')) ?></button>
             </div>
             <label class="template-editor__snap-toggle">
                 <input type="checkbox" data-snap-to-grid checked>
@@ -392,6 +393,27 @@ require __DIR__ . '/../layouts/admin_header.php';
             return previewPlaceholder(emptyLabel);
         }
         if (asset.kind === 'image' && asset.url) {
+            if (fit === 'contain-blur') {
+                const wrapper = document.createElement('span');
+                wrapper.className = 'template-editor__media-preview-stack';
+                const blurred = document.createElement('img');
+                blurred.className = 'template-editor__media-preview template-editor__media-preview--blurred';
+                blurred.src = asset.url;
+                blurred.alt = '';
+                blurred.setAttribute('aria-hidden', 'true');
+                blurred.loading = 'lazy';
+                blurred.decoding = 'async';
+                blurred.style.objectFit = 'cover';
+                const image = document.createElement('img');
+                image.className = 'template-editor__media-preview template-editor__media-preview--contained';
+                image.src = asset.url;
+                image.alt = asset.name || asset.original_name || '';
+                image.loading = 'lazy';
+                image.decoding = 'async';
+                image.style.objectFit = 'contain';
+                wrapper.append(blurred, image);
+                return wrapper;
+            }
             const image = document.createElement('img');
             image.className = 'template-editor__media-preview';
             image.src = asset.url;
@@ -565,7 +587,7 @@ require __DIR__ . '/../layouts/admin_header.php';
 
     function setInspectorTab(tab) {
         activeInspectorTab = tab;
-        renderInspectorTabs();
+        renderInspector();
     }
 
     function focusPendingCanvasElement() {
@@ -718,7 +740,8 @@ require __DIR__ . '/../layouts/admin_header.php';
         }
 
         const mediaOptionHtml = mediaOptions();
-        const fitOptions = `<option value="cover">${escapeHtml(i18n.cover)}</option><option value="contain">${escapeHtml(i18n.contain)}</option>`;
+        const fitOptions = `<option value="cover">${escapeHtml(i18n.cover)}</option><option value="contain">${escapeHtml(i18n.contain)}</option><option value="contain-blur">${escapeHtml(i18n.contain_blur)}</option>`;
+        const mediaFitOptions = `<option value="cover">${escapeHtml(i18n.cover)}</option><option value="contain">${escapeHtml(i18n.contain)}</option>`;
         const binding = ['text', 'media', 'qr'].includes(element.type)
             ? propertySection(i18n.section_binding, propertyRow(i18n.field, selectInput('prop', 'field', element.field || '', fieldOptions(element.field || ''))))
             : '';
@@ -734,7 +757,7 @@ require __DIR__ . '/../layouts/admin_header.php';
 
         let content = '';
         if (element.type === 'media') {
-            content = propertySection(i18n.section_content, propertyRow(i18n.media, selectInput('style', 'mediaAssetId', element.style?.mediaAssetId || 0, mediaOptionHtml)) + propertyRow(i18n.fit, selectInput('style', 'fit', element.style?.fit || 'cover', fitOptions)));
+            content = propertySection(i18n.section_content, propertyRow(i18n.media, selectInput('style', 'mediaAssetId', element.style?.mediaAssetId || 0, mediaOptionHtml)) + propertyRow(i18n.fit, selectInput('style', 'fit', element.style?.fit || 'cover', mediaFitOptions)));
         } else if (element.type === 'background') {
             content = propertySection(i18n.section_content, propertyRow(i18n.background_media, selectInput('style', 'backgroundMediaAssetId', element.style?.backgroundMediaAssetId || 0, mediaOptionHtml)) + propertyRow(i18n.fit, selectInput('style', 'fit', element.style?.fit || 'cover', fitOptions)));
         }
@@ -811,13 +834,17 @@ require __DIR__ . '/../layouts/admin_header.php';
                 ${iconButton('remove-bound-field', i18n.remove_field_tooltip, 'delete', 'template-editor__icon-button--danger')}
             </div>
             <div class="template-editor__field-grid">
-                <label>${escapeHtml(i18n.field_key)}<input value="${attr(field.key)}" data-field-key></label>
-                <label>${escapeHtml(i18n.field_label)}<input value="${attr(field.label)}" data-field-label></label>
+                <label>${escapeHtml(i18n.field_key)}<input type="text" value="${attr(field.key)}" autocomplete="off" autocapitalize="none" spellcheck="false" data-field-key></label>
+                <label>${escapeHtml(i18n.field_label)}<input type="text" value="${attr(field.label)}" data-field-label></label>
                 <label>${escapeHtml(i18n.field)}<select data-field-type><option value="text">${escapeHtml(i18n.text)}</option><option value="multiline">${escapeHtml(i18n.multiline)}</option><option value="url">${escapeHtml(i18n.url)}</option><option value="media_image">${escapeHtml(i18n.media_image)}</option><option value="media_video">${escapeHtml(i18n.media_video)}</option><option value="qr_url">${escapeHtml(i18n.qr_url)}</option><option value="color">${escapeHtml(i18n.color)}</option></select></label>
                 <label class="checkbox-row"><input type="checkbox" data-field-required ${field.required ? 'checked' : ''}> ${escapeHtml(i18n.field_required)}</label>
                 ${fieldDefaultControl(field)}
             </div>`;
         row.querySelector('[data-field-type]').value = field.type || defaultFieldTypeForElement(element);
+        const updateFieldSummary = () => {
+            const summary = row.querySelector('[data-field-summary]');
+            if (summary) summary.textContent = field.label || field.key || i18n.field_1.replace('1', String(index + 1));
+        };
         const syncFieldMeta = () => {
             const oldKey = field.key;
             const newKey = normalizeKey(row.querySelector('[data-field-key]').value || `field_${index + 1}`);
@@ -831,10 +858,29 @@ require __DIR__ . '/../layouts/admin_header.php';
             }
             element.field = newKey;
         };
-        row.querySelectorAll('[data-field-key], [data-field-label], [data-field-type], [data-field-required]').forEach(input => {
-            const update = () => { syncFieldMeta(); render(); };
+        row.querySelector('.template-editor__field-row-head strong')?.setAttribute('data-field-summary', '');
+        row.querySelectorAll('[data-field-key], [data-field-label]').forEach(input => {
+            const update = () => {
+                syncFieldMeta();
+                updateFieldSummary();
+                renderLiveCanvas();
+            };
             input.addEventListener('input', update);
-            input.addEventListener('change', update);
+            input.addEventListener('change', () => {
+                syncFieldMeta();
+                row.querySelector('[data-field-key]').value = field.key;
+                updateFieldSummary();
+                renderLiveCanvas();
+            });
+        });
+        row.querySelector('[data-field-required]').addEventListener('change', () => {
+            syncFieldMeta();
+            renderLiveCanvas();
+        });
+        row.querySelector('[data-field-type]').addEventListener('change', () => {
+            syncFieldMeta();
+            renderFieldsPanel();
+            renderLiveCanvas();
         });
         row.querySelectorAll('[data-field-default]').forEach(input => {
             const update = () => {
@@ -1270,7 +1316,11 @@ require __DIR__ . '/../layouts/admin_header.php';
     }
 
     editor.querySelectorAll('[data-orientation-tab]').forEach(button => button.addEventListener('click', () => {
-        editor.querySelectorAll('[data-orientation-tab]').forEach(tab => tab.classList.toggle('is-active', tab === button));
+        editor.querySelectorAll('[data-orientation-tab]').forEach(tab => {
+            const active = tab === button;
+            tab.classList.toggle('is-active', active);
+            tab.setAttribute('aria-pressed', active ? 'true' : 'false');
+        });
         orientation = button.dataset.orientationTab;
         selectedId = null;
         spec();

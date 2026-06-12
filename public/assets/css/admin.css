@@ -3823,6 +3823,27 @@ input[type="color"] {
     display: block;
 }
 
+.template-editor__media-preview-stack {
+    position: absolute;
+    inset: 0;
+    display: block;
+    overflow: hidden;
+}
+
+.template-editor__media-preview-stack .template-editor__media-preview {
+    position: absolute;
+    inset: 0;
+}
+
+.template-editor__media-preview--blurred {
+    filter: blur(18px);
+    transform: scale(1.08);
+}
+
+.template-editor__media-preview--contained {
+    z-index: 1;
+}
+
 .template-editor__video-placeholder,
 .template-editor__element-placeholder {
     width: 100%;

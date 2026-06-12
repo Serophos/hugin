@@ -263,6 +263,7 @@ return [
         'property_fit' => 'Einpassung',
         'fit_cover' => 'Füllen',
         'fit_contain' => 'Einpassen',
+        'fit_contain_blur' => 'Einpassen mit Weichzeichner',
         'advanced_json' => 'Erweitertes JSON',
         'export_json' => 'Exportieren',
         'import_json' => 'Importieren',
