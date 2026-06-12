@@ -548,7 +548,7 @@ require __DIR__ . '/../layouts/admin_header.php';
             node.style.height = pct(element.h);
             node.style.zIndex = String(element.z || 0);
             node.style.color = element.style?.color || '';
-            node.style.background = element.style?.backgroundColor || (element.type === 'background' ? '#0f172a' : 'rgba(255,255,255,0.18)');
+            node.style.background = element.type === 'qr' ? 'transparent' : (element.style?.backgroundColor || (element.type === 'background' ? '#0f172a' : 'rgba(255,255,255,0.18)'));
             node.style.borderRadius = `${Number(element.style?.radius || 0)}cqw`;
             node.dataset.elementId = element.id;
             node.appendChild(renderElementPreview(element));

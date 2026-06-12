@@ -484,7 +484,7 @@ class TemplateSlideService
         if (!empty($style['color'])) {
             $css[] = 'color:' . (string)$style['color'];
         }
-        if (!empty($style['backgroundColor'])) {
+        if (!empty($style['backgroundColor']) && ($element['type'] ?? '') !== 'qr') {
             $css[] = 'background:' . (string)$style['backgroundColor'];
         }
         if (isset($style['opacity'])) {
