@@ -63,6 +63,7 @@ class FrontendController
             'effect' => $effect,
             'duration' => $duration,
             'stateSignature' => $state['signature'],
+            'serverTimeMs' => $state['server_time_ms'],
             'displayGroup' => $displayGroup,
             'orientation' => $display['orientation'] ?? 'landscape',
             'pluginAssets' => $pluginAssets,
@@ -138,6 +139,7 @@ class FrontendController
             'effect' => 'none',
             'duration' => $duration,
             'stateSignature' => $state['signature'],
+            'serverTimeMs' => $state['server_time_ms'],
             'orientation' => $display['orientation'],
             'pluginAssets' => $pluginAssets,
             'brandingSettings' => $brandingSettings,
@@ -213,6 +215,30 @@ class FrontendController
             'channel' => __('common.preview'),
             'seen_at' => date('c'),
         ]);
+    }
+
+    public function mediaPreview(int $mediaId): void
+    {
+        $asset = $this->db->one('SELECT media_kind, preview_file_path FROM media_assets WHERE id = ?', [$mediaId]);
+        $previewPath = (string)($asset['preview_file_path'] ?? '');
+        if (!$asset || ($asset['media_kind'] ?? '') !== 'video' || $previewPath === '') {
+            http_response_code(404);
+            echo __('media.not_found');
+            return;
+        }
+
+        $publicRoot = realpath((string)app_config('paths.public', dirname(__DIR__, 2) . '/public'));
+        $filePath = realpath((string)app_config('paths.public', dirname(__DIR__, 2) . '/public') . '/' . ltrim($previewPath, '/'));
+        if ($publicRoot === false || $filePath === false || !str_starts_with($filePath, $publicRoot . DIRECTORY_SEPARATOR) || !is_file($filePath)) {
+            http_response_code(404);
+            echo __('media.not_found');
+            return;
+        }
+
+        header('Content-Type: image/jpeg');
+        header('Cache-Control: public, max-age=31536000, immutable');
+        header('Content-Length: ' . (string)filesize($filePath));
+        readfile($filePath);
     }
 
     public function state(string $slug): void
@@ -817,6 +843,7 @@ class FrontendController
 
         $payload['signature'] = sha1(json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '');
         $payload['ok'] = true;
+        $payload['server_time_ms'] = (int)floor(microtime(true) * 1000);
         return $payload;
     }
 

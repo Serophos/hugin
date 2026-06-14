@@ -11,6 +11,7 @@ if (!isset($displayIcons[$selectedDisplayIcon])) {
 }
 $selectedDisplayIconUrl = (string)($displayIcons[$selectedDisplayIcon]['url'] ?? '');
 $selectedDisplayIconLabel = (string)($displayIcons[$selectedDisplayIcon]['label'] ?? __('display.icon'));
+$displaySyncEnabled = !empty($display['group_sync_enabled']);
 require __DIR__ . '/../layouts/admin_header.php';
 ?>
 <?php if ($error): ?><div class="alert error"><?= e($error) ?></div><?php endif; ?>
@@ -89,8 +90,16 @@ require __DIR__ . '/../layouts/admin_header.php';
     <aside class="card heartbeat-sidebar">
         <?php if ($selectedDisplayIconUrl !== ''): ?>
             <div class="display-sidebar-icon" data-display-icon-preview>
-                <img src="<?= e($selectedDisplayIconUrl) ?>" alt="" data-display-icon-preview-img>
+                <span class="display-sidebar-icon__image">
+                    <img src="<?= e($selectedDisplayIconUrl) ?>" alt="" data-display-icon-preview-img>
+                    <?php if ($displaySyncEnabled): ?>
+                        <span class="display-sync-indicator display-sync-indicator--sidebar" aria-hidden="true"><?= admin_icon('reload') ?></span>
+                    <?php endif; ?>
+                </span>
                 <span data-display-icon-preview-label><?= e($selectedDisplayIconLabel) ?></span>
+                <?php if ($displaySyncEnabled): ?>
+                    <span class="sr-only"><?= e(__('display_groups.sync_enabled_indicator')) ?></span>
+                <?php endif; ?>
             </div>
         <?php endif; ?>
         <h2><?= e(__('display.heartbeat_title')) ?></h2>

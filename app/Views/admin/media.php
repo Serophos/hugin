@@ -81,6 +81,9 @@ $nextPageUrl = $baseMediaUrl . ($kind !== '' ? '?kind=' . rawurlencode($kind) . 
                 <?php
                 $assetUrl = url($asset['file_path']);
                 $assetKind = (string)$asset['media_kind'];
+                $assetPreviewUrl = $assetKind === 'video' && !empty($asset['preview_file_path'])
+                    ? url('/api/media/' . (int)$asset['id'] . '/preview')
+                    : '';
                 $assetTypeLabel = enum_label('slide_types', $assetKind, $assetKind);
                 $assetSize = format_bytes((int)$asset['file_size']);
                 $assetUploadedBy = $asset['uploaded_by'] ?? __('common.unknown', [], 'Unknown');
@@ -89,6 +92,7 @@ $nextPageUrl = $baseMediaUrl . ($kind !== '' ? '?kind=' . rawurlencode($kind) . 
                     data-admin-row
                     data-media-preview-row
                     data-media-url="<?= e($assetUrl) ?>"
+                    data-media-preview-url="<?= e($assetPreviewUrl) ?>"
                     data-media-kind="<?= e($assetKind) ?>"
                     data-media-name="<?= e($asset['name']) ?>"
                     data-media-original="<?= e($asset['original_name']) ?>"
@@ -102,6 +106,8 @@ $nextPageUrl = $baseMediaUrl . ($kind !== '' ? '?kind=' . rawurlencode($kind) . 
                         <button type="button" class="media-thumb-button" data-media-preview-open aria-label="<?= e(__('media.open_preview_for', ['name' => $asset['name']], 'Preview :name')) ?>">
                         <?php if ($assetKind === 'image'): ?>
                             <img class="thumb" src="<?= e($assetUrl) ?>" alt="<?= e($asset['name']) ?>">
+                        <?php elseif ($assetPreviewUrl !== ''): ?>
+                            <img class="thumb" src="<?= e($assetPreviewUrl) ?>" alt="<?= e($asset['name']) ?>">
                         <?php else: ?>
                             <video class="thumb" src="<?= e($assetUrl) ?>" muted preload="metadata"></video>
                         <?php endif; ?>
@@ -293,6 +299,7 @@ $nextPageUrl = $baseMediaUrl . ($kind !== '' ? '?kind=' . rawurlencode($kind) . 
         image.removeAttribute('src');
         video.pause();
         video.removeAttribute('src');
+        video.removeAttribute('poster');
         video.load();
     };
 
@@ -328,6 +335,11 @@ $nextPageUrl = $baseMediaUrl . ($kind !== '' ? '?kind=' . rawurlencode($kind) . 
 
         if (isVideo) {
             video.hidden = false;
+            if (media.mediaPreviewUrl) {
+                video.poster = media.mediaPreviewUrl;
+            } else {
+                video.removeAttribute('poster');
+            }
             video.src = media.mediaUrl;
             video.load();
         } else {

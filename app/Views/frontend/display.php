@@ -2,6 +2,7 @@
 $heartbeatInterval = max(30, min(120, (int)floor(((int)app_core_setting('monitoring.online_threshold_seconds', 180)) / 2)));
 $displayGroup = $displayGroup ?? null;
 $syncReloadToFullMinute = !empty($displayGroup['sync_reload_to_full_minute']);
+$startupSyncKey = 'hugin:slideshow-started:' . (string)($display['slug'] ?? '');
 ?>
 <!doctype html>
 <html lang="<?= e(current_locale()) ?>">
@@ -9,32 +10,30 @@ $syncReloadToFullMinute = !empty($displayGroup['sync_reload_to_full_minute']);
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?= e($display['name']) ?> · <?= e(__('app.name', [], 'Hugin')) ?></title>
-    <link rel="stylesheet" href="<?= e(url('/assets/css/display.css')) ?>">
     <script>
         (() => {
-            const key = 'huginScheduledSyncReload';
-            const maxAgeMs = 120000;
+            const startupKey = <?= json_encode($startupSyncKey, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+            const scheduledReloadKey = 'huginScheduledSyncReload';
+            const maxScheduledReloadAgeMs = 120000;
 
             try {
-                const raw = window.sessionStorage.getItem(key);
-                const data = raw ? JSON.parse(raw) : null;
-                const ageMs = Date.now() - Number(data?.at || 0);
+                const navEntry = window.performance?.getEntriesByType?.('navigation')?.[0];
+                const isReload = navEntry?.type === 'reload' || window.performance?.navigation?.type === 1;
+                const hasStartedBefore = Boolean(startupKey && window.sessionStorage.getItem(startupKey));
+                const rawScheduledReload = window.sessionStorage.getItem(scheduledReloadKey);
+                const scheduledReload = rawScheduledReload ? JSON.parse(rawScheduledReload) : null;
+                const scheduledReloadAgeMs = Date.now() - Number(scheduledReload?.at || 0);
+                const hasFreshScheduledReload = scheduledReload?.reason === 'sync-group-config-reload'
+                    && scheduledReloadAgeMs >= 0
+                    && scheduledReloadAgeMs <= maxScheduledReloadAgeMs;
 
-                if (data?.reason === 'sync-group-config-reload' && ageMs >= 0 && ageMs <= maxAgeMs) {
-                    document.documentElement.classList.add('hugin-scheduled-sync-reload');
-                    return;
+                if (isReload || hasStartedBefore || hasFreshScheduledReload) {
+                    document.documentElement.classList.add('hugin-startup-loading-seen');
                 }
-
-                if (raw) {
-                    window.sessionStorage.removeItem(key);
-                }
-            } catch (error) {
-                try {
-                    window.sessionStorage.removeItem(key);
-                } catch (storageError) {}
-            }
+            } catch (error) {}
         })();
     </script>
+    <link rel="stylesheet" href="<?= e(url('/assets/css/display.css')) ?>">
     <?php foreach (($pluginAssets['css'] ?? []) as $cssAsset): ?>
         <link rel="stylesheet" href="<?= e($cssAsset) ?>">
     <?php endforeach; ?>
@@ -94,11 +93,12 @@ if (str_starts_with($display['slug'] ?? '', 'preview-slide-') && preg_match('#^p
      data-service-worker-url="<?= $isPreviewDisplay ? '' : e(url('/display-service-worker.js')) ?>"
      data-state-check-interval="60"
      data-state-signature="<?= e($stateSignature) ?>"
+     data-server-time-ms="<?= e((string)($serverTimeMs ?? 0)) ?>"
      data-sync-reload-to-full-minute="<?= $syncReloadToFullMinute ? '1' : '0' ?>"
      data-display-group-id="<?= e((string)($displayGroup['id'] ?? '')) ?>"
      data-display-group-name="<?= e((string)($displayGroup['name'] ?? '')) ?>"
      data-display-group-sync-mode="<?= e((string)($displayGroup['sync_mode'] ?? 'independent')) ?>"
-     data-startup-sync-key="hugin:slideshow-started:<?= e($display['slug']) ?>">
+     data-startup-sync-key="<?= e($startupSyncKey) ?>">
     <div class="startup-loading" role="status" aria-live="polite">
         <div class="startup-loading__content">
             <img class="startup-loading__logo" src="<?= e(url('/assets/img/hugin-logo.webp')) ?>" alt="<?= e(__('frontend.loading_logo_alt')) ?>">

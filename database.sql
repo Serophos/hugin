@@ -183,6 +183,7 @@ CREATE TABLE media_assets (
     file_size BIGINT UNSIGNED NOT NULL,
     media_kind ENUM('image', 'video') NOT NULL,
     file_path VARCHAR(255) NOT NULL,
+    preview_file_path VARCHAR(255) NULL,
     uploaded_by_user_id INT UNSIGNED NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_media_user FOREIGN KEY (uploaded_by_user_id) REFERENCES users(id) ON DELETE SET NULL

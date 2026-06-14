@@ -8,7 +8,7 @@ class TemplateSlideService
     private const SPEC_VERSION = 1;
     private const FIELD_TYPES = ['text', 'multiline', 'url', 'media_image', 'media_video', 'qr_url', 'color'];
     private const ELEMENT_TYPES = ['background', 'text', 'media', 'qr', 'shape'];
-    private const ENTRANCE_ANIMATIONS = ['none', 'fade-in', 'fade-up', 'fade-down', 'slide-left', 'slide-right', 'zoom-in', 'pop-in', 'blur-in'];
+    private const ENTRANCE_ANIMATIONS = ['none', 'fade-in', 'fade-up', 'fade-down', 'slide-left', 'slide-right', 'slide-up', 'slide-down', 'zoom-in', 'pop-in', 'blur-in'];
     private const CONTINUOUS_ANIMATIONS = ['none', 'pulse', 'float', 'slow-zoom', 'wiggle', 'glow', 'rotate-slow'];
     private const ANIMATION_EASINGS = ['ease', 'ease-out', 'ease-in-out', 'linear'];
     private const ANIMATION_DIRECTIONS = ['normal', 'alternate', 'reverse'];
@@ -96,14 +96,28 @@ class TemplateSlideService
         return $json;
     }
 
-    public function normalizeSpec(array $spec, string $orientation = 'landscape'): array
+    public function encodeSpecs(array $landscape, ?array $portrait): array
+    {
+        $portraitFieldKeys = $portrait !== null ? $this->fieldKeysForRawSpec($portrait) : [];
+        $landscapeFieldKeys = $this->fieldKeysForRawSpec($landscape);
+        $landscapeJson = json_encode($this->normalizeSpec($landscape, 'landscape', $portraitFieldKeys), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        $portraitJson = $portrait !== null ? json_encode($this->normalizeSpec($portrait, 'portrait', $landscapeFieldKeys), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) : null;
+
+        if (!is_string($landscapeJson) || ($portrait !== null && !is_string($portraitJson))) {
+            throw new RuntimeException(__('templates.invalid_spec'));
+        }
+
+        return ['landscape' => $landscapeJson, 'portrait' => $portraitJson];
+    }
+
+    public function normalizeSpec(array $spec, string $orientation = 'landscape', array $externalFieldKeys = []): array
     {
         $isPortrait = $orientation === 'portrait';
         $canvas = is_array($spec['canvas'] ?? null) ? $spec['canvas'] : [];
         $width = $this->intRange($canvas['width'] ?? ($isPortrait ? 1080 : 1920), $isPortrait ? 1080 : 1920, 320, 7680);
         $height = $this->intRange($canvas['height'] ?? ($isPortrait ? 1920 : 1080), $isPortrait ? 1920 : 1080, 320, 7680);
         $fields = $this->normalizeFields($spec['fields'] ?? []);
-        $fieldKeys = array_fill_keys(array_map(static fn(array $field): string => (string)$field['key'], $fields), true);
+        $fieldKeys = $externalFieldKeys + array_fill_keys(array_map(static fn(array $field): string => (string)$field['key'], $fields), true);
         $elements = $this->normalizeElements($spec['elements'] ?? [], $fieldKeys);
 
         if ($elements === []) {
@@ -139,10 +153,7 @@ class TemplateSlideService
 
     public function normalizeValues(array $template, array $input, array $existingValues = []): array
     {
-        $spec = $this->decodeSpec((string)($template['landscape_spec_json'] ?? ''), 'landscape');
-        $portrait = trim((string)($template['portrait_spec_json'] ?? '')) !== ''
-            ? $this->decodeSpec((string)$template['portrait_spec_json'], 'portrait')
-            : null;
+        [$spec, $portrait] = $this->decodeTemplateSpecs($template);
         $fields = $this->fieldsForSpecs($spec, $portrait);
         $values = [];
 
@@ -186,39 +197,64 @@ class TemplateSlideService
         return $values;
     }
 
+    public function valuesForTemplateForm(array $template, array $values): array
+    {
+        [$spec, $portrait] = $this->decodeTemplateSpecs($template);
+        $out = [];
+
+        foreach ($this->fieldsForSpecs($spec, $portrait) as $field) {
+            $key = (string)$field['key'];
+            if ($key === '') {
+                continue;
+            }
+
+            if (array_key_exists($key, $values)) {
+                $out[$key] = $values[$key];
+            } elseif (($field['type'] ?? '') === 'media_image' || ($field['type'] ?? '') === 'media_video') {
+                $out[$key] = null;
+            } else {
+                $out[$key] = is_scalar($field['default'] ?? null) ? (string)$field['default'] : '';
+            }
+        }
+
+        return $out;
+    }
+
     public function fieldsForTemplate(array $template): array
     {
-        $landscape = $this->decodeSpec((string)($template['landscape_spec_json'] ?? ''), 'landscape');
-        $portrait = trim((string)($template['portrait_spec_json'] ?? '')) !== ''
-            ? $this->decodeSpec((string)$template['portrait_spec_json'], 'portrait')
-            : null;
+        [$landscape, $portrait] = $this->decodeTemplateSpecs($template);
 
         return $this->fieldsForSpecs($landscape, $portrait);
     }
 
     public function render(array $template, array $values, string $orientation = 'landscape'): string
     {
-        $landscape = $this->decodeSpec((string)($template['landscape_spec_json'] ?? ''), 'landscape');
-        $portraitJson = trim((string)($template['portrait_spec_json'] ?? ''));
-        $spec = $orientation === 'vertical' && $portraitJson !== ''
-            ? $this->decodeSpec($portraitJson, 'portrait')
-            : $landscape;
+        [$landscape, $portrait] = $this->decodeTemplateSpecs($template);
+        $spec = $orientation === 'vertical' && $portrait !== null ? $portrait : $landscape;
 
         $canvas = $spec['canvas'];
         $ratio = max(0.1, ((int)$canvas['width']) / max(1, (int)$canvas['height']));
-        $fields = $this->fieldsForSpecs($spec, null);
+        $fields = $this->fieldsForSpecs($landscape, $portrait);
         $fieldMap = [];
         foreach ($fields as $field) {
             $fieldMap[(string)$field['key']] = $field;
         }
+        $templateStyle = [
+            '--template-stage-ratio: ' . (string)$ratio,
+            '--template-background-color: ' . $this->templateBackgroundColor($spec),
+        ];
+        $backgroundImage = $this->templateBackgroundImage($spec);
+        if ($backgroundImage !== null) {
+            $templateStyle[] = '--template-background-image: ' . $backgroundImage;
+        }
 
-        $html = '<div class="template-slide" style="--template-stage-ratio: ' . e((string)$ratio) . ';">';
+        $html = '<div class="template-slide" style="' . e(implode(';', $templateStyle) . ';') . '">';
         $html .= '<div class="template-slide__stage">';
 
         $elements = $spec['elements'];
         usort($elements, static fn(array $a, array $b): int => ((int)($a['z'] ?? 0)) <=> ((int)($b['z'] ?? 0)));
         foreach ($elements as $element) {
-            $html .= $this->renderElement($element, $values, $fieldMap);
+            $html .= $this->renderElement($element, $values, $fieldMap, $ratio);
         }
 
         $html .= '</div></div>';
@@ -228,12 +264,10 @@ class TemplateSlideService
     public function mediaAssetIdsForTemplateSlide(array $template, array $values): array
     {
         $ids = [];
-        foreach (['landscape', 'portrait'] as $orientation) {
-            $json = $orientation === 'portrait' ? (string)($template['portrait_spec_json'] ?? '') : (string)($template['landscape_spec_json'] ?? '');
-            if (trim($json) === '' && $orientation === 'portrait') {
+        foreach ($this->decodeTemplateSpecs($template) as $spec) {
+            if (!is_array($spec)) {
                 continue;
             }
-            $spec = $this->decodeSpec($json, $orientation);
             foreach ($spec['elements'] as $element) {
                 $style = is_array($element['style'] ?? null) ? $element['style'] : [];
                 foreach (['mediaAssetId', 'backgroundMediaAssetId'] as $key) {
@@ -255,6 +289,36 @@ class TemplateSlideService
         return array_keys($ids);
     }
 
+    private function decodeTemplateSpecs(array $template): array
+    {
+        $landscapeRaw = $this->rawSpec((string)($template['landscape_spec_json'] ?? ''), 'landscape');
+        $portraitJson = trim((string)($template['portrait_spec_json'] ?? ''));
+        $portraitRaw = $portraitJson !== '' ? $this->rawSpec($portraitJson, 'portrait') : null;
+
+        $portraitFieldKeys = $portraitRaw !== null ? $this->fieldKeysForRawSpec($portraitRaw) : [];
+        $landscapeFieldKeys = $this->fieldKeysForRawSpec($landscapeRaw);
+
+        return [
+            $this->normalizeSpec($landscapeRaw, 'landscape', $portraitFieldKeys),
+            $portraitRaw !== null ? $this->normalizeSpec($portraitRaw, 'portrait', $landscapeFieldKeys) : null,
+        ];
+    }
+
+    private function rawSpec(?string $json, string $orientation): array
+    {
+        if (!is_string($json) || trim($json) === '') {
+            return $this->emptySpec($orientation);
+        }
+
+        $decoded = json_decode($json, true);
+        return is_array($decoded) ? $decoded : $this->emptySpec($orientation);
+    }
+
+    private function fieldKeysForRawSpec(array $spec): array
+    {
+        return array_fill_keys(array_map(static fn(array $field): string => (string)$field['key'], $this->normalizeFields($spec['fields'] ?? [])), true);
+    }
+
     private function fieldsForSpecs(array $landscape, ?array $portrait): array
     {
         $fields = [];
@@ -271,6 +335,52 @@ class TemplateSlideService
         }
 
         return array_values($fields);
+    }
+
+    private function templateBackgroundColor(array $spec): string
+    {
+        foreach ($spec['elements'] as $element) {
+            if (($element['type'] ?? '') !== 'background') {
+                continue;
+            }
+
+            $style = is_array($element['style'] ?? null) ? $element['style'] : [];
+            $color = trim((string)($style['backgroundColor'] ?? ''));
+            if ($color !== '') {
+                return $color;
+            }
+        }
+
+        return '#0f172a';
+    }
+
+    private function templateBackgroundImage(array $spec): ?string
+    {
+        foreach ($spec['elements'] as $element) {
+            if (($element['type'] ?? '') !== 'background') {
+                continue;
+            }
+
+            $style = is_array($element['style'] ?? null) ? $element['style'] : [];
+            $assetId = (int)($style['backgroundMediaAssetId'] ?? 0);
+            if ($assetId <= 0) {
+                continue;
+            }
+
+            $asset = $this->db->one('SELECT file_path, media_kind FROM media_assets WHERE id = ?', [$assetId]);
+            if (!$asset || ($asset['media_kind'] ?? '') !== 'image' || empty($asset['file_path'])) {
+                continue;
+            }
+
+            return $this->cssUrl(url((string)$asset['file_path']));
+        }
+
+        return null;
+    }
+
+    private function cssUrl(string $url): string
+    {
+        return 'url("' . str_replace(["\\", "\"", "\n", "\r"], ["\\\\", "\\\"", "", ""], $url) . '")';
     }
 
     private function normalizeFields(mixed $fields): array
@@ -414,34 +524,35 @@ class TemplateSlideService
         ];
     }
 
-    private function renderElement(array $element, array $values, array $fieldMap): string
+    private function renderElement(array $element, array $values, array $fieldMap, float $ratio): string
     {
         $type = (string)$element['type'];
         $style = is_array($element['style'] ?? null) ? $element['style'] : [];
         $field = (string)($element['field'] ?? '');
         $value = $field !== '' ? ($values[$field] ?? ($fieldMap[$field]['default'] ?? '')) : '';
         $classes = 'template-slide__element template-slide__element--' . $type . $this->animationClasses($element);
-        $styleAttr = $this->elementStyle($element, $style);
+        $styleAttr = $this->elementStyle($element, $style, $ratio);
+        $animationAttr = $this->animationAttributes($element);
 
         if ($type === 'background') {
-            return '<div class="' . e($classes) . '" style="' . e($styleAttr) . '">' . $this->renderMediaById((int)($style['backgroundMediaAssetId'] ?? 0), (string)($style['fit'] ?? 'cover')) . '</div>';
+            return '<div class="' . e($classes) . '" style="' . e($styleAttr) . '"' . $animationAttr . '>' . $this->renderMediaById((int)($style['backgroundMediaAssetId'] ?? 0), (string)($style['fit'] ?? 'cover')) . '</div>';
         }
         if ($type === 'media') {
             $assetId = (int)($style['mediaAssetId'] ?? 0);
             if ($field !== '') {
                 $assetId = (int)$value;
             }
-            return '<div class="' . e($classes) . '" style="' . e($styleAttr) . '">' . $this->renderMediaById($assetId, (string)($style['fit'] ?? 'cover')) . '</div>';
+            return '<div class="' . e($classes) . '" style="' . e($styleAttr) . '"' . $animationAttr . '>' . $this->renderMediaById($assetId, (string)($style['fit'] ?? 'cover')) . '</div>';
         }
         if ($type === 'qr') {
             $qrValue = trim((string)$value);
             if ($qrValue === '') {
                 return '';
             }
-            return '<div class="' . e($classes) . '" style="' . e($styleAttr) . '" data-qr-url="' . e($qrValue) . '" data-qr-foreground="' . e((string)($style['color'] ?? 'rgba(15, 23, 42, 1)')) . '" data-qr-background="' . e((string)($style['backgroundColor'] ?? 'rgba(255, 255, 255, 1)')) . '"><canvas class="template-slide__qr-canvas" width="1" height="1"></canvas><div class="template-slide__qr-fallback">' . e($qrValue) . '</div></div>';
+            return '<div class="' . e($classes) . '" style="' . e($styleAttr) . '"' . $animationAttr . ' data-qr-url="' . e($qrValue) . '" data-qr-foreground="' . e((string)($style['color'] ?? 'rgba(15, 23, 42, 1)')) . '" data-qr-background="' . e((string)($style['backgroundColor'] ?? 'rgba(255, 255, 255, 1)')) . '"><canvas class="template-slide__qr-canvas" width="1" height="1"></canvas><div class="template-slide__qr-fallback">' . e($qrValue) . '</div></div>';
         }
         if ($type === 'shape') {
-            return '<div class="' . e($classes) . '" style="' . e($styleAttr) . '"></div>';
+            return '<div class="' . e($classes) . '" style="' . e($styleAttr) . '"' . $animationAttr . '></div>';
         }
 
         $content = (string)$value;
@@ -451,7 +562,17 @@ class TemplateSlideService
             $html = '&nbsp;';
         }
 
-        return '<div class="' . e($classes) . '" style="' . e($styleAttr) . '"><div class="template-slide__text-content">' . $html . '</div></div>';
+        return '<div class="' . e($classes) . '" style="' . e($styleAttr) . '"' . $animationAttr . '><div class="template-slide__text-content">' . $html . '</div></div>';
+    }
+
+    private function animationAttributes(array $element): string
+    {
+        if (($element['type'] ?? '') === 'background' || !is_array($element['animation'] ?? null)) {
+            return '';
+        }
+
+        $animation = $this->normalizeAnimation($element['animation']);
+        return ' data-template-entrance-delay-ms="' . e((string)$animation['entranceDelayMs']) . '"';
     }
 
     private function animationClasses(array $element): string
@@ -472,14 +593,23 @@ class TemplateSlideService
         return $classes === [] ? '' : ' ' . implode(' ', $classes);
     }
 
-    private function elementStyle(array $element, array $style): string
+    private function elementStyle(array $element, array $style, float $ratio): string
     {
+        $x = (float)$element['x'];
+        $y = (float)$element['y'];
+        $w = (float)$element['w'];
+        $h = (float)$element['h'];
+        $stageHeightCqw = 100 / max(0.1, $ratio);
         $css = [
-            'left:' . (((float)$element['x']) * 100) . '%',
-            'top:' . (((float)$element['y']) * 100) . '%',
-            'width:' . (((float)$element['w']) * 100) . '%',
-            'height:' . (((float)$element['h']) * 100) . '%',
+            'left:' . ($x * 100) . '%',
+            'top:' . ($y * 100) . '%',
+            'width:' . ($w * 100) . '%',
+            'height:' . ($h * 100) . '%',
             'z-index:' . (int)$element['z'],
+            '--template-slide-from-left:' . (-($x + $w) * 100) . 'cqw',
+            '--template-slide-from-right:' . ((1 - $x) * 100) . 'cqw',
+            '--template-slide-from-top:' . (-($y + $h) * $stageHeightCqw) . 'cqw',
+            '--template-slide-from-bottom:' . ((1 - $y) * $stageHeightCqw) . 'cqw',
         ];
         if (!empty($style['color'])) {
             $css[] = 'color:' . (string)$style['color'];
@@ -520,7 +650,7 @@ class TemplateSlideService
             return '';
         }
 
-        $asset = $this->db->one('SELECT file_path, media_kind, name FROM media_assets WHERE id = ?', [$assetId]);
+        $asset = $this->db->one('SELECT file_path, preview_file_path, media_kind, name FROM media_assets WHERE id = ?', [$assetId]);
         if (!$asset || empty($asset['file_path'])) {
             return '';
         }
@@ -530,7 +660,8 @@ class TemplateSlideService
             if ($fit === 'contain-blur') {
                 $fit = 'contain';
             }
-            return '<video class="template-slide__media" data-src="' . e(url((string)$asset['file_path'])) . '" muted playsinline loop preload="metadata" style="object-fit:' . e($fit) . '"></video>';
+            $poster = !empty($asset['preview_file_path']) ? ' poster="' . e(url('/api/media/' . $assetId . '/preview')) . '"' : '';
+            return '<video class="template-slide__media" data-src="' . e(url((string)$asset['file_path'])) . '"' . $poster . ' muted playsinline loop preload="metadata" style="object-fit:' . e($fit) . '"></video>';
         }
 
         if ($fit === 'contain-blur') {

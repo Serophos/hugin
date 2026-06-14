@@ -50,6 +50,7 @@ require __DIR__ . '/../layouts/admin_header.php';
 <?php
 $display = $group['display'];
 $isUnused = !empty($display['is_unused']);
+$displaySyncEnabled = !$isUnused && !empty($display['group_sync_enabled']);
 $previewPath = $isUnused ? '' : '/display/' . $display['slug'];
 $createPlaylistPath = '';
 if (!$isUnused) {
@@ -66,10 +67,16 @@ if (!$isUnused) {
             <span class="playlist-display-group__icon" aria-hidden="true">
                 <?php if (!$isUnused && !empty($display['icon_url'])): ?>
                     <img src="<?= e($display['icon_url']) ?>" alt="" loading="lazy">
+                    <?php if ($displaySyncEnabled): ?>
+                        <span class="display-sync-indicator display-sync-indicator--playlist"><?= admin_icon('reload') ?></span>
+                    <?php endif; ?>
                 <?php else: ?>
                     <span class="playlist-display-group__icon-placeholder">-</span>
                 <?php endif; ?>
             </span>
+            <?php if ($displaySyncEnabled): ?>
+                <span class="sr-only"><?= e(__('display_groups.sync_enabled_indicator')) ?></span>
+            <?php endif; ?>
             <span class="playlist-display-group__copy">
                 <span class="playlist-display-group__name"><?= e($display['name']) ?></span>
                 <span class="playlist-display-group__meta">

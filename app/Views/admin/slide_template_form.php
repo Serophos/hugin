@@ -11,6 +11,9 @@ $mediaJson = json_encode(array_map(static function (array $asset): array {
         'original_name' => (string)$asset['original_name'],
         'kind' => (string)$asset['media_kind'],
         'url' => ($asset['file_path'] ?? '') !== '' ? url((string)$asset['file_path']) : '',
+        'preview_url' => ($asset['media_kind'] ?? '') === 'video' && !empty($asset['preview_file_path'])
+            ? url('/api/media/' . (int)$asset['id'] . '/preview')
+            : '',
     ];
 }, $mediaAssets ?? []), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 $editorI18n = [
@@ -69,6 +72,7 @@ $editorI18n = [
     'element_added_status' => __('templates.element_added_status'),
     'element_deleted_status' => __('templates.element_deleted_status'),
     'element_not_movable_status' => __('templates.element_not_movable_status'),
+    'delete_unused_field_confirm' => __('templates.delete_unused_field_confirm'),
     'layer_keyboard_hint' => __('templates.layer_keyboard_hint'),
     'layer_moved_status' => __('templates.layer_moved_status'),
     'empty_fields' => __('templates.empty_fields'),
@@ -95,6 +99,7 @@ $editorI18n = [
     'layer_drag_tooltip' => __('templates.layer_drag_tooltip'),
     'layer_position_hint' => __('templates.layer_position_hint'),
     'import_invalid' => __('templates.import_invalid'),
+    'unsaved_changes_confirm' => __('templates.unsaved_changes_confirm'),
     'open_color_picker' => __('templates.open_color_picker'),
     'color_opacity' => __('templates.color_opacity'),
     'animation_entrance' => __('templates.animation_entrance'),
@@ -108,6 +113,8 @@ $editorI18n = [
     'animation_fade_down' => __('templates.animation_fade_down'),
     'animation_slide_left' => __('templates.animation_slide_left'),
     'animation_slide_right' => __('templates.animation_slide_right'),
+    'animation_slide_up' => __('templates.animation_slide_up'),
+    'animation_slide_down' => __('templates.animation_slide_down'),
     'animation_zoom_in' => __('templates.animation_zoom_in'),
     'animation_pop_in' => __('templates.animation_pop_in'),
     'animation_blur_in' => __('templates.animation_blur_in'),
@@ -239,7 +246,8 @@ require __DIR__ . '/../layouts/admin_header.php';
     </details>
 
     <div class="form-actions">
-        <button type="submit" class="button button--default"><?= admin_icon('save') ?><span><?= e(__('common.save')) ?></span></button>
+        <button type="submit" name="save_action" value="save" class="button button--default"><?= admin_icon('save') ?><span><?= e(__('common.save')) ?></span></button>
+        <button type="submit" name="save_action" value="save_and_close" class="button button--normal"><?= admin_icon('save') ?><span><?= e(__('templates.save_and_close')) ?></span></button>
         <a class="button button--normal" href="<?= e(url('/admin/slide-templates')) ?>"><?= admin_icon('cancel') ?><span><?= e(__('common.cancel')) ?></span></a>
     </div>
 </form>
@@ -254,7 +262,7 @@ require __DIR__ . '/../layouts/admin_header.php';
         { key: 'content', base: 100, locked: false },
         { key: 'overlay', base: 700, locked: false },
     ];
-    const entranceAnimations = ['none', 'fade-in', 'fade-up', 'fade-down', 'slide-left', 'slide-right', 'zoom-in', 'pop-in', 'blur-in'];
+    const entranceAnimations = ['none', 'fade-in', 'fade-up', 'fade-down', 'slide-left', 'slide-right', 'slide-up', 'slide-down', 'zoom-in', 'pop-in', 'blur-in'];
     const continuousAnimations = ['none', 'pulse', 'float', 'slow-zoom', 'wiggle', 'glow', 'rotate-slow'];
     const animationEasings = ['ease', 'ease-out', 'ease-in-out', 'linear'];
     const animationDirections = ['normal', 'alternate', 'reverse'];
@@ -363,7 +371,18 @@ require __DIR__ . '/../layouts/admin_header.php';
     function escapeHtml(value) { const div = document.createElement('div'); div.textContent = String(value ?? ''); return div.innerHTML; }
     function attr(value) { return escapeHtml(value).replace(/"/g, '&quot;'); }
     function isBackground(element) { return element?.type === 'background'; }
-    function fieldOptions(selected) { return [`<option value="">${escapeHtml(i18n.none)}</option>`].concat(spec().fields.map(field => `<option value="${attr(field.key)}" ${field.key === selected ? 'selected' : ''}>${escapeHtml(field.label || field.key)}</option>`)).join(''); }
+    function allSpecs() { return [specs.landscape, specs.portrait].filter(item => item && Array.isArray(item.fields) && Array.isArray(item.elements)); }
+    function allTemplateFields() {
+        const fields = new Map();
+        [spec()].concat(allSpecs().filter(item => item !== spec())).forEach(currentSpec => {
+            currentSpec.fields.forEach(field => {
+                if (field?.key && !fields.has(field.key)) fields.set(field.key, field);
+            });
+        });
+        return Array.from(fields.values());
+    }
+    function findTemplateField(key) { return allTemplateFields().find(field => field.key === key) || null; }
+    function fieldOptions(selected) { return [`<option value="">${escapeHtml(i18n.none)}</option>`].concat(allTemplateFields().map(field => `<option value="${attr(field.key)}" ${field.key === selected ? 'selected' : ''}>${escapeHtml(field.label || field.key)}</option>`)).join(''); }
     function mediaOptions() { return [`<option value="0">${escapeHtml(i18n.none)}</option>`].concat(mediaAssets.map(asset => `<option value="${asset.id}">${escapeHtml(asset.name)} (${escapeHtml(asset.kind)})</option>`)).join(''); }
     function cssColor(value) { return String(value || '').trim() || 'transparent'; }
     function mediaAsset(id) { return mediaById.get(Number(id || 0)) || null; }
@@ -417,6 +436,17 @@ require __DIR__ . '/../layouts/admin_header.php';
             const image = document.createElement('img');
             image.className = 'template-editor__media-preview';
             image.src = asset.url;
+            image.alt = asset.name || asset.original_name || '';
+            image.loading = 'lazy';
+            image.decoding = 'async';
+            image.style.objectFit = ['cover', 'contain'].includes(fit) ? fit : 'cover';
+            return image;
+        }
+
+        if (asset.kind === 'video' && asset.preview_url) {
+            const image = document.createElement('img');
+            image.className = 'template-editor__media-preview';
+            image.src = asset.preview_url;
             image.alt = asset.name || asset.original_name || '';
             image.loading = 'lazy';
             image.decoding = 'async';
@@ -486,6 +516,29 @@ require __DIR__ . '/../layouts/admin_header.php';
         hiddenPortrait.value = specs.portrait ? JSON.stringify(normalizedSpecForSave(specs.portrait)) : '';
         debugLandscape.value = JSON.stringify(JSON.parse(hiddenLandscape.value || '{}'), null, 2);
         debugPortrait.value = hiddenPortrait.value ? JSON.stringify(JSON.parse(hiddenPortrait.value), null, 2) : '';
+    }
+
+    let cleanSnapshot = '';
+    let isSubmitting = false;
+    let dirtyTrackingReady = false;
+    function formSnapshot() {
+        syncHidden();
+        return JSON.stringify({
+            name: form.querySelector('[name="name"]')?.value || '',
+            description: form.querySelector('[name="description"]')?.value || '',
+            isActive: form.querySelector('[name="is_active"]')?.checked ? 1 : 0,
+            landscape: hiddenLandscape.value,
+            portrait: hiddenPortrait.value,
+        });
+    }
+    function hasUnsavedChanges() { return dirtyTrackingReady && formSnapshot() !== cleanSnapshot; }
+    function markDirty() {
+        if (dirtyTrackingReady) editor.dataset.dirty = hasUnsavedChanges() ? 'true' : 'false';
+    }
+    function resetDirtyState() {
+        cleanSnapshot = formSnapshot();
+        dirtyTrackingReady = true;
+        editor.dataset.dirty = 'false';
     }
 
     function normalizedSpecForSave(inputSpec) {
@@ -571,12 +624,14 @@ require __DIR__ . '/../layouts/admin_header.php';
         renderCanvas();
         renderLayersPanel();
         syncHidden();
+        markDirty();
     }
 
     function render() {
         renderCanvas();
         renderInspector();
         syncHidden();
+        markDirty();
     }
 
     function elementLabel(element) {
@@ -742,9 +797,6 @@ require __DIR__ . '/../layouts/admin_header.php';
         const mediaOptionHtml = mediaOptions();
         const fitOptions = `<option value="cover">${escapeHtml(i18n.cover)}</option><option value="contain">${escapeHtml(i18n.contain)}</option><option value="contain-blur">${escapeHtml(i18n.contain_blur)}</option>`;
         const mediaFitOptions = `<option value="cover">${escapeHtml(i18n.cover)}</option><option value="contain">${escapeHtml(i18n.contain)}</option>`;
-        const binding = ['text', 'media', 'qr'].includes(element.type)
-            ? propertySection(i18n.section_binding, propertyRow(i18n.field, selectInput('prop', 'field', element.field || '', fieldOptions(element.field || ''))))
-            : '';
         const position = isBackground(element) ? '' : propertySection(i18n.section_position, `
             <div class="template-editor__quad">
                 ${propertyRow(i18n.x, numberInput('prop', 'x', coordinateDisplay(element.x), 'step="0.0001" min="0" max="1"'))}
@@ -770,7 +822,7 @@ require __DIR__ . '/../layouts/admin_header.php';
         const appearance = propertySection(i18n.section_appearance, appearanceRows.join(''));
         const actions = isBackground(element) ? '' : `<div class="template-editor__property-actions">${iconButton('delete-element', i18n.delete_element, 'delete', 'template-editor__icon-button--danger')}</div>`;
 
-        elementPanel.innerHTML = `${panelTitle(elementLabel(element))}${binding}${position}${content}${appearance}${actions}`;
+        elementPanel.innerHTML = `${panelTitle(elementLabel(element))}${position}${content}${appearance}${actions}`;
         elementPanel.querySelectorAll('select[data-style]').forEach(input => { if (input.dataset.style === 'mediaAssetId') input.value = String(element.style?.mediaAssetId || 0); if (input.dataset.style === 'backgroundMediaAssetId') input.value = String(element.style?.backgroundMediaAssetId || 0); if (input.dataset.style === 'fit') input.value = element.style?.fit || 'cover'; });
         window.HuginColorPicker?.init(elementPanel);
         bindElementInspector(element);
@@ -819,13 +871,20 @@ require __DIR__ . '/../layouts/admin_header.php';
             fieldsPanel.innerHTML += `<div class="template-editor__empty-state">${escapeHtml(i18n.element_cannot_use_fields)}</div>`;
             return;
         }
+        if (allTemplateFields().length > 0) {
+            fieldsPanel.innerHTML += propertySection(i18n.section_binding, propertyRow(i18n.field, `<select data-bind-existing-field>${fieldOptions(element.field || '')}</select>`));
+            fieldsPanel.querySelector('[data-bind-existing-field]').addEventListener('change', event => {
+                element.field = event.currentTarget.value;
+                render();
+            });
+        }
         const field = fieldForElement(element);
         if (!field) {
             fieldsPanel.innerHTML += `<div class="template-editor__empty-state">${escapeHtml(i18n.element_has_no_field)}</div><button type="button" class="button button--normal button--small" data-create-bind-field>${icons.add || ''}<span>${escapeHtml(i18n.create_and_bind_field)}</span></button>`;
             fieldsPanel.querySelector('[data-create-bind-field]').addEventListener('click', () => { createAndBindField(element); });
             return;
         }
-        const index = spec().fields.indexOf(field);
+        const index = Math.max(0, allTemplateFields().indexOf(field));
         const row = document.createElement('div');
         row.className = 'template-editor__field-row';
         row.innerHTML = `
@@ -854,8 +913,21 @@ require __DIR__ . '/../layouts/admin_header.php';
             field.required = row.querySelector('[data-field-required]').checked;
             field.default = row.querySelector('[data-field-default]')?.value ?? '';
             if (oldKey !== newKey) {
-                spec().elements.forEach(item => { if (item.field === oldKey) item.field = newKey; });
+                allSpecs().forEach(currentSpec => {
+                    currentSpec.elements.forEach(item => { if (item.field === oldKey) item.field = newKey; });
+                    currentSpec.fields.forEach(item => { if (item !== field && item.key === oldKey) item.key = newKey; });
+                });
             }
+            allSpecs().forEach(currentSpec => {
+                currentSpec.fields.forEach(item => {
+                    if (item !== field && item.key === newKey) {
+                        item.label = field.label;
+                        item.type = field.type;
+                        item.required = field.required;
+                        item.default = field.default;
+                    }
+                });
+            });
             element.field = newKey;
         };
         row.querySelector('.template-editor__field-row-head strong')?.setAttribute('data-field-summary', '');
@@ -885,6 +957,11 @@ require __DIR__ . '/../layouts/admin_header.php';
         row.querySelectorAll('[data-field-default]').forEach(input => {
             const update = () => {
                 field.default = input.value;
+                allSpecs().forEach(currentSpec => {
+                    currentSpec.fields.forEach(item => {
+                        if (item !== field && item.key === field.key) item.default = field.default;
+                    });
+                });
                 renderLiveCanvas();
             };
             input.addEventListener('input', update);
@@ -892,7 +969,9 @@ require __DIR__ . '/../layouts/admin_header.php';
         });
         row.querySelector('[data-remove-bound-field]').addEventListener('click', () => {
             const key = field.key;
-            spec().fields = spec().fields.filter(item => item !== field);
+            allSpecs().forEach(currentSpec => {
+                currentSpec.fields = currentSpec.fields.filter(item => item !== field && item.key !== key);
+            });
             clearFieldReferences(key);
             render();
         });
@@ -954,7 +1033,7 @@ require __DIR__ . '/../layouts/admin_header.php';
 
     function fieldForElement(element) {
         if (!fieldCapableElement(element) || !element.field) return null;
-        return spec().fields.find(field => field.key === element.field) || null;
+        return findTemplateField(element.field);
     }
 
     function defaultFieldTypeForElement(element) {
@@ -966,8 +1045,13 @@ require __DIR__ . '/../layouts/admin_header.php';
     function createAndBindField(element) {
         if (!fieldCapableElement(element)) return;
         activeInspectorTab = 'fields';
-        const fieldNumber = spec().fields.length + 1;
-        const key = normalizeKey(`field_${fieldNumber}`);
+        const existingKeys = new Set(allTemplateFields().map(field => field.key));
+        let fieldNumber = allTemplateFields().length + 1;
+        let key = normalizeKey(`field_${fieldNumber}`);
+        while (existingKeys.has(key)) {
+            fieldNumber += 1;
+            key = normalizeKey(`field_${fieldNumber}`);
+        }
         const field = { key, label: `${i18n.field_1.replace('1', String(fieldNumber))}`, type: defaultFieldTypeForElement(element), required: false, default: '' };
         spec().fields.push(field);
         element.field = key;
@@ -975,7 +1059,20 @@ require __DIR__ . '/../layouts/admin_header.php';
     }
 
     function clearFieldReferences(fieldKey) {
-        spec().elements.forEach(element => { if (element.field === fieldKey) element.field = ''; });
+        allSpecs().forEach(currentSpec => {
+            currentSpec.elements.forEach(element => { if (element.field === fieldKey) element.field = ''; });
+        });
+    }
+
+    function fieldReferenceCount(fieldKey) {
+        if (!fieldKey) return 0;
+        return allSpecs().reduce((count, currentSpec) => count + currentSpec.elements.filter(element => element.field === fieldKey).length, 0);
+    }
+
+    function deleteFieldDefinition(fieldKey) {
+        allSpecs().forEach(currentSpec => {
+            currentSpec.fields = currentSpec.fields.filter(field => field.key !== fieldKey);
+        });
     }
 
     function fieldDefaultControl(field) {
@@ -1075,6 +1172,60 @@ require __DIR__ . '/../layouts/admin_header.php';
         const content = elementsInLayerGroup('content');
         const maxZ = content.reduce((max, element) => Math.max(max, Number(element.z || 0)), 90);
         return Math.min(690, maxZ + 10);
+    }
+
+    function elementOverlapRatio(a, b) {
+        const left = Math.max(a.x, b.x);
+        const top = Math.max(a.y, b.y);
+        const right = Math.min(a.x + a.w, b.x + b.w);
+        const bottom = Math.min(a.y + a.h, b.y + b.h);
+        if (right <= left || bottom <= top) return 0;
+        return ((right - left) * (bottom - top)) / Math.max(0.0001, a.w * a.h);
+    }
+
+    function placementCandidate(element, x, y) {
+        const candidate = Object.assign({}, element, {
+            x: rounded(x, 0, 1 - element.w),
+            y: rounded(y, 0, 1 - element.h),
+        });
+        const placed = snapEnabled() ? snapElementPosition(element, candidate.x, candidate.y) : candidate;
+        return Object.assign(candidate, placed);
+    }
+
+    function placeNewElement(element) {
+        const existing = spec().elements.filter(item => !isBackground(item));
+        const baseX = 0.2;
+        const baseY = 0.2;
+        const offset = 0.055;
+        const candidates = [];
+
+        for (let index = 0; index < 10; index += 1) {
+            candidates.push(placementCandidate(element, baseX + (index * offset), baseY + (index * offset)));
+        }
+        for (let y = 0.12; y <= 0.72; y += 0.12) {
+            for (let x = 0.12; x <= 0.72; x += 0.12) {
+                candidates.push(placementCandidate(element, x, y));
+            }
+        }
+
+        const unique = [];
+        const seen = new Set();
+        candidates.forEach(candidate => {
+            const key = `${candidate.x}:${candidate.y}`;
+            if (seen.has(key)) return;
+            seen.add(key);
+            unique.push(candidate);
+        });
+
+        const best = unique
+            .map(candidate => ({
+                candidate,
+                overlap: existing.reduce((max, item) => Math.max(max, elementOverlapRatio(candidate, item)), 0),
+            }))
+            .sort((a, b) => a.overlap - b.overlap)[0]?.candidate || placementCandidate(element, baseX, baseY);
+
+        element.x = best.x;
+        element.y = best.y;
     }
 
     function applyRenderedLayerOrder() {
@@ -1197,13 +1348,12 @@ require __DIR__ . '/../layouts/admin_header.php';
         if (type !== 'background') element.animation = defaultAnimation();
         if (type === 'qr') { element.w = 0.18; element.h = 0.32; element.style.backgroundColor = 'rgba(255,255,255,1)'; element.style.color = 'rgba(15,23,42,1)'; }
         if (type === 'media') { element.w = 0.42; element.h = 0.32; }
+        placeNewElement(element);
         if (!isBackground(element) && snapEnabled()) {
             const size = snapElementSize(element, element.w, element.h);
             element.w = size.w;
             element.h = size.h;
-            const position = snapElementPosition(element, element.x, element.y);
-            element.x = position.x;
-            element.y = position.y;
+            placeNewElement(element);
         }
         spec().elements.push(element);
         selectedId = element.id;
@@ -1217,7 +1367,13 @@ require __DIR__ . '/../layouts/admin_header.php';
         const element = selectedElement();
         if (!element || isBackground(element)) return false;
         const label = elementLabel(element);
+        const fieldKey = fieldCapableElement(element) ? String(element.field || '') : '';
+        const field = fieldKey ? findTemplateField(fieldKey) : null;
+        const shouldDeleteField = field && fieldReferenceCount(fieldKey) <= 1 && window.confirm(templateText('delete_unused_field_confirm', { field: field.label || field.key || fieldKey }));
         spec().elements = spec().elements.filter(item => item.id !== element.id);
+        if (shouldDeleteField) {
+            deleteFieldDefinition(fieldKey);
+        }
         selectedId = null;
         announce(templateText('element_deleted_status', { label }));
         render();
@@ -1345,6 +1501,22 @@ require __DIR__ . '/../layouts/admin_header.php';
     }));
     inspectorTabsScroll?.addEventListener('scroll', updateInspectorTabScroll, { passive: true });
     window.addEventListener('resize', updateInspectorTabScroll);
+    window.addEventListener('beforeunload', event => {
+        if (isSubmitting || !hasUnsavedChanges()) return;
+        event.preventDefault();
+        event.returnValue = '';
+    });
+    document.addEventListener('click', event => {
+        const link = event.target instanceof Element ? event.target.closest('a[href]') : null;
+        if (!link || isSubmitting || !hasUnsavedChanges()) return;
+        const href = link.getAttribute('href') || '';
+        if (href === '' || href.startsWith('#') || href.startsWith('javascript:') || href.startsWith('mailto:') || href.startsWith('tel:') || link.target || link.hasAttribute('download')) return;
+        if (!window.confirm(i18n.unsaved_changes_confirm || 'You have unsaved changes. Leave this page?')) {
+            event.preventDefault();
+        }
+    });
+    form.addEventListener('input', markDirty);
+    form.addEventListener('change', markDirty);
     document.addEventListener('keydown', handleEditorShortcuts);
     snapToGridToggle?.addEventListener('change', () => { editor.classList.toggle('is-snap-enabled', snapEnabled()); });
     editor.querySelectorAll('[data-add-element]').forEach(button => button.addEventListener('click', () => addElement(button.dataset.addElement)));
@@ -1384,9 +1556,13 @@ require __DIR__ . '/../layouts/admin_header.php';
         importJson(input.dataset.jsonImport, input.files?.[0] || null);
         input.value = '';
     }));
-    form.addEventListener('submit', syncHidden);
+    form.addEventListener('submit', () => {
+        isSubmitting = true;
+        syncHidden();
+    });
     editor.classList.toggle('is-snap-enabled', snapEnabled());
     render();
+    resetDirtyState();
 })();
 </script>
 <?php require __DIR__ . '/../layouts/admin_footer.php'; ?>

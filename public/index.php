@@ -201,6 +201,7 @@ if (preg_match('#^/plugin-assets/([a-zA-Z0-9\-_]+)/(.+)$#', $uri, $m) && $method
 if (preg_match('#^/preview-slide/(\d+)$#', $uri, $m) && $method === 'GET') { $frontend->previewSlide((int)$m[1]); exit; }
 if (preg_match('#^/preview-slide/(\d+)/heartbeat$#', $uri, $m) && $method === 'POST') { $frontend->previewHeartbeat((int)$m[1]); exit; }
 if (preg_match('#^/preview-slide/(\d+)/state$#', $uri, $m) && $method === 'GET') { $frontend->previewState((int)$m[1]); exit; }
+if (preg_match('#^/api/media/(\d+)/preview$#', $uri, $m) && $method === 'GET') { $frontend->mediaPreview((int)$m[1]); exit; }
 if (preg_match('#^/display/([a-zA-Z0-9\-_]+)/offline-manifest$#', $uri, $m) && $method === 'GET') { $frontend->offlineManifest($m[1]); exit; }
 if (preg_match('#^/display/([a-zA-Z0-9\-_]+)$#', $uri, $m) && $method === 'GET') { $frontend->display($m[1]); exit; }
 if (preg_match('#^/display/([a-zA-Z0-9\-_]+)/heartbeat$#', $uri, $m) && $method === 'POST') { $frontend->heartbeat($m[1]); exit; }

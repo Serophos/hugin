@@ -20,13 +20,42 @@
     let startupComplete = false;
     let stateRequestInFlight = false;
     let currentSignature = slideshow.dataset.stateSignature || '';
+    const videoStartTimers = new WeakMap();
     const MINUTE_MS = 60000;
     const SYNC_RELOAD_MIN_LEAD_MS = 3000;
     const SCHEDULED_SYNC_RELOAD_KEY = 'huginScheduledSyncReload';
     const SCHEDULED_SYNC_RELOAD_MAX_AGE_MS = 120000;
+    let serverClockOffsetMs = 0;
     const requestFrame = window.requestAnimationFrame
         ? window.requestAnimationFrame.bind(window)
         : (callback => window.setTimeout(callback, 16));
+
+    const updateServerClock = value => {
+        const serverTimeMs = Number(value);
+        if (!Number.isFinite(serverTimeMs) || serverTimeMs <= 0) {
+            return false;
+        }
+
+        serverClockOffsetMs = serverTimeMs - Date.now();
+        return true;
+    };
+
+    updateServerClock(slideshow.dataset.serverTimeMs);
+
+    const serverNowMs = () => Date.now() + serverClockOffsetMs;
+
+    const delayUntilServerTime = targetMs => Math.max(0, Math.ceil(Number(targetMs || 0) - serverNowMs()));
+
+    const hasStoredScheduledSyncReload = () => {
+        try {
+            const raw = window.sessionStorage.getItem(SCHEDULED_SYNC_RELOAD_KEY);
+            const data = raw ? JSON.parse(raw) : null;
+            const ageMs = Date.now() - Number(data?.at || 0);
+            return data?.reason === 'sync-group-config-reload' && ageMs >= 0 && ageMs <= SCHEDULED_SYNC_RELOAD_MAX_AGE_MS;
+        } catch (error) {
+            return false;
+        }
+    };
 
     const readStoredCachedUrls = () => {
         try {
@@ -369,13 +398,56 @@
         };
     };
 
+    const scheduledSyncReloadForDebug = () => {
+        try {
+            const raw = window.sessionStorage.getItem(SCHEDULED_SYNC_RELOAD_KEY);
+            return raw ? JSON.parse(raw) : null;
+        } catch (error) {
+            return { error: String(error?.message || error) };
+        }
+    };
+
+    const logSyncDebug = (message, context = {}) => {
+        if (!window.console?.info) return;
+
+        const clientNowMs = Date.now();
+        const currentServerNowMs = serverNowMs();
+        window.console.info(`[Hugin sync debug] ${message}`, Object.assign({
+            displayPath: window.location.pathname,
+            group: displayGroupFromDataset(),
+            currentSignature,
+            startupComplete,
+            stateRequestInFlight,
+            clientNow: new Date(clientNowMs).toISOString(),
+            serverNow: new Date(currentServerNowMs).toISOString(),
+            serverClockOffsetMs: Math.round(serverClockOffsetMs),
+            serverMsIntoMinute: Math.round(currentServerNowMs % MINUTE_MS),
+            serverMsUntilMinute: Math.round(MINUTE_MS - (currentServerNowMs % MINUTE_MS)),
+            pendingReload: pendingReload ? {
+                reason: pendingReload.reason,
+                signature: pendingReload.signature || '',
+                activateAt: new Date(pendingReload.activateAtMs).toISOString(),
+                msUntilActivate: delayUntilServerTime(pendingReload.activateAtMs),
+            } : null,
+            storedScheduledReload: scheduledSyncReloadForDebug(),
+        }, context));
+    };
+
+    logSyncDebug('boot', {
+        slideCount: slides.length,
+        stateUrl: slideshow.dataset.stateUrl || '',
+        startupSyncKey: slideshow.dataset.startupSyncKey || '',
+        initialServerTimeMs: slideshow.dataset.serverTimeMs || '',
+        startupLoadingSuppressed: document.documentElement.classList.contains('hugin-startup-loading-seen'),
+    });
+
     const shouldUseSyncedGroupReload = stateData => displayGroupFromState(stateData).sync_reload_to_full_minute === true;
 
-    const computeNextFullMinuteActivation = (nowMs = Date.now()) => {
+    const computeNextFullMinuteActivation = (nowMs = serverNowMs(), minLeadMs = SYNC_RELOAD_MIN_LEAD_MS) => {
         const msIntoMinute = nowMs % MINUTE_MS;
         const nextMinute = msIntoMinute === 0 ? nowMs + MINUTE_MS : nowMs + (MINUTE_MS - msIntoMinute);
 
-        if (nextMinute - nowMs < SYNC_RELOAD_MIN_LEAD_MS) {
+        if (nextMinute - nowMs < minLeadMs) {
             return nextMinute + MINUTE_MS;
         }
 
@@ -389,30 +461,49 @@
             const ageMs = Date.now() - Number(data?.at || 0);
 
             if (data?.reason === 'sync-group-config-reload' && ageMs >= 0 && ageMs <= SCHEDULED_SYNC_RELOAD_MAX_AGE_MS) {
+                logSyncDebug('read scheduled reload marker', {
+                    ageMs,
+                    activateAt: data.activateAtMs ? new Date(Number(data.activateAtMs)).toISOString() : '',
+                    startAt: data.startAtMs ? new Date(Number(data.startAtMs)).toISOString() : '',
+                });
                 window.sessionStorage.removeItem(SCHEDULED_SYNC_RELOAD_KEY);
                 return data;
             }
 
             if (raw) {
+                logSyncDebug('discarded stale scheduled reload marker', {
+                    ageMs,
+                    data,
+                });
                 window.sessionStorage.removeItem(SCHEDULED_SYNC_RELOAD_KEY);
             }
         } catch (error) {
+            logSyncDebug('failed to read scheduled reload marker', {
+                error: String(error?.message || error),
+            });
             try {
                 window.sessionStorage.removeItem(SCHEDULED_SYNC_RELOAD_KEY);
             } catch (storageError) {}
         }
 
-        document.documentElement.classList.remove('hugin-scheduled-sync-reload');
         return null;
     };
 
-    const markScheduledSyncReload = () => {
+    const markScheduledSyncReload = reload => {
+        const startAtMs = reload?.activateAtMs ? computeNextFullMinuteActivation(Number(reload.activateAtMs) + 1) : 0;
         try {
             window.sessionStorage.setItem(SCHEDULED_SYNC_RELOAD_KEY, JSON.stringify({
                 at: Date.now(),
+                activateAtMs: reload?.activateAtMs || 0,
+                startAtMs,
                 reason: 'sync-group-config-reload',
             }));
         } catch (error) {}
+        logSyncDebug('stored scheduled reload marker', {
+            reloadReason: reload?.reason || '',
+            activateAt: reload?.activateAtMs ? new Date(reload.activateAtMs).toISOString() : '',
+            startAt: startAtMs ? new Date(startAtMs).toISOString() : '',
+        });
     };
 
     const reloadImmediately = (reason, stateData = null) => {
@@ -422,11 +513,21 @@
         pendingReloadTimer = null;
         pendingReload = null;
 
+        logSyncDebug('reload immediately requested', {
+            reason,
+            stateSignature: stateData?.signature || '',
+            stateGroup: displayGroupFromState(stateData),
+        });
+
         runWhenOfflineReady(stateData, () => {
             logReload('Applying immediate reload', {
                 reason,
                 displayGroup: displayGroupFromState(stateData),
                 signature: stateData?.signature || '',
+            });
+            logSyncDebug('applying immediate reload', {
+                reason,
+                stateSignature: stateData?.signature || '',
             });
             window.location.reload();
         });
@@ -445,8 +546,13 @@
             signature: reload.signature,
             activateAt: new Date(reload.activateAtMs).toISOString(),
         });
+        logSyncDebug('applying synchronized reload', {
+            reason: reload.reason,
+            signature: reload.signature,
+            activateAt: new Date(reload.activateAtMs).toISOString(),
+        });
 
-        markScheduledSyncReload();
+        markScheduledSyncReload(reload);
         window.location.reload();
     };
 
@@ -461,10 +567,16 @@
                 signature,
                 activateAt: new Date(pendingReload.activateAtMs).toISOString(),
             });
+            logSyncDebug('synchronized reload already pending', {
+                reason,
+                signature,
+                activateAt: new Date(pendingReload.activateAtMs).toISOString(),
+            });
             return;
         }
 
-        const activateAtMs = computeNextFullMinuteActivation(Date.now());
+        updateServerClock(stateData?.server_time_ms);
+        const activateAtMs = computeNextFullMinuteActivation();
         const replaced = Boolean(pendingReloadTimer);
         if (pendingReloadTimer) {
             clearTimeout(pendingReloadTimer);
@@ -478,13 +590,21 @@
                 displayGroup,
                 activateAtMs,
             };
-            pendingReloadTimer = window.setTimeout(applyPendingReload, Math.max(0, activateAtMs - Date.now()));
+            pendingReloadTimer = window.setTimeout(applyPendingReload, delayUntilServerTime(activateAtMs));
 
             logReload(replaced ? 'Replaced pending synchronized reload' : 'Scheduled synchronized reload', {
                 reason,
                 displayGroup,
                 signature,
                 activateAt: new Date(activateAtMs).toISOString(),
+            });
+            logSyncDebug(replaced ? 'replaced pending synchronized reload' : 'scheduled synchronized reload', {
+                reason,
+                signature,
+                displayGroup,
+                stateServerTimeMs: stateData?.server_time_ms || null,
+                activateAt: new Date(activateAtMs).toISOString(),
+                msUntilActivate: delayUntilServerTime(activateAtMs),
             });
         };
 
@@ -507,24 +627,95 @@
     };
 
     const msUntilNextMinuteTick = () => {
-        const now = new Date();
-        const msIntoMinute = (now.getSeconds() * 1000) + now.getMilliseconds();
+        const msIntoMinute = serverNowMs() % MINUTE_MS;
         const targetMs = 50;
 
         if (msIntoMinute < targetMs) {
-            return targetMs - msIntoMinute;
+            return Math.ceil(targetMs - msIntoMinute);
         }
 
-        return MINUTE_MS - msIntoMinute + targetMs;
+        return Math.ceil(MINUTE_MS - msIntoMinute + targetMs);
     };
 
-    const shouldWaitForStartupSync = () => {
+    const startupSyncTargetMs = () => {
         const scheduledReload = readScheduledSyncReload();
         if (scheduledReload) {
-            logReload('Skipping startup sync after scheduled synchronized reload', scheduledReload);
-            return false;
+            const startAtMs = Number(scheduledReload.startAtMs || 0);
+            if (Number.isFinite(startAtMs) && startAtMs > serverNowMs()) {
+                logReload('Waiting for synchronized playlist start after scheduled reload', {
+                    activateAt: scheduledReload.activateAtMs ? new Date(Number(scheduledReload.activateAtMs)).toISOString() : '',
+                    startAt: new Date(startAtMs).toISOString(),
+                });
+                return startAtMs;
+            }
+
+            const fallbackStartAtMs = computeNextFullMinuteActivation();
+            logReload('Waiting for next minute after scheduled synchronized reload', {
+                startAt: new Date(fallbackStartAtMs).toISOString(),
+            });
+            logSyncDebug('scheduled reload marker had no future start target; using fallback', {
+                storedStartAtMs: scheduledReload.startAtMs || 0,
+                fallbackStartAt: new Date(fallbackStartAtMs).toISOString(),
+            });
+            return fallbackStartAtMs;
         }
 
+        if (!shouldUseSyncedGroupReload()) {
+            logSyncDebug('startup sync disabled for this display/group');
+            return 0;
+        }
+
+        const targetMs = computeNextFullMinuteActivation();
+        logSyncDebug('startup sync target selected', {
+            startAt: new Date(targetMs).toISOString(),
+            msUntilStart: delayUntilServerTime(targetMs),
+        });
+        return targetMs;
+    };
+
+    const refreshStartupServerClock = () => {
+        if (hasStoredScheduledSyncReload() || !shouldUseSyncedGroupReload()) {
+            logSyncDebug('startup server clock refresh skipped', {
+                hasStoredScheduledSyncReload: hasStoredScheduledSyncReload(),
+                syncedGroup: shouldUseSyncedGroupReload(),
+            });
+            return Promise.resolve();
+        }
+
+        const url = resolveEndpointUrl(slideshow.dataset.stateUrl);
+        if (!url || !window.fetch) {
+            logSyncDebug('startup server clock refresh unavailable', {
+                hasUrl: Boolean(url),
+                hasFetch: Boolean(window.fetch),
+            });
+            return Promise.resolve();
+        }
+
+        logSyncDebug('startup server clock refresh request', { url });
+        return fetch(url, {
+            method: 'GET',
+            headers: { 'Accept': 'application/json' },
+            cache: 'no-store',
+            credentials: 'same-origin',
+        })
+            .then(response => response.ok ? response.json() : null)
+            .then(data => {
+                const updated = updateServerClock(data?.server_time_ms);
+                logSyncDebug('startup server clock refresh response', {
+                    ok: data?.ok ?? null,
+                    signature: data?.signature || '',
+                    serverTimeMs: data?.server_time_ms || null,
+                    updated,
+                });
+            })
+            .catch(error => {
+                logSyncDebug('startup server clock refresh failed', {
+                    error: String(error?.message || error),
+                });
+            });
+    };
+
+    const shouldWaitForLegacyStartupSync = () => {
         const key = slideshow.dataset.startupSyncKey || `hugin:slideshow-started:${window.location.pathname}`;
 
         try {
@@ -540,13 +731,46 @@
         }
     };
 
-    const waitForStartupSync = () => {
-        if (!shouldWaitForStartupSync()) {
-            return Promise.resolve();
-        }
+    const markStartupSeen = () => {
+        const key = slideshow.dataset.startupSyncKey || `hugin:slideshow-started:${window.location.pathname}`;
 
-        return new Promise(resolve => {
-            window.setTimeout(resolve, msUntilNextMinuteTick());
+        try {
+            window.sessionStorage.setItem(key, String(Date.now()));
+            logSyncDebug('startup seen marker stored', { key });
+        } catch (error) {
+            logSyncDebug('startup seen marker failed', {
+                key,
+                error: String(error?.message || error),
+            });
+        }
+    };
+
+    const waitForStartupSync = () => {
+        logSyncDebug('waitForStartupSync begin');
+        return refreshStartupServerClock().then(() => {
+            const targetMs = startupSyncTargetMs();
+            if (targetMs > serverNowMs()) {
+                logSyncDebug('waiting for startup sync target', {
+                    startAt: new Date(targetMs).toISOString(),
+                    msUntilStart: delayUntilServerTime(targetMs),
+                });
+                return new Promise(resolve => {
+                    window.setTimeout(resolve, delayUntilServerTime(targetMs));
+                });
+            }
+
+            if (!shouldWaitForLegacyStartupSync()) {
+                logSyncDebug('startup sync skipped by legacy session marker');
+                return Promise.resolve();
+            }
+
+            const waitMs = msUntilNextMinuteTick();
+            logSyncDebug('waiting for legacy startup minute tick', {
+                waitMs,
+            });
+            return new Promise(resolve => {
+                window.setTimeout(resolve, waitMs);
+            });
         });
     };
 
@@ -629,20 +853,84 @@
     };
 
     const stopVideo = slide => {
-        const video = slide?.querySelector('video');
-        if (video) {
+        slide?.querySelectorAll('video').forEach(video => {
+            const startTimer = videoStartTimers.get(video);
+            if (startTimer) {
+                window.clearTimeout(startTimer);
+                videoStartTimers.delete(video);
+            }
             video.pause();
             video.currentTime = 0;
+        });
+    };
+
+    const cssTimeToMs = value => {
+        const text = String(value || '').trim();
+        const match = text.match(/^(-?\d*\.?\d+)(ms|s)?$/i);
+        if (!match) return 0;
+
+        const amount = Number(match[1]);
+        if (!Number.isFinite(amount) || amount <= 0) return 0;
+
+        return match[2]?.toLowerCase() === 's' ? amount * 1000 : amount;
+    };
+
+    const templateVideoStartDelay = video => {
+        const element = video.closest('.template-slide__element');
+        if (!element || !element.matches('[class*="template-slide__element--entrance-"]')) {
+            return 0;
         }
+
+        const delayMs = Number(element.dataset.templateEntranceDelayMs);
+        if (Number.isFinite(delayMs) && delayMs > 0) {
+            return delayMs;
+        }
+
+        return cssTimeToMs(window.getComputedStyle(element).getPropertyValue('--template-entrance-delay'));
+    };
+
+    const playVideoFromStart = video => {
+        videoStartTimers.delete(video);
+        video.currentTime = 0;
+        video.play().catch(() => {});
     };
 
     const startVideo = slide => {
-        const video = slide?.querySelector('video');
-        if (video && isSlidePlayable(slide)) {
-            ensureMediaLoaded(slide);
-            video.currentTime = 0;
-            video.play().catch(() => {});
-        }
+        if (!slide || !isSlidePlayable(slide)) return;
+
+        ensureMediaLoaded(slide);
+        slide.querySelectorAll('video').forEach(video => {
+            const existingStartTimer = videoStartTimers.get(video);
+            if (existingStartTimer) {
+                window.clearTimeout(existingStartTimer);
+                videoStartTimers.delete(video);
+            }
+
+            const templateElement = video.closest('.template-slide__element');
+            if (!templateElement) {
+                playVideoFromStart(video);
+                return;
+            }
+
+            requestFrame(() => {
+                if (!slide.classList.contains('is-active') || !isSlidePlayable(slide)) return;
+
+                const delay = templateVideoStartDelay(video);
+                if (delay <= 0) {
+                    playVideoFromStart(video);
+                    return;
+                }
+
+                const startTimer = window.setTimeout(() => {
+                    if (slide.classList.contains('is-active') && isSlidePlayable(slide)) {
+                        playVideoFromStart(video);
+                    } else {
+                        videoStartTimers.delete(video);
+                    }
+                }, delay);
+                videoStartTimers.set(video, startTimer);
+            });
+        });
     };
 
     const ua = navigator.userAgent || '';
@@ -754,11 +1042,23 @@
             });
     };
 
-    const reloadIfChanged = () => {
+    const reloadIfChanged = (source = 'state-check') => {
         const url = resolveEndpointUrl(slideshow.dataset.stateUrl);
-        if (!url || !window.fetch || stateRequestInFlight) return Promise.resolve();
+        if (!url || !window.fetch || stateRequestInFlight) {
+            logSyncDebug('state check skipped', {
+                source,
+                hasUrl: Boolean(url),
+                hasFetch: Boolean(window.fetch),
+                stateRequestInFlight,
+            });
+            return Promise.resolve();
+        }
 
         stateRequestInFlight = true;
+        logSyncDebug('state check request', {
+            source,
+            url,
+        });
 
         return fetch(url, {
             method: 'GET',
@@ -767,11 +1067,24 @@
             credentials: 'same-origin',
         })
             .then(response => {
+                logSyncDebug('state check response', {
+                    source,
+                    status: response.status,
+                    ok: response.ok,
+                });
                 if (response.status === 404 || response.status === 409) {
                     const stateData = { signature: `state-http-${response.status}` };
                     if (shouldUseSyncedGroupReload(stateData)) {
+                        logSyncDebug('state check schedules synced reload for HTTP status', {
+                            source,
+                            status: response.status,
+                        });
                         scheduleSyncedReload(`state-http-${response.status}`, stateData);
                     } else {
+                        logSyncDebug('state check reloads immediately for HTTP status', {
+                            source,
+                            status: response.status,
+                        });
                         reloadImmediately(`state-http-${response.status}`, stateData);
                     }
                     return null;
@@ -780,23 +1093,51 @@
                 return response.ok ? response.json() : null;
             })
             .then(data => {
-                if (!data) return;
+                if (!data) {
+                    logSyncDebug('state check had no JSON payload', { source });
+                    return;
+                }
+                const previousOffsetMs = serverClockOffsetMs;
+                const updatedClock = updateServerClock(data.server_time_ms);
+                logSyncDebug('state check payload', {
+                    source,
+                    ok: data.ok ?? null,
+                    signature: data.signature || '',
+                    currentSignature,
+                    serverTimeMs: data.server_time_ms || null,
+                    updatedClock,
+                    serverClockOffsetDeltaMs: Math.round(serverClockOffsetMs - previousOffsetMs),
+                    stateGroup: displayGroupFromState(data),
+                });
                 if (data.ok === false) {
                     const stateData = Object.assign({ signature: 'state-error' }, data);
                     if (shouldUseSyncedGroupReload(stateData)) {
+                        logSyncDebug('state check schedules synced reload for state error', { source });
                         scheduleSyncedReload('state-error', stateData);
                     } else {
+                        logSyncDebug('state check reloads immediately for state error', { source });
                         reloadImmediately('state-error', stateData);
                     }
                     return;
                 }
-                if (!data.signature) return;
+                if (!data.signature) {
+                    logSyncDebug('state check missing signature', { source });
+                    return;
+                }
                 if (!currentSignature) {
                     currentSignature = data.signature;
+                    logSyncDebug('state check initialized current signature', {
+                        source,
+                        currentSignature,
+                    });
                     warmOfflineCache('state-check');
                     return;
                 }
                 if (data.signature === currentSignature) {
+                    logSyncDebug('state check no change', {
+                        source,
+                        signature: data.signature,
+                    });
                     warmOfflineCache('state-check');
                     return;
                 }
@@ -808,6 +1149,13 @@
                         displayGroup: displayGroupFromState(data),
                         synchronizedGroup: useSyncedReload,
                     });
+                    logSyncDebug('state check detected signature change', {
+                        source,
+                        currentSignature,
+                        nextSignature: data.signature,
+                        synchronizedGroup: useSyncedReload,
+                        displayGroup: displayGroupFromState(data),
+                    });
 
                     if (useSyncedReload) {
                         scheduleSyncedReload('signature-changed', data);
@@ -817,9 +1165,15 @@
                     reloadImmediately('signature-changed', data);
                 }
             })
-            .catch(() => {})
+            .catch(error => {
+                logSyncDebug('state check failed', {
+                    source,
+                    error: String(error?.message || error),
+                });
+            })
             .then(() => {
                 stateRequestInFlight = false;
+                logSyncDebug('state check complete', { source });
             });
     };
 
@@ -883,15 +1237,31 @@
 
     const queueStateCheck = () => {
         clearInterval(stateTimer);
+        if (shouldUseSyncedGroupReload()) {
+            stateTimer = null;
+            logSyncDebug('standard interval state check disabled for synced group');
+            return;
+        }
+        logSyncDebug('standard interval state check queued', {
+            intervalMs: stateCheckIntervalMs(),
+        });
         stateTimer = setInterval(reloadIfChanged, stateCheckIntervalMs());
     };
 
     const queueMinuteAlignedStateCheck = () => {
         clearTimeout(scheduleStateTimer);
+        const waitMs = msUntilNextMinuteTick();
+        logSyncDebug('minute-aligned state check queued', {
+            waitMs,
+            nextCheckServerAt: new Date(serverNowMs() + waitMs).toISOString(),
+        });
         scheduleStateTimer = window.setTimeout(() => {
-            reloadIfChanged();
-            queueMinuteAlignedStateCheck();
-        }, msUntilNextMinuteTick());
+            logSyncDebug('minute-aligned state check firing');
+            Promise.resolve(reloadIfChanged('minute-aligned')).then(
+                queueMinuteAlignedStateCheck,
+                queueMinuteAlignedStateCheck
+            );
+        }, waitMs);
     };
 
     const queueWatchdog = () => {
@@ -911,8 +1281,8 @@
 
     const startSlideshow = () => {
         startupComplete = true;
+        markStartupSeen();
         slideshow.classList.remove('is-startup-sync-pending');
-        document.documentElement.classList.remove('hugin-scheduled-sync-reload');
         if (!isSlidePlayable(slides[index])) {
             const playable = firstPlayableIndex();
             if (playable >= 0 && playable !== index) {
@@ -923,12 +1293,16 @@
             }
         }
         prepareMediaAround(index);
-        startVideo(slides[index]);
         restartTextCardAnimation(slides[index]);
         restartTemplateElementAnimations(slides[index]);
+        startVideo(slides[index]);
         cleanupFarMedia(index);
         warmOfflineCache('startup');
-        reloadIfChanged();
+        logSyncDebug('slideshow started', {
+            activeIndex: index,
+            activeSlideId: slides[index]?.dataset.slideId || '',
+        });
+        reloadIfChanged('startup');
         queueStateCheck();
         queueMinuteAlignedStateCheck();
         queueWatchdog();
@@ -938,7 +1312,13 @@
     window.addEventListener('online', () => {
         sendHeartbeat();
         warmOfflineCache('online');
-        reloadIfChanged();
+        if (shouldUseSyncedGroupReload()) {
+            logSyncDebug('online event: synced group keeps minute-aligned state check');
+            queueMinuteAlignedStateCheck();
+            return;
+        }
+        logSyncDebug('online event: immediate state check for non-synced display');
+        reloadIfChanged('online');
     });
     window.addEventListener('offline', () => {
         if (!isSlidePlayable(slides[index])) {
@@ -959,7 +1339,13 @@
         if (nextSlideDueAt && Date.now() >= nextSlideDueAt) {
             activate(nextIndex(index));
         }
-        reloadIfChanged();
+        if (shouldUseSyncedGroupReload()) {
+            logSyncDebug('focus event: synced group keeps minute-aligned state check');
+            queueMinuteAlignedStateCheck();
+            return;
+        }
+        logSyncDebug('focus event: immediate state check for non-synced display');
+        reloadIfChanged('focus');
     });
     document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible' && nextSlideDueAt && Date.now() >= nextSlideDueAt) {

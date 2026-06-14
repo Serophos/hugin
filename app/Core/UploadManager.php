@@ -82,12 +82,20 @@ class UploadManager
         }
 
         $publicPath = '/uploads/' . $subDir . '/' . $filename;
+        $previewPublicPath = null;
+        if ($info['kind'] === 'video') {
+            $previewFilename = pathinfo($filename, PATHINFO_FILENAME) . '.preview.jpg';
+            $previewAbsolutePath = $publicDir . DIRECTORY_SEPARATOR . $previewFilename;
+            if ($this->generateVideoPreview($absolutePath, $previewAbsolutePath)) {
+                $previewPublicPath = '/uploads/' . $subDir . '/' . $previewFilename;
+            }
+        }
         $originalName = (string)($file['name'] ?? $filename);
         $name = trim($label) !== '' ? trim($label) : pathinfo($originalName, PATHINFO_FILENAME);
 
         $this->db->execute(
-            'INSERT INTO media_assets (name, original_name, mime_type, file_size, media_kind, file_path, uploaded_by_user_id)
-             VALUES (?, ?, ?, ?, ?, ?, ?)',
+            'INSERT INTO media_assets (name, original_name, mime_type, file_size, media_kind, file_path, preview_file_path, uploaded_by_user_id)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
             [
                 $name,
                 $originalName,
@@ -95,6 +103,7 @@ class UploadManager
                 (int)($file['size'] ?? 0),
                 $info['kind'],
                 $publicPath,
+                $previewPublicPath,
                 $uploadedByUserId,
             ]
         );
@@ -108,5 +117,53 @@ class UploadManager
         if (is_file($absolutePath)) {
             @unlink($absolutePath);
         }
+    }
+
+    private function generateVideoPreview(string $videoPath, string $previewPath): bool
+    {
+        $ffmpeg = $this->ffmpegBinary();
+        if ($ffmpeg === null) {
+            return false;
+        }
+
+        $command = implode(' ', [
+            escapeshellarg($ffmpeg),
+            '-y',
+            '-hide_banner',
+            '-loglevel error',
+            '-ss 00:00:01',
+            '-i ' . escapeshellarg($videoPath),
+            '-frames:v 1',
+            '-vf ' . escapeshellarg('scale=min(1280\,iw):-2'),
+            '-q:v 4',
+            escapeshellarg($previewPath),
+        ]);
+        $output = [];
+        $exitCode = 1;
+        @exec($command, $output, $exitCode);
+
+        return $exitCode === 0 && is_file($previewPath) && filesize($previewPath) > 0;
+    }
+
+    private function ffmpegBinary(): ?string
+    {
+        $configured = trim((string)($this->config['media']['ffmpeg_binary'] ?? getenv('FFMPEG_BINARY') ?: ''));
+        $candidates = array_filter([
+            $configured,
+            '/usr/bin/ffmpeg',
+            '/usr/local/bin/ffmpeg',
+            'ffmpeg',
+        ]);
+
+        foreach ($candidates as $candidate) {
+            if (str_contains($candidate, DIRECTORY_SEPARATOR) && is_executable($candidate)) {
+                return $candidate;
+            }
+            if ($candidate === 'ffmpeg') {
+                return $candidate;
+            }
+        }
+
+        return null;
     }
 }

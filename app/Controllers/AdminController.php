@@ -543,7 +543,14 @@ class AdminController
     {
         $this->auth->requireRole('admin');
 
-        $display = $id ? $this->db->one('SELECT * FROM displays WHERE id = ?', [$id]) : null;
+        $display = $id ? $this->db->one(
+            'SELECT d.*, g.name AS group_name, g.sync_enabled AS group_sync_enabled
+             FROM displays d
+             LEFT JOIN display_group_memberships dgm ON dgm.display_id = d.id
+             LEFT JOIN display_groups g ON g.id = dgm.group_id
+             WHERE d.id = ?',
+            [$id]
+        ) : null;
         if ($id && !$display) {
             flash('error', __('display.not_found'));
             redirect('/admin/displays');
@@ -1122,7 +1129,7 @@ class AdminController
         $defaultScheduleId = $this->defaultChannelScheduleId();
         $rows = $this->db->all(
             'SELECT d.id AS display_id, d.name AS display_name, d.slug AS display_slug, d.icon_file AS display_icon_file,
-                    g.name AS group_name, l.name AS location_name,
+                    g.name AS group_name, g.sync_enabled AS group_sync_enabled, l.name AS location_name,
                     c.id AS channel_id, c.name AS channel_name, c.transition_effect, c.is_active,
                     cdsa.id AS assignment_id, cdsa.priority, cdsa.is_active AS assignment_is_active,
                     s.name AS schedule_name, s.type AS schedule_type,
@@ -1160,6 +1167,7 @@ class AdminController
                     'icon_url' => $this->displayIconUrl($iconFile, $displayIcons),
                     'location_name' => $row['location_name'] ?: __('locations.unassigned'),
                     'group_name' => $row['group_name'] ?: __('locations.unassigned'),
+                    'group_sync_enabled' => (int)($row['group_sync_enabled'] ?? 0),
                     'is_unused' => false,
                 ];
             }
@@ -1200,6 +1208,7 @@ class AdminController
                     'icon_url' => '',
                     'location_name' => __('common.none'),
                     'group_name' => __('common.none'),
+                    'group_sync_enabled' => 0,
                     'is_unused' => true,
                 ],
                 'channels' => $unusedChannels,
@@ -1621,7 +1630,7 @@ class AdminController
             'templateModel' => $template,
             'landscapeSpec' => $this->templateSlides->decodeSpec((string)($template['landscape_spec_json'] ?? ''), 'landscape'),
             'portraitSpec' => trim((string)($template['portrait_spec_json'] ?? '')) !== '' ? $this->templateSlides->decodeSpec((string)$template['portrait_spec_json'], 'portrait') : null,
-            'mediaAssets' => $this->db->all('SELECT id, name, original_name, media_kind, file_path FROM media_assets ORDER BY created_at DESC, id DESC'),
+            'mediaAssets' => $this->db->all('SELECT id, name, original_name, media_kind, file_path, preview_file_path FROM media_assets ORDER BY created_at DESC, id DESC'),
             'error' => flash('error'),
         ]);
     }
@@ -1641,6 +1650,7 @@ class AdminController
         $isActive = $this->request->input('is_active') ? 1 : 0;
         $landscapeRaw = (string)$this->request->input('landscape_spec_json', '');
         $portraitRaw = (string)$this->request->input('portrait_spec_json', '');
+        $saveAction = (string)$this->request->input('save_action', 'save');
         $old = [
             'name' => $nameRaw,
             'description' => $description,
@@ -1659,16 +1669,18 @@ class AdminController
             if (!is_array($landscapeDecoded)) {
                 throw new RuntimeException(__('templates.invalid_spec'));
             }
-            $landscapeJson = $this->templateSlides->encodeSpec($landscapeDecoded, 'landscape');
 
+            $portraitDecoded = null;
             $portraitJson = null;
             if (trim($portraitRaw) !== '') {
                 $portraitDecoded = json_decode($portraitRaw, true);
                 if (!is_array($portraitDecoded)) {
                     throw new RuntimeException(__('templates.invalid_spec'));
                 }
-                $portraitJson = $this->templateSlides->encodeSpec($portraitDecoded, 'portrait');
             }
+            $encodedSpecs = $this->templateSlides->encodeSpecs($landscapeDecoded, $portraitDecoded);
+            $landscapeJson = $encodedSpecs['landscape'];
+            $portraitJson = $encodedSpecs['portrait'];
         } catch (RuntimeException $e) {
             $errors['landscape_spec_json'] = $e->getMessage();
             $landscapeJson = $landscapeRaw;
@@ -1690,18 +1702,20 @@ class AdminController
                 'UPDATE slide_templates SET name = ?, description = ?, landscape_spec_json = ?, portrait_spec_json = ?, is_active = ?, updated_by_user_id = ? WHERE id = ?',
                 [$name, $description, $landscapeJson, $portraitJson, $isActive, $this->auth->id(), $id]
             );
+            $templateId = $id;
             flash('success', __('templates.updated'));
         } else {
             $this->db->execute(
                 'INSERT INTO slide_templates (name, description, landscape_spec_json, portrait_spec_json, is_active, created_by_user_id, updated_by_user_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
                 [$name, $description, $landscapeJson, $portraitJson, $isActive, $this->auth->id(), $this->auth->id()]
             );
+            $templateId = (int)$this->db->lastInsertId();
             flash('success', __('templates.created'));
         }
 
         $affectedSlides = $id ? $this->db->all('SELECT slide_id FROM slide_template_data WHERE template_id = ?', [$id]) : [];
         $this->requestReloadForDisplays($this->displayIdsForSlides(array_map(static fn(array $row): int => (int)$row['slide_id'], $affectedSlides)));
-        redirect('/admin/slide-templates');
+        redirect($saveAction === 'save_and_close' ? '/admin/slide-templates' : '/admin/slide-templates/' . $templateId . '/edit');
     }
 
     public function deleteSlideTemplate(int $id): void
@@ -1776,6 +1790,14 @@ class AdminController
         $templateData = $id ? $this->db->one('SELECT * FROM slide_template_data WHERE slide_id = ?', [$id]) : null;
         $templateValues = $this->templateSlides->decodeValues((string)($templateData['values_json'] ?? ''));
         $selectedTemplateId = (int)($templateData['template_id'] ?? 0);
+        if ($selectedTemplateId > 0) {
+            foreach ($slideTemplates as $template) {
+                if ((int)$template['id'] === $selectedTemplateId) {
+                    $templateValues = $this->templateSlides->valuesForTemplateForm($template, $templateValues);
+                    break;
+                }
+            }
+        }
         $imageMediaAssets = array_values(array_filter($mediaAssets, static fn(array $asset): bool => ($asset['media_kind'] ?? '') === 'image'));
         $backgroundMediaAssets = array_values(array_filter($mediaAssets, static fn(array $asset): bool => in_array(($asset['media_kind'] ?? ''), ['image', 'video'], true)));
         $assignedChannelIds = $id
@@ -2452,6 +2474,9 @@ class AdminController
         }
         $this->db->execute('DELETE FROM media_assets WHERE id = ?', [$id]);
         $this->uploadManager->deleteMediaFile((string)$asset['file_path']);
+        if (!empty($asset['preview_file_path'])) {
+            $this->uploadManager->deleteMediaFile((string)$asset['preview_file_path']);
+        }
         flash('success', __('media.deleted'));
         redirect('/admin/media');
     }
@@ -3170,7 +3195,7 @@ class AdminController
                        dgm.group_id, dgm.layout_x, dgm.layout_y, dgm.layout_width, dgm.layout_height,
                        dgm.layout_rotation_degrees, dgm.bezel_top, dgm.bezel_right, dgm.bezel_bottom,
                        dgm.bezel_left, dgm.sort_order AS group_sort_order,
-                       g.name AS group_name, g.location_id,
+                       g.name AS group_name, g.sync_enabled AS group_sync_enabled, g.location_id,
                        l.name AS location_name,
                        h.last_seen_at, TIMESTAMPDIFF(SECOND, h.last_seen_at, NOW()) AS heartbeat_age_seconds,
                        h.screen_width, h.screen_height, h.avail_screen_width,

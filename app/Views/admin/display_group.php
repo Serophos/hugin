@@ -53,7 +53,15 @@ require __DIR__ . '/../layouts/admin_header.php';
                         (int)$display['layout_width'],
                         (int)$display['layout_height']
                     );
-                    $tileTitle = trim($display['name'] . ' - ' . ($display['resolution_label'] ?? '') . ' - ' . ($display['monitoring_label'] ?? ''));
+                    $displaySyncEnabled = !empty($display['group_sync_enabled']);
+                    $syncLabel = __('display_groups.sync_enabled_indicator');
+                    $tileTitleParts = array_filter([
+                        (string)$display['name'],
+                        (string)($display['resolution_label'] ?? ''),
+                        (string)($display['monitoring_label'] ?? ''),
+                        $displaySyncEnabled ? $syncLabel : '',
+                    ], static fn(string $part): bool => trim($part) !== '');
+                    $tileTitle = implode(' - ', $tileTitleParts);
                     $iconUrl = (string)($display['display_icon_url'] ?? '');
                     ?>
                     <article
@@ -67,6 +75,9 @@ require __DIR__ . '/../layouts/admin_header.php';
                     >
                         <?php if ($iconUrl !== ''): ?>
                             <img class="display-tile__icon" src="<?= e($iconUrl) ?>" alt="" draggable="false">
+                        <?php endif; ?>
+                        <?php if ($displaySyncEnabled): ?>
+                            <span class="display-sync-indicator display-sync-indicator--tile" aria-hidden="true"><?= admin_icon('reload') ?></span>
                         <?php endif; ?>
                         <span class="display-tile__label"><?= e($display['name']) ?></span>
                     </article>
