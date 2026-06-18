@@ -46,21 +46,24 @@ if (!empty($backgroundImageUrl)) {
 }
 
 $groups = [];
+$currentGroupKey = null;
 foreach ($items as $item) {
     if (!is_object($item)) {
         continue;
     }
     $classification = trim((string)($item->classification ?? '')) ?: 'other';
-    if (!isset($groups[$classification])) {
+    // Spalte already encodes the menu/category order, so headings must follow the sorted item stream.
+    if ($currentGroupKey !== $classification) {
         $categoryData = $service->getCategoryDisplayData($classification, $language);
-        $groups[$classification] = [
+        $groups[] = [
             'key' => $classification,
             'icon' => $categoryData['icon'] ?? '',
             'label' => $categoryData['label'] ?? $service->getCategoryLabel($classification, $language),
             'items' => [],
         ];
+        $currentGroupKey = $classification;
     }
-    $groups[$classification]['items'][] = $item;
+    $groups[count($groups) - 1]['items'][] = $item;
 }
 ?>
 <div class="tl1menu tl1menu-list" data-tl1menu-list data-item-count="<?= e((string)$itemCount) ?>" data-has-image="<?= !empty($backgroundImageUrl) ? '1' : '0' ?>" style="<?= e(implode(';', $styleParts)) ?>">
