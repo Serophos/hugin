@@ -1468,7 +1468,7 @@ require __DIR__ . '/../layouts/admin_header.php';
 
     function addElement(type) {
         const z = type === 'background' ? 0 : nextContentLayerZ();
-        const element = { id: uid(type), type, field: '', x: 0.2, y: 0.2, w: 0.35, h: 0.22, z, style: { backgroundColor: type === 'shape' ? 'rgba(255,255,255,0.35)' : 'rgba(15,23,42,0.55)', color: '#ffffff', fontSize: 4, radius: 1, fit: 'cover' } };
+        const element = { id: uid(type), type, field: '', x: 0.2, y: 0.2, w: 0.35, h: 0.22, z, style: { backgroundColor: type === 'shape' ? 'rgba(255,255,255,0.35)' : 'rgba(15,23,42,0.55)', color: '#ffffff', fontSize: 4, radius: 0, fit: 'cover' } };
         if (type !== 'background') element.animation = defaultAnimation();
         if (type === 'qr') { element.w = 0.18; element.h = 0.32; element.style.backgroundColor = 'rgba(255,255,255,1)'; element.style.color = 'rgba(15,23,42,1)'; }
         if (type === 'media') { element.w = 0.42; element.h = 0.32; }
