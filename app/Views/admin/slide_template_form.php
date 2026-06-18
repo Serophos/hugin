@@ -249,10 +249,6 @@ require __DIR__ . '/../layouts/admin_header.php';
 
     <section class="template-editor full-width" data-template-editor>
         <div class="template-editor__topbar">
-            <div class="segmented-control" role="group" aria-label="<?= e(__('common.orientation')) ?>">
-                <button type="button" class="is-active" data-orientation-tab="landscape" aria-pressed="true"><?= e(__('orientations.landscape')) ?></button>
-                <button type="button" data-orientation-tab="portrait" aria-pressed="false"><?= e(__('orientations.vertical')) ?></button>
-            </div>
             <label class="template-editor__snap-toggle">
                 <input type="checkbox" data-snap-to-grid checked>
                 <span><?= e(__('templates.snap_to_grid')) ?></span>
@@ -297,6 +293,10 @@ require __DIR__ . '/../layouts/admin_header.php';
         </div>
         <div class="template-editor__layout">
             <div class="template-editor__canvas-shell">
+                <div class="template-editor__canvas-tabs" role="tablist" aria-label="<?= e(__('common.orientation')) ?>">
+                    <button type="button" class="is-active" data-orientation-tab="landscape" role="tab" aria-selected="true"><?= e(__('orientations.landscape')) ?></button>
+                    <button type="button" data-orientation-tab="portrait" role="tab" aria-selected="false" tabindex="-1"><?= e(__('orientations.vertical')) ?></button>
+                </div>
                 <div class="template-editor__canvas-frame">
                     <p id="template-editor-canvas-instructions" class="sr-only"><?= e(__('templates.canvas_instructions')) ?></p>
                     <div id="template-editor-canvas-status" class="sr-only" aria-live="polite" aria-atomic="true" data-editor-status></div>
@@ -2307,13 +2307,26 @@ require __DIR__ . '/../layouts/admin_header.php';
         editor.querySelectorAll('[data-orientation-tab]').forEach(tab => {
             const active = tab === button;
             tab.classList.toggle('is-active', active);
-            tab.setAttribute('aria-pressed', active ? 'true' : 'false');
+            tab.setAttribute('aria-selected', active ? 'true' : 'false');
+            tab.tabIndex = active ? 0 : -1;
         });
         orientation = button.dataset.orientationTab;
         selectedId = null;
         spec();
         render();
     }));
+    editor.querySelectorAll('[data-orientation-tab]').forEach(button => {
+        button.addEventListener('keydown', event => {
+            const tabs = Array.from(editor.querySelectorAll('[data-orientation-tab]'));
+            const currentIndex = tabs.indexOf(button);
+            const nextIndex = event.key === 'ArrowRight' ? currentIndex + 1 : (event.key === 'ArrowLeft' ? currentIndex - 1 : -1);
+            if (nextIndex < 0) return;
+            event.preventDefault();
+            const next = tabs[(nextIndex + tabs.length) % tabs.length];
+            next.click();
+            focusWithoutScroll(next);
+        });
+    });
     inspectorTabs.forEach(button => {
         button.addEventListener('click', () => { setInspectorTab(button.dataset.inspectorTab); });
         button.addEventListener('keydown', event => {

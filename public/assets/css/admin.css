@@ -3943,19 +3943,77 @@ input[type="color"] {
 .template-editor__canvas-shell {
     min-height: 34rem;
     display: grid;
-    place-items: center;
-    overflow: auto;
+    grid-template-rows: auto minmax(0, 1fr);
+    align-items: stretch;
+    justify-items: stretch;
+    overflow: hidden;
     padding: 0;
     background: #fff;
 }
 
+.template-editor__canvas-tabs {
+    display: flex;
+    gap: 0;
+    align-items: stretch;
+    min-width: 0;
+    overflow-x: auto;
+    border-bottom: 1px solid #d8dee8;
+    background: #f8fafc;
+}
+
+.template-editor__canvas-tabs button {
+    position: relative;
+    flex: 0 0 auto;
+    min-width: 8rem;
+    min-height: 2.9rem;
+    padding: 0.7rem 1rem;
+    border: 0;
+    border-right: 1px solid #d8dee8;
+    background: transparent;
+    color: #475569;
+    font: inherit;
+    font-weight: 800;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.template-editor__canvas-tabs button::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -1px;
+    height: 3px;
+    background: transparent;
+}
+
+.template-editor__canvas-tabs button.is-active {
+    background: #fff;
+    color: #1d4ed8;
+}
+
+.template-editor__canvas-tabs button.is-active::after {
+    background: #2563eb;
+}
+
+.template-editor__canvas-tabs button:hover,
+.template-editor__canvas-tabs button:focus-visible {
+    color: #1d4ed8;
+    outline: none;
+}
+
+.template-editor__canvas-tabs button:focus-visible {
+    box-shadow: inset 0 0 0 3px rgba(37, 99, 235, 0.22);
+}
+
 .template-editor__canvas-frame {
     width: 100%;
+    min-height: 0;
     display: grid;
     place-items: center;
     padding: 0;
     border-radius: 0;
-    overflow: visible;
+    overflow: auto;
 }
 
 .template-editor__canvas {

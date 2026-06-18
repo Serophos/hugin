@@ -177,7 +177,7 @@ return [
         'section_appearance' => 'Appearance',
         'section_entrance_animation' => 'Entrance',
         'section_continuous_animation' => 'Continuous',
-        'snap_to_grid' => 'Snap to grid and guides',
+        'snap_to_grid' => 'Snap to grid',
         'canvas_label' => 'Template canvas',
         'canvas_instructions' => 'Select an element with Enter or Space. Move selected non-background elements with the arrow keys. Hold Shift with an arrow key for a larger move.',
         'element_accessible_label' => ':label, :type, :position',

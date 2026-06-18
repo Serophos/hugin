@@ -197,7 +197,7 @@ return [
         'section_appearance' => 'Darstellung',
         'section_entrance_animation' => 'Erscheinen',
         'section_continuous_animation' => 'Fortlaufend',
-        'snap_to_grid' => 'An Raster und Hilfslinien ausrichten',
+        'snap_to_grid' => 'An Raster ausrichten',
         'canvas_label' => 'Vorlagen-Arbeitsfläche',
         'canvas_instructions' => 'Wählen Sie ein Element mit Enter oder Leertaste aus. Verschieben Sie ausgewählte Elemente außer dem Hintergrund mit den Pfeiltasten. Halten Sie Umschalt mit einer Pfeiltaste für größere Schritte.',
         'element_accessible_label' => ':label, :type, :position',
