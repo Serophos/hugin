@@ -1850,6 +1850,16 @@ require __DIR__ . '/../layouts/admin_header.php';
         return Promise.resolve(false);
     }
 
+    function alertAction(config) {
+        if (typeof window.HuginConfirm?.alert === 'function') {
+            return Promise.resolve(window.HuginConfirm.alert(config));
+        }
+        if (typeof window.HuginConfirm?.info === 'function') {
+            return Promise.resolve(window.HuginConfirm.info(config));
+        }
+        return Promise.resolve();
+    }
+
     function confirmUnusedFieldDeletion(field, fieldKey) {
         return confirmAction({
             title: i18n.delete || '',
@@ -2385,9 +2395,14 @@ require __DIR__ . '/../layouts/admin_header.php';
         if (!link || isSubmitting || !hasUnsavedChanges()) return;
         const href = link.getAttribute('href') || '';
         if (href === '' || href.startsWith('#') || href.startsWith('javascript:') || href.startsWith('mailto:') || href.startsWith('tel:') || link.target || link.hasAttribute('download')) return;
-        if (!window.confirm(i18n.unsaved_changes_confirm || 'You have unsaved changes. Leave this page?')) {
-            event.preventDefault();
-        }
+        event.preventDefault();
+        confirmAction({
+            message: i18n.unsaved_changes_confirm || 'You have unsaved changes. Leave this page?',
+        }).then(accepted => {
+            if (!accepted) return;
+            isSubmitting = true;
+            window.location.assign(link.href);
+        });
     });
     form.addEventListener('input', markDirty);
     form.addEventListener('change', markDirty);
@@ -2431,7 +2446,9 @@ require __DIR__ . '/../layouts/admin_header.php';
                 selectedId = null;
                 render();
             } catch (error) {
-                window.alert(i18n.import_invalid || 'The selected JSON file is invalid.');
+                alertAction({
+                    message: i18n.import_invalid || 'The selected JSON file is invalid.',
+                });
             }
         });
         reader.readAsText(file);

@@ -9,7 +9,7 @@
         <p id="admin-confirm-message" class="muted" data-confirm-dialog-message></p>
         <div class="form-actions">
             <button type="button" class="button button--normal" data-confirm-cancel><?= admin_icon('cancel') ?><span><?= e(__('common.no')) ?></span></button>
-            <button type="button" class="button button--danger" data-confirm-accept><?= admin_icon('delete') ?><span data-default-label="<?= e(__('common.yes')) ?>"><?= e(__('common.yes')) ?></span></button>
+            <button type="button" class="button button--danger" data-confirm-accept data-alert-icon="<?= e(url('/assets/icons/admin/cancel.svg')) ?>"><?= admin_icon('delete') ?><span data-default-label="<?= e(__('common.yes')) ?>" data-alert-label="<?= e(__('common.close')) ?>"><?= e(__('common.yes')) ?></span></button>
         </div>
     </form>
 </dialog>

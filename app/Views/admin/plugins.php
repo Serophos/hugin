@@ -6,6 +6,7 @@ $pluginDialogStrings = [
     'noChannels' => __('slide.no_channels'),
     'active' => __('common.active'),
     'inactive' => __('common.inactive'),
+    'accept' => __('plugins.disable_and_inactivate'),
 ];
 require __DIR__ . '/../layouts/admin_header.php';
 ?>
@@ -122,71 +123,110 @@ require __DIR__ . '/../layouts/admin_header.php';
             .replace(':count', String(count));
     }
 
-    if (dialog && typeof dialog.showModal === 'function') {
-        const title = dialog.querySelector('[data-plugin-impact-title]');
-        const message = dialog.querySelector('[data-plugin-impact-message]');
-        const list = dialog.querySelector('[data-plugin-impact-list]');
-        const cancel = dialog.querySelector('[data-plugin-impact-cancel]');
-        const accept = dialog.querySelector('[data-plugin-impact-accept]');
+    const title = dialog?.querySelector('[data-plugin-impact-title]');
+    const message = dialog?.querySelector('[data-plugin-impact-message]');
+    const list = dialog?.querySelector('[data-plugin-impact-list]');
+    const cancel = dialog?.querySelector('[data-plugin-impact-cancel]');
+    const accept = dialog?.querySelector('[data-plugin-impact-accept]');
 
-        document.querySelectorAll('[data-plugin-disable-confirm]').forEach((form) => {
-            form.addEventListener('submit', (event) => {
-                if (form.dataset.confirmed === '1') return;
-                const slides = parseSlides(form);
-                if (slides.length === 0) return;
+    function markConfirmed(form) {
+        const confirmInput = form.querySelector('[data-plugin-disable-confirm-input]');
+        if (confirmInput) confirmInput.value = '1';
+        form.dataset.confirmed = '1';
+    }
 
-                event.preventDefault();
-                pendingForm = form;
-                const pluginName = form.dataset.pluginName || '';
-                if (title) title.textContent = (strings.title || '').replace(':plugin', pluginName);
-                if (message) message.textContent = confirmMessage(pluginName, slides.length);
-                if (list) {
-                    list.replaceChildren(...slides.map((slide) => {
-                        const item = document.createElement('a');
-                        item.className = 'plugin-impact-dialog__item';
-                        item.href = `/admin/slides/${slide.id}/edit`;
-                        item.target = '_blank';
-                        const name = document.createElement('strong');
-                        name.textContent = slide.name || `#${slide.id}`;
-                        const meta = document.createElement('small');
-                        const status = Number(slide.is_active || 0) === 1 ? strings.active : strings.inactive;
-                        const channels = slide.channel_names || strings.noChannels || '';
-                        meta.textContent = [status, channels].filter(Boolean).join(' · ');
-                        item.append(name, meta);
-                        return item;
-                    }));
-                }
+    function submitConfirmed(form) {
+        markConfirmed(form);
+        form.submit();
+    }
+
+    function openImpactDialog() {
+        if (!dialog) return;
+        try {
+            if (typeof dialog.showModal === 'function') {
                 dialog.showModal();
-            });
-        });
+                return;
+            }
+            dialog.setAttribute('open', '');
+        } catch (error) {
+            dialog.setAttribute('open', '');
+        }
+    }
 
-        cancel?.addEventListener('click', () => {
-            pendingForm = null;
+    function closeImpactDialog() {
+        if (!dialog) return;
+        if (typeof dialog.close === 'function' && dialog.open) {
             dialog.close();
-        });
-        accept?.addEventListener('click', () => {
-            if (!pendingForm) return;
-            const confirmInput = pendingForm.querySelector('[data-plugin-disable-confirm-input]');
-            if (confirmInput) confirmInput.value = '1';
-            pendingForm.dataset.confirmed = '1';
-            pendingForm.submit();
-        });
-    } else {
-        document.querySelectorAll('[data-plugin-disable-confirm]').forEach((form) => {
-            form.addEventListener('submit', (event) => {
-                if (form.dataset.confirmed === '1') return;
-                const slides = parseSlides(form);
-                if (slides.length === 0) return;
-                if (!window.confirm(confirmMessage(form.dataset.pluginName || '', slides.length))) {
-                    event.preventDefault();
-                    return;
-                }
-                const confirmInput = form.querySelector('[data-plugin-disable-confirm-input]');
-                if (confirmInput) confirmInput.value = '1';
-                form.dataset.confirmed = '1';
-            });
+            return;
+        }
+        dialog.removeAttribute('open');
+    }
+
+    function showImpactDialog(form, slides) {
+        pendingForm = form;
+        const pluginName = form.dataset.pluginName || '';
+        if (title) title.textContent = (strings.title || '').replace(':plugin', pluginName);
+        if (message) message.textContent = confirmMessage(pluginName, slides.length);
+        if (list) {
+            list.replaceChildren(...slides.map((slide) => {
+                const item = document.createElement('a');
+                item.className = 'plugin-impact-dialog__item';
+                item.href = `/admin/slides/${slide.id}/edit`;
+                item.target = '_blank';
+                const name = document.createElement('strong');
+                name.textContent = slide.name || `#${slide.id}`;
+                const meta = document.createElement('small');
+                const status = Number(slide.is_active || 0) === 1 ? strings.active : strings.inactive;
+                const channels = slide.channel_names || strings.noChannels || '';
+                meta.textContent = [status, channels].filter(Boolean).join(' · ');
+                item.append(name, meta);
+                return item;
+            }));
+        }
+        openImpactDialog();
+    }
+
+    function confirmWithSharedDialog(form, slides) {
+        if (typeof window.HuginConfirm?.confirm !== 'function') {
+            return Promise.resolve(false);
+        }
+        const pluginName = form.dataset.pluginName || '';
+        return window.HuginConfirm.confirm({
+            title: (strings.title || '').replace(':plugin', pluginName),
+            message: confirmMessage(pluginName, slides.length),
+            accept: strings.accept || '',
         });
     }
+
+    document.querySelectorAll('[data-plugin-disable-confirm]').forEach((form) => {
+        form.addEventListener('submit', (event) => {
+            if (form.dataset.confirmed === '1') return;
+            const slides = parseSlides(form);
+            if (slides.length === 0) return;
+
+            event.preventDefault();
+            if (dialog) {
+                showImpactDialog(form, slides);
+                return;
+            }
+
+            confirmWithSharedDialog(form, slides).then((accepted) => {
+                if (!accepted) return;
+                submitConfirmed(form);
+            });
+        });
+    });
+
+    cancel?.addEventListener('click', () => {
+        pendingForm = null;
+        closeImpactDialog();
+    });
+    accept?.addEventListener('click', () => {
+        if (!pendingForm) return;
+        submitConfirmed(pendingForm);
+    });
+    dialog?.addEventListener('cancel', () => { pendingForm = null; });
+    dialog?.addEventListener('close', () => { pendingForm = null; });
 })();
 </script>
 <?php require __DIR__ . '/../layouts/admin_footer.php'; ?>
