@@ -6,6 +6,14 @@
     const actionBase = root.getAttribute('data-action-base') || '';
     const i18n = parseJson(root.getAttribute('data-i18n') || '{}') || {};
     let categoryIconChoices = normalizeCategoryIconChoices(parseJson(root.getAttribute('data-category-icons') || '[]'));
+    const categoryIconStemRenames = {
+        'beef-higher-welfare': 'beef_higher_welfare',
+        'fish-higher-welfare': 'fish_higher_welfare',
+        'lamb-higher-welfare': 'lamb_higher_welfare',
+        'mensa-vital': 'vital',
+        'pork-higher-welfare': 'pork_higher_welfare',
+        'poultry-higher-welfare': 'poultry_higher_welfare'
+    };
     const csrfInput = document.querySelector('input[name="_csrf"]');
     const csrfToken = csrfInput ? csrfInput.value : '';
     const menuUrlInput = root.querySelector('[data-tl1menu-menu-url]');
@@ -472,7 +480,38 @@
 
     function normalizeCategoryIconPath(value) {
         const path = String(value || '').trim().replace(/\\/g, '/');
-        return path !== '' ? path : 'assets/img/categories/default.svg';
+        if (path === '') return categoryIconAssetPath('default');
+
+        if (categoryIconChoices.some(choice => choice.path === path)) {
+            return path;
+        }
+
+        const parts = path.split('#');
+        const pathOnly = parts.shift() || '';
+        const fragment = parts.length ? `#${parts.join('#')}` : '';
+        const match = pathOnly.match(/^assets\/img\/categories\/([^/]+)\.(svg|png|webp)$/i);
+        if (!match) {
+            return path;
+        }
+
+        const replacement = findCategoryIconAssetPath(match[1]);
+        return replacement ? `${replacement}${fragment}` : path;
+    }
+
+    function categoryIconAssetPath(stem) {
+        return findCategoryIconAssetPath(stem) || `assets/img/categories/${normalizeCategoryIconStem(stem)}.webp`;
+    }
+
+    function findCategoryIconAssetPath(stem) {
+        const normalizedStem = normalizeCategoryIconStem(stem);
+        const candidates = ['png', 'webp', 'svg'].map(extension => `assets/img/categories/${normalizedStem}.${extension}`);
+        const match = candidates.find(candidate => categoryIconChoices.some(choice => choice.path === candidate));
+        return match || '';
+    }
+
+    function normalizeCategoryIconStem(stem) {
+        const normalized = String(stem || 'default').trim();
+        return categoryIconStemRenames[normalized] || normalized.replace(/-/g, '_');
     }
 
     function updateCategoryIconPreview(select) {
@@ -564,6 +603,11 @@
         }
 
         if (config.categories && typeof config.categories === 'object' && !Array.isArray(config.categories)) {
+            Object.values(config.categories).forEach(row => {
+                if (row && typeof row === 'object' && !Array.isArray(row)) {
+                    row.icon = normalizeCategoryIconPath(row.icon);
+                }
+            });
             config.categories = sortedObjectFromEntries(Object.entries(config.categories));
         }
 
@@ -773,7 +817,7 @@
         } else if (type === 'category') {
             state.categories = state.categories && typeof state.categories === 'object' ? state.categories : {};
             if (state.categories[normalizedKey]) return setStatus(t('errors.duplicate_key'), true);
-            state.categories[normalizedKey] = {icon: 'assets/img/categories/default.svg', labels: {de: normalizedKey, en: normalizedKey}};
+            state.categories[normalizedKey] = {icon: categoryIconAssetPath('default'), labels: {de: normalizedKey, en: normalizedKey}};
         }
 
         syncJson();
@@ -872,7 +916,7 @@
         const labelEn = String(labels && labels.en || fallback || key).trim() || key;
         const labelDe = String(labels && labels.de || labelEn).trim() || labelEn;
         state.categories[key] = {
-            icon: 'assets/img/categories/default.svg',
+            icon: categoryIconAssetPath('default'),
             labels: {de: labelDe, en: labelEn}
         };
     }

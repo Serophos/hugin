@@ -454,29 +454,29 @@ final class Tl1SetupAnalyzer
             'vegan' => ['icon' => $this->categoryIconPath('vegan'), 'labels' => ['de' => 'Vegan', 'en' => 'Vegan']],
             'vegetarian' => ['icon' => $this->categoryIconPath('vegetarian'), 'labels' => ['de' => 'Vegetarisch', 'en' => 'Vegetarian']],
             'fish' => ['icon' => $this->categoryIconPath('fish'), 'labels' => ['de' => 'Fisch', 'en' => 'Fish']],
-            'fish_higher_welfare' => ['icon' => $this->categoryIconPath('fish-higher-welfare'), 'labels' => ['de' => 'Fisch aus artgerechter Haltung', 'en' => 'Fish from higher-welfare sourcing']],
+            'fish_higher_welfare' => ['icon' => $this->categoryIconPath('fish_higher_welfare'), 'labels' => ['de' => 'Fisch aus artgerechter Haltung', 'en' => 'Fish from higher-welfare sourcing']],
             'meat' => ['icon' => $this->categoryIconPath('meat'), 'labels' => ['de' => 'Fleisch', 'en' => 'Meat']],
             'pork' => ['icon' => $this->categoryIconPath('pork'), 'labels' => ['de' => 'Schwein', 'en' => 'Pork']],
-            'pork_higher_welfare' => ['icon' => $this->categoryIconPath('pork-higher-welfare'), 'labels' => ['de' => 'Schwein aus artgerechter Haltung', 'en' => 'Pork from higher-welfare farming']],
+            'pork_higher_welfare' => ['icon' => $this->categoryIconPath('pork_higher_welfare'), 'labels' => ['de' => 'Schwein aus artgerechter Haltung', 'en' => 'Pork from higher-welfare farming']],
             'beef' => ['icon' => $this->categoryIconPath('beef'), 'labels' => ['de' => 'Rind', 'en' => 'Beef']],
-            'beef_higher_welfare' => ['icon' => $this->categoryIconPath('beef-higher-welfare'), 'labels' => ['de' => 'Rind aus artgerechter Haltung', 'en' => 'Beef from higher-welfare farming']],
+            'beef_higher_welfare' => ['icon' => $this->categoryIconPath('beef_higher_welfare'), 'labels' => ['de' => 'Rind aus artgerechter Haltung', 'en' => 'Beef from higher-welfare farming']],
             'poultry' => ['icon' => $this->categoryIconPath('poultry'), 'labels' => ['de' => 'Geflügel', 'en' => 'Poultry']],
-            'poultry_higher_welfare' => ['icon' => $this->categoryIconPath('poultry-higher-welfare'), 'labels' => ['de' => 'Geflügel aus artgerechter Haltung', 'en' => 'Poultry from higher-welfare farming']],
+            'poultry_higher_welfare' => ['icon' => $this->categoryIconPath('poultry_higher_welfare'), 'labels' => ['de' => 'Geflügel aus artgerechter Haltung', 'en' => 'Poultry from higher-welfare farming']],
             'lamb' => ['icon' => $this->categoryIconPath('lamb'), 'labels' => ['de' => 'Lamm', 'en' => 'Lamb']],
-            'lamb_higher_welfare' => ['icon' => $this->categoryIconPath('lamb-higher-welfare'), 'labels' => ['de' => 'Lamm aus artgerechter Haltung', 'en' => 'Lamb from higher-welfare farming']],
+            'lamb_higher_welfare' => ['icon' => $this->categoryIconPath('lamb_higher_welfare'), 'labels' => ['de' => 'Lamm aus artgerechter Haltung', 'en' => 'Lamb from higher-welfare farming']],
             'dessert' => ['icon' => $this->categoryIconPath('dessert'), 'labels' => ['de' => 'Dessert', 'en' => 'Dessert']],
             'your_favorite' => ['icon' => $this->categoryIconPath('favorite'), 'labels' => ['de' => 'Your Favorite', 'en' => 'Your Favorite']],
             'streetfood' => ['icon' => $this->categoryIconPath('streetfood'), 'labels' => ['de' => 'Streetfood', 'en' => 'Streetfood']],
             'international' => ['icon' => $this->categoryIconPath('international'), 'labels' => ['de' => 'International', 'en' => 'International']],
-            'mensa_vital' => ['icon' => $this->categoryIconPath('mensa-vital'), 'labels' => ['de' => 'Mensa Vital', 'en' => 'Mensa Vital']],
-            'bio' => ['icon' => $this->categoryIconPath('vegan'), 'labels' => ['de' => 'Bio', 'en' => 'Organic']],
+            'mensa_vital' => ['icon' => $this->categoryIconPath('vital'), 'labels' => ['de' => 'Mensa Vital', 'en' => 'Mensa Vital']],
+            'bio' => ['icon' => $this->categoryIconPath('greenfood'), 'labels' => ['de' => 'Bio', 'en' => 'Organic']],
             'soup' => ['icon' => $this->categoryIconPath('soup'), 'labels' => ['de' => 'Suppe', 'en' => 'Soup']],
             'salad' => ['icon' => $this->categoryIconPath('salad'), 'labels' => ['de' => 'Salat', 'en' => 'Salad']],
             'pasta' => ['icon' => $this->categoryIconPath('pasta'), 'labels' => ['de' => 'Pasta', 'en' => 'Pasta']],
             'pizza' => ['icon' => $this->categoryIconPath('pizza'), 'labels' => ['de' => 'Pizza', 'en' => 'Pizza']],
             'burger' => ['icon' => $this->categoryIconPath('burger'), 'labels' => ['de' => 'Burger', 'en' => 'Burger']],
-            'sh_teller' => ['icon' => $this->categoryIconPath('default'), 'labels' => ['de' => 'SH Teller', 'en' => 'SH Teller']],
-            'kuechenklassiker' => ['icon' => $this->categoryIconPath('default'), 'labels' => ['de' => 'Küchenklassiker', 'en' => 'Kitchen classic']],
+            'sh_teller' => ['icon' => $this->categoryIconPath('lighthouse'), 'labels' => ['de' => 'SH Teller', 'en' => 'SH Teller']],
+            'kuechenklassiker' => ['icon' => $this->categoryIconPath('classics'), 'labels' => ['de' => 'Küchenklassiker', 'en' => 'Kitchen classic']],
         ];
         ksort($categories, SORT_NATURAL | SORT_FLAG_CASE);
 
@@ -485,7 +485,15 @@ final class Tl1SetupAnalyzer
 
     private function categoryIconPath(string $icon): string
     {
-        return 'assets/img/categories/' . $icon . '.svg';
+        $stem = str_replace('-', '_', $icon);
+        foreach (['png', 'webp', 'svg'] as $extension) {
+            $filename = $stem . '.' . $extension;
+            if (is_file(__DIR__ . '/../assets/img/categories/' . $filename)) {
+                return 'assets/img/categories/' . $filename;
+            }
+        }
+
+        return 'assets/img/categories/' . $stem . '.webp';
     }
 
     /** @return list<string> */

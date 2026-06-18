@@ -21,6 +21,14 @@ require_once __DIR__ . '/Setup/Tl1SetupAnalyzer.php';
 class Plugin extends AbstractSlidePlugin
 {
     private ?MenuService $service = null;
+    private const CATEGORY_ICON_STEM_RENAMES = [
+        'beef-higher-welfare' => 'beef_higher_welfare',
+        'fish-higher-welfare' => 'fish_higher_welfare',
+        'lamb-higher-welfare' => 'lamb_higher_welfare',
+        'mensa-vital' => 'vital',
+        'pork-higher-welfare' => 'pork_higher_welfare',
+        'poultry-higher-welfare' => 'poultry_higher_welfare',
+    ];
 
     public function getDefaultSettings(): array
     {
@@ -466,6 +474,8 @@ class Plugin extends AbstractSlidePlugin
     /** @param array<string, mixed> $config @return array<string, mixed> */
     private function sortParserConfigForSetup(array $config): array
     {
+        $config = $this->normalizeParserCategoryIconPaths($config);
+
         if (is_array($config['price_groups'] ?? null)) {
             usort($config['price_groups'], static fn (mixed $a, mixed $b): int => strnatcasecmp(
                 (string)(is_array($a) ? ($a['key'] ?? '') : ''),
@@ -556,6 +566,7 @@ class Plugin extends AbstractSlidePlugin
         $globalSettings = array_replace($this->getDefaultGlobalSettings(), $globalSettings);
         $parserConfig = is_array($globalSettings['parser_config'] ?? null) ? $globalSettings['parser_config'] : [];
         $config = array_replace($this->runtimeSafeDefaults(), $parserConfig);
+        $config = $this->normalizeParserCategoryIconPaths($config);
         foreach ([
             'menu_url', 'cache_ttl', 'debug_date', 'default_language', 'default_mensa', 'default_exclude',
             'default_display_co2', 'default_display_water', 'default_display_animal_welfare', 'default_display_rainforest',
@@ -588,6 +599,71 @@ class Plugin extends AbstractSlidePlugin
                 'generated_at' => null,
             ],
         ];
+    }
+
+    /** @param array<string, mixed> $config @return array<string, mixed> */
+    private function normalizeParserCategoryIconPaths(array $config): array
+    {
+        if (!is_array($config['categories'] ?? null)) {
+            return $config;
+        }
+
+        foreach ($config['categories'] as $key => $category) {
+            if (!is_array($category)) {
+                continue;
+            }
+            $category['icon'] = $this->normalizeCategoryIconAssetPath((string)($category['icon'] ?? ''));
+            $config['categories'][$key] = $category;
+        }
+
+        return $config;
+    }
+
+    private function normalizeCategoryIconAssetPath(string $icon): string
+    {
+        $icon = trim(str_replace('\\', '/', $icon));
+        if ($icon === '') {
+            return $this->categoryIconAssetPath('default');
+        }
+
+        $parts = explode('#', $icon, 2);
+        $pathOnly = $parts[0];
+        $fragment = isset($parts[1]) ? '#' . $parts[1] : '';
+        if (preg_match('#^assets/img/categories/([^/]+)\.(svg|png|webp)$#i', $pathOnly, $matches) !== 1) {
+            return $icon;
+        }
+
+        $exactFile = __DIR__ . '/' . $pathOnly;
+        if (is_file($exactFile)) {
+            return $icon;
+        }
+
+        $replacement = $this->findCategoryIconAssetPath($matches[1]);
+        return $replacement !== null ? $replacement . $fragment : $icon;
+    }
+
+    private function categoryIconAssetPath(string $stem): string
+    {
+        return $this->findCategoryIconAssetPath($stem)
+            ?? 'assets/img/categories/' . $this->normalizeCategoryIconAssetStem($stem) . '.webp';
+    }
+
+    private function findCategoryIconAssetPath(string $stem): ?string
+    {
+        $stem = $this->normalizeCategoryIconAssetStem($stem);
+        foreach (['png', 'webp', 'svg'] as $extension) {
+            $filename = $stem . '.' . $extension;
+            if (is_file(__DIR__ . '/assets/img/categories/' . $filename)) {
+                return 'assets/img/categories/' . $filename;
+            }
+        }
+
+        return null;
+    }
+
+    private function normalizeCategoryIconAssetStem(string $stem): string
+    {
+        return self::CATEGORY_ICON_STEM_RENAMES[$stem] ?? str_replace('-', '_', $stem);
     }
 
     /** @param array<string, mixed> $config */
@@ -1052,10 +1128,7 @@ class Plugin extends AbstractSlidePlugin
     /** @return array{type: string, value: string} */
     public function categoryIconDisplayData(string $icon, PluginApi $api): array
     {
-        $icon = trim($icon);
-        if ($icon === '') {
-            $icon = 'assets/img/categories/default.svg';
-        }
+        $icon = $this->normalizeCategoryIconAssetPath($icon);
 
         $pathOnly = explode('#', str_replace('\\', '/', $icon), 2)[0];
         $extension = strtolower(pathinfo($pathOnly, PATHINFO_EXTENSION));

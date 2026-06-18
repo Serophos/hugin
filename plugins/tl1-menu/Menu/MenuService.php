@@ -145,7 +145,7 @@ final class MenuService
         $icon = is_array($category) ? trim((string)($category['icon'] ?? '')) : '';
 
         return [
-            'icon' => $icon !== '' ? $icon : 'assets/img/categories/default.svg',
+            'icon' => $icon !== '' ? $icon : 'assets/img/categories/default.webp',
             'label' => $this->getCategoryLabel($classification, $language),
         ];
     }
