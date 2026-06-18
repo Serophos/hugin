@@ -38,7 +38,9 @@ $editorI18n = [
     'x' => __('templates.property_x'),
     'y' => __('templates.property_y'),
     'w' => __('templates.property_w'),
+    'w_short' => __('templates.property_w_short'),
     'h' => __('templates.property_h'),
+    'h_short' => __('templates.property_h_short'),
     'z' => __('templates.property_z'),
     'text_color' => __('templates.property_color'),
     'background_color' => __('templates.property_background'),
@@ -268,6 +270,8 @@ require __DIR__ . '/../layouts/admin_header.php';
     const animationDirections = ['normal', 'alternate', 'reverse'];
     const addElementShortcuts = { Digit1: 'text', Digit2: 'media', Digit3: 'qr', Digit4: 'shape' };
     const snapColumns = 24;
+    const snapGuidePixelThreshold = 9;
+    const snapGuidePrecision = 0.0001;
     const defaultAnimation = () => ({ entrance: 'none', continuous: 'none', entranceDelayMs: 0, entranceDurationMs: 600, continuousDurationMs: 3000, easing: 'ease-out', direction: 'normal' });
     const i18n = <?= $editorI18nJson ?: '{}' ?>;
     const specs = {
@@ -284,6 +288,7 @@ require __DIR__ . '/../layouts/admin_header.php';
     let activeInspectorTab = 'element';
     let draggedLayerElementId = '';
     let pendingFocusElementId = '';
+    let isDeletingElement = false;
 
     const editor = document.querySelector('[data-template-editor]');
     const form = document.querySelector('[data-template-editor-form]');
@@ -315,28 +320,117 @@ require __DIR__ . '/../layouts/admin_header.php';
         const ratio = Math.max(0.1, Number(current.canvas?.width || 1) / Math.max(1, Number(current.canvas?.height || 1)));
         return { x: 1 / snapColumns, y: (1 / snapColumns) * ratio };
     }
-    function snapValue(value, step, min = 0, max = 1) {
+    function snapGridValue(value, step, min = 0, max = 1) {
         if (!snapEnabled()) return rounded(value, min, max);
+        if (!Number.isFinite(step) || step <= 0) return rounded(value, min, max);
         return rounded(Math.round(clamp(value, min, max) / step) * step, min, max);
     }
-    function snapCenterPosition(value, size, step, min = 0, max = 1) {
-        const snapped = snapValue(value, step, min, max);
-        const centered = 0.5 - (Number(size) || 0) / 2;
-        const threshold = step / 2;
-        return Math.abs((snapped + (Number(size) || 0) / 2) - 0.5) <= threshold ? rounded(centered, min, max) : snapped;
+    function axisStart(element, axis) { return Number(element?.[axis] || 0); }
+    function axisSize(element, axis) { return Number(element?.[axis === 'x' ? 'w' : 'h'] || 0); }
+    function axisPixelLength(axis) {
+        const box = canvas.getBoundingClientRect();
+        const rendered = axis === 'x' ? box.width : box.height;
+        if (rendered > 0) return rendered;
+        const current = spec();
+        return Number(current.canvas?.[axis === 'x' ? 'width' : 'height'] || 1000);
+    }
+    function snapGuideThreshold(axis) {
+        return Math.min(0.04, Math.max(0.0025, snapGuidePixelThreshold / axisPixelLength(axis)));
+    }
+    function snapSourcePriority(source) {
+        if (source === 'canvas') return 0;
+        if (source === 'element') return 1;
+        return 2;
+    }
+    function addSnapGuide(guides, value, source) {
+        const numeric = Number(value);
+        if (!Number.isFinite(numeric)) return;
+        const guide = rounded(numeric);
+        if (guide < 0 || guide > 1) return;
+        guides.push({ value: guide, source });
+    }
+    function uniqueSnapGuides(guides) {
+        const byValue = new Map();
+        guides.forEach(guide => {
+            const key = guide.value.toFixed(4);
+            const existing = byValue.get(key);
+            if (!existing || snapSourcePriority(guide.source) < snapSourcePriority(existing.source)) {
+                byValue.set(key, guide);
+            }
+        });
+        return Array.from(byValue.values());
+    }
+    function snapAlignmentGuides(axis, element) {
+        const guides = [];
+        [0, 0.5, 1].forEach(value => addSnapGuide(guides, value, 'canvas'));
+        spec().elements.forEach(item => {
+            if (!item || item.id === element.id || isBackground(item)) return;
+            const start = axisStart(item, axis);
+            const size = axisSize(item, axis);
+            addSnapGuide(guides, start, 'element');
+            addSnapGuide(guides, start + (size / 2), 'element');
+            addSnapGuide(guides, start + size, 'element');
+        });
+        return uniqueSnapGuides(guides);
+    }
+    function addSnapCandidate(candidates, candidate, proposed, min, max, threshold, source) {
+        if (candidate < min - snapGuidePrecision || candidate > max + snapGuidePrecision) return;
+        const value = rounded(candidate, min, max);
+        const distance = Math.abs(value - proposed);
+        if (threshold !== null && distance > threshold) return;
+        candidates.push({ value, distance, priority: snapSourcePriority(source) });
+    }
+    function bestSnapCandidate(candidates) {
+        if (candidates.length === 0) return null;
+        candidates.sort((a, b) => (a.distance - b.distance) || (a.priority - b.priority));
+        return candidates[0].value;
+    }
+    function snapAxisPosition(element, axis, value) {
+        const size = axisSize(element, axis);
+        const min = 0;
+        const max = Math.max(0, 1 - size);
+        const proposed = clamp(value, min, max);
+        if (!snapEnabled()) return rounded(proposed, min, max);
+
+        const threshold = snapGuideThreshold(axis);
+        const guideCandidates = [];
+        snapAlignmentGuides(axis, element).forEach(guide => {
+            addSnapCandidate(guideCandidates, guide.value, proposed, min, max, threshold, guide.source);
+            addSnapCandidate(guideCandidates, guide.value - (size / 2), proposed, min, max, threshold, guide.source);
+            addSnapCandidate(guideCandidates, guide.value - size, proposed, min, max, threshold, guide.source);
+        });
+        const guideMatch = bestSnapCandidate(guideCandidates);
+        if (guideMatch !== null) return guideMatch;
+
+        return snapGridValue(proposed, snapSteps()[axis], min, max);
+    }
+    function snapAxisSize(element, axis, value) {
+        const origin = axisStart(element, axis);
+        const max = Math.max(0, 1 - origin);
+        const min = Math.min(0.02, max);
+        const proposed = clamp(value, min, max);
+        if (!snapEnabled()) return rounded(proposed, min, max);
+
+        const threshold = snapGuideThreshold(axis);
+        const guideCandidates = [];
+        snapAlignmentGuides(axis, element).forEach(guide => {
+            addSnapCandidate(guideCandidates, guide.value - origin, proposed, min, max, threshold, guide.source);
+        });
+        const guideMatch = bestSnapCandidate(guideCandidates);
+        if (guideMatch !== null) return guideMatch;
+
+        return snapGridValue(proposed, snapSteps()[axis], min, max);
     }
     function snapElementPosition(element, x, y) {
-        const steps = snapSteps();
         return {
-            x: snapCenterPosition(x, element.w, steps.x, 0, 1 - element.w),
-            y: snapCenterPosition(y, element.h, steps.y, 0, 1 - element.h),
+            x: snapAxisPosition(element, 'x', x),
+            y: snapAxisPosition(element, 'y', y),
         };
     }
     function snapElementSize(element, w, h) {
-        const steps = snapSteps();
         return {
-            w: snapValue(w, steps.x, 0.02, 1 - element.x),
-            h: snapValue(h, steps.y, 0.02, 1 - element.y),
+            w: snapAxisSize(element, 'x', w),
+            h: snapAxisSize(element, 'y', h),
         };
     }
     function setElementCoordinate(element, key, value) {
@@ -725,12 +819,24 @@ require __DIR__ . '/../layouts/admin_header.php';
         return `<section class="template-editor__property-section"><h3>${escapeHtml(title)}</h3>${body}</section>`;
     }
 
-    function propertyRow(label, control, modifier = '') {
-        return `<label class="template-editor__property-row ${modifier}"><span>${escapeHtml(label)}</span>${control}</label>`;
+    function propertyRow(label, control, modifier = '', tooltip = '') {
+        const tooltipAttr = tooltip ? ` title="${attr(tooltip)}"` : '';
+        return `<label class="template-editor__property-row ${modifier}"><span${tooltipAttr}>${escapeHtml(label)}</span>${control}</label>`;
     }
 
     function numberInput(dataKind, key, value, attrs = '') {
         return `<input type="number" ${attrs} data-${dataKind}="${attr(key)}" value="${attr(value)}">`;
+    }
+
+    function percentageInputValue(value, min = 0, max = 1) {
+        const percent = rounded(value, min, max) * 100;
+        return String(Number(percent.toFixed(2)));
+    }
+
+    function percentInput(dataKind, key, value, label, min = 0, max = 1) {
+        const minValue = percentageInputValue(min);
+        const maxValue = percentageInputValue(max);
+        return numberInput(dataKind, key, percentageInputValue(value, min, max), `step="0.01" min="${attr(minValue)}" max="${attr(maxValue)}" aria-label="${attr(label)}" data-percent-value`);
     }
 
 
@@ -801,8 +907,8 @@ require __DIR__ . '/../layouts/admin_header.php';
             <div class="template-editor__quad">
                 ${propertyRow(i18n.x, numberInput('prop', 'x', coordinateDisplay(element.x), 'step="0.0001" min="0" max="1"'))}
                 ${propertyRow(i18n.y, numberInput('prop', 'y', coordinateDisplay(element.y), 'step="0.0001" min="0" max="1"'))}
-                ${propertyRow(i18n.w, numberInput('prop', 'w', coordinateDisplay(element.w, 0.02, 1), 'step="0.0001" min="0.02" max="1"'))}
-                ${propertyRow(i18n.h, numberInput('prop', 'h', coordinateDisplay(element.h, 0.02, 1), 'step="0.0001" min="0.02" max="1"'))}
+                ${propertyRow(i18n.w_short || i18n.w, percentInput('prop', 'w', element.w, i18n.w, 0.02, 1 - element.x), '', i18n.w)}
+                ${propertyRow(i18n.h_short || i18n.h, percentInput('prop', 'h', element.h, i18n.h, 0.02, 1 - element.y), '', i18n.h)}
             </div>
             ${propertyRow(i18n.z, `<span class="template-editor__property-value">${escapeHtml(layerPositionLabel(element))}</span>`)}
         `);
@@ -837,7 +943,10 @@ require __DIR__ . '/../layouts/admin_header.php';
                     return;
                 }
                 if (['x', 'y', 'w', 'h'].includes(input.dataset.prop)) {
-                    setElementCoordinate(element, input.dataset.prop, input.value);
+                    const value = input.hasAttribute('data-percent-value')
+                        ? (Number(String(input.value).replace(',', '.')) || 0) / 100
+                        : input.value;
+                    setElementCoordinate(element, input.dataset.prop, value);
                 } else {
                     element[input.dataset.prop] = Number(input.value);
                 }
@@ -1072,6 +1181,21 @@ require __DIR__ . '/../layouts/admin_header.php';
     function deleteFieldDefinition(fieldKey) {
         allSpecs().forEach(currentSpec => {
             currentSpec.fields = currentSpec.fields.filter(field => field.key !== fieldKey);
+        });
+    }
+
+    function confirmAction(config) {
+        if (typeof window.HuginConfirm?.confirm === 'function') {
+            return Promise.resolve(window.HuginConfirm.confirm(config));
+        }
+        return Promise.resolve(false);
+    }
+
+    function confirmUnusedFieldDeletion(field, fieldKey) {
+        return confirmAction({
+            title: i18n.delete || '',
+            message: templateText('delete_unused_field_confirm', { field: field.label || field.key || fieldKey }),
+            accept: i18n.delete || '',
         });
     }
 
@@ -1363,14 +1487,25 @@ require __DIR__ . '/../layouts/admin_header.php';
         render();
     }
 
-    function deleteSelectedElement() {
+    async function deleteSelectedElement() {
+        if (isDeletingElement) return false;
         const element = selectedElement();
         if (!element || isBackground(element)) return false;
+        const currentSpec = spec();
         const label = elementLabel(element);
         const fieldKey = fieldCapableElement(element) ? String(element.field || '') : '';
         const field = fieldKey ? findTemplateField(fieldKey) : null;
-        const shouldDeleteField = field && fieldReferenceCount(fieldKey) <= 1 && window.confirm(templateText('delete_unused_field_confirm', { field: field.label || field.key || fieldKey }));
-        spec().elements = spec().elements.filter(item => item.id !== element.id);
+        let shouldDeleteField = false;
+        if (field && fieldReferenceCount(fieldKey) <= 1) {
+            isDeletingElement = true;
+            try {
+                shouldDeleteField = await confirmUnusedFieldDeletion(field, fieldKey);
+            } finally {
+                isDeletingElement = false;
+            }
+        }
+        if (!currentSpec.elements.some(item => item.id === element.id)) return false;
+        currentSpec.elements = currentSpec.elements.filter(item => item.id !== element.id);
         if (shouldDeleteField) {
             deleteFieldDefinition(fieldKey);
         }
@@ -1424,7 +1559,10 @@ require __DIR__ . '/../layouts/admin_header.php';
             const focusedElement = event.target instanceof Element ? event.target.closest('[data-element-id], [data-layer-element-id]') : null;
             const focusedId = focusedElement?.dataset.elementId || focusedElement?.dataset.layerElementId || '';
             if (focusedId) selectedId = focusedId;
-            if (deleteSelectedElement()) event.preventDefault();
+            const element = selectedElement();
+            if (!element || isBackground(element)) return;
+            event.preventDefault();
+            deleteSelectedElement();
             return;
         }
         if (!event.shiftKey || event.ctrlKey || event.altKey || event.metaKey) return;
