@@ -19,3 +19,4 @@ public/assets/fonts/*
 # Composer dependencies
 /vendor/
 composer.phar
+.envrc
