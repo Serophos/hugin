@@ -597,10 +597,6 @@ html, body {
     place-items: center;
     overflow: hidden;
     background-color: var(--template-background-color, #0f172a);
-    background-image: var(--template-background-image, none);
-    background-position: center;
-    background-size: cover;
-    background-repeat: no-repeat;
 }
 
 .template-slide__stage {
@@ -610,10 +606,6 @@ html, body {
     aspect-ratio: var(--template-stage-ratio, 1.7778);
     overflow: hidden;
     background-color: var(--template-background-color, #0f172a);
-    background-image: var(--template-background-image, none);
-    background-position: center;
-    background-size: cover;
-    background-repeat: no-repeat;
     container-type: inline-size;
 }
 

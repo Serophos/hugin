@@ -42,7 +42,6 @@ $mediaJson = json_encode(array_map(static function (array $asset): array {
     ];
 }, $mediaAssets ?? []), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 $shapeToolOptions = [
-    ['key' => 'box', 'label' => __('templates.shape_box'), 'svg' => '<rect x="10" y="10" width="80" height="80" rx="8"></rect>'],
     ['key' => 'square', 'label' => __('templates.shape_square'), 'svg' => '<rect x="12" y="12" width="76" height="76" rx="2"></rect>'],
     ['key' => 'circle', 'label' => __('templates.shape_circle'), 'svg' => '<ellipse cx="50" cy="50" rx="39" ry="39"></ellipse>'],
     ['key' => 'triangle', 'label' => __('templates.shape_triangle'), 'svg' => '<polygon points="50,10 90,88 10,88"></polygon>'],
@@ -61,6 +60,7 @@ $editorI18n = [
     'element_datetime' => __('templates.element_datetime'),
     'element_countdown' => __('templates.element_countdown'),
     'field' => __('templates.property_field'),
+    'static_text' => __('templates.property_static_text'),
     'field_key' => __('templates.field_key'),
     'field_label' => __('templates.field_label'),
     'field_default' => __('templates.field_default'),
@@ -148,7 +148,6 @@ $editorI18n = [
     'shortcut_add_datetime' => __('templates.shortcut_add_datetime'),
     'shortcut_add_countdown' => __('templates.shortcut_add_countdown'),
     'shape_dropdown_label' => __('templates.shape_dropdown_label'),
-    'shape_box' => __('templates.shape_box'),
     'shape_square' => __('templates.shape_square'),
     'shape_circle' => __('templates.shape_circle'),
     'shape_triangle' => __('templates.shape_triangle'),
@@ -275,7 +274,7 @@ require __DIR__ . '/../layouts/admin_header.php';
                     <span class="template-tool-button__label"><?= e(__('templates.element_countdown')) ?></span>
                 </button>
                 <div class="template-tool-split template-tool-split--shape" data-shape-dropdown>
-                    <button type="button" class="template-tool-button template-tool-button--shape" data-add-element="shape" data-shape-type="box" aria-label="<?= e(__('templates.add_element_accessible_label', ['type' => __('templates.element_shape')])) ?>" title="<?= e(__('templates.add_element_shortcut_tooltip', ['type' => __('templates.element_shape'), 'shortcut' => __('templates.shortcut_add_shape')])) ?>">
+                    <button type="button" class="template-tool-button template-tool-button--shape" data-add-element="shape" data-shape-type="square" aria-label="<?= e(__('templates.add_element_accessible_label', ['type' => __('templates.element_shape')])) ?>" title="<?= e(__('templates.add_element_shortcut_tooltip', ['type' => __('templates.element_shape'), 'shortcut' => __('templates.shortcut_add_shape')])) ?>">
                         <span class="template-tool-button__icon" aria-hidden="true"><img src="<?= e(url('/assets/icons/admin/template-tool-shape.png')) ?>" alt=""></span>
                         <span class="template-tool-button__label"><?= e(__('templates.element_shape')) ?></span>
                     </button>
@@ -374,7 +373,7 @@ require __DIR__ . '/../layouts/admin_header.php';
     const continuousAnimations = ['none', 'pulse', 'float', 'slow-zoom', 'wiggle', 'glow', 'rotate-slow'];
     const animationEasings = ['ease', 'ease-out', 'ease-in-out', 'linear'];
     const animationDirections = ['normal', 'alternate', 'reverse'];
-    const shapeTypes = ['box', 'square', 'circle', 'triangle', 'diamond', 'star', 'hexagon', 'pentagon', 'arrow'];
+    const shapeTypes = ['square', 'circle', 'triangle', 'diamond', 'star', 'hexagon', 'pentagon', 'arrow'];
     const dateTimeModes = ['clock', 'date'];
     const timeFormats = ['24h', 'ampm'];
     const dropShadowDirections = ['top', 'top-right', 'right', 'bottom-right', 'bottom', 'bottom-left', 'left', 'top-left'];
@@ -627,7 +626,7 @@ require __DIR__ . '/../layouts/admin_header.php';
     function mediaAsset(id) { return mediaById.get(Number(id || 0)) || null; }
     function normalizeShapeType(shape) {
         const value = String(shape || '').trim().toLowerCase();
-        return shapeTypes.includes(value) ? value : 'box';
+        return shapeTypes.includes(value) ? value : 'square';
     }
     function shapeLabel(shape) { return i18n[`shape_${normalizeShapeType(shape)}`] || normalizeShapeType(shape); }
     function shapeTypeOptions(selected) {
@@ -635,7 +634,7 @@ require __DIR__ . '/../layouts/admin_header.php';
         return shapeTypes.map(shape => `<option value="${attr(shape)}" ${shape === current ? 'selected' : ''}>${escapeHtml(shapeLabel(shape))}</option>`).join('');
     }
     function roundedShapeElement(element) {
-        return element?.type === 'shape' && ['box', 'square'].includes(normalizeShapeType(element.style?.shape || 'box'));
+        return element?.type === 'shape' && normalizeShapeType(element.style?.shape || 'square') === 'square';
     }
     function normalizeDateTimeMode(mode) {
         const value = String(mode || '').trim().toLowerCase();
@@ -789,7 +788,7 @@ require __DIR__ . '/../layouts/admin_header.php';
             const r = Math.max(0, 50 - inset);
             return `<ellipse cx="50" cy="50" rx="${svgNumber(r)}" ry="${svgNumber(r)}"></ellipse>`;
         }
-        if (normalized === 'box' || normalized === 'square') {
+        if (normalized === 'square') {
             const cornerRadius = Math.max(0, Math.min(50, Number(radius) || 0));
             return `<rect x="${svgNumber(min)}" y="${svgNumber(min)}" width="${svgNumber(size)}" height="${svgNumber(size)}" rx="${svgNumber(cornerRadius)}" ry="${svgNumber(cornerRadius)}"></rect>`;
         }
@@ -803,7 +802,7 @@ require __DIR__ . '/../layouts/admin_header.php';
     }
     function shapeSvgMarkup(element, className = 'template-editor__shape-svg') {
         const style = element?.style || {};
-        const shape = normalizeShapeType(style.shape || 'box');
+        const shape = normalizeShapeType(style.shape || 'square');
         const strokeWidth = clamp(style.borderWidth || 0, 0, 40);
         const stroke = strokeWidth > 0 ? cssColor(style.borderColor || 'rgba(0, 0, 0, 0)') : 'none';
         const fill = cssColor(style.backgroundColor || 'rgba(0, 0, 0, 0)');
@@ -822,7 +821,11 @@ require __DIR__ . '/../layouts/admin_header.php';
     }
 
     function textPreviewValue(element) {
-        return previewFieldValue(element) || elementLabel(element);
+        if (element?.field) {
+            return previewFieldValue(element) || elementLabel(element);
+        }
+        const staticText = String(element?.staticText ?? '').trim();
+        return staticText || elementLabel(element);
     }
 
     function previewPlaceholder(label, modifier = '') {
@@ -1000,6 +1003,7 @@ require __DIR__ . '/../layouts/admin_header.php';
             normalizeDateTimeForSave(element);
             normalizeCountdownForSave(element);
             normalizeFontForSave(element);
+            normalizeStaticTextForSave(element);
             if (isBackground(element)) {
                 delete element.animation;
                 normalizeDropShadowForSave(element);
@@ -1010,6 +1014,20 @@ require __DIR__ . '/../layouts/admin_header.php';
             return element;
         });
         return copy;
+    }
+
+    function normalizeStaticTextForSave(element) {
+        if (element?.type !== 'text') {
+            delete element.staticText;
+            return;
+        }
+
+        const staticText = String(element.staticText ?? '').replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim().slice(0, 4000);
+        if (staticText) {
+            element.staticText = staticText;
+        } else {
+            delete element.staticText;
+        }
     }
 
     function normalizeDateTimeForSave(element) {
@@ -1237,7 +1255,7 @@ require __DIR__ . '/../layouts/admin_header.php';
 
     function elementLabel(element) {
         if (element.type === 'background') return i18n.background;
-        if (element.type === 'shape') return shapeLabel(element.style?.shape || 'box');
+        if (element.type === 'shape') return shapeLabel(element.style?.shape || 'square');
         if (element.type === 'datetime') return dateTimeModeLabel(element.style?.dateTimeMode || 'clock');
         if (element.type === 'countdown') return i18n.element_countdown || 'Countdown';
         if (element.field) return element.field;
@@ -1461,6 +1479,8 @@ require __DIR__ . '/../layouts/admin_header.php';
             content = propertySection(i18n.section_content, propertyRow(i18n.media, selectInput('style', 'mediaAssetId', element.style?.mediaAssetId || 0, mediaOptionHtml)) + propertyRow(i18n.fit, selectInput('style', 'fit', element.style?.fit || 'cover', mediaFitOptions)));
         } else if (element.type === 'background') {
             content = propertySection(i18n.section_content, propertyRow(i18n.background_media, selectInput('style', 'backgroundMediaAssetId', element.style?.backgroundMediaAssetId || 0, mediaOptionHtml)) + propertyRow(i18n.fit, selectInput('style', 'fit', element.style?.fit || 'cover', fitOptions)));
+        } else if (element.type === 'text') {
+            content = propertySection(i18n.section_content, propertyRow(i18n.static_text, `<textarea rows="4" maxlength="4000" data-static-text>${escapeHtml(element.staticText || '')}</textarea>`));
         } else if (element.type === 'datetime') {
             const mode = normalizeDateTimeMode(element.style?.dateTimeMode || 'clock');
             content = propertySection(i18n.section_content,
@@ -1472,7 +1492,7 @@ require __DIR__ . '/../layouts/admin_header.php';
         }
 
         const appearanceRows = [];
-        if (element.type === 'shape') appearanceRows.push(propertyRow(i18n.shape_type, selectInput('style', 'shape', normalizeShapeType(element.style?.shape || 'box'), shapeTypeOptions(element.style?.shape || 'box'))));
+        if (element.type === 'shape') appearanceRows.push(propertyRow(i18n.shape_type, selectInput('style', 'shape', normalizeShapeType(element.style?.shape || 'square'), shapeTypeOptions(element.style?.shape || 'square'))));
         if (textFontElement(element)) appearanceRows.push(propertyRow(i18n.font, selectInput('style', 'fontFamily', normalizeFontFamily(element.style?.fontFamily || ''), fontFamilyOptions(element.style?.fontFamily || ''))));
         if (['text', 'qr', 'datetime', 'countdown'].includes(element.type)) appearanceRows.push(propertyRow(i18n.text_color, colorInput('color', element.style?.color || '')));
         if (['text', 'media', 'qr', 'shape', 'background', 'datetime', 'countdown'].includes(element.type)) appearanceRows.push(propertyRow(i18n.background_color, colorInput('backgroundColor', element.style?.backgroundColor || '', true)));
@@ -1590,6 +1610,14 @@ require __DIR__ . '/../layouts/admin_header.php';
                     return;
                 }
                 element.style[input.dataset.style] = input.type === 'number' || (input.tagName === 'SELECT' && /AssetId$/.test(input.dataset.style)) ? Number(input.value) : input.value;
+                renderLiveCanvas();
+            };
+            input.addEventListener('input', update);
+            input.addEventListener('change', update);
+        });
+        elementPanel.querySelectorAll('[data-static-text]').forEach(input => {
+            const update = () => {
+                element.staticText = String(input.value || '').slice(0, 4000);
                 renderLiveCanvas();
             };
             input.addEventListener('input', update);
@@ -2104,10 +2132,11 @@ require __DIR__ . '/../layouts/admin_header.php';
         if (type === 'shape') {
             element.w = rounded(4 / snapColumns, 0.02, 1);
             element.h = visualSquareHeightForWidth(element.w);
-            element.style.shape = normalizeShapeType(shapeType || 'box');
+            element.style.shape = normalizeShapeType(shapeType || 'square');
             element.style.borderColor = 'rgba(15, 23, 42, 0.65)';
             element.style.borderWidth = 2;
         }
+        if (type === 'text') { element.staticText = i18n.element_text || 'Text'; }
         if (type === 'qr') { element.w = 0.18; element.h = 0.32; element.style.backgroundColor = 'rgba(255,255,255,1)'; element.style.color = 'rgba(15,23,42,1)'; }
         if (type === 'media') { element.w = 0.42; element.h = 0.32; }
         if (type === 'datetime') {
@@ -2370,7 +2399,7 @@ require __DIR__ . '/../layouts/admin_header.php';
         setShapeDropdownOpen(shapeDropdownMenu?.hidden !== false);
     });
     editor.querySelectorAll('[data-add-shape]').forEach(button => button.addEventListener('click', () => {
-        addElement('shape', button.dataset.addShape || 'box');
+        addElement('shape', button.dataset.addShape || 'square');
         setShapeDropdownOpen(false);
     }));
     document.addEventListener('click', event => {

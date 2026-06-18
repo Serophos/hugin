@@ -123,13 +123,23 @@ class Plugin extends AbstractSlidePlugin
         $heartbeat = $api->getHeartbeat() ?? [];
         return [
             'settings' => $settings,
-            'heartbeat_last_seen_at' => $heartbeat['last_seen_at'] ?? null,
-            'heartbeat_browser' => $heartbeat['browser_name'] ?? null,
+            'heartbeat_browser' => [
+                'name' => $heartbeat['browser_name'] ?? null,
+                'version' => $heartbeat['browser_version'] ?? null,
+            ],
+            'heartbeat_os' => [
+                'name' => $heartbeat['os_name'] ?? null,
+                'version' => $heartbeat['os_version'] ?? null,
+            ],
             'heartbeat_resolution' => [
                 'screen_width' => $heartbeat['screen_width'] ?? null,
                 'screen_height' => $heartbeat['screen_height'] ?? null,
                 'viewport_width' => $heartbeat['viewport_width'] ?? null,
                 'viewport_height' => $heartbeat['viewport_height'] ?? null,
+            ],
+            'heartbeat_network' => [
+                'ip' => $heartbeat['last_seen_ip'] ?? null,
+                'timezone' => $heartbeat['client_timezone'] ?? null,
             ],
         ];
     }

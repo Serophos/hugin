@@ -860,7 +860,14 @@ class FrontendController
             }, $resolvedSlides),
         ];
 
-        $payload['signature'] = sha1(json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '');
+        $signaturePayload = $payload;
+        unset($signaturePayload['frontend_assets']);
+        foreach ($signaturePayload['slides'] as &$signatureSlide) {
+            unset($signatureSlide['template_rendered_hash']);
+        }
+        unset($signatureSlide);
+
+        $payload['signature'] = sha1(json_encode($signaturePayload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '');
         $payload['ok'] = true;
         $payload['server_time_ms'] = (int)floor(microtime(true) * 1000);
         return $payload;

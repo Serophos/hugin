@@ -9,7 +9,7 @@ class TemplateSlideService
     private const SPEC_VERSION = 1;
     private const FIELD_TYPES = ['text', 'multiline', 'url', 'media_image', 'media_video', 'qr_url', 'color'];
     private const ELEMENT_TYPES = ['background', 'text', 'media', 'qr', 'shape', 'datetime', 'countdown'];
-    private const SHAPE_TYPES = ['box', 'square', 'circle', 'triangle', 'diamond', 'star', 'hexagon', 'pentagon', 'arrow'];
+    private const SHAPE_TYPES = ['square', 'circle', 'triangle', 'diamond', 'star', 'hexagon', 'pentagon', 'arrow'];
     private const DATE_TIME_MODES = ['clock', 'date'];
     private const TIME_FORMATS = ['24h', 'ampm'];
     private const TEXT_ELEMENT_TYPES = ['text', 'datetime', 'countdown'];
@@ -310,10 +310,6 @@ class TemplateSlideService
             '--template-stage-ratio: ' . (string)$ratio,
             '--template-background-color: ' . $this->templateBackgroundColor($spec),
         ];
-        $backgroundImage = $this->templateBackgroundImage($spec);
-        if ($backgroundImage !== null) {
-            $templateStyle[] = '--template-background-image: ' . $backgroundImage;
-        }
 
         $html = '<div class="template-slide" style="' . e(implode(';', $templateStyle) . ';') . '">';
         $html .= '<div class="template-slide__stage">';
@@ -443,35 +439,6 @@ class TemplateSlideService
         return '#0f172a';
     }
 
-    private function templateBackgroundImage(array $spec): ?string
-    {
-        foreach ($spec['elements'] as $element) {
-            if (($element['type'] ?? '') !== 'background') {
-                continue;
-            }
-
-            $style = is_array($element['style'] ?? null) ? $element['style'] : [];
-            $assetId = (int)($style['backgroundMediaAssetId'] ?? 0);
-            if ($assetId <= 0) {
-                continue;
-            }
-
-            $asset = $this->db->one('SELECT file_path, media_kind FROM media_assets WHERE id = ?', [$assetId]);
-            if (!$asset || ($asset['media_kind'] ?? '') !== 'image' || empty($asset['file_path'])) {
-                continue;
-            }
-
-            return $this->cssUrl(url((string)$asset['file_path']));
-        }
-
-        return null;
-    }
-
-    private function cssUrl(string $url): string
-    {
-        return 'url("' . str_replace(["\\", "\"", "\n", "\r"], ["\\\\", "\\\"", "", ""], $url) . '")';
-    }
-
     private function normalizeFields(mixed $fields): array
     {
         $normalized = [];
@@ -542,6 +509,13 @@ class TemplateSlideService
                 'style' => $this->normalizeStyle(is_array($element['style'] ?? null) ? $element['style'] : [], $type),
             ];
 
+            if ($type === 'text') {
+                $staticText = $this->normalizeStaticText($element['staticText'] ?? '');
+                if ($staticText !== '') {
+                    $normalizedElement['staticText'] = $staticText;
+                }
+            }
+
             if ($type !== 'background') {
                 $normalizedElement['animation'] = $this->normalizeAnimation(is_array($element['animation'] ?? null) ? $element['animation'] : []);
             }
@@ -576,7 +550,7 @@ class TemplateSlideService
             $out['fit'] = in_array($fit, ['cover', 'contain', 'contain-blur'], true) ? $fit : 'cover';
         }
         if ($type === 'shape') {
-            $out['shape'] = $this->normalizeShapeType((string)($style['shape'] ?? 'box'));
+            $out['shape'] = $this->normalizeShapeType((string)($style['shape'] ?? 'square'));
         }
         if ($type === 'datetime') {
             $out['dateTimeMode'] = $this->normalizeDateTimeMode((string)($style['dateTimeMode'] ?? 'clock'));
@@ -607,6 +581,16 @@ class TemplateSlideService
         }
 
         return $out;
+    }
+
+    private function normalizeStaticText(mixed $value): string
+    {
+        if (!is_scalar($value)) {
+            return '';
+        }
+
+        $text = str_replace(["\r\n", "\r"], "\n", trim((string)$value));
+        return substr($text, 0, 4000);
     }
 
     private function normalizeAnimation(array $animation): array
@@ -647,7 +631,7 @@ class TemplateSlideService
         $type = (string)$element['type'];
         $style = is_array($element['style'] ?? null) ? $element['style'] : [];
         $field = (string)($element['field'] ?? '');
-        $value = $field !== '' ? ($values[$field] ?? ($fieldMap[$field]['default'] ?? '')) : '';
+        $value = $field !== '' ? ($values[$field] ?? ($fieldMap[$field]['default'] ?? '')) : (string)($element['staticText'] ?? '');
         $classes = 'template-slide__element template-slide__element--' . $type . $this->animationClasses($element);
         $styleAttr = $this->elementStyle($element, $style, $ratio);
         $animationAttr = $this->animationAttributes($element);
@@ -689,7 +673,7 @@ class TemplateSlideService
 
         $content = (string)$value;
         $fieldType = (string)($fieldMap[$field]['type'] ?? 'text');
-        $html = $fieldType === 'multiline' ? nl2br(e($content)) : e($content);
+        $html = ($field === '' || $fieldType === 'multiline') ? nl2br(e($content)) : e($content);
         if ($html === '') {
             $html = '&nbsp;';
         }
@@ -791,7 +775,7 @@ class TemplateSlideService
     private function normalizeShapeType(string $shape): string
     {
         $shape = strtolower(trim($shape));
-        return in_array($shape, self::SHAPE_TYPES, true) ? $shape : 'box';
+        return in_array($shape, self::SHAPE_TYPES, true) ? $shape : 'square';
     }
 
     private static function isTextElementType(string $type): bool
@@ -881,7 +865,7 @@ class TemplateSlideService
 
     private function renderShapeSvg(array $style): string
     {
-        $shape = $this->normalizeShapeType((string)($style['shape'] ?? 'box'));
+        $shape = $this->normalizeShapeType((string)($style['shape'] ?? 'square'));
         $fill = normalize_css_rgba_color((string)($style['backgroundColor'] ?? ''), 'rgba(0, 0, 0, 0)');
         $strokeWidth = max(0, min(40, (float)($style['borderWidth'] ?? 0)));
         $stroke = $strokeWidth > 0
@@ -950,7 +934,7 @@ class TemplateSlideService
             return '<ellipse cx="50" cy="50" rx="' . e((string)$radiusX) . '" ry="' . e((string)$radiusX) . '"></ellipse>';
         }
 
-        if ($shape === 'box' || $shape === 'square') {
+        if ($shape === 'square') {
             $cornerRadius = max(0, min(50, $radius));
             return '<rect x="' . e((string)$min) . '" y="' . e((string)$min) . '" width="' . e((string)$size) . '" height="' . e((string)$size) . '" rx="' . e((string)$cornerRadius) . '" ry="' . e((string)$cornerRadius) . '"></rect>';
         }

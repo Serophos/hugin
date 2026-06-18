@@ -21,6 +21,7 @@
     let stateRequestInFlight = false;
     let currentSignature = slideshow.dataset.stateSignature || '';
     const videoStartTimers = new WeakMap();
+    const videoStartHandlers = new WeakMap();
     const MINUTE_MS = 60000;
     const SYNC_RELOAD_MIN_LEAD_MS = 3000;
     const SCHEDULED_SYNC_RELOAD_KEY = 'huginScheduledSyncReload';
@@ -620,6 +621,25 @@
         pendingReload = null;
         pendingReloadTimer = null;
 
+        if (isProbablyOffline()) {
+            reload.activateAtMs = computeNextFullMinuteActivation();
+            pendingReload = reload;
+            pendingReloadTimer = window.setTimeout(applyPendingReload, delayUntilServerTime(reload.activateAtMs));
+            logReload('Postponed synchronized reload while offline', {
+                reason: reload.reason,
+                displayGroup: reload.displayGroup,
+                signature: reload.signature,
+                activateAt: new Date(reload.activateAtMs).toISOString(),
+            });
+            logSyncDebug('postponed synchronized reload while offline', {
+                reason: reload.reason,
+                signature: reload.signature,
+                activateAt: new Date(reload.activateAtMs).toISOString(),
+                msUntilActivate: delayUntilServerTime(reload.activateAtMs),
+            });
+            return;
+        }
+
         logReload('Applying synchronized reload', {
             reason: reload.reason,
             displayGroup: reload.displayGroup,
@@ -656,13 +676,13 @@
         }
 
         updateServerClock(stateData?.server_time_ms);
-        const activateAtMs = computeNextFullMinuteActivation();
         const replaced = Boolean(pendingReloadTimer);
         if (pendingReloadTimer) {
             clearTimeout(pendingReloadTimer);
         }
 
         const scheduleReload = () => {
+            const activateAtMs = computeNextFullMinuteActivation();
             pendingReload = {
                 reason,
                 stateData,
@@ -892,6 +912,7 @@
         if (!slide) return;
 
         slide.querySelectorAll('video[data-src]').forEach(video => {
+            clearPendingVideoStart(video);
             video.pause();
             video.removeAttribute('src');
             video.load();
@@ -932,15 +953,43 @@
         });
     };
 
+    const clearPendingVideoStart = video => {
+        const startTimer = videoStartTimers.get(video);
+        if (startTimer) {
+            window.clearTimeout(startTimer);
+            videoStartTimers.delete(video);
+        }
+
+        const startHandler = videoStartHandlers.get(video);
+        if (startHandler) {
+            video.removeEventListener('loadedmetadata', startHandler);
+            video.removeEventListener('canplay', startHandler);
+            videoStartHandlers.delete(video);
+        }
+    };
+
+    const resetVideoPlaybackPosition = video => {
+        try {
+            if (video.readyState > 0) {
+                video.currentTime = 0;
+            }
+        } catch (error) {}
+    };
+
+    const playVideoElement = video => {
+        try {
+            const playPromise = video.play();
+            if (playPromise && typeof playPromise.catch === 'function') {
+                playPromise.catch(() => {});
+            }
+        } catch (error) {}
+    };
+
     const stopVideo = slide => {
         slide?.querySelectorAll('video').forEach(video => {
-            const startTimer = videoStartTimers.get(video);
-            if (startTimer) {
-                window.clearTimeout(startTimer);
-                videoStartTimers.delete(video);
-            }
+            clearPendingVideoStart(video);
             video.pause();
-            video.currentTime = 0;
+            resetVideoPlaybackPosition(video);
         });
     };
 
@@ -970,9 +1019,34 @@
     };
 
     const playVideoFromStart = video => {
-        videoStartTimers.delete(video);
-        video.currentTime = 0;
-        video.play().catch(() => {});
+        clearPendingVideoStart(video);
+
+        const startPlayback = () => {
+            const startHandler = videoStartHandlers.get(video);
+            if (startHandler) {
+                video.removeEventListener('loadedmetadata', startHandler);
+                video.removeEventListener('canplay', startHandler);
+                videoStartHandlers.delete(video);
+            }
+
+            resetVideoPlaybackPosition(video);
+            playVideoElement(video);
+        };
+
+        if (video.readyState > 0) {
+            startPlayback();
+            return;
+        }
+
+        const startWhenReady = () => {
+            if (videoStartHandlers.get(video) !== startWhenReady) return;
+            startPlayback();
+        };
+
+        videoStartHandlers.set(video, startWhenReady);
+        video.addEventListener('loadedmetadata', startWhenReady);
+        video.addEventListener('canplay', startWhenReady);
+        playVideoElement(video);
     };
 
     const startVideo = slide => {
@@ -980,11 +1054,7 @@
 
         ensureMediaLoaded(slide);
         slide.querySelectorAll('video').forEach(video => {
-            const existingStartTimer = videoStartTimers.get(video);
-            if (existingStartTimer) {
-                window.clearTimeout(existingStartTimer);
-                videoStartTimers.delete(video);
-            }
+            clearPendingVideoStart(video);
 
             const templateElement = video.closest('.template-slide__element');
             if (!templateElement) {
@@ -1291,21 +1361,27 @@
             return;
         }
 
-        ensureMediaLoaded(next);
-
         requestFrame(() => {
-            stopVideo(current);
-            current.classList.remove('is-active');
-            current.classList.remove('is-text-card-animating');
-            current.classList.remove('is-template-animating');
-            next.classList.add('is-active');
-            index = nextSlideIndex;
-            restartTextCardAnimation(next);
-            restartTemplateElementAnimations(next);
-            startVideo(next);
-            prepareMediaAround(index);
-            window.setTimeout(() => cleanupFarMedia(index), 1300);
-            queueNext();
+            try {
+                ensureMediaLoaded(next);
+                stopVideo(current);
+                current.classList.remove('is-active');
+                current.classList.remove('is-text-card-animating');
+                current.classList.remove('is-template-animating');
+                next.classList.add('is-active');
+                index = nextSlideIndex;
+                restartTextCardAnimation(next);
+                restartTemplateElementAnimations(next);
+                startVideo(next);
+                prepareMediaAround(index);
+                window.setTimeout(() => cleanupFarMedia(index), 1300);
+            } catch (error) {
+                if (window.console?.error) {
+                    window.console.error('[Hugin display] Slide transition failed', error);
+                }
+            } finally {
+                queueNext();
+            }
         });
     };
 

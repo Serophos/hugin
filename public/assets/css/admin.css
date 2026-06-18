@@ -4170,6 +4170,10 @@ input[type="color"] {
     text-wrap: balance;
 }
 
+.template-editor__text-preview {
+    white-space: pre-wrap;
+}
+
 .template-editor__datetime-preview,
 .template-editor__countdown-preview {
     font-variant-numeric: tabular-nums;
