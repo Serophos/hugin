@@ -42,7 +42,7 @@ foreach ($pluginDefinitions as $p) {
     if ($pluginName === '') {
         continue;
     }
-    $pluginCss[] = url('/plugin-assets/' . rawurlencode($pluginName) . '/assets/' . rawurlencode($pluginName) . '.css');
+    $pluginCss[] = plugin_asset_url($pluginName, 'assets/' . $pluginName . '.css');
 }
 $pluginCss = array_values(array_unique($pluginCss));
 $slideTypeDefinitions = array_values($slideTypeDefinitions ?? []);

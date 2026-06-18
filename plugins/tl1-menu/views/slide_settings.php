@@ -26,7 +26,7 @@ $environmentPreviewMetrics = $plugin->getEnvironmentPreviewMetrics($previewLangu
 $fieldPrefix = 'plugin_settings.' . $plugin->getName() . '.';
 $formId = 'slide';
 ?>
-<link rel="stylesheet" href="<?= e(url('/plugin-assets/' . $plugin->getName() . '/assets/tl1menu.css')) ?>">
+<link rel="stylesheet" href="<?= e(plugin_asset_url($plugin->getName(), 'assets/tl1menu.css')) ?>">
 <div class="plugin-settings-card tl1menu-slide-settings" data-tl1menu-settings>
     <h3><?= e(__('plugins.tl1-menu.config.title')) ?></h3>
     <p class="muted"><?= e(__('plugins.tl1-menu.config.intro')) ?></p>

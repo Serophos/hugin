@@ -3,6 +3,18 @@ $heartbeatInterval = max(30, min(120, (int)floor(((int)app_core_setting('monitor
 $displayGroup = $displayGroup ?? null;
 $syncReloadToFullMinute = !empty($displayGroup['sync_reload_to_full_minute']);
 $startupSyncKey = 'hugin:slideshow-started:' . (string)($display['slug'] ?? '');
+$templateFontFamilies = [];
+foreach (($slides ?? []) as $slide) {
+    foreach ((array)($slide['template_font_families'] ?? []) as $family) {
+        if (is_string($family) && $family !== '') {
+            $templateFontFamilies[$family] = true;
+        }
+    }
+}
+$loadedFontFamilies = array_values(array_unique(array_filter(array_merge([
+    (string)($brandingSettings['default_font_heading'] ?? ''),
+    (string)($brandingSettings['default_font_text'] ?? ''),
+], array_keys($templateFontFamilies)))));
 ?>
 <!doctype html>
 <html lang="<?= e(current_locale()) ?>">
@@ -33,16 +45,15 @@ $startupSyncKey = 'hugin:slideshow-started:' . (string)($display['slug'] ?? '');
             } catch (error) {}
         })();
     </script>
-    <link rel="stylesheet" href="<?= e(url('/assets/css/display.css')) ?>">
+    <link rel="stylesheet" href="<?= e(asset_url('/assets/css/display.css')) ?>">
     <?php foreach (($pluginAssets['css'] ?? []) as $cssAsset): ?>
         <link rel="stylesheet" href="<?= e($cssAsset) ?>">
     <?php endforeach; ?>
-    <?php if (!empty($brandingSettings['default_font_heading'] || $brandingSettings['default_font_text'])): ?>
+    <?php if ($loadedFontFamilies): ?>
         <?php $fonts = list_public_fonts(); ?>
-        <?php $loadedFamilies = array_values(array_unique(array_filter([$brandingSettings['default_font_heading'] ?? '', $brandingSettings['default_font_text'] ?? '']))); ?>
-        <?php if ($loadedFamilies): ?>
+        <?php if ($fonts): ?>
             <style>
-                <?php foreach ($loadedFamilies as $family): ?>
+                <?php foreach ($loadedFontFamilies as $family): ?>
                     <?php if (isset($fonts[$family])): ?>
                         @font-face {
                             font-family: '<?= e($family) ?>';
@@ -90,7 +101,7 @@ if (str_starts_with($display['slug'] ?? '', 'preview-slide-') && preg_match('#^p
      data-heartbeat-interval="<?= e((string)$heartbeatInterval) ?>"
      data-state-url="<?= e(url($displayRoutePrefix . '/state')) ?>"
      data-offline-manifest-url="<?= $isPreviewDisplay ? '' : e(url($displayRoutePrefix . '/offline-manifest')) ?>"
-     data-service-worker-url="<?= $isPreviewDisplay ? '' : e(url('/display-service-worker.js')) ?>"
+     data-service-worker-url="<?= $isPreviewDisplay ? '' : e(asset_url('/display-service-worker.js')) ?>"
      data-state-check-interval="60"
      data-state-signature="<?= e($stateSignature) ?>"
      data-server-time-ms="<?= e((string)($serverTimeMs ?? 0)) ?>"
@@ -208,8 +219,8 @@ if (str_starts_with($display['slug'] ?? '', 'preview-slide-') && preg_match('#^p
         </section>
     <?php endforeach; ?>
 </div>
-<script src="<?= e(url('/assets/js/hugin-qr.js')) ?>"></script>
-<script src="<?= e(url('/assets/js/slideshow.js')) ?>"></script>
+<script src="<?= e(asset_url('/assets/js/hugin-qr.js')) ?>"></script>
+<script src="<?= e(asset_url('/assets/js/slideshow.js')) ?>"></script>
 <?php foreach (($pluginAssets['js'] ?? []) as $jsAsset): ?>
     <script src="<?= e($jsAsset) ?>"></script>
 <?php endforeach; ?>

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?= e($title ?? __('app.admin')) ?></title>
     <link rel="icon" type="image/webp" href="<?= e(url('/assets/img/hugin-logo-mini.webp')) ?>">
-    <link rel="stylesheet" href="<?= e(url('/assets/css/admin.css')) ?>">
+    <link rel="stylesheet" href="<?= e(asset_url('/assets/css/admin.css')) ?>">
     <?php
     $pluginCssLinks = [];
     if (!empty($pluginCss)) {
@@ -21,7 +21,7 @@
     <?php foreach ($pluginCssLinks as $cssHref): ?>
         <link rel="stylesheet" href="<?= e($cssHref) ?>">
     <?php endforeach; ?>
-    <script src="<?= e(url('/assets/js/admin-color-picker.js')) ?>"></script>
+    <script src="<?= e(asset_url('/assets/js/admin-color-picker.js')) ?>"></script>
 </head>
 <?php
 $adminUser = current_user();

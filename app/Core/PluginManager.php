@@ -307,7 +307,27 @@ class PluginManager
             'gif' => 'image/gif',
         ];
         $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+        $fileSize = (int)filesize($path);
+        $modifiedAt = (int)(filemtime($path) ?: time());
+        $etag = '"' . sha1($ext . ':' . $fileSize . ':' . $modifiedAt) . '"';
+        $isVersionedRequest = isset($_GET['v']) && trim((string)$_GET['v']) !== '';
         header('Content-Type: ' . ($mimeMap[$ext] ?? 'application/octet-stream'));
+        header('Cache-Control: ' . ($isVersionedRequest ? 'public, max-age=31536000, immutable' : 'no-cache, must-revalidate'));
+        header('Last-Modified: ' . gmdate('D, d M Y H:i:s', $modifiedAt) . ' GMT');
+        header('ETag: ' . $etag);
+
+        $ifNoneMatch = trim((string)($_SERVER['HTTP_IF_NONE_MATCH'] ?? ''));
+        $ifModifiedSinceHeader = trim((string)($_SERVER['HTTP_IF_MODIFIED_SINCE'] ?? ''));
+        $ifModifiedSince = $ifModifiedSinceHeader !== '' ? strtotime($ifModifiedSinceHeader) : false;
+        if (
+            ($ifNoneMatch !== '' && in_array($etag, array_map('trim', explode(',', $ifNoneMatch)), true))
+            || ($ifNoneMatch === '' && $ifModifiedSince !== false && $ifModifiedSince >= $modifiedAt)
+        ) {
+            http_response_code(304);
+            exit;
+        }
+
+        header('Content-Length: ' . (string)$fileSize);
         readfile($path);
         exit;
     }

@@ -1,13 +1,35 @@
 <?php
 namespace App\Core;
 
+use DateTimeImmutable;
 use RuntimeException;
 
 class TemplateSlideService
 {
     private const SPEC_VERSION = 1;
     private const FIELD_TYPES = ['text', 'multiline', 'url', 'media_image', 'media_video', 'qr_url', 'color'];
-    private const ELEMENT_TYPES = ['background', 'text', 'media', 'qr', 'shape'];
+    private const ELEMENT_TYPES = ['background', 'text', 'media', 'qr', 'shape', 'datetime', 'countdown'];
+    private const SHAPE_TYPES = ['box', 'square', 'circle', 'triangle', 'diamond', 'star', 'hexagon', 'pentagon', 'arrow'];
+    private const DATE_TIME_MODES = ['clock', 'date'];
+    private const TIME_FORMATS = ['24h', 'ampm'];
+    private const TEXT_ELEMENT_TYPES = ['text', 'datetime', 'countdown'];
+    private const SYSTEM_FONT_STACKS = [
+        'system-sans' => 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans", Ubuntu, Cantarell, "Liberation Sans", "DejaVu Sans", Arial, sans-serif',
+        'system-serif' => 'Georgia, "Noto Serif", "Liberation Serif", "DejaVu Serif", Times, "Times New Roman", serif',
+        'system-mono' => 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "DejaVu Sans Mono", monospace',
+        'dejavu-sans' => '"DejaVu Sans", sans-serif',
+        'dejavu-serif' => '"DejaVu Serif", serif',
+        'dejavu-sans-mono' => '"DejaVu Sans Mono", monospace',
+        'liberation-sans' => '"Liberation Sans", Arial, sans-serif',
+        'liberation-serif' => '"Liberation Serif", "Times New Roman", serif',
+        'liberation-mono' => '"Liberation Mono", Consolas, monospace',
+        'noto-sans' => '"Noto Sans", sans-serif',
+        'noto-serif' => '"Noto Serif", serif',
+        'noto-sans-mono' => '"Noto Sans Mono", monospace',
+        'ubuntu' => 'Ubuntu, "Noto Sans", sans-serif',
+        'cantarell' => 'Cantarell, "Noto Sans", sans-serif',
+    ];
+    private const DROP_SHADOW_DIRECTIONS = ['top', 'top-right', 'right', 'bottom-right', 'bottom', 'bottom-left', 'left', 'top-left'];
     private const ENTRANCE_ANIMATIONS = ['none', 'fade-in', 'fade-up', 'fade-down', 'slide-left', 'slide-right', 'slide-up', 'slide-down', 'zoom-in', 'pop-in', 'blur-in'];
     private const CONTINUOUS_ANIMATIONS = ['none', 'pulse', 'float', 'slow-zoom', 'wiggle', 'glow', 'rotate-slow'];
     private const ANIMATION_EASINGS = ['ease', 'ease-out', 'ease-in-out', 'linear'];
@@ -15,6 +37,51 @@ class TemplateSlideService
 
     public function __construct(private Database $db)
     {
+    }
+
+    public static function systemFontOptions(): array
+    {
+        return self::SYSTEM_FONT_STACKS;
+    }
+
+    public static function normalizeFontFamilyToken(string $fontFamily, ?array $publicFonts = null): string
+    {
+        $fontFamily = trim($fontFamily);
+        if ($fontFamily === '') {
+            return '';
+        }
+
+        if (str_starts_with($fontFamily, 'system:')) {
+            $key = substr($fontFamily, 7);
+            return isset(self::SYSTEM_FONT_STACKS[$key]) ? 'system:' . $key : '';
+        }
+
+        if (str_starts_with($fontFamily, 'local:')) {
+            $family = substr($fontFamily, 6);
+            $publicFonts ??= list_public_fonts();
+            return $family !== '' && isset($publicFonts[$family]) ? 'local:' . $family : '';
+        }
+
+        return '';
+    }
+
+    public static function fontFamilyCssForToken(string $fontFamily, ?array $publicFonts = null): ?string
+    {
+        $token = self::normalizeFontFamilyToken($fontFamily, $publicFonts);
+        if ($token === '') {
+            return null;
+        }
+
+        if (str_starts_with($token, 'system:')) {
+            return self::SYSTEM_FONT_STACKS[substr($token, 7)] ?? null;
+        }
+
+        if (str_starts_with($token, 'local:')) {
+            $family = substr($token, 6);
+            return "'" . self::cssString($family) . "', sans-serif";
+        }
+
+        return null;
     }
 
     public function emptySpec(string $orientation = 'landscape'): array
@@ -289,6 +356,28 @@ class TemplateSlideService
         return array_keys($ids);
     }
 
+    public function localFontFamiliesForTemplate(array $template): array
+    {
+        $families = [];
+        foreach ($this->decodeTemplateSpecs($template) as $spec) {
+            if (!is_array($spec)) {
+                continue;
+            }
+            foreach ($spec['elements'] as $element) {
+                if (!self::isTextElementType((string)($element['type'] ?? ''))) {
+                    continue;
+                }
+                $style = is_array($element['style'] ?? null) ? $element['style'] : [];
+                $token = self::normalizeFontFamilyToken((string)($style['fontFamily'] ?? ''));
+                if (str_starts_with($token, 'local:')) {
+                    $families[substr($token, 6)] = true;
+                }
+            }
+        }
+
+        return array_keys($families);
+    }
+
     private function decodeTemplateSpecs(array $template): array
     {
         $landscapeRaw = $this->rawSpec((string)($template['landscape_spec_json'] ?? ''), 'landscape');
@@ -431,6 +520,9 @@ class TemplateSlideService
             if ($field !== '' && !isset($fieldKeys[$field])) {
                 $field = '';
             }
+            if (in_array($type, ['datetime', 'countdown'], true)) {
+                $field = '';
+            }
 
             foreach (['x', 'y', 'w', 'h'] as $coordinateKey) {
                 if (array_key_exists($coordinateKey, $element) && !$this->isCoordinateInCanvas($element[$coordinateKey])) {
@@ -447,7 +539,7 @@ class TemplateSlideService
                 'w' => $this->floatRange($element['w'] ?? 0.3, 0.3, 0.02, 1),
                 'h' => $this->floatRange($element['h'] ?? 0.2, 0.2, 0.02, 1),
                 'z' => $this->intRange($element['z'] ?? $index, $index, 0, 999),
-                'style' => $this->normalizeStyle(is_array($element['style'] ?? null) ? $element['style'] : []),
+                'style' => $this->normalizeStyle(is_array($element['style'] ?? null) ? $element['style'] : [], $type),
             ];
 
             if ($type !== 'background') {
@@ -460,7 +552,7 @@ class TemplateSlideService
         return $normalized;
     }
 
-    private function normalizeStyle(array $style): array
+    private function normalizeStyle(array $style, string $type): array
     {
         $out = [];
         foreach (['color', 'backgroundColor', 'borderColor'] as $key) {
@@ -473,9 +565,35 @@ class TemplateSlideService
                 $out[$key] = substr(trim((string)$style[$key]), 0, 24);
             }
         }
+        if (self::isTextElementType($type)) {
+            $fontFamily = self::normalizeFontFamilyToken((string)($style['fontFamily'] ?? ''));
+            if ($fontFamily !== '') {
+                $out['fontFamily'] = $fontFamily;
+            }
+        }
         if (isset($style['fit']) && is_scalar($style['fit'])) {
             $fit = substr(trim((string)$style['fit']), 0, 24);
             $out['fit'] = in_array($fit, ['cover', 'contain', 'contain-blur'], true) ? $fit : 'cover';
+        }
+        if ($type === 'shape') {
+            $out['shape'] = $this->normalizeShapeType((string)($style['shape'] ?? 'box'));
+        }
+        if ($type === 'datetime') {
+            $out['dateTimeMode'] = $this->normalizeDateTimeMode((string)($style['dateTimeMode'] ?? 'clock'));
+            $out['timeFormat'] = $this->normalizeTimeFormat((string)($style['timeFormat'] ?? '24h'));
+        }
+        if ($type === 'countdown') {
+            $target = $this->normalizeCountdownTarget((string)($style['countdownTarget'] ?? ''));
+            if ($target !== '') {
+                $out['countdownTarget'] = $target;
+            }
+        }
+        if ($type !== 'background' && $this->truthy($style['dropShadow'] ?? false)) {
+            $out['dropShadow'] = true;
+            $out['dropShadowOffset'] = $this->floatRange($style['dropShadowOffset'] ?? 2, 2, 0, 40);
+            $out['dropShadowBlur'] = $this->floatRange($style['dropShadowBlur'] ?? 4, 4, 0, 60);
+            $out['dropShadowColor'] = normalize_css_rgba_color((string)($style['dropShadowColor'] ?? ''), 'rgba(0, 0, 0, 0.35)');
+            $out['dropShadowDirection'] = $this->normalizeDropShadowDirection((string)($style['dropShadowDirection'] ?? 'bottom-right'));
         }
         foreach (['fontSize', 'radius', 'opacity', 'borderWidth'] as $key) {
             if (isset($style[$key])) {
@@ -552,7 +670,21 @@ class TemplateSlideService
             return '<div class="' . e($classes) . '" style="' . e($styleAttr) . '"' . $animationAttr . ' data-qr-url="' . e($qrValue) . '" data-qr-foreground="' . e((string)($style['color'] ?? 'rgba(15, 23, 42, 1)')) . '" data-qr-background="' . e((string)($style['backgroundColor'] ?? 'rgba(255, 255, 255, 1)')) . '"><canvas class="template-slide__qr-canvas" width="1" height="1"></canvas><div class="template-slide__qr-fallback">' . e($qrValue) . '</div></div>';
         }
         if ($type === 'shape') {
-            return '<div class="' . e($classes) . '" style="' . e($styleAttr) . '"' . $animationAttr . '></div>';
+            return '<div class="' . e($classes) . '" style="' . e($styleAttr) . '"' . $animationAttr . '><span class="template-slide__shape-frame"><span class="template-slide__shape-motion">' . $this->renderShapeSvg($style) . '</span></span></div>';
+        }
+        if ($type === 'datetime') {
+            $mode = $this->normalizeDateTimeMode((string)($style['dateTimeMode'] ?? 'clock'));
+            $format = $this->normalizeTimeFormat((string)($style['timeFormat'] ?? '24h'));
+            $content = $this->formatDateTimeElement($mode, $format);
+
+            return '<div class="' . e($classes) . '" style="' . e($styleAttr) . '"' . $animationAttr . ' data-template-datetime="1" data-template-datetime-mode="' . e($mode) . '" data-template-time-format="' . e($format) . '"><div class="template-slide__datetime-content">' . e($content) . '</div></div>';
+        }
+        if ($type === 'countdown') {
+            $target = $this->normalizeCountdownTarget((string)($style['countdownTarget'] ?? ''));
+            $targetMs = $this->countdownTargetMilliseconds($target);
+            $content = $this->formatCountdownElement($target);
+
+            return '<div class="' . e($classes) . '" style="' . e($styleAttr) . '"' . $animationAttr . ' data-template-countdown="1" data-template-countdown-target="' . e($target) . '" data-template-countdown-target-ms="' . e($targetMs) . '"><div class="template-slide__countdown-content">' . e($content) . '</div></div>';
         }
 
         $content = (string)$value;
@@ -614,7 +746,7 @@ class TemplateSlideService
         if (!empty($style['color'])) {
             $css[] = 'color:' . (string)$style['color'];
         }
-        if (!empty($style['backgroundColor']) && ($element['type'] ?? '') !== 'qr') {
+        if (!empty($style['backgroundColor']) && !in_array(($element['type'] ?? ''), ['qr', 'shape'], true)) {
             $css[] = 'background:' . (string)$style['backgroundColor'];
         }
         if (isset($style['opacity'])) {
@@ -632,6 +764,18 @@ class TemplateSlideService
         if (!empty($style['align'])) {
             $css[] = 'text-align:' . (string)$style['align'];
         }
+        if (self::isTextElementType((string)($element['type'] ?? ''))) {
+            $fontFamily = self::fontFamilyCssForToken((string)($style['fontFamily'] ?? ''));
+            if ($fontFamily !== null) {
+                $css[] = 'font-family:' . $fontFamily;
+            }
+        }
+        if (($element['type'] ?? '') !== 'background' && ($element['type'] ?? '') !== 'shape') {
+            $shadow = $this->dropShadowCss($style, false);
+            if ($shadow !== null) {
+                $css[] = 'box-shadow:' . $shadow;
+            }
+        }
         if (($element['type'] ?? '') !== 'background' && is_array($element['animation'] ?? null)) {
             $animation = $this->normalizeAnimation($element['animation']);
             $css[] = '--template-entrance-delay:' . $animation['entranceDelayMs'] . 'ms';
@@ -642,6 +786,232 @@ class TemplateSlideService
         }
 
         return implode(';', $css) . ';';
+    }
+
+    private function normalizeShapeType(string $shape): string
+    {
+        $shape = strtolower(trim($shape));
+        return in_array($shape, self::SHAPE_TYPES, true) ? $shape : 'box';
+    }
+
+    private static function isTextElementType(string $type): bool
+    {
+        return in_array($type, self::TEXT_ELEMENT_TYPES, true);
+    }
+
+    private static function cssString(string $value): string
+    {
+        return str_replace(["\\", "'", "\n", "\r"], ["\\\\", "\\'", "", ""], $value);
+    }
+
+    private function normalizeDateTimeMode(string $mode): string
+    {
+        $mode = strtolower(trim($mode));
+        return in_array($mode, self::DATE_TIME_MODES, true) ? $mode : 'clock';
+    }
+
+    private function normalizeTimeFormat(string $format): string
+    {
+        $format = strtolower(trim($format));
+        return in_array($format, self::TIME_FORMATS, true) ? $format : '24h';
+    }
+
+    private function formatDateTimeElement(string $mode, string $format): string
+    {
+        if ($this->normalizeDateTimeMode($mode) === 'date') {
+            return date('d.m.Y');
+        }
+
+        return $this->normalizeTimeFormat($format) === 'ampm'
+            ? date('h:i A')
+            : date('H:i');
+    }
+
+    private function normalizeCountdownTarget(string $target): string
+    {
+        $target = trim($target);
+        if ($target === '') {
+            return '';
+        }
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?$/', $target)) {
+            return '';
+        }
+
+        $format = strlen($target) > 16 ? '!Y-m-d\TH:i:s' : '!Y-m-d\TH:i';
+        $date = DateTimeImmutable::createFromFormat($format, $target);
+        $errors = DateTimeImmutable::getLastErrors();
+        if (!$date || (is_array($errors) && ((int)$errors['warning_count'] > 0 || (int)$errors['error_count'] > 0))) {
+            return '';
+        }
+
+        return $date->format('Y-m-d\TH:i');
+    }
+
+    private function formatCountdownElement(string $target): string
+    {
+        $targetMs = (int)$this->countdownTargetMilliseconds($target);
+        if ($targetMs <= 0) {
+            return '00d 00h 00m 00s';
+        }
+
+        $remaining = max(0, intdiv($targetMs, 1000) - time());
+        $days = intdiv($remaining, 86400);
+        $remaining %= 86400;
+        $hours = intdiv($remaining, 3600);
+        $remaining %= 3600;
+        $minutes = intdiv($remaining, 60);
+        $seconds = $remaining % 60;
+
+        return sprintf('%02dd %02dh %02dm %02ds', $days, $hours, $minutes, $seconds);
+    }
+
+    private function countdownTargetMilliseconds(string $target): string
+    {
+        if ($target === '') {
+            return '';
+        }
+
+        $date = DateTimeImmutable::createFromFormat('!Y-m-d\TH:i', $target);
+        if (!$date) {
+            return '';
+        }
+
+        return (string)($date->getTimestamp() * 1000);
+    }
+
+    private function renderShapeSvg(array $style): string
+    {
+        $shape = $this->normalizeShapeType((string)($style['shape'] ?? 'box'));
+        $fill = normalize_css_rgba_color((string)($style['backgroundColor'] ?? ''), 'rgba(0, 0, 0, 0)');
+        $strokeWidth = max(0, min(40, (float)($style['borderWidth'] ?? 0)));
+        $stroke = $strokeWidth > 0
+            ? normalize_css_rgba_color((string)($style['borderColor'] ?? ''), 'rgba(0, 0, 0, 0)')
+            : 'none';
+        $inset = $strokeWidth / 2;
+        $shapeMarkup = $this->shapeMarkup($shape, $inset, max(0, (float)($style['radius'] ?? 0)));
+        $shadow = $this->dropShadowCss($style, true);
+        $styleAttr = $shadow !== null ? ' style="filter:' . e($shadow) . '"' : '';
+
+        return '<svg class="template-slide__shape template-slide__shape--' . e($shape) . '" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"' . $styleAttr . ' fill="' . e($fill) . '" stroke="' . e($stroke) . '" stroke-width="' . e((string)$strokeWidth) . '" stroke-linejoin="round" stroke-linecap="round">' . $shapeMarkup . '</svg>';
+    }
+
+    private function normalizeDropShadowDirection(string $direction): string
+    {
+        $direction = strtolower(trim($direction));
+        return in_array($direction, self::DROP_SHADOW_DIRECTIONS, true) ? $direction : 'bottom-right';
+    }
+
+    private function dropShadowCss(array $style, bool $filter): ?string
+    {
+        if (!$this->truthy($style['dropShadow'] ?? false)) {
+            return null;
+        }
+
+        [$x, $y] = $this->dropShadowOffsetVector(
+            $this->normalizeDropShadowDirection((string)($style['dropShadowDirection'] ?? 'bottom-right')),
+            max(0, min(40, (float)($style['dropShadowOffset'] ?? 2)))
+        );
+        $blur = max(0, min(60, (float)($style['dropShadowBlur'] ?? 4)));
+        $color = normalize_css_rgba_color((string)($style['dropShadowColor'] ?? ''), 'rgba(0, 0, 0, 0.35)');
+        $shadow = $this->cssLength($x) . ' ' . $this->cssLength($y) . ' ' . $this->cssLength($blur) . ' ' . $color;
+
+        return $filter ? 'drop-shadow(' . $shadow . ')' : $shadow;
+    }
+
+    private function dropShadowOffsetVector(string $direction, float $offset): array
+    {
+        $diagonal = round($offset * 0.7071, 4);
+
+        return match ($direction) {
+            'top' => [0.0, -$offset],
+            'top-right' => [$diagonal, -$diagonal],
+            'right' => [$offset, 0.0],
+            'bottom' => [0.0, $offset],
+            'bottom-left' => [-$diagonal, $diagonal],
+            'left' => [-$offset, 0.0],
+            'top-left' => [-$diagonal, -$diagonal],
+            default => [$diagonal, $diagonal],
+        };
+    }
+
+    private function cssLength(float $value): string
+    {
+        return rtrim(rtrim(sprintf('%.4F', $value), '0'), '.') . 'cqw';
+    }
+
+    private function shapeMarkup(string $shape, float $inset, float $radius): string
+    {
+        $min = $inset;
+        $max = 100 - $inset;
+        $size = max(0, $max - $min);
+
+        if ($shape === 'circle') {
+            $radiusX = max(0, 50 - $inset);
+            return '<ellipse cx="50" cy="50" rx="' . e((string)$radiusX) . '" ry="' . e((string)$radiusX) . '"></ellipse>';
+        }
+
+        if ($shape === 'box' || $shape === 'square') {
+            $cornerRadius = max(0, min(50, $radius));
+            return '<rect x="' . e((string)$min) . '" y="' . e((string)$min) . '" width="' . e((string)$size) . '" height="' . e((string)$size) . '" rx="' . e((string)$cornerRadius) . '" ry="' . e((string)$cornerRadius) . '"></rect>';
+        }
+
+        if ($shape === 'arrow') {
+            $points = [
+                [$min, 28],
+                [56, 28],
+                [56, $min],
+                [$max, 50],
+                [56, $max],
+                [56, 72],
+                [$min, 72],
+            ];
+            return '<polygon points="' . e($this->svgPoints($points)) . '"></polygon>';
+        }
+
+        if ($shape === 'triangle') {
+            return '<polygon points="' . e($this->svgPoints([[50, $min], [$max, $max], [$min, $max]])) . '"></polygon>';
+        }
+
+        if ($shape === 'diamond') {
+            return '<polygon points="' . e($this->svgPoints([[50, $min], [$max, 50], [50, $max], [$min, 50]])) . '"></polygon>';
+        }
+
+        if ($shape === 'star') {
+            return '<polygon points="' . e($this->regularStarPoints(max(0, 50 - $inset), max(0, 22 - ($inset / 2)))) . '"></polygon>';
+        }
+
+        $sides = $shape === 'pentagon' ? 5 : 6;
+        return '<polygon points="' . e($this->regularPolygonPoints($sides, max(0, 50 - $inset))) . '"></polygon>';
+    }
+
+    private function svgPoints(array $points): string
+    {
+        return implode(' ', array_map(static fn(array $point): string => round((float)$point[0], 4) . ',' . round((float)$point[1], 4), $points));
+    }
+
+    private function regularPolygonPoints(int $sides, float $radius): string
+    {
+        $points = [];
+        $start = -pi() / 2;
+        for ($index = 0; $index < $sides; $index += 1) {
+            $angle = $start + ((2 * pi() * $index) / $sides);
+            $points[] = [50 + ($radius * cos($angle)), 50 + ($radius * sin($angle))];
+        }
+
+        return $this->svgPoints($points);
+    }
+
+    private function regularStarPoints(float $outerRadius, float $innerRadius): string
+    {
+        $points = [];
+        $start = -pi() / 2;
+        for ($index = 0; $index < 10; $index += 1) {
+            $radius = $index % 2 === 0 ? $outerRadius : $innerRadius;
+            $angle = $start + ((pi() * $index) / 5);
+            $points[] = [50 + ($radius * cos($angle)), 50 + ($radius * sin($angle))];
+        }
+
+        return $this->svgPoints($points);
     }
 
     private function renderMediaById(int $assetId, string $fit): string
@@ -713,5 +1083,20 @@ class TemplateSlideService
         }
 
         return (float)$normalized;
+    }
+
+    private function truthy(mixed $value): bool
+    {
+        if (is_bool($value)) {
+            return $value;
+        }
+        if (is_int($value) || is_float($value)) {
+            return (float)$value !== 0.0;
+        }
+        if (is_string($value)) {
+            return in_array(strtolower(trim($value)), ['1', 'true', 'yes', 'on'], true);
+        }
+
+        return false;
     }
 }

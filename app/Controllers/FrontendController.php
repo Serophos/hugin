@@ -49,7 +49,7 @@ class FrontendController
         $duration = (int)($activeAssignment['slide_duration_seconds'] ?: $display['slide_duration_seconds']);
         $heartbeat = $this->db->one('SELECT * FROM display_heartbeats WHERE display_id = ?', [$display['id']]);
         [$resolvedSlides, $pluginAssets] = $this->resolveSlides($slides, $display, $activeAssignment, $heartbeat, $duration);
-        $state = $this->buildDisplayState($display, $activeAssignment, $resolvedSlides, $effect, $duration, $displayGroup);
+        $state = $this->buildDisplayState($display, $activeAssignment, $resolvedSlides, $effect, $duration, $displayGroup, $pluginAssets);
         $brandingSettings = $this->loadBrandingSettings();
 
         $this->view->render('frontend/display', [
@@ -125,7 +125,7 @@ class FrontendController
         $duration = (int)(($slide['duration_seconds'] ?? 0) ?: $display['slide_duration_seconds']);
         $heartbeat = null;
         [$resolvedSlides, $pluginAssets] = $this->resolveSlides([$slide], $display, $activeAssignment, $heartbeat, $duration);
-        $state = $this->buildDisplayState($display, $activeAssignment, $resolvedSlides, 'none', $duration);
+        $state = $this->buildDisplayState($display, $activeAssignment, $resolvedSlides, 'none', $duration, null, $pluginAssets);
         $brandingSettings = $this->loadBrandingSettings();
 
         $this->view->render('frontend/display', [
@@ -197,9 +197,9 @@ class FrontendController
 
         $duration = (int)(($slide['duration_seconds'] ?? 0) ?: $display['slide_duration_seconds']);
         $heartbeat = null;
-        [$resolvedSlides] = $this->resolveSlides([$slide], $display, $activeAssignment, $heartbeat, $duration);
+        [$resolvedSlides, $pluginAssets] = $this->resolveSlides([$slide], $display, $activeAssignment, $heartbeat, $duration);
 
-        json_response($this->buildDisplayState($display, $activeAssignment, $resolvedSlides, 'none', $duration));
+        json_response($this->buildDisplayState($display, $activeAssignment, $resolvedSlides, 'none', $duration, null, $pluginAssets));
     }
 
     public function previewHeartbeat(int $slideId): void
@@ -265,9 +265,9 @@ class FrontendController
 
         $duration = (int)($activeAssignment['slide_duration_seconds'] ?: $display['slide_duration_seconds']);
         $heartbeat = $this->db->one('SELECT * FROM display_heartbeats WHERE display_id = ?', [$display['id']]);
-        [$resolvedSlides] = $this->resolveSlides($slides, $display, $activeAssignment, $heartbeat, $duration);
+        [$resolvedSlides, $pluginAssets] = $this->resolveSlides($slides, $display, $activeAssignment, $heartbeat, $duration);
 
-        json_response($this->buildDisplayState($display, $activeAssignment, $resolvedSlides, $effect, $duration, $displayGroup));
+        json_response($this->buildDisplayState($display, $activeAssignment, $resolvedSlides, $effect, $duration, $displayGroup, $pluginAssets));
     }
 
     public function offlineManifest(string $slug): void
@@ -294,7 +294,7 @@ class FrontendController
         $duration = (int)($activeAssignment['slide_duration_seconds'] ?: $display['slide_duration_seconds']);
         $heartbeat = $this->db->one('SELECT * FROM display_heartbeats WHERE display_id = ?', [$display['id']]);
         [$resolvedSlides, $pluginAssets] = $this->resolveSlides($slides, $display, $activeAssignment, $heartbeat, $duration);
-        $state = $this->buildDisplayState($display, $activeAssignment, $resolvedSlides, $effect, $duration, $displayGroup);
+        $state = $this->buildDisplayState($display, $activeAssignment, $resolvedSlides, $effect, $duration, $displayGroup, $pluginAssets);
         $brandingSettings = $this->loadBrandingSettings();
 
         json_response($this->buildOfflineManifest($display, $resolvedSlides, $pluginAssets, $state, $brandingSettings));
@@ -477,6 +477,7 @@ class FrontendController
                     'portrait_spec_json' => (string)($slide['template_portrait_spec_json'] ?? ''),
                 ];
                 $values = $this->templateSlides->decodeValues((string)($slide['template_values_json'] ?? ''));
+                $slide['template_font_families'] = $this->templateSlides->localFontFamiliesForTemplate($template);
                 $slide['template_rendered_html'] = $this->templateSlides->render($template, $values, (string)($display['orientation'] ?? 'landscape'));
                 $slide['resolved_source_url'] = '';
             }
@@ -521,8 +522,10 @@ class FrontendController
 
         $this->addManifestAsset($assets, url('/display/' . $display['slug']), 'shell', 'document', null, true);
         $this->addManifestAsset($assets, url('/display/' . $display['slug'] . '/offline-manifest'), 'manifest', 'json', null, true);
-        $this->addManifestAsset($assets, url('/assets/css/display.css'), 'static', 'style', $this->publicFileSize('/assets/css/display.css'), true);
-        $this->addManifestAsset($assets, url('/assets/js/slideshow.js'), 'static', 'script', $this->publicFileSize('/assets/js/slideshow.js'), true);
+        $this->addManifestAsset($assets, asset_url('/assets/css/display.css'), 'static', 'style', $this->publicFileSize('/assets/css/display.css'), true);
+        $this->addManifestAsset($assets, asset_url('/assets/js/hugin-qr.js'), 'static', 'script', $this->publicFileSize('/assets/js/hugin-qr.js'), true);
+        $this->addManifestAsset($assets, asset_url('/assets/js/slideshow.js'), 'static', 'script', $this->publicFileSize('/assets/js/slideshow.js'), true);
+        $this->addManifestAsset($assets, asset_url('/display-service-worker.js'), 'static', 'script', $this->publicFileSize('/display-service-worker.js'), true);
         $this->addManifestAsset($assets, url('/assets/img/hugin-logo.webp'), 'static', 'image', $this->publicFileSize('/assets/img/hugin-logo.webp'), true);
 
         foreach (($pluginAssets['css'] ?? []) as $asset) {
@@ -535,6 +538,7 @@ class FrontendController
         $loadedFontFamilies = array_values(array_unique(array_filter([
             (string)($brandingSettings['default_font_heading'] ?? ''),
             (string)($brandingSettings['default_font_text'] ?? ''),
+            ...$this->templateFontFamiliesForSlides($resolvedSlides),
         ])));
         $publicFonts = list_public_fonts();
         foreach ($loadedFontFamilies as $family) {
@@ -739,6 +743,20 @@ class FrontendController
         };
     }
 
+    private function templateFontFamiliesForSlides(array $resolvedSlides): array
+    {
+        $families = [];
+        foreach ($resolvedSlides as $slide) {
+            foreach ((array)($slide['template_font_families'] ?? []) as $family) {
+                if (is_string($family) && $family !== '') {
+                    $families[$family] = true;
+                }
+            }
+        }
+
+        return array_keys($families);
+    }
+
     private function loadBrandingSettings(): array
     {
         $rows = $this->db->all('SELECT setting_key, setting_value FROM app_settings WHERE namespace = ?', ['branding']);
@@ -765,7 +783,7 @@ class FrontendController
         return array_replace($defaults, $settings);
     }
 
-    private function buildDisplayState(array $display, array $activeAssignment, array $resolvedSlides, string $effect, int $duration, ?array $displayGroup = null): array
+    private function buildDisplayState(array $display, array $activeAssignment, array $resolvedSlides, string $effect, int $duration, ?array $displayGroup = null, array $pluginAssets = []): array
     {
         $payload = [
             'display_id' => (int)$display['id'],
@@ -790,6 +808,7 @@ class FrontendController
             'effect' => $effect,
             'duration' => $duration,
             'orientation' => (string)($display['orientation'] ?? 'landscape'),
+            'frontend_assets' => $this->frontendAssetUrls($pluginAssets),
             'plugin_global_updated_at' => $this->collectPluginGlobalUpdatedAt($resolvedSlides),
             'slides' => array_map(static function (array $slide): array {
                 return [
@@ -845,6 +864,34 @@ class FrontendController
         $payload['ok'] = true;
         $payload['server_time_ms'] = (int)floor(microtime(true) * 1000);
         return $payload;
+    }
+
+    private function frontendAssetUrls(array $pluginAssets): array
+    {
+        $css = [asset_url('/assets/css/display.css')];
+        foreach (($pluginAssets['css'] ?? []) as $asset) {
+            $asset = trim((string)$asset);
+            if ($asset !== '' && !in_array($asset, $css, true)) {
+                $css[] = $asset;
+            }
+        }
+
+        $js = [
+            asset_url('/assets/js/hugin-qr.js'),
+            asset_url('/assets/js/slideshow.js'),
+        ];
+        foreach (($pluginAssets['js'] ?? []) as $asset) {
+            $asset = trim((string)$asset);
+            if ($asset !== '' && !in_array($asset, $js, true)) {
+                $js[] = $asset;
+            }
+        }
+
+        return [
+            'css' => $css,
+            'js' => $js,
+            'service_worker' => asset_url('/display-service-worker.js'),
+        ];
     }
 
     private function loadDisplayGroup(int $displayId): ?array

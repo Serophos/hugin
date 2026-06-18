@@ -25,7 +25,7 @@ $formId = 'plugin_settings';
 $setupActionBaseUrl = (string)($setupActionBaseUrl ?? '');
 $parserConfig = is_array($parserConfig ?? null) ? $parserConfig : [];
 ?>
-<link rel="stylesheet" href="<?= e(url('/plugin-assets/' . $plugin->getName() . '/assets/tl1menu.css')) ?>">
+<link rel="stylesheet" href="<?= e(plugin_asset_url($plugin->getName(), 'assets/tl1menu.css')) ?>">
 <?php
 $setupI18n = [
     'no_field' => __('plugins.tl1-menu.setup.no_field'),
@@ -315,4 +315,4 @@ $setupI18n = [
     </dialog>
 </div>
 <?php require __DIR__ . '/partials/admin_settings_script.php'; ?>
-<script src="<?= e(url('/plugin-assets/' . $plugin->getName() . '/assets/tl1menu-setup.js')) ?>"></script>
+<script src="<?= e(plugin_asset_url($plugin->getName(), 'assets/tl1menu-setup.js')) ?>"></script>

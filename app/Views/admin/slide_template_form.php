@@ -4,6 +4,31 @@ $template = $templateModel ?? [];
 $title = !empty($template['id']) ? __('templates.edit_title') : __('templates.create_title');
 $landscapeJson = json_encode($landscapeSpec, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 $portraitJson = json_encode($portraitSpec, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+$publicFonts = is_array($publicFonts ?? null) ? $publicFonts : [];
+$fontToolOptions = [
+    [
+        'value' => '',
+        'label' => __('templates.font_default'),
+        'css' => '',
+    ],
+];
+foreach (\App\Core\TemplateSlideService::systemFontOptions() as $fontKey => $fontStack) {
+    $token = 'system:' . $fontKey;
+    $fontToolOptions[] = [
+        'value' => $token,
+        'label' => __('templates.font_system_' . str_replace('-', '_', $fontKey)),
+        'css' => \App\Core\TemplateSlideService::fontFamilyCssForToken($token, $publicFonts) ?? $fontStack,
+    ];
+}
+foreach ($publicFonts as $fontFamily => $font) {
+    $token = 'local:' . $fontFamily;
+    $fontToolOptions[] = [
+        'value' => $token,
+        'label' => (string)($font['label'] ?? $fontFamily),
+        'css' => \App\Core\TemplateSlideService::fontFamilyCssForToken($token, $publicFonts) ?? '',
+    ];
+}
+$fontOptionsJson = json_encode($fontToolOptions, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 $mediaJson = json_encode(array_map(static function (array $asset): array {
     return [
         'id' => (int)$asset['id'],
@@ -16,12 +41,25 @@ $mediaJson = json_encode(array_map(static function (array $asset): array {
             : '',
     ];
 }, $mediaAssets ?? []), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+$shapeToolOptions = [
+    ['key' => 'box', 'label' => __('templates.shape_box'), 'svg' => '<rect x="10" y="10" width="80" height="80" rx="8"></rect>'],
+    ['key' => 'square', 'label' => __('templates.shape_square'), 'svg' => '<rect x="12" y="12" width="76" height="76" rx="2"></rect>'],
+    ['key' => 'circle', 'label' => __('templates.shape_circle'), 'svg' => '<ellipse cx="50" cy="50" rx="39" ry="39"></ellipse>'],
+    ['key' => 'triangle', 'label' => __('templates.shape_triangle'), 'svg' => '<polygon points="50,10 90,88 10,88"></polygon>'],
+    ['key' => 'diamond', 'label' => __('templates.shape_diamond'), 'svg' => '<polygon points="50,8 92,50 50,92 8,50"></polygon>'],
+    ['key' => 'star', 'label' => __('templates.shape_star'), 'svg' => '<polygon points="50,8 62,35 91,38 69,58 75,88 50,72 25,88 31,58 9,38 38,35"></polygon>'],
+    ['key' => 'hexagon', 'label' => __('templates.shape_hexagon'), 'svg' => '<polygon points="50,8 86,29 86,71 50,92 14,71 14,29"></polygon>'],
+    ['key' => 'pentagon', 'label' => __('templates.shape_pentagon'), 'svg' => '<polygon points="50,8 90,38 75,88 25,88 10,38"></polygon>'],
+    ['key' => 'arrow', 'label' => __('templates.shape_arrow'), 'svg' => '<polygon points="10,30 56,30 56,10 92,50 56,90 56,70 10,70"></polygon>'],
+];
 $editorI18n = [
     'background' => __('templates.element_background'),
     'element_text' => __('templates.element_text'),
     'element_media' => __('templates.element_media'),
     'element_qr' => __('templates.element_qr'),
     'element_shape' => __('templates.element_shape'),
+    'element_datetime' => __('templates.element_datetime'),
+    'element_countdown' => __('templates.element_countdown'),
     'field' => __('templates.property_field'),
     'field_key' => __('templates.field_key'),
     'field_label' => __('templates.field_label'),
@@ -44,6 +82,23 @@ $editorI18n = [
     'z' => __('templates.property_z'),
     'text_color' => __('templates.property_color'),
     'background_color' => __('templates.property_background'),
+    'font' => __('templates.property_font'),
+    'outline_color' => __('templates.property_outline_color'),
+    'outline_width' => __('templates.property_outline_width'),
+    'shape_type' => __('templates.property_shape_type'),
+    'datetime_mode' => __('templates.property_datetime_mode'),
+    'datetime_mode_clock' => __('templates.datetime_mode_clock'),
+    'datetime_mode_date' => __('templates.datetime_mode_date'),
+    'time_format' => __('templates.property_time_format'),
+    'time_format_24h' => __('templates.time_format_24h'),
+    'time_format_ampm' => __('templates.time_format_ampm'),
+    'countdown_target' => __('templates.property_countdown_target'),
+    'drop_shadow' => __('templates.property_drop_shadow'),
+    'drop_shadow_enabled' => __('templates.property_drop_shadow_enabled'),
+    'drop_shadow_direction' => __('templates.property_drop_shadow_direction'),
+    'drop_shadow_offset' => __('templates.property_drop_shadow_offset'),
+    'drop_shadow_blur' => __('templates.property_drop_shadow_blur'),
+    'drop_shadow_color' => __('templates.property_drop_shadow_color'),
     'radius' => __('templates.property_radius'),
     'size' => __('templates.property_size'),
     'media' => __('templates.property_media'),
@@ -90,6 +145,26 @@ $editorI18n = [
     'shortcut_add_media' => __('templates.shortcut_add_media'),
     'shortcut_add_qr' => __('templates.shortcut_add_qr'),
     'shortcut_add_shape' => __('templates.shortcut_add_shape'),
+    'shortcut_add_datetime' => __('templates.shortcut_add_datetime'),
+    'shortcut_add_countdown' => __('templates.shortcut_add_countdown'),
+    'shape_dropdown_label' => __('templates.shape_dropdown_label'),
+    'shape_box' => __('templates.shape_box'),
+    'shape_square' => __('templates.shape_square'),
+    'shape_circle' => __('templates.shape_circle'),
+    'shape_triangle' => __('templates.shape_triangle'),
+    'shape_diamond' => __('templates.shape_diamond'),
+    'shape_star' => __('templates.shape_star'),
+    'shape_hexagon' => __('templates.shape_hexagon'),
+    'shape_pentagon' => __('templates.shape_pentagon'),
+    'shape_arrow' => __('templates.shape_arrow'),
+    'shadow_direction_top' => __('templates.shadow_direction_top'),
+    'shadow_direction_top_right' => __('templates.shadow_direction_top_right'),
+    'shadow_direction_right' => __('templates.shadow_direction_right'),
+    'shadow_direction_bottom_right' => __('templates.shadow_direction_bottom_right'),
+    'shadow_direction_bottom' => __('templates.shadow_direction_bottom'),
+    'shadow_direction_bottom_left' => __('templates.shadow_direction_bottom_left'),
+    'shadow_direction_left' => __('templates.shadow_direction_left'),
+    'shadow_direction_top_left' => __('templates.shadow_direction_top_left'),
     'add_field_tooltip' => __('templates.add_field_tooltip'),
     'remove_field_tooltip' => __('templates.remove_field_tooltip'),
     'select_layer_tooltip' => __('templates.select_layer_tooltip'),
@@ -144,6 +219,17 @@ $editorIconsJson = json_encode([
 require __DIR__ . '/../layouts/admin_header.php';
 ?>
 <?php if ($error): ?><div class="alert error"><?= e($error) ?></div><?php endif; ?>
+<?php if ($publicFonts): ?>
+    <style data-template-editor-fonts>
+        <?php foreach ($publicFonts as $fontFamily => $font): ?>
+            @font-face {
+                font-family: '<?= e($fontFamily) ?>';
+                font-display: swap;
+                src: <?= $font['src'] ?>;
+            }
+        <?php endforeach; ?>
+    </style>
+<?php endif; ?>
 <form method="post" action="<?= e(!empty($template['id']) ? url('/admin/slide-templates/' . $template['id'] . '/edit') : url('/admin/slide-templates/create')) ?>" class="form-grid template-editor-form" data-template-editor-form>
     <?= csrf_field() ?>
     <div class="card full-width form-grid">
@@ -184,10 +270,29 @@ require __DIR__ . '/../layouts/admin_header.php';
                     <span class="template-tool-button__icon" aria-hidden="true"><img src="<?= e(url('/assets/icons/admin/template-tool-qr.png')) ?>" alt=""></span>
                     <span class="template-tool-button__label"><?= e(__('templates.element_qr')) ?></span>
                 </button>
-                <button type="button" class="template-tool-button template-tool-button--shape" data-add-element="shape" aria-label="<?= e(__('templates.add_element_accessible_label', ['type' => __('templates.element_shape')])) ?>" title="<?= e(__('templates.add_element_shortcut_tooltip', ['type' => __('templates.element_shape'), 'shortcut' => __('templates.shortcut_add_shape')])) ?>">
-                    <span class="template-tool-button__icon" aria-hidden="true"><img src="<?= e(url('/assets/icons/admin/template-tool-shape.png')) ?>" alt=""></span>
-                    <span class="template-tool-button__label"><?= e(__('templates.element_shape')) ?></span>
+                <button type="button" class="template-tool-button template-tool-button--datetime" data-add-element="datetime" aria-label="<?= e(__('templates.add_element_accessible_label', ['type' => __('templates.element_datetime')])) ?>" title="<?= e(__('templates.add_element_shortcut_tooltip', ['type' => __('templates.element_datetime'), 'shortcut' => __('templates.shortcut_add_datetime')])) ?>">
+                    <span class="template-tool-button__icon" aria-hidden="true"><?= admin_icon('schedules') ?></span>
+                    <span class="template-tool-button__label"><?= e(__('templates.element_datetime')) ?></span>
                 </button>
+                <button type="button" class="template-tool-button template-tool-button--countdown" data-add-element="countdown" aria-label="<?= e(__('templates.add_element_accessible_label', ['type' => __('templates.element_countdown')])) ?>" title="<?= e(__('templates.add_element_shortcut_tooltip', ['type' => __('templates.element_countdown'), 'shortcut' => __('templates.shortcut_add_countdown')])) ?>">
+                    <span class="template-tool-button__icon" aria-hidden="true"><?= admin_icon('reload') ?></span>
+                    <span class="template-tool-button__label"><?= e(__('templates.element_countdown')) ?></span>
+                </button>
+                <div class="template-tool-split template-tool-split--shape" data-shape-dropdown>
+                    <button type="button" class="template-tool-button template-tool-button--shape" data-add-element="shape" data-shape-type="box" aria-label="<?= e(__('templates.add_element_accessible_label', ['type' => __('templates.element_shape')])) ?>" title="<?= e(__('templates.add_element_shortcut_tooltip', ['type' => __('templates.element_shape'), 'shortcut' => __('templates.shortcut_add_shape')])) ?>">
+                        <span class="template-tool-button__icon" aria-hidden="true"><img src="<?= e(url('/assets/icons/admin/template-tool-shape.png')) ?>" alt=""></span>
+                        <span class="template-tool-button__label"><?= e(__('templates.element_shape')) ?></span>
+                    </button>
+                    <button type="button" class="template-tool-dropdown-toggle" data-shape-dropdown-toggle aria-haspopup="true" aria-expanded="false" aria-label="<?= e(__('templates.shape_dropdown_label')) ?>" title="<?= e(__('templates.shape_dropdown_label')) ?>"><span aria-hidden="true"></span></button>
+                    <div class="template-tool-menu" data-shape-dropdown-menu role="menu" hidden>
+                        <?php foreach ($shapeToolOptions as $shapeOption): ?>
+                            <button type="button" class="template-tool-menu__item" data-add-shape="<?= e($shapeOption['key']) ?>" role="menuitem">
+                                <span class="template-tool-menu__shape" aria-hidden="true"><svg viewBox="0 0 100 100" preserveAspectRatio="none" focusable="false"><?= $shapeOption['svg'] ?></svg></span>
+                                <span><?= e($shapeOption['label']) ?></span>
+                            </button>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
             </div>
         </div>
         <div class="template-editor__layout">
@@ -253,10 +358,11 @@ require __DIR__ . '/../layouts/admin_header.php';
         <a class="button button--normal" href="<?= e(url('/admin/slide-templates')) ?>"><?= admin_icon('cancel') ?><span><?= e(__('common.cancel')) ?></span></a>
     </div>
 </form>
-<script src="<?= e(url('/assets/js/hugin-qr.js')) ?>"></script>
+<script src="<?= e(asset_url('/assets/js/hugin-qr.js')) ?>"></script>
 <script>
 (() => {
     const mediaAssets = <?= $mediaJson ?: '[]' ?>;
+    const fontOptions = <?= $fontOptionsJson ?: '[]' ?>;
     const mediaById = new Map(mediaAssets.map(asset => [Number(asset.id), asset]));
     const previewQrUrl = 'https://hugin.local/template-preview';
     const layerGroups = [
@@ -268,7 +374,11 @@ require __DIR__ . '/../layouts/admin_header.php';
     const continuousAnimations = ['none', 'pulse', 'float', 'slow-zoom', 'wiggle', 'glow', 'rotate-slow'];
     const animationEasings = ['ease', 'ease-out', 'ease-in-out', 'linear'];
     const animationDirections = ['normal', 'alternate', 'reverse'];
-    const addElementShortcuts = { Digit1: 'text', Digit2: 'media', Digit3: 'qr', Digit4: 'shape' };
+    const shapeTypes = ['box', 'square', 'circle', 'triangle', 'diamond', 'star', 'hexagon', 'pentagon', 'arrow'];
+    const dateTimeModes = ['clock', 'date'];
+    const timeFormats = ['24h', 'ampm'];
+    const dropShadowDirections = ['top', 'top-right', 'right', 'bottom-right', 'bottom', 'bottom-left', 'left', 'top-left'];
+    const addElementShortcuts = { Digit1: 'text', Digit2: 'media', Digit3: 'qr', Digit4: 'shape', Digit5: 'datetime', Digit6: 'countdown' };
     const snapColumns = 24;
     const snapGuidePixelThreshold = 9;
     const snapGuidePrecision = 0.0001;
@@ -307,6 +417,9 @@ require __DIR__ . '/../layouts/admin_header.php';
     const debugPortrait = form.querySelector('[data-json-debug="portrait"]');
     const snapToGridToggle = editor.querySelector('[data-snap-to-grid]');
     const editorStatus = editor.querySelector('[data-editor-status]');
+    const shapeDropdown = editor.querySelector('[data-shape-dropdown]');
+    const shapeDropdownToggle = editor.querySelector('[data-shape-dropdown-toggle]');
+    const shapeDropdownMenu = editor.querySelector('[data-shape-dropdown-menu]');
 
     function uid(prefix) { return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`; }
     function spec() { if (!specs[orientation]) specs[orientation] = defaults[orientation](); return specs[orientation]; }
@@ -319,6 +432,11 @@ require __DIR__ . '/../layouts/admin_header.php';
         const current = spec();
         const ratio = Math.max(0.1, Number(current.canvas?.width || 1) / Math.max(1, Number(current.canvas?.height || 1)));
         return { x: 1 / snapColumns, y: (1 / snapColumns) * ratio };
+    }
+    function visualSquareHeightForWidth(width) {
+        const current = spec();
+        const ratio = Math.max(0.1, Number(current.canvas?.width || 1) / Math.max(1, Number(current.canvas?.height || 1)));
+        return rounded(width * ratio, 0.02, 1);
     }
     function snapGridValue(value, step, min = 0, max = 1) {
         if (!snapEnabled()) return rounded(value, min, max);
@@ -457,6 +575,12 @@ require __DIR__ . '/../layouts/admin_header.php';
     function percentLabel(value) { return `${Math.round(clamp(value, 0, 1) * 1000) / 10}%`; }
     function elementPositionLabel(element) { return `x ${percentLabel(element.x)}, y ${percentLabel(element.y)}, ${i18n.w} ${percentLabel(element.w)}, ${i18n.h} ${percentLabel(element.h)}`; }
     function announce(message) { if (editorStatus) editorStatus.textContent = message; }
+    function setShapeDropdownOpen(open) {
+        if (!shapeDropdown || !shapeDropdownToggle || !shapeDropdownMenu) return;
+        shapeDropdown.classList.toggle('is-open', open);
+        shapeDropdownToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+        shapeDropdownMenu.hidden = !open;
+    }
     function isTextEntryTarget(target) {
         if (!(target instanceof Element)) return false;
         return Boolean(target.closest('input, textarea, select, [contenteditable="true"]'));
@@ -478,8 +602,217 @@ require __DIR__ . '/../layouts/admin_header.php';
     function findTemplateField(key) { return allTemplateFields().find(field => field.key === key) || null; }
     function fieldOptions(selected) { return [`<option value="">${escapeHtml(i18n.none)}</option>`].concat(allTemplateFields().map(field => `<option value="${attr(field.key)}" ${field.key === selected ? 'selected' : ''}>${escapeHtml(field.label || field.key)}</option>`)).join(''); }
     function mediaOptions() { return [`<option value="0">${escapeHtml(i18n.none)}</option>`].concat(mediaAssets.map(asset => `<option value="${asset.id}">${escapeHtml(asset.name)} (${escapeHtml(asset.kind)})</option>`)).join(''); }
+    function textFontElement(element) { return ['text', 'datetime', 'countdown'].includes(element?.type || ''); }
+    function normalizeFontFamily(value) {
+        const raw = String(value || '').trim();
+        return fontOptions.some(option => option.value === raw) ? raw : '';
+    }
+    function fontCssForToken(value) {
+        const normalized = normalizeFontFamily(value);
+        if (normalized === '') return '';
+        return fontOptions.find(option => option.value === normalized)?.css || '';
+    }
+    function fontFamilyOptions(selected) {
+        const current = normalizeFontFamily(selected);
+        return fontOptions.map(option => `<option value="${attr(option.value)}" ${option.value === current ? 'selected' : ''}>${escapeHtml(option.label || option.value || i18n.none)}</option>`).join('');
+    }
+    function applyTextPreviewStyle(node, element) {
+        if (element.style?.fontSize) node.style.fontSize = `clamp(0.7rem, ${Number(element.style.fontSize)}cqw, 4rem)`;
+        if (element.style?.fontWeight) node.style.fontWeight = element.style.fontWeight;
+        if (element.style?.align) node.style.textAlign = element.style.align;
+        const fontFamily = fontCssForToken(element.style?.fontFamily || '');
+        if (fontFamily) node.style.fontFamily = fontFamily;
+    }
     function cssColor(value) { return String(value || '').trim() || 'transparent'; }
     function mediaAsset(id) { return mediaById.get(Number(id || 0)) || null; }
+    function normalizeShapeType(shape) {
+        const value = String(shape || '').trim().toLowerCase();
+        return shapeTypes.includes(value) ? value : 'box';
+    }
+    function shapeLabel(shape) { return i18n[`shape_${normalizeShapeType(shape)}`] || normalizeShapeType(shape); }
+    function shapeTypeOptions(selected) {
+        const current = normalizeShapeType(selected);
+        return shapeTypes.map(shape => `<option value="${attr(shape)}" ${shape === current ? 'selected' : ''}>${escapeHtml(shapeLabel(shape))}</option>`).join('');
+    }
+    function roundedShapeElement(element) {
+        return element?.type === 'shape' && ['box', 'square'].includes(normalizeShapeType(element.style?.shape || 'box'));
+    }
+    function normalizeDateTimeMode(mode) {
+        const value = String(mode || '').trim().toLowerCase();
+        return dateTimeModes.includes(value) ? value : 'clock';
+    }
+    function normalizeTimeFormat(format) {
+        const value = String(format || '').trim().toLowerCase();
+        return timeFormats.includes(value) ? value : '24h';
+    }
+    function dateTimeModeLabel(mode) {
+        return i18n[`datetime_mode_${normalizeDateTimeMode(mode)}`] || normalizeDateTimeMode(mode);
+    }
+    function dateTimeModeOptions(selected) {
+        const current = normalizeDateTimeMode(selected);
+        return dateTimeModes.map(mode => `<option value="${attr(mode)}" ${mode === current ? 'selected' : ''}>${escapeHtml(dateTimeModeLabel(mode))}</option>`).join('');
+    }
+    function timeFormatOptions(selected) {
+        const current = normalizeTimeFormat(selected);
+        return timeFormats.map(format => `<option value="${attr(format)}" ${format === current ? 'selected' : ''}>${escapeHtml(i18n[`time_format_${format.replace(/-/g, '_')}`] || format)}</option>`).join('');
+    }
+    function pad2(value) {
+        return String(Math.max(0, Number(value) || 0)).padStart(2, '0');
+    }
+    function dateTimeLocalInputValue(date = new Date()) {
+        const local = new Date(date.getTime() - (date.getTimezoneOffset() * 60000));
+        return local.toISOString().slice(0, 16);
+    }
+    function dateTimePreviewValue(element) {
+        const now = new Date();
+        if (normalizeDateTimeMode(element?.style?.dateTimeMode || 'clock') === 'date') {
+            return `${pad2(now.getDate())}.${pad2(now.getMonth() + 1)}.${now.getFullYear()}`;
+        }
+
+        const minutes = pad2(now.getMinutes());
+        if (normalizeTimeFormat(element?.style?.timeFormat || '24h') === 'ampm') {
+            const hours24 = now.getHours();
+            const hours12 = hours24 % 12 || 12;
+            return `${pad2(hours12)}:${minutes} ${hours24 >= 12 ? 'PM' : 'AM'}`;
+        }
+
+        return `${pad2(now.getHours())}:${minutes}`;
+    }
+    function normalizeCountdownTarget(value) {
+        const raw = String(value || '').trim();
+        if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?$/.test(raw)) return '';
+        const parsed = new Date(raw);
+        return Number.isFinite(parsed.getTime()) ? raw.slice(0, 16) : '';
+    }
+    function defaultCountdownTarget() {
+        return dateTimeLocalInputValue(new Date(Date.now() + 86400000));
+    }
+    function countdownTargetMs(value) {
+        const target = normalizeCountdownTarget(value);
+        if (!target) return NaN;
+        const parsed = new Date(target).getTime();
+        return Number.isFinite(parsed) ? parsed : NaN;
+    }
+    function formatCountdownSeconds(totalSeconds) {
+        let remaining = Math.max(0, Math.floor(Number(totalSeconds) || 0));
+        const days = Math.floor(remaining / 86400);
+        remaining %= 86400;
+        const hours = Math.floor(remaining / 3600);
+        remaining %= 3600;
+        const minutes = Math.floor(remaining / 60);
+        const seconds = remaining % 60;
+        return `${pad2(days)}d ${pad2(hours)}h ${pad2(minutes)}m ${pad2(seconds)}s`;
+    }
+    function countdownPreviewValue(element) {
+        const targetMs = countdownTargetMs(element?.style?.countdownTarget || '');
+        if (!Number.isFinite(targetMs)) return formatCountdownSeconds(0);
+        return formatCountdownSeconds((targetMs - Date.now()) / 1000);
+    }
+    function truthy(value) {
+        if (typeof value === 'boolean') return value;
+        if (typeof value === 'number') return value !== 0;
+        if (typeof value === 'string') return ['1', 'true', 'yes', 'on'].includes(value.trim().toLowerCase());
+        return false;
+    }
+    function normalizeDropShadowDirection(direction) {
+        const value = String(direction || '').trim().toLowerCase();
+        return dropShadowDirections.includes(value) ? value : 'bottom-right';
+    }
+    function dropShadowDirectionOptions(selected) {
+        const current = normalizeDropShadowDirection(selected);
+        return dropShadowDirections.map(direction => `<option value="${attr(direction)}" ${direction === current ? 'selected' : ''}>${escapeHtml(i18n[`shadow_direction_${direction.replace(/-/g, '_')}`] || direction)}</option>`).join('');
+    }
+    function dropShadowSettings(element) {
+        const style = element?.style || {};
+        return {
+            enabled: !isBackground(element) && truthy(style.dropShadow),
+            offset: clamp(style.dropShadowOffset ?? 2, 0, 40),
+            blur: clamp(style.dropShadowBlur ?? 4, 0, 60),
+            color: cssColor(style.dropShadowColor || 'rgba(0, 0, 0, 0.35)'),
+            direction: normalizeDropShadowDirection(style.dropShadowDirection || 'bottom-right'),
+        };
+    }
+    function dropShadowVector(direction, offset) {
+        const diagonal = Number((offset * 0.7071).toFixed(4));
+        switch (normalizeDropShadowDirection(direction)) {
+            case 'top': return [0, -offset];
+            case 'top-right': return [diagonal, -diagonal];
+            case 'right': return [offset, 0];
+            case 'bottom': return [0, offset];
+            case 'bottom-left': return [-diagonal, diagonal];
+            case 'left': return [-offset, 0];
+            case 'top-left': return [-diagonal, -diagonal];
+            default: return [diagonal, diagonal];
+        }
+    }
+    function cqwLength(value) {
+        return `${Number(Number(value).toFixed(4))}cqw`;
+    }
+    function dropShadowCss(element, filter = false) {
+        const shadow = dropShadowSettings(element);
+        if (!shadow.enabled) return '';
+        const [x, y] = dropShadowVector(shadow.direction, shadow.offset);
+        const value = `${cqwLength(x)} ${cqwLength(y)} ${cqwLength(shadow.blur)} ${shadow.color}`;
+        return filter ? `drop-shadow(${value})` : value;
+    }
+    function editorBoxShadow(element) {
+        return dropShadowCss(element, false) || '0 0 0 rgba(0, 0, 0, 0)';
+    }
+    function svgNumber(value) { return String(Number(Number(value).toFixed(4))); }
+    function svgPoints(points) { return points.map(point => `${svgNumber(point[0])},${svgNumber(point[1])}`).join(' '); }
+    function regularPolygonPoints(sides, radius) {
+        const start = -Math.PI / 2;
+        const points = [];
+        for (let index = 0; index < sides; index += 1) {
+            const angle = start + ((2 * Math.PI * index) / sides);
+            points.push([50 + (radius * Math.cos(angle)), 50 + (radius * Math.sin(angle))]);
+        }
+        return svgPoints(points);
+    }
+    function regularStarPoints(outerRadius, innerRadius) {
+        const start = -Math.PI / 2;
+        const points = [];
+        for (let index = 0; index < 10; index += 1) {
+            const radius = index % 2 === 0 ? outerRadius : innerRadius;
+            const angle = start + ((Math.PI * index) / 5);
+            points.push([50 + (radius * Math.cos(angle)), 50 + (radius * Math.sin(angle))]);
+        }
+        return svgPoints(points);
+    }
+    function shapeMarkup(shape, inset, radius) {
+        const min = inset;
+        const max = 100 - inset;
+        const size = Math.max(0, max - min);
+        const normalized = normalizeShapeType(shape);
+
+        if (normalized === 'circle') {
+            const r = Math.max(0, 50 - inset);
+            return `<ellipse cx="50" cy="50" rx="${svgNumber(r)}" ry="${svgNumber(r)}"></ellipse>`;
+        }
+        if (normalized === 'box' || normalized === 'square') {
+            const cornerRadius = Math.max(0, Math.min(50, Number(radius) || 0));
+            return `<rect x="${svgNumber(min)}" y="${svgNumber(min)}" width="${svgNumber(size)}" height="${svgNumber(size)}" rx="${svgNumber(cornerRadius)}" ry="${svgNumber(cornerRadius)}"></rect>`;
+        }
+        if (normalized === 'arrow') {
+            return `<polygon points="${svgPoints([[min, 28], [56, 28], [56, min], [max, 50], [56, max], [56, 72], [min, 72]])}"></polygon>`;
+        }
+        if (normalized === 'triangle') return `<polygon points="${svgPoints([[50, min], [max, max], [min, max]])}"></polygon>`;
+        if (normalized === 'diamond') return `<polygon points="${svgPoints([[50, min], [max, 50], [50, max], [min, 50]])}"></polygon>`;
+        if (normalized === 'star') return `<polygon points="${regularStarPoints(Math.max(0, 50 - inset), Math.max(0, 22 - (inset / 2)))}"></polygon>`;
+        return `<polygon points="${regularPolygonPoints(normalized === 'pentagon' ? 5 : 6, Math.max(0, 50 - inset))}"></polygon>`;
+    }
+    function shapeSvgMarkup(element, className = 'template-editor__shape-svg') {
+        const style = element?.style || {};
+        const shape = normalizeShapeType(style.shape || 'box');
+        const strokeWidth = clamp(style.borderWidth || 0, 0, 40);
+        const stroke = strokeWidth > 0 ? cssColor(style.borderColor || 'rgba(0, 0, 0, 0)') : 'none';
+        const fill = cssColor(style.backgroundColor || 'rgba(0, 0, 0, 0)');
+        const radius = roundedShapeElement(element) ? Number(style.radius || 0) : 0;
+        const shadow = dropShadowCss(element, true);
+        const styleAttr = shadow ? ` style="filter: ${attr(shadow)}"` : '';
+
+        return `<svg class="${attr(className)} ${attr(`${className}--${shape}`)}" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"${styleAttr} fill="${attr(fill)}" stroke="${attr(stroke)}" stroke-width="${attr(strokeWidth)}" stroke-linejoin="round" stroke-linecap="round">${shapeMarkup(shape, strokeWidth / 2, radius)}</svg>`;
+    }
 
     function previewFieldValue(element) {
         const field = fieldForElement(element);
@@ -580,13 +913,34 @@ require __DIR__ . '/../layouts/admin_header.php';
             preview.appendChild(qr);
             return preview;
         }
+        if (element.type === 'shape') {
+            const shape = document.createElement('span');
+            shape.className = 'template-editor__shape-preview';
+            shape.innerHTML = shapeSvgMarkup(element);
+            preview.appendChild(shape);
+            return preview;
+        }
+        if (element.type === 'datetime') {
+            const dateTime = document.createElement('span');
+            dateTime.className = 'template-editor__datetime-preview';
+            dateTime.textContent = dateTimePreviewValue(element);
+            applyTextPreviewStyle(dateTime, element);
+            preview.appendChild(dateTime);
+            return preview;
+        }
+        if (element.type === 'countdown') {
+            const countdown = document.createElement('span');
+            countdown.className = 'template-editor__countdown-preview';
+            countdown.textContent = countdownPreviewValue(element);
+            applyTextPreviewStyle(countdown, element);
+            preview.appendChild(countdown);
+            return preview;
+        }
         if (element.type === 'text') {
             const text = document.createElement('span');
             text.className = 'template-editor__text-preview';
             text.textContent = textPreviewValue(element);
-            if (element.style?.fontSize) text.style.fontSize = `clamp(0.7rem, ${Number(element.style.fontSize)}cqw, 4rem)`;
-            if (element.style?.fontWeight) text.style.fontWeight = element.style.fontWeight;
-            if (element.style?.align) text.style.textAlign = element.style.align;
+            applyTextPreviewStyle(text, element);
             preview.appendChild(text);
             return preview;
         }
@@ -643,14 +997,73 @@ require __DIR__ . '/../layouts/admin_header.php';
             w: rounded(element.w, 0.02, 1),
             h: rounded(element.h, 0.02, 1),
         })).map(element => {
+            normalizeDateTimeForSave(element);
+            normalizeCountdownForSave(element);
+            normalizeFontForSave(element);
             if (isBackground(element)) {
                 delete element.animation;
+                normalizeDropShadowForSave(element);
                 return element;
             }
+            normalizeDropShadowForSave(element);
             element.animation = normalizedAnimation(element.animation);
             return element;
         });
         return copy;
+    }
+
+    function normalizeDateTimeForSave(element) {
+        if (element?.type !== 'datetime') return;
+        element.field = '';
+        element.style = element.style || {};
+        element.style.dateTimeMode = normalizeDateTimeMode(element.style.dateTimeMode || 'clock');
+        element.style.timeFormat = normalizeTimeFormat(element.style.timeFormat || '24h');
+    }
+
+    function normalizeCountdownForSave(element) {
+        if (element?.type !== 'countdown') return;
+        element.field = '';
+        element.style = element.style || {};
+        const target = normalizeCountdownTarget(element.style.countdownTarget || '');
+        if (target) {
+            element.style.countdownTarget = target;
+        } else {
+            delete element.style.countdownTarget;
+        }
+    }
+
+    function normalizeFontForSave(element) {
+        element.style = element.style || {};
+        if (!textFontElement(element)) {
+            delete element.style.fontFamily;
+            return;
+        }
+
+        const fontFamily = normalizeFontFamily(element.style.fontFamily || '');
+        if (fontFamily) {
+            element.style.fontFamily = fontFamily;
+        } else {
+            delete element.style.fontFamily;
+        }
+    }
+
+    function normalizeDropShadowForSave(element) {
+        element.style = element.style || {};
+        if (isBackground(element) || !truthy(element.style.dropShadow)) {
+            delete element.style.dropShadow;
+            delete element.style.dropShadowOffset;
+            delete element.style.dropShadowBlur;
+            delete element.style.dropShadowColor;
+            delete element.style.dropShadowDirection;
+            return;
+        }
+
+        const shadow = dropShadowSettings(element);
+        element.style.dropShadow = true;
+        element.style.dropShadowOffset = shadow.offset;
+        element.style.dropShadowBlur = shadow.blur;
+        element.style.dropShadowColor = shadow.color;
+        element.style.dropShadowDirection = shadow.direction;
     }
 
     function normalizedAnimation(animation) {
@@ -667,7 +1080,100 @@ require __DIR__ . '/../layouts/admin_header.php';
         };
     }
 
+    let pendingCanvasFrameElementId = '';
+    let pendingCanvasFrameHandle = 0;
+    let suppressCanvasClickElementId = '';
+
+    function canvasElementNode(elementOrId) {
+        const id = typeof elementOrId === 'string' ? elementOrId : String(elementOrId?.id || '');
+        if (id === '') return null;
+        return Array.from(canvas.querySelectorAll('[data-element-id]')).find(node => node.dataset.elementId === id) || null;
+    }
+
+    function focusWithoutScroll(node) {
+        if (!node || typeof node.focus !== 'function') return;
+        try {
+            node.focus({ preventScroll: true });
+        } catch (error) {
+            node.focus();
+        }
+    }
+
+    function canvasElementAriaLabel(element) {
+        return templateText(element.id === selectedId ? 'element_selected_accessible_label' : 'element_accessible_label', {
+            label: elementLabel(element),
+            type: i18n[`element_${element.type}`] || element.type,
+            position: elementPositionLabel(element),
+        });
+    }
+
+    function applyCanvasElementSelection(node, element) {
+        const selected = element.id === selectedId;
+        node.classList.toggle('is-selected', selected);
+        node.setAttribute('aria-pressed', selected ? 'true' : 'false');
+        node.setAttribute('aria-label', canvasElementAriaLabel(element));
+    }
+
+    function applyCanvasSelectionState() {
+        canvas.querySelectorAll('[data-element-id]').forEach(node => {
+            const element = spec().elements.find(item => item.id === node.dataset.elementId);
+            if (element) applyCanvasElementSelection(node, element);
+        });
+    }
+
+    function applyCanvasElementFrame(element) {
+        const node = canvasElementNode(element);
+        if (!node) return false;
+        node.style.left = pct(element.x);
+        node.style.top = pct(element.y);
+        node.style.width = pct(element.w);
+        node.style.height = pct(element.h);
+        node.style.zIndex = String(element.z || 0);
+        node.style.borderRadius = element.type === 'shape' && !roundedShapeElement(element) ? '0' : `${Number(element.style?.radius || 0)}cqw`;
+        node.style.setProperty('--template-editor-element-shadow', element.type === 'shape' ? '0 0 0 rgba(0, 0, 0, 0)' : editorBoxShadow(element));
+        applyCanvasElementSelection(node, element);
+        return true;
+    }
+
+    function scheduleCanvasElementFrame(element) {
+        pendingCanvasFrameElementId = String(element?.id || '');
+        if (pendingCanvasFrameElementId === '' || pendingCanvasFrameHandle) return;
+        pendingCanvasFrameHandle = window.requestAnimationFrame(() => {
+            const id = pendingCanvasFrameElementId;
+            pendingCanvasFrameElementId = '';
+            pendingCanvasFrameHandle = 0;
+            const currentElement = spec().elements.find(item => item.id === id);
+            if (currentElement) applyCanvasElementFrame(currentElement);
+        });
+    }
+
+    function flushCanvasElementFrame() {
+        if (pendingCanvasFrameHandle) {
+            window.cancelAnimationFrame(pendingCanvasFrameHandle);
+            pendingCanvasFrameHandle = 0;
+        }
+        const id = pendingCanvasFrameElementId;
+        pendingCanvasFrameElementId = '';
+        if (id === '') return;
+        const element = spec().elements.find(item => item.id === id);
+        if (element) applyCanvasElementFrame(element);
+    }
+
+    function finalizeCanvasGeometryChange(element) {
+        flushCanvasElementFrame();
+        applyCanvasElementFrame(element);
+        announce(templateText('element_position_status', { label: elementLabel(element), position: elementPositionLabel(element) }));
+        renderInspector();
+        syncHidden();
+        markDirty();
+    }
+
     function renderCanvas() {
+        if (pendingCanvasFrameHandle) {
+            window.cancelAnimationFrame(pendingCanvasFrameHandle);
+            pendingCanvasFrameHandle = 0;
+            pendingCanvasFrameElementId = '';
+        }
         const current = spec();
         const ratio = `${current.canvas.width} / ${current.canvas.height}`;
         const ratioValue = current.canvas.width / current.canvas.height;
@@ -681,26 +1187,27 @@ require __DIR__ . '/../layouts/admin_header.php';
             const node = document.createElement('button');
             node.type = 'button';
             node.className = `template-editor__element template-editor__element--${element.type}`;
-            if (element.id === selectedId) node.classList.add('is-selected');
-            node.setAttribute('aria-pressed', element.id === selectedId ? 'true' : 'false');
             node.setAttribute('aria-describedby', 'template-editor-canvas-instructions');
-            node.setAttribute('aria-label', templateText(element.id === selectedId ? 'element_selected_accessible_label' : 'element_accessible_label', {
-                label: elementLabel(element),
-                type: i18n[`element_${element.type}`] || element.type,
-                position: elementPositionLabel(element),
-            }));
             node.style.left = pct(element.x);
             node.style.top = pct(element.y);
             node.style.width = pct(element.w);
             node.style.height = pct(element.h);
             node.style.zIndex = String(element.z || 0);
             node.style.color = element.style?.color || '';
-            node.style.background = element.type === 'qr' ? 'transparent' : (element.style?.backgroundColor || (element.type === 'background' ? '#0f172a' : 'rgba(255,255,255,0.18)'));
-            node.style.borderRadius = `${Number(element.style?.radius || 0)}cqw`;
+            node.style.background = ['qr', 'shape'].includes(element.type) ? 'transparent' : (element.style?.backgroundColor || (element.type === 'background' ? '#0f172a' : 'rgba(255,255,255,0.18)'));
+            node.style.borderRadius = element.type === 'shape' && !roundedShapeElement(element) ? '0' : `${Number(element.style?.radius || 0)}cqw`;
+            node.style.setProperty('--template-editor-element-shadow', element.type === 'shape' ? '0 0 0 rgba(0, 0, 0, 0)' : editorBoxShadow(element));
             node.dataset.elementId = element.id;
+            applyCanvasElementSelection(node, element);
             node.appendChild(renderElementPreview(element));
             node.addEventListener('pointerdown', startDrag);
-            node.addEventListener('click', () => { selectElement(element.id, false, true); });
+            node.addEventListener('click', () => {
+                if (suppressCanvasClickElementId === element.id) {
+                    suppressCanvasClickElementId = '';
+                    return;
+                }
+                selectElement(element.id, false, true);
+            });
             node.addEventListener('keydown', handleCanvasElementKeydown);
             if (!isBackground(element)) {
                 const handle = document.createElement('span');
@@ -730,6 +1237,9 @@ require __DIR__ . '/../layouts/admin_header.php';
 
     function elementLabel(element) {
         if (element.type === 'background') return i18n.background;
+        if (element.type === 'shape') return shapeLabel(element.style?.shape || 'box');
+        if (element.type === 'datetime') return dateTimeModeLabel(element.style?.dateTimeMode || 'clock');
+        if (element.type === 'countdown') return i18n.element_countdown || 'Countdown';
         if (element.field) return element.field;
         return i18n[`element_${element.type}`] || element.type;
     }
@@ -744,17 +1254,32 @@ require __DIR__ . '/../layouts/admin_header.php';
         const id = pendingFocusElementId;
         pendingFocusElementId = '';
         window.requestAnimationFrame(() => {
-            Array.from(canvas.querySelectorAll('[data-element-id]')).find(node => node.dataset.elementId === id)?.focus();
+            focusWithoutScroll(Array.from(canvas.querySelectorAll('[data-element-id]')).find(node => node.dataset.elementId === id));
         });
     }
 
     function selectElement(id, focusElementTab = false, focusCanvasElement = false) {
+        const wasSelected = selectedId === id;
+        if (wasSelected && !focusElementTab) {
+            if (focusCanvasElement) focusWithoutScroll(canvasElementNode(id));
+            return;
+        }
         selectedId = id;
         if (focusElementTab) activeInspectorTab = 'element';
         const element = spec().elements.find(item => item.id === id);
         if (element) announce(templateText('element_selected_status', { label: elementLabel(element), position: elementPositionLabel(element) }));
-        if (focusCanvasElement) pendingFocusElementId = id;
-        render();
+        if (focusCanvasElement) {
+            if (wasSelected) {
+                focusWithoutScroll(canvasElementNode(id));
+            } else {
+                pendingFocusElementId = id;
+            }
+        }
+        applyCanvasSelectionState();
+        renderInspector();
+        syncHidden();
+        markDirty();
+        focusPendingCanvasElement();
     }
 
     function renderInspector() {
@@ -785,11 +1310,25 @@ require __DIR__ . '/../layouts/admin_header.php';
                 panel.tabIndex = 0;
             }
             if (active) {
-                tab.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+                ensureInspectorTabVisible(tab);
             }
         });
         inspectorPanels.forEach(panel => { panel.hidden = panel.dataset.inspectorPanel !== activeInspectorTab; });
         updateInspectorTabScroll();
+    }
+
+    function ensureInspectorTabVisible(tab) {
+        if (!inspectorTabsScroll || !tab || tab.parentElement !== inspectorTabsScroll) return;
+        const left = tab.offsetLeft;
+        const right = left + tab.offsetWidth;
+        const viewLeft = inspectorTabsScroll.scrollLeft;
+        const viewRight = viewLeft + inspectorTabsScroll.clientWidth;
+
+        if (left < viewLeft) {
+            inspectorTabsScroll.scrollLeft = left;
+        } else if (right > viewRight) {
+            inspectorTabsScroll.scrollLeft = right - inspectorTabsScroll.clientWidth;
+        }
     }
 
     function updateInspectorTabScroll() {
@@ -826,6 +1365,10 @@ require __DIR__ . '/../layouts/admin_header.php';
 
     function numberInput(dataKind, key, value, attrs = '') {
         return `<input type="number" ${attrs} data-${dataKind}="${attr(key)}" value="${attr(value)}">`;
+    }
+
+    function dateTimeLocalInput(dataKind, key, value) {
+        return `<input type="datetime-local" data-${dataKind}="${attr(key)}" value="${attr(value)}">`;
     }
 
     function percentageInputValue(value, min = 0, max = 1) {
@@ -918,13 +1461,35 @@ require __DIR__ . '/../layouts/admin_header.php';
             content = propertySection(i18n.section_content, propertyRow(i18n.media, selectInput('style', 'mediaAssetId', element.style?.mediaAssetId || 0, mediaOptionHtml)) + propertyRow(i18n.fit, selectInput('style', 'fit', element.style?.fit || 'cover', mediaFitOptions)));
         } else if (element.type === 'background') {
             content = propertySection(i18n.section_content, propertyRow(i18n.background_media, selectInput('style', 'backgroundMediaAssetId', element.style?.backgroundMediaAssetId || 0, mediaOptionHtml)) + propertyRow(i18n.fit, selectInput('style', 'fit', element.style?.fit || 'cover', fitOptions)));
+        } else if (element.type === 'datetime') {
+            const mode = normalizeDateTimeMode(element.style?.dateTimeMode || 'clock');
+            content = propertySection(i18n.section_content,
+                propertyRow(i18n.datetime_mode, selectInput('style', 'dateTimeMode', mode, dateTimeModeOptions(mode))) +
+                (mode === 'clock' ? propertyRow(i18n.time_format, selectInput('style', 'timeFormat', normalizeTimeFormat(element.style?.timeFormat || '24h'), timeFormatOptions(element.style?.timeFormat || '24h'))) : '')
+            );
+        } else if (element.type === 'countdown') {
+            content = propertySection(i18n.section_content, propertyRow(i18n.countdown_target, dateTimeLocalInput('style', 'countdownTarget', normalizeCountdownTarget(element.style?.countdownTarget || ''))));
         }
 
         const appearanceRows = [];
-        if (['text', 'qr'].includes(element.type)) appearanceRows.push(propertyRow(i18n.text_color, colorInput('color', element.style?.color || '')));
-        if (['text', 'media', 'qr', 'shape', 'background'].includes(element.type)) appearanceRows.push(propertyRow(i18n.background_color, colorInput('backgroundColor', element.style?.backgroundColor || '', true)));
-        if (element.type === 'text') appearanceRows.push(propertyRow(i18n.size, numberInput('style', 'fontSize', element.style?.fontSize || 4, 'step="0.1" min="0.5"')));
-        if (!isBackground(element)) appearanceRows.push(propertyRow(i18n.radius, numberInput('style', 'radius', element.style?.radius || 0, 'step="0.1" min="0"')));
+        if (element.type === 'shape') appearanceRows.push(propertyRow(i18n.shape_type, selectInput('style', 'shape', normalizeShapeType(element.style?.shape || 'box'), shapeTypeOptions(element.style?.shape || 'box'))));
+        if (textFontElement(element)) appearanceRows.push(propertyRow(i18n.font, selectInput('style', 'fontFamily', normalizeFontFamily(element.style?.fontFamily || ''), fontFamilyOptions(element.style?.fontFamily || ''))));
+        if (['text', 'qr', 'datetime', 'countdown'].includes(element.type)) appearanceRows.push(propertyRow(i18n.text_color, colorInput('color', element.style?.color || '')));
+        if (['text', 'media', 'qr', 'shape', 'background', 'datetime', 'countdown'].includes(element.type)) appearanceRows.push(propertyRow(i18n.background_color, colorInput('backgroundColor', element.style?.backgroundColor || '', true)));
+        if (['text', 'datetime', 'countdown'].includes(element.type)) appearanceRows.push(propertyRow(i18n.size, numberInput('style', 'fontSize', element.style?.fontSize || 4, 'step="0.1" min="0.5"')));
+        if (element.type === 'shape') appearanceRows.push(propertyRow(i18n.outline_color, colorInput('borderColor', element.style?.borderColor || '', true)));
+        if (element.type === 'shape') appearanceRows.push(propertyRow(i18n.outline_width, numberInput('style', 'borderWidth', element.style?.borderWidth || 0, 'step="0.1" min="0" max="40"')));
+        if (!isBackground(element) && (element.type !== 'shape' || roundedShapeElement(element))) appearanceRows.push(propertyRow(i18n.radius, numberInput('style', 'radius', element.style?.radius || 0, 'step="0.1" min="0"')));
+        if (!isBackground(element)) {
+            const shadow = dropShadowSettings(element);
+            appearanceRows.push(propertyRow(i18n.drop_shadow, `<span class="checkbox-row"><input type="checkbox" data-style="dropShadow" ${shadow.enabled ? 'checked' : ''}> ${escapeHtml(i18n.drop_shadow_enabled)}</span>`));
+            if (shadow.enabled) {
+                appearanceRows.push(propertyRow(i18n.drop_shadow_direction, selectInput('style', 'dropShadowDirection', shadow.direction, dropShadowDirectionOptions(shadow.direction))));
+                appearanceRows.push(propertyRow(i18n.drop_shadow_offset, numberInput('style', 'dropShadowOffset', shadow.offset, 'step="0.1" min="0" max="40"')));
+                appearanceRows.push(propertyRow(i18n.drop_shadow_blur, numberInput('style', 'dropShadowBlur', shadow.blur, 'step="0.1" min="0" max="60"')));
+                appearanceRows.push(propertyRow(i18n.drop_shadow_color, colorInput('dropShadowColor', shadow.color, true)));
+            }
+        }
         const appearance = propertySection(i18n.section_appearance, appearanceRows.join(''));
         const actions = isBackground(element) ? '' : `<div class="template-editor__property-actions">${iconButton('delete-element', i18n.delete_element, 'delete', 'template-editor__icon-button--danger')}</div>`;
 
@@ -947,6 +1512,10 @@ require __DIR__ . '/../layouts/admin_header.php';
                         ? (Number(String(input.value).replace(',', '.')) || 0) / 100
                         : input.value;
                     setElementCoordinate(element, input.dataset.prop, value);
+                    applyCanvasElementFrame(element);
+                    syncHidden();
+                    markDirty();
+                    return;
                 } else {
                     element[input.dataset.prop] = Number(input.value);
                 }
@@ -958,6 +1527,68 @@ require __DIR__ . '/../layouts/admin_header.php';
         elementPanel.querySelectorAll('[data-style]').forEach(input => {
             const update = () => {
                 element.style = element.style || {};
+                if (input.dataset.style === 'shape') {
+                    element.style.shape = normalizeShapeType(input.value);
+                    render();
+                    return;
+                }
+                if (input.dataset.style === 'dateTimeMode') {
+                    element.style.dateTimeMode = normalizeDateTimeMode(input.value);
+                    element.style.timeFormat = normalizeTimeFormat(element.style.timeFormat || '24h');
+                    element.field = '';
+                    render();
+                    return;
+                }
+                if (input.dataset.style === 'timeFormat') {
+                    element.style.timeFormat = normalizeTimeFormat(input.value);
+                    renderLiveCanvas();
+                    return;
+                }
+                if (input.dataset.style === 'countdownTarget') {
+                    const target = normalizeCountdownTarget(input.value);
+                    if (target) {
+                        element.style.countdownTarget = target;
+                    } else {
+                        delete element.style.countdownTarget;
+                    }
+                    element.field = '';
+                    renderLiveCanvas();
+                    return;
+                }
+                if (input.dataset.style === 'fontFamily') {
+                    const fontFamily = normalizeFontFamily(input.value);
+                    if (fontFamily) {
+                        element.style.fontFamily = fontFamily;
+                    } else {
+                        delete element.style.fontFamily;
+                    }
+                    renderLiveCanvas();
+                    return;
+                }
+                if (input.dataset.style === 'dropShadow') {
+                    if (input.checked) {
+                        const shadow = dropShadowSettings(element);
+                        element.style.dropShadow = true;
+                        element.style.dropShadowOffset = shadow.offset;
+                        element.style.dropShadowBlur = shadow.blur;
+                        element.style.dropShadowColor = shadow.color;
+                        element.style.dropShadowDirection = shadow.direction;
+                    } else {
+                        delete element.style.dropShadow;
+                        delete element.style.dropShadowOffset;
+                        delete element.style.dropShadowBlur;
+                        delete element.style.dropShadowColor;
+                        delete element.style.dropShadowDirection;
+                    }
+                    renderLiveCanvas();
+                    renderElementInspector(element);
+                    return;
+                }
+                if (input.dataset.style === 'dropShadowDirection') {
+                    element.style.dropShadowDirection = normalizeDropShadowDirection(input.value);
+                    renderLiveCanvas();
+                    return;
+                }
                 element.style[input.dataset.style] = input.type === 'number' || (input.tagName === 'SELECT' && /AssetId$/.test(input.dataset.style)) ? Number(input.value) : input.value;
                 renderLiveCanvas();
             };
@@ -1382,7 +2013,7 @@ require __DIR__ . '/../layouts/admin_header.php';
                 event.preventDefault();
                 const directions = { ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right' };
                 if (moveLayerByKeyboard(element, directions[event.key])) {
-                    window.requestAnimationFrame(() => Array.from(layersPanel.querySelectorAll('[data-layer-element-id]')).find(node => node.dataset.layerElementId === element.id)?.focus());
+                    window.requestAnimationFrame(() => focusWithoutScroll(Array.from(layersPanel.querySelectorAll('[data-layer-element-id]')).find(node => node.dataset.layerElementId === element.id)));
                 }
             });
             button.addEventListener('dragstart', event => {
@@ -1466,12 +2097,36 @@ require __DIR__ . '/../layouts/admin_header.php';
 
     function normalizeKey(value) { return String(value || '').toLowerCase().replace(/[^a-z0-9_]+/g, '_').replace(/^_+|_+$/g, '') || 'field'; }
 
-    function addElement(type) {
+    function addElement(type, shapeType = '') {
         const z = type === 'background' ? 0 : nextContentLayerZ();
         const element = { id: uid(type), type, field: '', x: 0.2, y: 0.2, w: 0.35, h: 0.22, z, style: { backgroundColor: type === 'shape' ? 'rgba(255,255,255,0.35)' : 'rgba(15,23,42,0.55)', color: '#ffffff', fontSize: 4, radius: 0, fit: 'cover' } };
         if (type !== 'background') element.animation = defaultAnimation();
+        if (type === 'shape') {
+            element.w = rounded(4 / snapColumns, 0.02, 1);
+            element.h = visualSquareHeightForWidth(element.w);
+            element.style.shape = normalizeShapeType(shapeType || 'box');
+            element.style.borderColor = 'rgba(15, 23, 42, 0.65)';
+            element.style.borderWidth = 2;
+        }
         if (type === 'qr') { element.w = 0.18; element.h = 0.32; element.style.backgroundColor = 'rgba(255,255,255,1)'; element.style.color = 'rgba(15,23,42,1)'; }
         if (type === 'media') { element.w = 0.42; element.h = 0.32; }
+        if (type === 'datetime') {
+            element.w = 0.24;
+            element.h = 0.12;
+            element.style.dateTimeMode = 'clock';
+            element.style.timeFormat = '24h';
+            element.style.fontSize = 5;
+            element.style.fontWeight = '700';
+            element.style.align = 'center';
+        }
+        if (type === 'countdown') {
+            element.w = 0.34;
+            element.h = 0.12;
+            element.style.countdownTarget = defaultCountdownTarget();
+            element.style.fontSize = 4.4;
+            element.style.fontWeight = '700';
+            element.style.align = 'center';
+        }
         placeNewElement(element);
         if (!isBackground(element) && snapEnabled()) {
             const size = snapElementSize(element, element.w, element.h);
@@ -1534,9 +2189,8 @@ require __DIR__ . '/../layouts/admin_header.php';
         element.x = next.x;
         element.y = next.y;
         selectedId = element.id;
-        pendingFocusElementId = element.id;
-        announce(templateText('element_position_status', { label: elementLabel(element), position: elementPositionLabel(element) }));
-        render();
+        finalizeCanvasGeometryChange(element);
+        focusWithoutScroll(canvasElementNode(element));
     }
 
     function handleCanvasElementKeydown(event) {
@@ -1576,35 +2230,75 @@ require __DIR__ . '/../layouts/admin_header.php';
         if (event.target.classList.contains('template-editor__resize')) return;
         const element = spec().elements.find(item => item.id === event.currentTarget.dataset.elementId);
         if (!element) return;
+        suppressCanvasClickElementId = '';
+        const wasSelected = selectedId === element.id;
         selectedId = element.id;
-        if (isBackground(element)) { render(); return; }
+        applyCanvasSelectionState();
+        if (!wasSelected) {
+            renderInspector();
+            syncHidden();
+            markDirty();
+        }
+        if (isBackground(element)) return;
         const box = canvas.getBoundingClientRect();
         const start = { x: event.clientX, y: event.clientY, left: element.x, top: element.y };
+        let didMove = false;
         event.currentTarget.setPointerCapture(event.pointerId);
         const move = (moveEvent) => {
             const next = snapElementPosition(element, start.left + ((moveEvent.clientX - start.x) / box.width), start.top + ((moveEvent.clientY - start.y) / box.height));
+            if (next.x === element.x && next.y === element.y) return;
             element.x = next.x;
             element.y = next.y;
-            render();
+            didMove = true;
+            scheduleCanvasElementFrame(element);
         };
-        const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); };
+        const up = () => {
+            window.removeEventListener('pointermove', move);
+            window.removeEventListener('pointerup', up);
+            if (!didMove) return;
+            suppressCanvasClickElementId = element.id;
+            window.setTimeout(() => { if (suppressCanvasClickElementId === element.id) suppressCanvasClickElementId = ''; }, 120);
+            finalizeCanvasGeometryChange(element);
+            focusWithoutScroll(canvasElementNode(element));
+        };
         window.addEventListener('pointermove', move);
         window.addEventListener('pointerup', up);
     }
 
     function startResize(event) {
         event.stopPropagation();
+        event.preventDefault();
         const element = spec().elements.find(item => item.id === event.currentTarget.parentElement.dataset.elementId);
         if (!element || isBackground(element)) return;
+        suppressCanvasClickElementId = '';
+        const wasSelected = selectedId === element.id;
+        selectedId = element.id;
+        applyCanvasSelectionState();
+        if (!wasSelected) {
+            renderInspector();
+            syncHidden();
+            markDirty();
+        }
         const box = canvas.getBoundingClientRect();
         const start = { x: event.clientX, y: event.clientY, w: element.w, h: element.h };
+        let didResize = false;
         const move = (moveEvent) => {
             const next = snapElementSize(element, start.w + ((moveEvent.clientX - start.x) / box.width), start.h + ((moveEvent.clientY - start.y) / box.height));
+            if (next.w === element.w && next.h === element.h) return;
             element.w = next.w;
             element.h = next.h;
-            render();
+            didResize = true;
+            scheduleCanvasElementFrame(element);
         };
-        const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); };
+        const up = () => {
+            window.removeEventListener('pointermove', move);
+            window.removeEventListener('pointerup', up);
+            if (!didResize) return;
+            suppressCanvasClickElementId = element.id;
+            window.setTimeout(() => { if (suppressCanvasClickElementId === element.id) suppressCanvasClickElementId = ''; }, 120);
+            finalizeCanvasGeometryChange(element);
+            focusWithoutScroll(canvasElementNode(element));
+        };
         window.addEventListener('pointermove', move);
         window.addEventListener('pointerup', up);
     }
@@ -1630,7 +2324,7 @@ require __DIR__ . '/../layouts/admin_header.php';
             event.preventDefault();
             const next = tabs[(nextIndex + tabs.length) % tabs.length];
             setInspectorTab(next.dataset.inspectorTab);
-            next.focus();
+            focusWithoutScroll(next);
         });
     });
     inspectorTabScrollButtons.forEach(button => button.addEventListener('click', () => {
@@ -1657,7 +2351,22 @@ require __DIR__ . '/../layouts/admin_header.php';
     form.addEventListener('change', markDirty);
     document.addEventListener('keydown', handleEditorShortcuts);
     snapToGridToggle?.addEventListener('change', () => { editor.classList.toggle('is-snap-enabled', snapEnabled()); });
-    editor.querySelectorAll('[data-add-element]').forEach(button => button.addEventListener('click', () => addElement(button.dataset.addElement)));
+    editor.querySelectorAll('[data-add-element]').forEach(button => button.addEventListener('click', () => addElement(button.dataset.addElement, button.dataset.shapeType || '')));
+    shapeDropdownToggle?.addEventListener('click', event => {
+        event.stopPropagation();
+        setShapeDropdownOpen(shapeDropdownMenu?.hidden !== false);
+    });
+    editor.querySelectorAll('[data-add-shape]').forEach(button => button.addEventListener('click', () => {
+        addElement('shape', button.dataset.addShape || 'box');
+        setShapeDropdownOpen(false);
+    }));
+    document.addEventListener('click', event => {
+        if (!shapeDropdown || !(event.target instanceof Element) || shapeDropdown.contains(event.target)) return;
+        setShapeDropdownOpen(false);
+    });
+    document.addEventListener('keydown', event => {
+        if (event.key === 'Escape') setShapeDropdownOpen(false);
+    });
     function exportJson(orientationName) {
         const source = orientationName === 'portrait' ? specs.portrait : specs.landscape;
         const json = source ? JSON.stringify(normalizedSpecForSave(source), null, 2) : '';

@@ -112,6 +112,84 @@ function url(string $path = ''): string
     return $baseUrl . ($path === '/' ? '' : $path);
 }
 
+function asset_url(string $path): string
+{
+    if (preg_match('#^https?://#i', $path)) {
+        return $path;
+    }
+
+    $href = url($path);
+    $version = public_asset_version($path);
+    return $version !== '' ? append_url_query_param($href, 'v', $version) : $href;
+}
+
+function plugin_asset_url(string $pluginName, string $relativePath): string
+{
+    $relativePath = ltrim(str_replace('\\', '/', trim($relativePath)), '/');
+    $href = url('/plugin-assets/' . rawurlencode($pluginName) . '/' . $relativePath);
+    $version = plugin_asset_version($pluginName, $relativePath);
+    return $version !== '' ? append_url_query_param($href, 'v', $version) : $href;
+}
+
+function public_asset_version(string $path): string
+{
+    $publicRoot = realpath((string)app_config('paths.public', dirname(__DIR__) . '/public'));
+    if ($publicRoot === false) {
+        return '';
+    }
+
+    $assetPath = parse_url($path, PHP_URL_PATH);
+    $assetPath = is_string($assetPath) ? $assetPath : $path;
+    $filePath = realpath($publicRoot . DIRECTORY_SEPARATOR . ltrim(rawurldecode($assetPath), '/'));
+    return local_file_asset_version($publicRoot, $filePath);
+}
+
+function plugin_asset_version(string $pluginName, string $relativePath): string
+{
+    if (preg_match('/^[a-zA-Z0-9_-]+$/', $pluginName) !== 1) {
+        return '';
+    }
+
+    $root = rtrim((string)app_config('paths.root', dirname(__DIR__)), DIRECTORY_SEPARATOR);
+    $pluginRoot = realpath($root . DIRECTORY_SEPARATOR . 'plugins' . DIRECTORY_SEPARATOR . $pluginName);
+    if ($pluginRoot === false) {
+        return '';
+    }
+
+    $assetPath = parse_url($relativePath, PHP_URL_PATH);
+    $assetPath = is_string($assetPath) ? $assetPath : $relativePath;
+    $filePath = realpath($pluginRoot . DIRECTORY_SEPARATOR . ltrim(rawurldecode($assetPath), '/'));
+    return local_file_asset_version($pluginRoot, $filePath);
+}
+
+function local_file_asset_version(string $root, string|false $filePath): string
+{
+    if ($filePath === false || !str_starts_with($filePath, rtrim($root, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR) || !is_file($filePath)) {
+        return '';
+    }
+
+    $modifiedAt = filemtime($filePath);
+    $size = filesize($filePath);
+    if ($modifiedAt === false || $size === false) {
+        return '';
+    }
+
+    return (string)$modifiedAt . '-' . (string)$size;
+}
+
+function append_url_query_param(string $href, string $key, string $value): string
+{
+    $fragment = '';
+    $hashPosition = strpos($href, '#');
+    if ($hashPosition !== false) {
+        $fragment = substr($href, $hashPosition);
+        $href = substr($href, 0, $hashPosition);
+    }
+
+    $separator = str_contains($href, '?') ? '&' : '?';
+    return $href . $separator . rawurlencode($key) . '=' . rawurlencode($value) . $fragment;
+}
+
 function redirect(string $path): void
 {
     header('Location: ' . url($path));

@@ -1,5 +1,5 @@
 <?php
-$pluginCss = url('/plugin-assets/' . $plugin->getName() . '/assets/' . $plugin->getName() . '.css');
+$pluginCss = plugin_asset_url($plugin->getName(), 'assets/' . $plugin->getName() . '.css');
 $title = __('plugins.settings_title', ['plugin' => $plugin->getDisplayName()]); require __DIR__ . '/../layouts/admin_header.php'; ?>
 <?php if ($error): ?><div class="alert error"><?= e($error) ?></div><?php endif; ?>
 <form method="post" enctype="multipart/form-data" action="<?= e(url('/admin/plugins/' . $plugin->getName() . '/settings')) ?>" class="form-grid">

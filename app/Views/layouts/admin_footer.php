@@ -13,10 +13,10 @@
         </div>
     </form>
 </dialog>
-<script src="<?= e(url('/assets/js/sortable.js')) ?>"></script>
-<script src="<?= e(url('/assets/js/display-groups.js')) ?>"></script>
-<script src="<?= e(url('/assets/js/admin-confirm.js')) ?>"></script>
-<script src="<?= e(url('/assets/js/admin-table.js')) ?>"></script>
-<script src="<?= e(url('/assets/js/admin-layout.js')) ?>"></script>
+<script src="<?= e(asset_url('/assets/js/sortable.js')) ?>"></script>
+<script src="<?= e(asset_url('/assets/js/display-groups.js')) ?>"></script>
+<script src="<?= e(asset_url('/assets/js/admin-confirm.js')) ?>"></script>
+<script src="<?= e(asset_url('/assets/js/admin-table.js')) ?>"></script>
+<script src="<?= e(asset_url('/assets/js/admin-layout.js')) ?>"></script>
 </body>
 </html>

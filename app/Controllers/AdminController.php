@@ -1631,6 +1631,7 @@ class AdminController
             'landscapeSpec' => $this->templateSlides->decodeSpec((string)($template['landscape_spec_json'] ?? ''), 'landscape'),
             'portraitSpec' => trim((string)($template['portrait_spec_json'] ?? '')) !== '' ? $this->templateSlides->decodeSpec((string)$template['portrait_spec_json'], 'portrait') : null,
             'mediaAssets' => $this->db->all('SELECT id, name, original_name, media_kind, file_path, preview_file_path FROM media_assets ORDER BY created_at DESC, id DESC'),
+            'publicFonts' => list_public_fonts(),
             'error' => flash('error'),
         ]);
     }

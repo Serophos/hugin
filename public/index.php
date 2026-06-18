@@ -26,12 +26,29 @@ if (is_string($staticUri) && in_array($staticMethod, ['GET', 'HEAD'], true)) {
         ];
         $fileSize = (int)filesize($staticPath);
         $isVideo = in_array($extension, ['mp4', 'webm'], true);
+        $modifiedAt = (int)(filemtime($staticPath) ?: time());
+        $etag = '"' . sha1($extension . ':' . $fileSize . ':' . $modifiedAt) . '"';
+        $rangeHeader = $isVideo ? (string)($_SERVER['HTTP_RANGE'] ?? '') : '';
+        $isVersionedRequest = isset($_GET['v']) && trim((string)$_GET['v']) !== '';
         header('Content-Type: ' . ($mimeMap[$extension] ?? 'application/octet-stream'));
+        header('Cache-Control: ' . ($isVersionedRequest ? 'public, max-age=31536000, immutable' : 'no-cache, must-revalidate'));
+        header('Last-Modified: ' . gmdate('D, d M Y H:i:s', $modifiedAt) . ' GMT');
+        header('ETag: ' . $etag);
         if ($isVideo) {
             header('Accept-Ranges: bytes');
         }
 
-        $rangeHeader = $isVideo ? (string)($_SERVER['HTTP_RANGE'] ?? '') : '';
+        $ifNoneMatch = trim((string)($_SERVER['HTTP_IF_NONE_MATCH'] ?? ''));
+        $ifModifiedSinceHeader = trim((string)($_SERVER['HTTP_IF_MODIFIED_SINCE'] ?? ''));
+        $ifModifiedSince = $ifModifiedSinceHeader !== '' ? strtotime($ifModifiedSinceHeader) : false;
+        if ($rangeHeader === '' && (
+            ($ifNoneMatch !== '' && in_array($etag, array_map('trim', explode(',', $ifNoneMatch)), true))
+            || ($ifNoneMatch === '' && $ifModifiedSince !== false && $ifModifiedSince >= $modifiedAt)
+        )) {
+            http_response_code(304);
+            exit;
+        }
+
         if ($rangeHeader !== '' && preg_match('/^bytes=(\d*)-(\d*)$/', $rangeHeader, $rangeMatch)) {
             $start = $rangeMatch[1] !== '' ? (int)$rangeMatch[1] : null;
             $end = $rangeMatch[2] !== '' ? (int)$rangeMatch[2] : null;

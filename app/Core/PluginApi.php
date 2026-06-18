@@ -163,7 +163,7 @@ class PluginApi
 
     public function pluginAssetUrl(string $pluginName, string $relativePath): string
     {
-        return url('/plugin-assets/' . rawurlencode($pluginName) . '/' . ltrim($relativePath, '/'));
+        return plugin_asset_url($pluginName, $relativePath);
     }
 
     public function pluginStoragePath(string $pluginName, string $relativePath = ''): string

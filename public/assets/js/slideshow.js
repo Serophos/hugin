@@ -46,6 +46,86 @@
 
     const delayUntilServerTime = targetMs => Math.max(0, Math.ceil(Number(targetMs || 0) - serverNowMs()));
 
+    const padDateTimePart = value => String(Math.max(0, Number(value) || 0)).padStart(2, '0');
+
+    const formatTemplateDateTime = element => {
+        const now = new Date(serverNowMs());
+        const mode = (element?.dataset.templateDatetimeMode || 'clock').toLowerCase();
+        if (mode === 'date') {
+            return `${padDateTimePart(now.getDate())}.${padDateTimePart(now.getMonth() + 1)}.${now.getFullYear()}`;
+        }
+
+        const minutes = padDateTimePart(now.getMinutes());
+        const format = (element?.dataset.templateTimeFormat || '24h').toLowerCase();
+        if (format === 'ampm') {
+            const hours24 = now.getHours();
+            const hours12 = hours24 % 12 || 12;
+            return `${padDateTimePart(hours12)}:${minutes} ${hours24 >= 12 ? 'PM' : 'AM'}`;
+        }
+
+        return `${padDateTimePart(now.getHours())}:${minutes}`;
+    };
+
+    const updateTemplateDateTimeElements = () => {
+        const elements = Array.from(document.querySelectorAll('[data-template-datetime]'));
+        elements.forEach(element => {
+            const target = element.querySelector('.template-slide__datetime-content') || element;
+            target.textContent = formatTemplateDateTime(element);
+        });
+        return elements.length > 0;
+    };
+
+    const targetDateTimeMs = value => {
+        const raw = String(value || '').trim();
+        if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?$/.test(raw)) {
+            return NaN;
+        }
+
+        const parsed = new Date(raw).getTime();
+        return Number.isFinite(parsed) ? parsed : NaN;
+    };
+
+    const formatTemplateCountdownSeconds = totalSeconds => {
+        let remaining = Math.max(0, Math.floor(Number(totalSeconds) || 0));
+        const days = Math.floor(remaining / 86400);
+        remaining %= 86400;
+        const hours = Math.floor(remaining / 3600);
+        remaining %= 3600;
+        const minutes = Math.floor(remaining / 60);
+        const seconds = remaining % 60;
+
+        return `${padDateTimePart(days)}d ${padDateTimePart(hours)}h ${padDateTimePart(minutes)}m ${padDateTimePart(seconds)}s`;
+    };
+
+    const formatTemplateCountdown = element => {
+        const targetMsAttr = Number(element?.dataset.templateCountdownTargetMs || NaN);
+        if (Number.isFinite(targetMsAttr) && targetMsAttr > 0) {
+            return formatTemplateCountdownSeconds((targetMsAttr - serverNowMs()) / 1000);
+        }
+
+        const targetMs = targetDateTimeMs(element?.dataset.templateCountdownTarget || '');
+        if (!Number.isFinite(targetMs)) {
+            return formatTemplateCountdownSeconds(0);
+        }
+
+        return formatTemplateCountdownSeconds((targetMs - serverNowMs()) / 1000);
+    };
+
+    const updateTemplateCountdownElements = () => {
+        const elements = Array.from(document.querySelectorAll('[data-template-countdown]'));
+        elements.forEach(element => {
+            const target = element.querySelector('.template-slide__countdown-content') || element;
+            target.textContent = formatTemplateCountdown(element);
+        });
+        return elements.length > 0;
+    };
+
+    const updateTemplateTimedElements = () => {
+        const hasDateTime = updateTemplateDateTimeElements();
+        const hasCountdown = updateTemplateCountdownElements();
+        return hasDateTime || hasCountdown;
+    };
+
     const hasStoredScheduledSyncReload = () => {
         try {
             const raw = window.sessionStorage.getItem(SCHEDULED_SYNC_RELOAD_KEY);
@@ -1336,6 +1416,7 @@
         window.__huginQrResize = setTimeout(renderTextSlideQrCodes, 250);
     });
     window.addEventListener('focus', () => {
+        updateTemplateTimedElements();
         if (nextSlideDueAt && Date.now() >= nextSlideDueAt) {
             activate(nextIndex(index));
         }
@@ -1348,6 +1429,9 @@
         reloadIfChanged('focus');
     });
     document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+            updateTemplateTimedElements();
+        }
         if (document.visibilityState === 'visible' && nextSlideDueAt && Date.now() >= nextSlideDueAt) {
             activate(nextIndex(index));
         }
@@ -1357,6 +1441,9 @@
     }
 
     renderTextSlideQrCodes();
+    if (updateTemplateTimedElements()) {
+        window.setInterval(updateTemplateTimedElements, 1000);
+    }
     prepareMediaAround(index);
     queueHeartbeat();
     waitForStartupSync().then(startSlideshow);
