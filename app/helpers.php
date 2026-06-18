@@ -551,7 +551,7 @@ function admin_icon(string $name): string
         return '';
     }
 
-    $href = url('/assets/icons/admin/' . rawurlencode($name) . '.svg');
+    $href = asset_url('/assets/icons/admin/' . rawurlencode($name) . '.svg');
     return '<span class="button-icon" aria-hidden="true" style="--button-icon-url: url(&quot;' . e($href) . '&quot;)"></span>';
 }
 

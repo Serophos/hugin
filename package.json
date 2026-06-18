@@ -1,0 +1,21 @@
+{
+  "name": "hugin-frontend-assets",
+  "version": "0.8.0",
+  "private": true,
+  "description": "Frontend asset build tools for Hugin.",
+  "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "npm run build:icons",
+    "build:icons": "node scripts/build-admin-icons.mjs",
+    "check": "npm run check:icons",
+    "check:icons": "node scripts/build-admin-icons.mjs --check"
+  },
+  "devDependencies": {
+    "@rsuite/icon-font": "4.1.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  }
+}

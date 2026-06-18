@@ -21,6 +21,7 @@ Current application metadata:
 - PHP `8.0+`
 - MySQL or MariaDB compatible with the provided schema
 - Composer
+- Node.js `18+` and npm for frontend asset development or release builds
 - Apache with `mod_rewrite` or an equivalent Nginx/PHP-FPM setup
 - A web server document root pointing to `public/`
 
@@ -61,6 +62,17 @@ The seeded demo users use the password `admin123!`:
 - `editor`, role `editor`, inactive by default
 
 Change initial passwords immediately on a real installation. Hugin shows a warning to users until their password has been changed after account creation.
+
+### Frontend Asset Builds
+
+Hugin keeps generated frontend assets committed so a normal production deployment can remain PHP/Composer-only after checkout. Use npm when changing generated admin assets or preparing a release artifact:
+
+```bash
+npm ci
+npm run build
+```
+
+`npm run build` currently regenerates the admin icon SVGs in `public/assets/icons/admin` from `@rsuite/icon-font`. Use `npm run check` in CI or before committing to verify those generated assets are current.
 
 ### `config.php`
 

@@ -1,5 +1,2 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-  <path d="M4 6h16"></path>
-  <path d="M4 12h16"></path>
-  <path d="M4 18h16"></path>
-</svg>
+<!-- Generated from @rsuite/icon-font by scripts/build-admin-icons.mjs. Do not edit directly. -->
+<svg width="1em" height="1em" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg"><path d="M2 1h12a1 1 0 010 2H2a1 1 0 010-2zM2 7h12a1 1 0 010 2H2a1 1 0 010-2zM2 13h12a1 1 0 010 2H2a1 1 0 010-2z"></path></svg>

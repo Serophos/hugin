@@ -20,3 +20,7 @@ public/assets/fonts/*
 /vendor/
 composer.phar
 .envrc
+
+# Node dependencies
+node_modules/
+npm-debug.log*
