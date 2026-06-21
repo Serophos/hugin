@@ -48,8 +48,67 @@ $pluginCss = array_values(array_unique($pluginCss));
 $slideTypeDefinitions = array_values($slideTypeDefinitions ?? []);
 $slideTemplates = array_values($slideTemplates ?? []);
 $templateFieldDefinitions = $templateFieldDefinitions ?? [];
+$templatePreviewSpecs = $templatePreviewSpecs ?? [];
 $templateValues = is_array($templateValues ?? null) ? $templateValues : [];
 $selectedTemplateId = (int)old('template_id', $selectedTemplateId ?? 0, $formId);
+$publicFonts = is_array($publicFonts ?? null) ? $publicFonts : [];
+$templateFontOptions = [
+    [
+        'value' => '',
+        'label' => __('templates.font_default'),
+        'css' => '',
+    ],
+];
+foreach (\App\Core\TemplateSlideService::systemFontOptions() as $fontKey => $fontStack) {
+    $token = 'system:' . $fontKey;
+    $templateFontOptions[] = [
+        'value' => $token,
+        'label' => __('templates.font_system_' . str_replace('-', '_', $fontKey)),
+        'css' => \App\Core\TemplateSlideService::fontFamilyCssForToken($token, $publicFonts) ?? $fontStack,
+    ];
+}
+foreach ($publicFonts as $fontFamily => $font) {
+    $token = 'local:' . $fontFamily;
+    $templateFontOptions[] = [
+        'value' => $token,
+        'label' => (string)($font['label'] ?? $fontFamily),
+        'css' => \App\Core\TemplateSlideService::fontFamilyCssForToken($token, $publicFonts) ?? '',
+    ];
+}
+$templatePreviewMediaJson = json_encode(array_map(static function (array $asset): array {
+    return [
+        'id' => (int)$asset['id'],
+        'name' => (string)$asset['name'],
+        'original_name' => (string)$asset['original_name'],
+        'kind' => (string)$asset['media_kind'],
+        'url' => ($asset['file_path'] ?? '') !== '' ? url((string)$asset['file_path']) : '',
+        'preview_url' => ($asset['media_kind'] ?? '') === 'video' && !empty($asset['preview_file_path'])
+            ? url('/api/media/' . (int)$asset['id'] . '/preview')
+            : '',
+    ];
+}, $mediaAssets ?? []), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+$templatePreviewI18n = [
+    'preview' => __('templates.preview'),
+    'preview_unavailable' => __('templates.preview_unavailable'),
+    'background' => __('templates.element_background'),
+    'element_text' => __('templates.element_text'),
+    'element_media' => __('templates.element_media'),
+    'element_qr' => __('templates.element_qr'),
+    'element_shape' => __('templates.element_shape'),
+    'element_datetime' => __('templates.element_datetime'),
+    'element_countdown' => __('templates.element_countdown'),
+    'media_video' => __('templates.field_type_media_video'),
+    'datetime_mode_clock' => __('templates.datetime_mode_clock'),
+    'datetime_mode_date' => __('templates.datetime_mode_date'),
+    'shape_square' => __('templates.shape_square'),
+    'shape_circle' => __('templates.shape_circle'),
+    'shape_triangle' => __('templates.shape_triangle'),
+    'shape_diamond' => __('templates.shape_diamond'),
+    'shape_star' => __('templates.shape_star'),
+    'shape_hexagon' => __('templates.shape_hexagon'),
+    'shape_pentagon' => __('templates.shape_pentagon'),
+    'shape_arrow' => __('templates.shape_arrow'),
+];
 $slideTypeIconFallbackUrl = url('/assets/img/slides/slide_generic.png');
 $slideTypeIconMap = [];
 foreach ($slideTypeDefinitions as $definition) {
@@ -70,6 +129,17 @@ $selectedSlideTypeIcon = $slideTypeIconMap[$selectedSlideType] ?? [
 require __DIR__ . '/../layouts/admin_header.php';
 ?>
 <?php if ($error): ?><div class="alert error"><?= e($error) ?></div><?php endif; ?>
+<?php if ($publicFonts): ?>
+    <style data-template-preview-fonts>
+        <?php foreach ($publicFonts as $fontFamily => $font): ?>
+            @font-face {
+                font-family: '<?= e($fontFamily) ?>';
+                font-display: swap;
+                src: <?= $font['src'] ?>;
+            }
+        <?php endforeach; ?>
+    </style>
+<?php endif; ?>
 <div class="card">
     <form method="post" enctype="multipart/form-data" action="<?= e(($slide && isset($slide['id'])) ? url('/admin/slides/' . $slide['id'] . '/edit') : url('/admin/slides/create')) ?>" class="form-grid" id="slide-form">
         <?= csrf_field() ?>
@@ -379,6 +449,13 @@ require __DIR__ . '/../layouts/admin_header.php';
                 <div class="template-slide-value-fields full-width" data-template-value-fields>
                     <?= field_error_html('template_values', $formId) ?>
                 </div>
+                <section class="template-slide-preview full-width" data-template-preview hidden>
+                    <div class="template-slide-preview__head">
+                        <h2><?= e(__('templates.preview')) ?></h2>
+                    </div>
+                    <div class="template-slide-preview__grid" data-template-preview-grid></div>
+                    <p class="muted" data-template-preview-empty hidden><?= e(__('templates.preview_unavailable')) ?></p>
+                </section>
             </fieldset>
         </div>
 
@@ -402,12 +479,18 @@ require __DIR__ . '/../layouts/admin_header.php';
         </div>
     </form>
 </div>
+<script src="<?= e(asset_url('/assets/js/hugin-qr.js')) ?>"></script>
+<script src="<?= e(asset_url('/assets/js/template-canvas-renderer.js')) ?>"></script>
 <script>
 const huginPluginSlideTypes = <?= json_encode(array_column($pluginDefinitions, 'slide_type'), JSON_UNESCAPED_SLASHES) ?>;
 const huginSlideTypeIcons = <?= json_encode($slideTypeIconMap, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
 const huginSlideTypeFallbackIcon = <?= json_encode($slideTypeIconFallbackUrl, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
 const huginTemplateFields = <?= json_encode($templateFieldDefinitions, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
 const huginTemplateValues = <?= json_encode($templateValues, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
+const huginTemplatePreviewSpecs = <?= json_encode($templatePreviewSpecs, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
+const huginTemplatePreviewMedia = <?= $templatePreviewMediaJson ?: '[]' ?>;
+const huginTemplatePreviewFonts = <?= json_encode($templateFontOptions, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
+const huginTemplatePreviewI18n = <?= json_encode($templatePreviewI18n, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
 
 function initRangeInput(input) {
     const output = input.closest('.range-field')?.querySelector('[data-range-output]');
@@ -560,10 +643,80 @@ function updateSlideTypeIcon(slideType) {
 }
 
 
-function escapeTemplateHtml(value) {
-    const div = document.createElement('div');
-    div.textContent = String(value ?? '');
-    return div.innerHTML;
+function templatePreviewOrientationLabel(orientation) {
+    return orientation === 'portrait'
+        ? <?= json_encode(__('orientations.vertical')) ?>
+        : <?= json_encode(__('orientations.landscape')) ?>;
+}
+
+function currentTemplatePreviewValues() {
+    const wrapper = document.querySelector('[data-template-value-fields]');
+    const values = {};
+    if (!wrapper) return values;
+
+    wrapper.querySelectorAll('[data-template-value-key]').forEach(input => {
+        const key = input.dataset.templateValueKey || '';
+        if (!key) return;
+        values[key] = input.value;
+    });
+
+    return values;
+}
+
+function renderTemplatePreview() {
+    const preview = document.querySelector('[data-template-preview]');
+    const grid = document.querySelector('[data-template-preview-grid]');
+    const empty = document.querySelector('[data-template-preview-empty]');
+    const select = document.querySelector('[data-template-select]');
+    if (!preview || !grid || !empty || !select) return;
+
+    grid.innerHTML = '';
+    empty.hidden = true;
+    const templateId = String(select.value || '');
+    const specs = huginTemplatePreviewSpecs[templateId] || null;
+    const fields = huginTemplateFields[templateId] || [];
+    const variants = [];
+    if (specs?.landscape) variants.push(['landscape', specs.landscape]);
+    if (specs?.portrait) variants.push(['portrait', specs.portrait]);
+
+    preview.hidden = templateId === '';
+    if (templateId === '') return;
+    if (variants.length === 0 || !window.HuginTemplateCanvasRenderer?.render) {
+        empty.hidden = false;
+        return;
+    }
+
+    const values = currentTemplatePreviewValues();
+    variants.forEach(([orientation, spec]) => {
+        const item = document.createElement('section');
+        item.className = 'template-slide-preview__item';
+
+        const title = document.createElement('h3');
+        title.textContent = templatePreviewOrientationLabel(orientation);
+        item.appendChild(title);
+
+        const frame = document.createElement('div');
+        frame.className = 'template-slide-preview__frame';
+        const canvas = document.createElement('div');
+        canvas.className = 'template-editor__canvas template-editor__canvas--preview';
+        canvas.setAttribute('role', 'img');
+        canvas.setAttribute('aria-label', `${huginTemplatePreviewI18n.preview || 'Preview'}: ${title.textContent}`);
+        frame.appendChild(canvas);
+        item.appendChild(frame);
+        grid.appendChild(item);
+
+        window.HuginTemplateCanvasRenderer.render(canvas, {
+            spec,
+            fields,
+            values,
+            mediaAssets: huginTemplatePreviewMedia,
+            fontOptions: huginTemplatePreviewFonts,
+            i18n: huginTemplatePreviewI18n,
+            mode: 'preview',
+            previewQrUrl: 'https://example.com',
+            maxHeightVh: 34,
+        });
+    });
 }
 
 function renderTemplateValueFields() {
@@ -578,6 +731,7 @@ function renderTemplateValueFields() {
         note.className = 'muted';
         note.textContent = select.value ? <?= json_encode(__('templates.no_fields')) ?> : <?= json_encode(__('templates.choose_template')) ?>;
         wrapper.appendChild(note);
+        renderTemplatePreview();
         return;
     }
     fields.forEach(field => {
@@ -641,6 +795,7 @@ function renderTemplateValueFields() {
         wrapper.appendChild(label);
     });
     window.HuginColorPicker?.init(wrapper);
+    renderTemplatePreview();
 }
 
 function updateSlideTypeUi() {
@@ -711,7 +866,11 @@ document.querySelectorAll('[data-range-input]').forEach(initRangeInput);
 document.querySelectorAll('[data-radius-control]').forEach(initRadiusControl);
 const backgroundMediaSelect = document.querySelector('[data-background-media-select]');
 if (backgroundMediaSelect) initBackgroundMediaPreview(backgroundMediaSelect);
-document.querySelector('[data-template-select]')?.addEventListener('change', renderTemplateValueFields);
+const templateSelect = document.querySelector('[data-template-select]');
+const templateValueFields = document.querySelector('[data-template-value-fields]');
+templateSelect?.addEventListener('change', renderTemplateValueFields);
+templateValueFields?.addEventListener('input', renderTemplatePreview);
+templateValueFields?.addEventListener('change', renderTemplatePreview);
 updateSlideTypeUi();
 </script>
 <?php require __DIR__ . '/../layouts/admin_footer.php'; ?>

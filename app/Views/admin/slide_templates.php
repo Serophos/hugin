@@ -24,7 +24,7 @@ require __DIR__ . '/../layouts/admin_header.php';
                         <td><?= (int)($template['is_active'] ?? 0) === 1 ? e(__('common.active')) : e(__('common.inactive')) ?></td>
                         <td class="actions">
                             <a class="button button--normal button--small" href="<?= e(url('/admin/slide-templates/' . $template['id'] . '/edit')) ?>"><?= admin_icon('edit') ?><span><?= e(__('common.edit')) ?></span></a>
-                            <form method="post" action="<?= e(url('/admin/slide-templates/' . $template['id'] . '/delete')) ?>" class="inline-form" data-confirm-submit data-confirm-title="<?= e(__('common.delete')) ?>" data-confirm-message="<?= e(__('templates.delete_confirm', ['template' => $template['name']])) ?>" data-confirm-accept="<?= e(__('common.delete')) ?>">
+                            <form method="post" action="<?= e(url('/admin/slide-templates/' . $template['id'] . '/delete')) ?>" class="inline-form" data-dialog-submit data-dialog-title="<?= e(__('common.delete')) ?>" data-dialog-message="<?= e(__('templates.delete_confirm', ['template' => $template['name']])) ?>" data-dialog-icon="trash" data-dialog-buttons="cancel,delete" data-dialog-accept="<?= e(__('common.delete')) ?>">
                                 <?= csrf_field() ?>
                                 <button type="submit" class="button button--danger button--small"><?= admin_icon('delete') ?><span><?= e((int)($template['slide_count'] ?? 0) > 0 ? __('templates.archive') : __('common.delete')) ?></span></button>
                             </form>

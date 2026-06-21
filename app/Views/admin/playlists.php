@@ -141,7 +141,7 @@ if (!$isUnused) {
                 <td data-admin-cell="status" data-sort-value="<?= e($statusLabel) ?>" data-filter-value="<?= e($statusValue) ?>"><?= e($statusLabel) ?></td>
                 <td class="actions">
                     <a class="button button--normal button--small" href="<?= e(url('/admin/playlists/' . $channel['channel_id'] . '/edit')) ?>"><?= admin_icon('edit') ?><span><?= e(__('common.edit')) ?></span></a>
-                    <form method="post" action="<?= e(url('/admin/playlists/' . $channel['channel_id'] . '/delete')) ?>" class="inline-form" data-confirm-submit data-confirm-title="<?= e(__('common.delete')) ?>" data-confirm-message="<?= e(__('channel.delete_confirm')) ?>" data-confirm-accept="<?= e(__('common.delete')) ?>">
+                    <form method="post" action="<?= e(url('/admin/playlists/' . $channel['channel_id'] . '/delete')) ?>" class="inline-form" data-dialog-submit data-dialog-title="<?= e(__('common.delete')) ?>" data-dialog-message="<?= e(__('channel.delete_confirm')) ?>" data-dialog-icon="trash" data-dialog-buttons="cancel,delete" data-dialog-accept="<?= e(__('common.delete')) ?>">
                         <?= csrf_field() ?>
                         <button type="submit" class="button button--danger button--small"><?= admin_icon('delete') ?><span><?= e(__('common.delete')) ?></span></button>
                     </form>

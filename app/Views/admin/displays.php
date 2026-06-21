@@ -57,7 +57,7 @@
                         <input type="hidden" name="return_to" value="/admin/displays">
                         <button type="submit" class="button button--normal button--small" aria-label="<?= e(__('display.reload_slideshow')) ?>"><?= admin_icon('reload') ?><span><?= e(__('common.reload')) ?></span></button>
                     </form>
-                    <form method="post" action="<?= e(url('/admin/displays/' . $display['id'] . '/delete')) ?>" class="inline-form" data-confirm-submit data-confirm-title="<?= e(__('common.delete')) ?>" data-confirm-message="<?= e(__('display.delete_confirm', [], 'Delete display?')) ?>" data-confirm-accept="<?= e(__('common.delete')) ?>">
+                    <form method="post" action="<?= e(url('/admin/displays/' . $display['id'] . '/delete')) ?>" class="inline-form" data-dialog-submit data-dialog-title="<?= e(__('common.delete')) ?>" data-dialog-message="<?= e(__('display.delete_confirm', [], 'Delete display?')) ?>" data-dialog-icon="trash" data-dialog-buttons="cancel,delete" data-dialog-accept="<?= e(__('common.delete')) ?>">
                         <?= csrf_field() ?>
                         <button type="submit" class="button button--danger button--small"><?= admin_icon('delete') ?><span><?= e(__('common.delete')) ?></span></button>
                     </form>

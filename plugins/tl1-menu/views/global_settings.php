@@ -289,17 +289,6 @@ $setupI18n = [
         </div>
     </fieldset>
 
-    <dialog class="admin-dialog tl1menu-confirm-dialog" data-tl1menu-confirm-dialog aria-modal="true" aria-labelledby="tl1menu-confirm-title" aria-describedby="tl1menu-confirm-message">
-        <div class="admin-dialog__panel tl1menu-confirm-dialog__panel" role="document">
-            <h2 id="tl1menu-confirm-title" data-tl1menu-confirm-title></h2>
-            <p class="muted tl1menu-confirm-dialog__message" id="tl1menu-confirm-message" data-tl1menu-confirm-message></p>
-            <div class="form-actions">
-                <button type="button" class="button button--normal" data-tl1menu-confirm-cancel><?= admin_icon('cancel') ?><span><?= e(__('plugins.tl1-menu.setup.dialog.cancel')) ?></span></button>
-                <button type="button" class="button button--danger" data-tl1menu-confirm-accept><span data-tl1menu-confirm-accept-label><?= e(__('plugins.tl1-menu.setup.dialog.accept_save')) ?></span></button>
-            </div>
-        </div>
-    </dialog>
-
     <dialog class="admin-dialog tl1menu-confirm-dialog tl1menu-value-dialog" data-tl1menu-value-dialog aria-modal="true" aria-labelledby="tl1menu-value-title">
         <div class="admin-dialog__panel tl1menu-confirm-dialog__panel" role="document">
             <h2 id="tl1menu-value-title" data-tl1menu-value-title></h2>

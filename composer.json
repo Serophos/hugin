@@ -4,7 +4,8 @@
     "type": "project",
     "require": {
         "php": ">=8.1",
-        "erusev/parsedown": "^1.8"
+        "erusev/parsedown": "^1.8",
+        "dompdf/php-font-lib": "^1.0"
     },
     "autoload": {
         "psr-4": {

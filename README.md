@@ -476,6 +476,20 @@ Plugin language files live in `plugins/<plugin>/lang/<locale>.php` and are loade
 $label = $this->t('settings.heading', 'Heading');
 ```
 
+Admin plugin JavaScript can use Hugin's shared modal dialog API for alerts and confirmations:
+
+```js
+const accepted = await window.HuginDialog.confirm({
+  title: 'Delete item?',
+  message: 'This action cannot be undone.',
+  icon: 'trash',
+  buttons: ['cancel', { preset: 'delete', label: 'Delete item' }],
+  acceptButton: 'delete'
+});
+```
+
+Available dialog icons are `none`, `information`, `question`, `exclamation`, `warning`, `error`, and `trash`. Standard button presets are `ok`, `yes`, `no`, `cancel`, and `delete`; labels should still come from Hugin or plugin translations.
+
 ### Lifecycle Notes
 
 - Hugin discovers plugins with `plugin.json` and a loadable PHP class implementing `SlidePluginInterface`.

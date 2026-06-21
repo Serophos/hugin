@@ -2024,35 +2024,179 @@ td.actions .button span {
     font-size: 1.15rem;
 }
 
-
-.plugin-impact-dialog {
-    width: min(720px, calc(100vw - 2rem));
+.hugin-dialog {
+    width: min(560px, calc(100vw - 1.5rem));
+    overflow: hidden;
 }
 
-.plugin-impact-dialog__panel {
-    gap: 1.1rem;
+.hugin-dialog__panel {
+    gap: 0;
+    padding: 0;
     max-height: calc(100vh - 2rem);
-    overflow: auto;
+    max-height: calc(100dvh - 2rem);
+    overflow: hidden;
 }
 
-.plugin-impact-dialog__head {
+.hugin-dialog__titlebar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.8rem;
+    min-height: 3.2rem;
+    padding: 0.82rem 0.95rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--panel-tint);
+}
+
+.hugin-dialog__titlebar h2 {
+    min-width: 0;
+    font-size: 1.05rem;
+    line-height: 1.25;
+}
+
+.hugin-dialog__close {
+    display: inline-grid;
+    place-items: center;
+    flex: 0 0 auto;
+    width: 2rem;
+    aspect-ratio: 1;
+    border: 1px solid transparent;
+    border-radius: var(--radius-control);
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+}
+
+.hugin-dialog__close:hover {
+    border-color: var(--border-strong);
+    background: #fff;
+    color: var(--text);
+}
+
+.hugin-dialog__close:focus-visible {
+    outline: var(--focus-outline);
+    outline-offset: var(--focus-outline-offset);
+}
+
+.hugin-dialog__body {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
-    gap: 0.9rem;
+    gap: 0.95rem;
     align-items: start;
+    min-height: 0;
+    padding: 1rem;
+    overflow: auto;
+    background: #fff;
 }
 
-.plugin-impact-dialog__mark {
+.hugin-dialog__icon {
     display: grid;
     place-items: center;
-    width: 2.5rem;
+    width: 3rem;
     aspect-ratio: 1;
+    border: 1px solid var(--dialog-icon-border, rgba(60, 141, 188, 0.28));
     border-radius: 999px;
-    background: var(--warning-bg);
-    color: var(--warning-text);
-    font-weight: 800;
-    font-size: 1.2rem;
+    background: var(--dialog-icon-bg, var(--accent-soft));
+    color: var(--dialog-icon-fg, var(--accent));
 }
+
+.hugin-dialog__icon-symbol {
+    display: block;
+    width: 1.55rem;
+    height: 1.55rem;
+    background: currentColor;
+    -webkit-mask: var(--dialog-icon-url) center / contain no-repeat;
+    mask: var(--dialog-icon-url) center / contain no-repeat;
+}
+
+.hugin-dialog--exclamation,
+.hugin-dialog--warning {
+    --dialog-icon-bg: var(--warning-bg);
+    --dialog-icon-fg: var(--warning-text);
+    --dialog-icon-border: #f2d38b;
+}
+
+.hugin-dialog--error,
+.hugin-dialog--trash {
+    --dialog-icon-bg: var(--error-bg);
+    --dialog-icon-fg: var(--danger);
+    --dialog-icon-border: #f7c2c2;
+}
+
+.hugin-dialog__main {
+    display: grid;
+    gap: 0.85rem;
+    min-width: 0;
+}
+
+.hugin-dialog__message {
+    margin: 0;
+    padding: 0.85rem 0.95rem;
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--dialog-icon-fg, var(--accent));
+    border-radius: var(--radius-card);
+    background: var(--panel-alt);
+    color: var(--text);
+    font-weight: 600;
+    line-height: 1.45;
+    white-space: pre-wrap;
+}
+
+.hugin-dialog__content:empty,
+.hugin-dialog__content[hidden] {
+    display: none;
+}
+
+.hugin-dialog__actions {
+    justify-content: flex-end;
+    padding: 0.82rem 1rem 1rem;
+    border-top: 1px solid var(--border);
+    background: var(--panel-alt);
+}
+
+.hugin-dialog__actions .button {
+    min-width: 6.2rem;
+    white-space: normal;
+    text-align: center;
+}
+
+body.hugin-dialog-fallback-open {
+    overflow: hidden;
+}
+
+body.hugin-dialog-fallback-open::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 999;
+    background: rgba(31, 41, 51, 0.52);
+}
+
+body.hugin-dialog-fallback-open .hugin-dialog[open] {
+    position: fixed;
+    inset: 50% auto auto 50%;
+    z-index: 1000;
+    transform: translate(-50%, -50%);
+}
+
+@media (max-width: 560px) {
+    .hugin-dialog__body {
+        grid-template-columns: 1fr;
+    }
+
+    .hugin-dialog__icon {
+        width: 2.65rem;
+    }
+
+    .hugin-dialog__actions {
+        align-items: stretch;
+    }
+
+    .hugin-dialog__actions .button {
+        flex: 1 1 9rem;
+    }
+}
+
 
 .plugin-impact-dialog h3 {
     margin: 0 0 0.65rem;
@@ -4742,6 +4886,75 @@ input[type="color"] {
 .template-slide-value-fields {
     display: grid;
     gap: 1rem;
+}
+
+.template-slide-preview {
+    display: grid;
+    gap: 0.75rem;
+    margin-top: 0.25rem;
+}
+
+.template-slide-preview[hidden] {
+    display: none;
+}
+
+.template-slide-preview__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
+.template-slide-preview__head h2 {
+    margin: 0;
+    color: #1f2937;
+    font-size: 1rem;
+    line-height: 1.2;
+}
+
+.template-slide-preview__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 0.85rem;
+    align-items: start;
+}
+
+.template-slide-preview__item {
+    display: grid;
+    gap: 0.5rem;
+    min-width: 0;
+}
+
+.template-slide-preview__item h3 {
+    margin: 0;
+    color: #64748b;
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0;
+    text-transform: uppercase;
+}
+
+.template-slide-preview__frame {
+    display: grid;
+    place-items: center;
+    min-width: 0;
+    padding: 0.65rem;
+    border: 1px solid #d8dee8;
+    border-radius: 8px;
+    background: #f8fafc;
+    overflow: hidden;
+}
+
+.template-editor__canvas--preview {
+    max-height: min(34vh, 20rem);
+    pointer-events: none;
+    box-shadow: 0 10px 28px rgba(15, 23, 42, 0.18);
+}
+
+.template-editor__canvas--preview .template-editor__element {
+    border: 0;
+    cursor: default;
+    pointer-events: none;
 }
 
 .template-json-panel__grid {

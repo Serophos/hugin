@@ -180,7 +180,7 @@ $slideTypeReturnTo = '/admin/playlists/' . $channel['id'] . '/edit';
                             <a class="button button--normal button--small" href="<?= e(url('/admin/slides/' . $slide['id'] . '/edit?return_to=' . rawurlencode('/admin/playlists/' . $channel['id'] . '/edit'))) ?>">
                                 <?= admin_icon('edit') ?><span><?= e(__('common.edit')) ?></span>
                             </a>
-                            <form method="post" action="<?= e(url('/admin/playlists/' . $channel['id'] . '/slides/' . $slide['id'] . '/remove')) ?>" class="inline-form" data-confirm-submit data-confirm-title="<?= e(__('common.remove')) ?>" data-confirm-message="<?= e(__('slide.remove_from_playlist_confirm', ['slide' => $slide['name'], 'playlist' => $channel['name']])) ?>" data-confirm-accept="<?= e(__('common.remove')) ?>">
+                            <form method="post" action="<?= e(url('/admin/playlists/' . $channel['id'] . '/slides/' . $slide['id'] . '/remove')) ?>" class="inline-form" data-dialog-submit data-dialog-title="<?= e(__('common.remove')) ?>" data-dialog-message="<?= e(__('slide.remove_from_playlist_confirm', ['slide' => $slide['name'], 'playlist' => $channel['name']])) ?>" data-dialog-icon="warning" data-dialog-buttons="cancel,delete" data-dialog-accept="<?= e(__('common.remove')) ?>">
                                 <?= csrf_field() ?>
                                 <input type="hidden" name="return_to" value="<?= e('/admin/playlists/' . $channel['id'] . '/edit') ?>">
                                 <button type="submit" class="button button--danger button--small">

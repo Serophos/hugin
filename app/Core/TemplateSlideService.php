@@ -294,6 +294,16 @@ class TemplateSlideService
         return $this->fieldsForSpecs($landscape, $portrait);
     }
 
+    public function specsForTemplate(array $template): array
+    {
+        [$landscape, $portrait] = $this->decodeTemplateSpecs($template);
+
+        return [
+            'landscape' => $landscape,
+            'portrait' => $portrait,
+        ];
+    }
+
     public function render(array $template, array $values, string $orientation = 'landscape'): string
     {
         [$landscape, $portrait] = $this->decodeTemplateSpecs($template);

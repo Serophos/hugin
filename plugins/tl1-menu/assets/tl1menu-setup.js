@@ -29,7 +29,6 @@
     const previewTabs = Array.from(root.querySelectorAll('[data-tl1menu-preview-tab]'));
     const previewReload = root.querySelector('[data-tl1menu-preview-reload]');
     const status = root.querySelector('[data-tl1menu-setup-status]');
-    const confirmDialog = root.querySelector('[data-tl1menu-confirm-dialog]');
     const valueDialog = root.querySelector('[data-tl1menu-value-dialog]');
     let state = parseJson(jsonEl ? jsonEl.value : '{}') || {};
     let sampleRows = [];
@@ -76,116 +75,24 @@
             title: '',
             message: '',
             acceptLabel: t('dialog.accept_save'),
-            variant: 'danger'
+            variant: 'danger',
+            icon: 'warning'
         }, options || {});
 
-        if (confirmDialog && typeof confirmDialog.showModal === 'function') {
-            return showNativeConfirm(config);
+        if (typeof window.HuginDialog?.confirm === 'function') {
+            const acceptPreset = config.variant === 'danger' ? 'delete' : 'yes';
+            return Promise.resolve(window.HuginDialog.confirm({
+                title: config.title,
+                message: config.message,
+                icon: config.icon || (config.variant === 'danger' ? 'warning' : 'question'),
+                buttons: ['cancel', { preset: acceptPreset, label: config.acceptLabel }],
+                acceptButton: acceptPreset,
+                defaultButton: 'cancel',
+                cancelButton: 'cancel'
+            }));
         }
 
-        return showFallbackConfirm(config);
-    }
-
-    function showNativeConfirm(config) {
-        return new Promise(resolve => {
-            const title = confirmDialog.querySelector('[data-tl1menu-confirm-title]');
-            const message = confirmDialog.querySelector('[data-tl1menu-confirm-message]');
-            const accept = confirmDialog.querySelector('[data-tl1menu-confirm-accept]');
-            const acceptLabel = confirmDialog.querySelector('[data-tl1menu-confirm-accept-label]');
-            const cancelButtons = Array.from(confirmDialog.querySelectorAll('[data-tl1menu-confirm-cancel]'));
-            const previousFocus = document.activeElement && typeof document.activeElement.focus === 'function' ? document.activeElement : null;
-            let settled = false;
-
-            if (title) title.textContent = config.title;
-            if (message) message.textContent = config.message;
-            if (acceptLabel) acceptLabel.textContent = config.acceptLabel;
-            setConfirmVariant(accept, config.variant);
-
-            function settle(result) {
-                if (settled) return;
-                settled = true;
-                accept?.removeEventListener('click', onAccept);
-                cancelButtons.forEach(button => button.removeEventListener('click', onCancelClick));
-                confirmDialog.removeEventListener('cancel', onCancel);
-                confirmDialog.removeEventListener('close', onClose);
-                if (confirmDialog.open) confirmDialog.close();
-                if (previousFocus) setTimeout(() => previousFocus.focus(), 0);
-                resolve(result);
-            }
-
-            function onAccept() { settle(true); }
-            function onCancelClick() { settle(false); }
-            function onCancel(event) {
-                event.preventDefault();
-                settle(false);
-            }
-            function onClose() { settle(false); }
-
-            accept?.addEventListener('click', onAccept);
-            cancelButtons.forEach(button => button.addEventListener('click', onCancelClick));
-            confirmDialog.addEventListener('cancel', onCancel);
-            confirmDialog.addEventListener('close', onClose);
-
-            try {
-                confirmDialog.showModal();
-            } catch (error) {
-                settle(false);
-                return;
-            }
-            (cancelButtons[0] || accept || confirmDialog).focus();
-        });
-    }
-
-    function showFallbackConfirm(config) {
-        return new Promise(resolve => {
-            const id = `tl1menu-confirm-${Date.now()}`;
-            const overlay = document.createElement('div');
-            const previousFocus = document.activeElement && typeof document.activeElement.focus === 'function' ? document.activeElement : null;
-            overlay.className = 'tl1menu-confirm-fallback';
-            overlay.innerHTML = `
-                <div class="admin-dialog tl1menu-confirm-fallback__dialog" role="dialog" aria-modal="true" aria-labelledby="${escapeAttr(id)}-title" aria-describedby="${escapeAttr(id)}-message">
-                    <div class="admin-dialog__panel tl1menu-confirm-dialog__panel" role="document">
-                        <h2 id="${escapeAttr(id)}-title">${escapeHtml(config.title)}</h2>
-                        <p class="muted tl1menu-confirm-dialog__message" id="${escapeAttr(id)}-message">${escapeHtml(config.message)}</p>
-                        <div class="form-actions">
-                            <button type="button" class="button button--normal" data-fallback-cancel>${escapeHtml(t('dialog.cancel'))}</button>
-                            <button type="button" class="button ${config.variant === 'danger' ? 'button--danger' : 'button--default'}" data-fallback-accept>${escapeHtml(config.acceptLabel)}</button>
-                        </div>
-                    </div>
-                </div>`;
-            const panel = overlay.querySelector('[role="dialog"]');
-            const cancel = overlay.querySelector('[data-fallback-cancel]');
-            const accept = overlay.querySelector('[data-fallback-accept]');
-            let settled = false;
-
-            function settle(result) {
-                if (settled) return;
-                settled = true;
-                overlay.removeEventListener('click', onOverlayClick);
-                panel?.removeEventListener('keydown', onKeydown);
-                overlay.remove();
-                if (previousFocus) previousFocus.focus();
-                resolve(result);
-            }
-            function onOverlayClick(event) {
-                if (event.target === overlay) settle(false);
-            }
-            function onKeydown(event) {
-                if (event.key === 'Escape') {
-                    event.preventDefault();
-                    settle(false);
-                    return;
-                }
-                if (event.key === 'Tab' && panel) trapFocus(panel, event);
-            }
-
-            cancel?.addEventListener('click', () => settle(false));
-            accept?.addEventListener('click', () => settle(true));
-            overlay.addEventListener('click', onOverlayClick);
-            panel?.addEventListener('keydown', onKeydown);
-            document.body.appendChild(overlay);
-            (cancel || accept || panel)?.focus();
-        });
+        return Promise.resolve(false);
     }
 
     function requestValue(options) {
@@ -330,12 +237,6 @@
         });
     }
 
-
-    function setConfirmVariant(button, variant) {
-        if (!button) return;
-        button.classList.toggle('button--danger', variant === 'danger');
-        button.classList.toggle('button--default', variant !== 'danger');
-    }
 
     function trapFocus(container, event) {
         const focusable = Array.from(container.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'))

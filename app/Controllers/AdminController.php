@@ -1869,6 +1869,11 @@ class AdminController
                 $carry[(int)$template['id']] = $this->templateSlides->fieldsForTemplate($template);
                 return $carry;
             }, []),
+            'templatePreviewSpecs' => array_reduce($slideTemplates, function (array $carry, array $template): array {
+                $carry[(int)$template['id']] = $this->templateSlides->specsForTemplate($template);
+                return $carry;
+            }, []),
+            'publicFonts' => list_public_fonts(),
             'pluginDefinitions' => $pluginDefinitions,
             'pluginForms' => $pluginForms,
             'pluginLabels' => $this->plugins->getPluginLabelMap(),

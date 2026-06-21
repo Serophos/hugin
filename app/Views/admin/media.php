@@ -124,7 +124,7 @@ $nextPageUrl = $baseMediaUrl . ($kind !== '' ? '?kind=' . rawurlencode($kind) . 
                     <td class="actions">
                         <button type="button" class="button button--normal button--small" data-media-preview-open><?= admin_icon('open') ?><span><?= e(__('common.open')) ?></span></button>
                         <?php if (in_array(current_user_role(), ['admin', 'editor'], true)): ?>
-                            <form method="post" action="<?= e(url('/admin/media/' . $asset['id'] . '/delete')) ?>" class="inline-form" data-confirm-submit data-confirm-title="<?= e(__('common.delete')) ?>" data-confirm-message="<?= e(__('media.delete_confirm')) ?>" data-confirm-accept="<?= e(__('common.delete')) ?>">
+                            <form method="post" action="<?= e(url('/admin/media/' . $asset['id'] . '/delete')) ?>" class="inline-form" data-dialog-submit data-dialog-title="<?= e(__('common.delete')) ?>" data-dialog-message="<?= e(__('media.delete_confirm')) ?>" data-dialog-icon="trash" data-dialog-buttons="cancel,delete" data-dialog-accept="<?= e(__('common.delete')) ?>">
                                 <?= csrf_field() ?>
                                 <button type="submit" class="button button--danger button--small"><?= admin_icon('delete') ?><span><?= e(__('common.delete')) ?></span></button>
                             </form>

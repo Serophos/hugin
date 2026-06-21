@@ -45,7 +45,7 @@
                 <td data-admin-cell="created_at" data-sort-value="<?= e((string)$user['created_at']) ?>" data-filter-value="<?= e((string)$user['created_at']) ?>"><?= e((string)$user['created_at']) ?></td>
                 <td class="actions">
                     <a class="button button--normal button--small" href="<?= e(url('/admin/users/' . $user['id'] . '/edit')) ?>"><?= admin_icon('edit') ?><span><?= e(__('common.edit')) ?></span></a>
-                    <form method="post" action="<?= e(url('/admin/users/' . $user['id'] . '/delete')) ?>" class="inline-form" data-confirm-submit data-confirm-title="<?= e(__('common.delete')) ?>" data-confirm-message="<?= e(__('users.delete_confirm')) ?>" data-confirm-accept="<?= e(__('common.delete')) ?>">
+                    <form method="post" action="<?= e(url('/admin/users/' . $user['id'] . '/delete')) ?>" class="inline-form" data-dialog-submit data-dialog-title="<?= e(__('common.delete')) ?>" data-dialog-message="<?= e(__('users.delete_confirm')) ?>" data-dialog-icon="trash" data-dialog-buttons="cancel,delete" data-dialog-accept="<?= e(__('common.delete')) ?>">
                         <?= csrf_field() ?>
                         <button type="submit" class="button button--danger button--small"><?= admin_icon('delete') ?><span><?= e(__('common.delete')) ?></span></button>
                     </form>

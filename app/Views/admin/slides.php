@@ -92,10 +92,12 @@ require __DIR__ . '/../layouts/admin_header.php';
                                         method="post"
                                         action="<?= e(url('/admin/slides/' . $slide['id'] . '/delete')) ?>"
                                         class="inline-form"
-                                        data-confirm-submit
-                                        data-confirm-title="<?= e(__('common.delete')) ?>"
-                                        data-confirm-message="<?= e(__('slide.delete_everywhere_confirm', ['slide' => $slide['name'], 'count' => (int)($slide['channel_count'] ?? 0)])) ?>"
-                                        data-confirm-accept="<?= e(__('common.delete')) ?>"
+                                        data-dialog-submit
+                                        data-dialog-title="<?= e(__('common.delete')) ?>"
+                                        data-dialog-message="<?= e(__('slide.delete_everywhere_confirm', ['slide' => $slide['name'], 'count' => (int)($slide['channel_count'] ?? 0)])) ?>"
+                                        data-dialog-icon="trash"
+                                        data-dialog-buttons="cancel,delete"
+                                        data-dialog-accept="<?= e(__('common.delete')) ?>"
                                     >
                                         <?= csrf_field() ?>
                                         <button type="submit" class="button button--danger button--small"><?= admin_icon('delete') ?><span><?= e(__('common.delete')) ?></span></button>

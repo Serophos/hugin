@@ -76,7 +76,7 @@ require __DIR__ . '/../layouts/admin_header.php';
                                 <td data-admin-cell="description" data-sort-value="<?= e($descriptionLabel) ?>" data-filter-value="<?= e($descriptionLabel) ?>"><?= e($descriptionLabel) ?></td>
                                 <td class="actions">
                                     <a class="button button--normal button--small" href="<?= e(url('/admin/display-groups/' . $group['id'])) ?>"><?= admin_icon('edit') ?><span><?= e(__('common.edit')) ?></span></a>
-                                    <form method="post" action="<?= e(url('/admin/display-groups/' . $group['id'] . '/delete')) ?>" class="inline-form" data-confirm-submit data-confirm-title="<?= e(__('common.delete')) ?>" data-confirm-message="<?= e(__('display_groups.delete_confirm')) ?>" data-confirm-accept="<?= e(__('common.delete')) ?>">
+                                    <form method="post" action="<?= e(url('/admin/display-groups/' . $group['id'] . '/delete')) ?>" class="inline-form" data-dialog-submit data-dialog-title="<?= e(__('common.delete')) ?>" data-dialog-message="<?= e(__('display_groups.delete_confirm')) ?>" data-dialog-icon="trash" data-dialog-buttons="cancel,delete" data-dialog-accept="<?= e(__('common.delete')) ?>">
                                         <?= csrf_field() ?>
                                         <input type="hidden" name="return_to" value="<?= e('/admin/locations/' . $location['id'] . '/edit') ?>">
                                         <button type="submit" class="button button--danger button--small"><?= admin_icon('delete') ?><span><?= e(__('common.delete')) ?></span></button>

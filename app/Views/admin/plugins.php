@@ -7,6 +7,8 @@ $pluginDialogStrings = [
     'active' => __('common.active'),
     'inactive' => __('common.inactive'),
     'accept' => __('plugins.disable_and_inactivate'),
+    'affectedSlides' => __('plugins.affected_slides'),
+    'slideEditBase' => url('/admin/slides'),
 ];
 require __DIR__ . '/../layouts/admin_header.php';
 ?>
@@ -82,31 +84,9 @@ require __DIR__ . '/../layouts/admin_header.php';
     <?php endif; ?>
 </div>
 
-<dialog class="admin-dialog plugin-impact-dialog" data-plugin-impact-dialog>
-    <form method="dialog" class="admin-dialog__panel plugin-impact-dialog__panel">
-        <div class="plugin-impact-dialog__head">
-            <div class="plugin-impact-dialog__mark" aria-hidden="true">!</div>
-            <div>
-                <h2 data-plugin-impact-title></h2>
-                <p class="muted" data-plugin-impact-message></p>
-            </div>
-        </div>
-        <div>
-            <h3><?= e(__('plugins.affected_slides')) ?></h3>
-            <div class="plugin-impact-dialog__list" data-plugin-impact-list></div>
-        </div>
-        <div class="form-actions">
-            <button type="button" class="button button--normal" data-plugin-impact-cancel><?= admin_icon('cancel') ?><span><?= e(__('common.cancel')) ?></span></button>
-            <button type="button" class="button button--danger" data-plugin-impact-accept><?= admin_icon('cancel') ?><span><?= e(__('plugins.disable_and_inactivate')) ?></span></button>
-        </div>
-    </form>
-</dialog>
-
 <script>
 (() => {
-    const dialog = document.querySelector('[data-plugin-impact-dialog]');
-    const strings = <?= json_encode($pluginDialogStrings, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
-    let pendingForm = null;
+    const strings = <?= json_encode($pluginDialogStrings, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>;
 
     function parseSlides(form) {
         try {
@@ -123,12 +103,6 @@ require __DIR__ . '/../layouts/admin_header.php';
             .replace(':count', String(count));
     }
 
-    const title = dialog?.querySelector('[data-plugin-impact-title]');
-    const message = dialog?.querySelector('[data-plugin-impact-message]');
-    const list = dialog?.querySelector('[data-plugin-impact-list]');
-    const cancel = dialog?.querySelector('[data-plugin-impact-cancel]');
-    const accept = dialog?.querySelector('[data-plugin-impact-accept]');
-
     function markConfirmed(form) {
         const confirmInput = form.querySelector('[data-plugin-disable-confirm-input]');
         if (confirmInput) confirmInput.value = '1';
@@ -140,62 +114,52 @@ require __DIR__ . '/../layouts/admin_header.php';
         form.submit();
     }
 
-    function openImpactDialog() {
-        if (!dialog) return;
-        try {
-            if (typeof dialog.showModal === 'function') {
-                dialog.showModal();
-                return;
-            }
-            dialog.setAttribute('open', '');
-        } catch (error) {
-            dialog.setAttribute('open', '');
-        }
+    function createImpactContent(slides) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'plugin-impact-dialog';
+
+        const heading = document.createElement('h3');
+        heading.textContent = strings.affectedSlides || '';
+        wrapper.append(heading);
+
+        const list = document.createElement('div');
+        list.className = 'plugin-impact-dialog__list';
+        list.append(...slides.map((slide) => {
+            const item = document.createElement('a');
+            item.className = 'plugin-impact-dialog__item';
+            item.href = `${strings.slideEditBase || '/admin/slides'}/${slide.id}/edit`;
+            item.target = '_blank';
+            item.rel = 'noopener noreferrer';
+
+            const name = document.createElement('strong');
+            name.textContent = slide.name || `#${slide.id}`;
+
+            const meta = document.createElement('small');
+            const status = Number(slide.is_active || 0) === 1 ? strings.active : strings.inactive;
+            const channels = slide.channel_names || strings.noChannels || '';
+            meta.textContent = [status, channels].filter(Boolean).join(' · ');
+
+            item.append(name, meta);
+            return item;
+        }));
+        wrapper.append(list);
+        return wrapper;
     }
 
-    function closeImpactDialog() {
-        if (!dialog) return;
-        if (typeof dialog.close === 'function' && dialog.open) {
-            dialog.close();
-            return;
-        }
-        dialog.removeAttribute('open');
-    }
-
-    function showImpactDialog(form, slides) {
-        pendingForm = form;
-        const pluginName = form.dataset.pluginName || '';
-        if (title) title.textContent = (strings.title || '').replace(':plugin', pluginName);
-        if (message) message.textContent = confirmMessage(pluginName, slides.length);
-        if (list) {
-            list.replaceChildren(...slides.map((slide) => {
-                const item = document.createElement('a');
-                item.className = 'plugin-impact-dialog__item';
-                item.href = `/admin/slides/${slide.id}/edit`;
-                item.target = '_blank';
-                const name = document.createElement('strong');
-                name.textContent = slide.name || `#${slide.id}`;
-                const meta = document.createElement('small');
-                const status = Number(slide.is_active || 0) === 1 ? strings.active : strings.inactive;
-                const channels = slide.channel_names || strings.noChannels || '';
-                meta.textContent = [status, channels].filter(Boolean).join(' · ');
-                item.append(name, meta);
-                return item;
-            }));
-        }
-        openImpactDialog();
-    }
-
-    function confirmWithSharedDialog(form, slides) {
-        if (typeof window.HuginConfirm?.confirm !== 'function') {
+    function confirmPluginDisable(form, slides) {
+        if (typeof window.HuginDialog?.open !== 'function') {
             return Promise.resolve(false);
         }
         const pluginName = form.dataset.pluginName || '';
-        return window.HuginConfirm.confirm({
+        return window.HuginDialog.open({
             title: (strings.title || '').replace(':plugin', pluginName),
             message: confirmMessage(pluginName, slides.length),
-            accept: strings.accept || '',
-        });
+            icon: 'warning',
+            content: createImpactContent(slides),
+            buttons: ['cancel', { preset: 'delete', label: strings.accept || '' }],
+            defaultButton: 'cancel',
+            cancelButton: 'cancel',
+        }).then((result) => result === 'delete');
     }
 
     document.querySelectorAll('[data-plugin-disable-confirm]').forEach((form) => {
@@ -205,28 +169,12 @@ require __DIR__ . '/../layouts/admin_header.php';
             if (slides.length === 0) return;
 
             event.preventDefault();
-            if (dialog) {
-                showImpactDialog(form, slides);
-                return;
-            }
-
-            confirmWithSharedDialog(form, slides).then((accepted) => {
+            confirmPluginDisable(form, slides).then((accepted) => {
                 if (!accepted) return;
                 submitConfirmed(form);
             });
         });
     });
-
-    cancel?.addEventListener('click', () => {
-        pendingForm = null;
-        closeImpactDialog();
-    });
-    accept?.addEventListener('click', () => {
-        if (!pendingForm) return;
-        submitConfirmed(pendingForm);
-    });
-    dialog?.addEventListener('cancel', () => { pendingForm = null; });
-    dialog?.addEventListener('close', () => { pendingForm = null; });
 })();
 </script>
 <?php require __DIR__ . '/../layouts/admin_footer.php'; ?>

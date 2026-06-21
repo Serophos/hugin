@@ -358,11 +358,11 @@ require __DIR__ . '/../layouts/admin_header.php';
     </div>
 </form>
 <script src="<?= e(asset_url('/assets/js/hugin-qr.js')) ?>"></script>
+<script src="<?= e(asset_url('/assets/js/template-canvas-renderer.js')) ?>"></script>
 <script>
 (() => {
     const mediaAssets = <?= $mediaJson ?: '[]' ?>;
     const fontOptions = <?= $fontOptionsJson ?: '[]' ?>;
-    const mediaById = new Map(mediaAssets.map(asset => [Number(asset.id), asset]));
     const previewQrUrl = 'https://hugin.local/template-preview';
     const layerGroups = [
         { key: 'background', base: 0, locked: true },
@@ -425,7 +425,6 @@ require __DIR__ . '/../layouts/admin_header.php';
     function clamp(value, min, max) { return Math.max(min, Math.min(max, Number(String(value).replace(',', '.')) || 0)); }
     function rounded(value, min = 0, max = 1) { return Number(clamp(value, min, max).toFixed(4)); }
     function coordinateDisplay(value, min = 0, max = 1) { return rounded(value, min, max).toFixed(4); }
-    function pct(value) { return `${clamp(value, 0, 1) * 100}%`; }
     function snapEnabled() { return snapToGridToggle?.checked !== false; }
     function snapSteps() {
         const current = spec();
@@ -606,24 +605,11 @@ require __DIR__ . '/../layouts/admin_header.php';
         const raw = String(value || '').trim();
         return fontOptions.some(option => option.value === raw) ? raw : '';
     }
-    function fontCssForToken(value) {
-        const normalized = normalizeFontFamily(value);
-        if (normalized === '') return '';
-        return fontOptions.find(option => option.value === normalized)?.css || '';
-    }
     function fontFamilyOptions(selected) {
         const current = normalizeFontFamily(selected);
         return fontOptions.map(option => `<option value="${attr(option.value)}" ${option.value === current ? 'selected' : ''}>${escapeHtml(option.label || option.value || i18n.none)}</option>`).join('');
     }
-    function applyTextPreviewStyle(node, element) {
-        if (element.style?.fontSize) node.style.fontSize = `clamp(0.7rem, ${Number(element.style.fontSize)}cqw, 4rem)`;
-        if (element.style?.fontWeight) node.style.fontWeight = element.style.fontWeight;
-        if (element.style?.align) node.style.textAlign = element.style.align;
-        const fontFamily = fontCssForToken(element.style?.fontFamily || '');
-        if (fontFamily) node.style.fontFamily = fontFamily;
-    }
     function cssColor(value) { return String(value || '').trim() || 'transparent'; }
-    function mediaAsset(id) { return mediaById.get(Number(id || 0)) || null; }
     function normalizeShapeType(shape) {
         const value = String(shape || '').trim().toLowerCase();
         return shapeTypes.includes(value) ? value : 'square';
@@ -655,27 +641,9 @@ require __DIR__ . '/../layouts/admin_header.php';
         const current = normalizeTimeFormat(selected);
         return timeFormats.map(format => `<option value="${attr(format)}" ${format === current ? 'selected' : ''}>${escapeHtml(i18n[`time_format_${format.replace(/-/g, '_')}`] || format)}</option>`).join('');
     }
-    function pad2(value) {
-        return String(Math.max(0, Number(value) || 0)).padStart(2, '0');
-    }
     function dateTimeLocalInputValue(date = new Date()) {
         const local = new Date(date.getTime() - (date.getTimezoneOffset() * 60000));
         return local.toISOString().slice(0, 16);
-    }
-    function dateTimePreviewValue(element) {
-        const now = new Date();
-        if (normalizeDateTimeMode(element?.style?.dateTimeMode || 'clock') === 'date') {
-            return `${pad2(now.getDate())}.${pad2(now.getMonth() + 1)}.${now.getFullYear()}`;
-        }
-
-        const minutes = pad2(now.getMinutes());
-        if (normalizeTimeFormat(element?.style?.timeFormat || '24h') === 'ampm') {
-            const hours24 = now.getHours();
-            const hours12 = hours24 % 12 || 12;
-            return `${pad2(hours12)}:${minutes} ${hours24 >= 12 ? 'PM' : 'AM'}`;
-        }
-
-        return `${pad2(now.getHours())}:${minutes}`;
     }
     function normalizeCountdownTarget(value) {
         const raw = String(value || '').trim();
@@ -685,27 +653,6 @@ require __DIR__ . '/../layouts/admin_header.php';
     }
     function defaultCountdownTarget() {
         return dateTimeLocalInputValue(new Date(Date.now() + 86400000));
-    }
-    function countdownTargetMs(value) {
-        const target = normalizeCountdownTarget(value);
-        if (!target) return NaN;
-        const parsed = new Date(target).getTime();
-        return Number.isFinite(parsed) ? parsed : NaN;
-    }
-    function formatCountdownSeconds(totalSeconds) {
-        let remaining = Math.max(0, Math.floor(Number(totalSeconds) || 0));
-        const days = Math.floor(remaining / 86400);
-        remaining %= 86400;
-        const hours = Math.floor(remaining / 3600);
-        remaining %= 3600;
-        const minutes = Math.floor(remaining / 60);
-        const seconds = remaining % 60;
-        return `${pad2(days)}d ${pad2(hours)}h ${pad2(minutes)}m ${pad2(seconds)}s`;
-    }
-    function countdownPreviewValue(element) {
-        const targetMs = countdownTargetMs(element?.style?.countdownTarget || '');
-        if (!Number.isFinite(targetMs)) return formatCountdownSeconds(0);
-        return formatCountdownSeconds((targetMs - Date.now()) / 1000);
     }
     function truthy(value) {
         if (typeof value === 'boolean') return value;
@@ -731,237 +678,6 @@ require __DIR__ . '/../layouts/admin_header.php';
             direction: normalizeDropShadowDirection(style.dropShadowDirection || 'bottom-right'),
         };
     }
-    function dropShadowVector(direction, offset) {
-        const diagonal = Number((offset * 0.7071).toFixed(4));
-        switch (normalizeDropShadowDirection(direction)) {
-            case 'top': return [0, -offset];
-            case 'top-right': return [diagonal, -diagonal];
-            case 'right': return [offset, 0];
-            case 'bottom': return [0, offset];
-            case 'bottom-left': return [-diagonal, diagonal];
-            case 'left': return [-offset, 0];
-            case 'top-left': return [-diagonal, -diagonal];
-            default: return [diagonal, diagonal];
-        }
-    }
-    function cqwLength(value) {
-        return `${Number(Number(value).toFixed(4))}cqw`;
-    }
-    function dropShadowCss(element, filter = false) {
-        const shadow = dropShadowSettings(element);
-        if (!shadow.enabled) return '';
-        const [x, y] = dropShadowVector(shadow.direction, shadow.offset);
-        const value = `${cqwLength(x)} ${cqwLength(y)} ${cqwLength(shadow.blur)} ${shadow.color}`;
-        return filter ? `drop-shadow(${value})` : value;
-    }
-    function editorBoxShadow(element) {
-        return dropShadowCss(element, false) || '0 0 0 rgba(0, 0, 0, 0)';
-    }
-    function svgNumber(value) { return String(Number(Number(value).toFixed(4))); }
-    function svgPoints(points) { return points.map(point => `${svgNumber(point[0])},${svgNumber(point[1])}`).join(' '); }
-    function regularPolygonPoints(sides, radius) {
-        const start = -Math.PI / 2;
-        const points = [];
-        for (let index = 0; index < sides; index += 1) {
-            const angle = start + ((2 * Math.PI * index) / sides);
-            points.push([50 + (radius * Math.cos(angle)), 50 + (radius * Math.sin(angle))]);
-        }
-        return svgPoints(points);
-    }
-    function regularStarPoints(outerRadius, innerRadius) {
-        const start = -Math.PI / 2;
-        const points = [];
-        for (let index = 0; index < 10; index += 1) {
-            const radius = index % 2 === 0 ? outerRadius : innerRadius;
-            const angle = start + ((Math.PI * index) / 5);
-            points.push([50 + (radius * Math.cos(angle)), 50 + (radius * Math.sin(angle))]);
-        }
-        return svgPoints(points);
-    }
-    function shapeMarkup(shape, inset, radius) {
-        const min = inset;
-        const max = 100 - inset;
-        const size = Math.max(0, max - min);
-        const normalized = normalizeShapeType(shape);
-
-        if (normalized === 'circle') {
-            const r = Math.max(0, 50 - inset);
-            return `<ellipse cx="50" cy="50" rx="${svgNumber(r)}" ry="${svgNumber(r)}"></ellipse>`;
-        }
-        if (normalized === 'square') {
-            const cornerRadius = Math.max(0, Math.min(50, Number(radius) || 0));
-            return `<rect x="${svgNumber(min)}" y="${svgNumber(min)}" width="${svgNumber(size)}" height="${svgNumber(size)}" rx="${svgNumber(cornerRadius)}" ry="${svgNumber(cornerRadius)}"></rect>`;
-        }
-        if (normalized === 'arrow') {
-            return `<polygon points="${svgPoints([[min, 28], [56, 28], [56, min], [max, 50], [56, max], [56, 72], [min, 72]])}"></polygon>`;
-        }
-        if (normalized === 'triangle') return `<polygon points="${svgPoints([[50, min], [max, max], [min, max]])}"></polygon>`;
-        if (normalized === 'diamond') return `<polygon points="${svgPoints([[50, min], [max, 50], [50, max], [min, 50]])}"></polygon>`;
-        if (normalized === 'star') return `<polygon points="${regularStarPoints(Math.max(0, 50 - inset), Math.max(0, 22 - (inset / 2)))}"></polygon>`;
-        return `<polygon points="${regularPolygonPoints(normalized === 'pentagon' ? 5 : 6, Math.max(0, 50 - inset))}"></polygon>`;
-    }
-    function shapeSvgMarkup(element, className = 'template-editor__shape-svg') {
-        const style = element?.style || {};
-        const shape = normalizeShapeType(style.shape || 'square');
-        const strokeWidth = clamp(style.borderWidth || 0, 0, 40);
-        const stroke = strokeWidth > 0 ? cssColor(style.borderColor || 'rgba(0, 0, 0, 0)') : 'none';
-        const fill = cssColor(style.backgroundColor || 'rgba(0, 0, 0, 0)');
-        const radius = roundedShapeElement(element) ? Number(style.radius || 0) : 0;
-        const shadow = dropShadowCss(element, true);
-        const styleAttr = shadow ? ` style="filter: ${attr(shadow)}"` : '';
-
-        return `<svg class="${attr(className)} ${attr(`${className}--${shape}`)}" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"${styleAttr} fill="${attr(fill)}" stroke="${attr(stroke)}" stroke-width="${attr(strokeWidth)}" stroke-linejoin="round" stroke-linecap="round">${shapeMarkup(shape, strokeWidth / 2, radius)}</svg>`;
-    }
-
-    function previewFieldValue(element) {
-        const field = fieldForElement(element);
-        if (!field) return '';
-        const value = String(field.default || '').trim();
-        return value || field.label || field.key || '';
-    }
-
-    function textPreviewValue(element) {
-        if (element?.field) {
-            return previewFieldValue(element) || elementLabel(element);
-        }
-        const staticText = String(element?.staticText ?? '').trim();
-        return staticText || elementLabel(element);
-    }
-
-    function previewPlaceholder(label, modifier = '') {
-        const node = document.createElement('span');
-        node.className = `template-editor__element-placeholder ${modifier}`.trim();
-        node.textContent = label;
-        return node;
-    }
-
-    function renderMediaPreview(assetId, fit, emptyLabel) {
-        const asset = mediaAsset(assetId);
-        if (!asset) {
-            if (!emptyLabel) return document.createElement('span');
-            return previewPlaceholder(emptyLabel);
-        }
-        if (asset.kind === 'image' && asset.url) {
-            if (fit === 'contain-blur') {
-                const wrapper = document.createElement('span');
-                wrapper.className = 'template-editor__media-preview-stack';
-                const blurred = document.createElement('img');
-                blurred.className = 'template-editor__media-preview template-editor__media-preview--blurred';
-                blurred.src = asset.url;
-                blurred.alt = '';
-                blurred.setAttribute('aria-hidden', 'true');
-                blurred.loading = 'lazy';
-                blurred.decoding = 'async';
-                blurred.style.objectFit = 'cover';
-                const image = document.createElement('img');
-                image.className = 'template-editor__media-preview template-editor__media-preview--contained';
-                image.src = asset.url;
-                image.alt = asset.name || asset.original_name || '';
-                image.loading = 'lazy';
-                image.decoding = 'async';
-                image.style.objectFit = 'contain';
-                wrapper.append(blurred, image);
-                return wrapper;
-            }
-            const image = document.createElement('img');
-            image.className = 'template-editor__media-preview';
-            image.src = asset.url;
-            image.alt = asset.name || asset.original_name || '';
-            image.loading = 'lazy';
-            image.decoding = 'async';
-            image.style.objectFit = ['cover', 'contain'].includes(fit) ? fit : 'cover';
-            return image;
-        }
-
-        if (asset.kind === 'video' && asset.preview_url) {
-            const image = document.createElement('img');
-            image.className = 'template-editor__media-preview';
-            image.src = asset.preview_url;
-            image.alt = asset.name || asset.original_name || '';
-            image.loading = 'lazy';
-            image.decoding = 'async';
-            image.style.objectFit = ['cover', 'contain'].includes(fit) ? fit : 'cover';
-            return image;
-        }
-
-        const placeholder = document.createElement('span');
-        placeholder.className = 'template-editor__video-placeholder';
-        placeholder.innerHTML = `<span aria-hidden="true"></span><strong>${escapeHtml(i18n.media_video)}</strong><small>${escapeHtml(asset.name || asset.original_name || '')}</small>`;
-        return placeholder;
-    }
-
-    function renderElementPreview(element) {
-        const preview = document.createElement('span');
-        preview.className = 'template-editor__element-preview';
-        const fit = element.style?.fit || 'cover';
-
-        if (element.type === 'background') {
-            preview.appendChild(renderMediaPreview(element.style?.backgroundMediaAssetId || 0, fit, ''));
-            return preview;
-        }
-        if (element.type === 'media') {
-            const mediaAssetId = element.style?.mediaAssetId || (element.field ? previewFieldValue(element) : 0);
-            preview.appendChild(renderMediaPreview(mediaAssetId, fit, previewFieldValue(element) || elementLabel(element)));
-            return preview;
-        }
-        if (element.type === 'qr') {
-            const qr = document.createElement('canvas');
-            qr.className = 'template-editor__qr-preview';
-            qr.width = 1;
-            qr.height = 1;
-            qr.dataset.editorQr = '1';
-            qr.dataset.qrUrl = previewFieldValue(element) || previewQrUrl;
-            qr.dataset.qrForeground = element.style?.color || 'rgba(15, 23, 42, 1)';
-            qr.dataset.qrBackground = element.style?.backgroundColor || 'rgba(255, 255, 255, 1)';
-            preview.appendChild(qr);
-            return preview;
-        }
-        if (element.type === 'shape') {
-            const shape = document.createElement('span');
-            shape.className = 'template-editor__shape-preview';
-            shape.innerHTML = shapeSvgMarkup(element);
-            preview.appendChild(shape);
-            return preview;
-        }
-        if (element.type === 'datetime') {
-            const dateTime = document.createElement('span');
-            dateTime.className = 'template-editor__datetime-preview';
-            dateTime.textContent = dateTimePreviewValue(element);
-            applyTextPreviewStyle(dateTime, element);
-            preview.appendChild(dateTime);
-            return preview;
-        }
-        if (element.type === 'countdown') {
-            const countdown = document.createElement('span');
-            countdown.className = 'template-editor__countdown-preview';
-            countdown.textContent = countdownPreviewValue(element);
-            applyTextPreviewStyle(countdown, element);
-            preview.appendChild(countdown);
-            return preview;
-        }
-        if (element.type === 'text') {
-            const text = document.createElement('span');
-            text.className = 'template-editor__text-preview';
-            text.textContent = textPreviewValue(element);
-            applyTextPreviewStyle(text, element);
-            preview.appendChild(text);
-            return preview;
-        }
-
-        return preview;
-    }
-
-    function renderEditorQrCodes() {
-        canvas.querySelectorAll('[data-editor-qr]').forEach(qr => {
-            try {
-                if (!window.HuginQr?.drawCanvas) throw new Error('QR renderer is unavailable.');
-                window.HuginQr.drawCanvas(qr, qr.dataset.qrUrl || previewQrUrl, qr.dataset.qrForeground, qr.dataset.qrBackground);
-            } catch (error) {
-                qr.replaceWith(previewPlaceholder(previewQrUrl, 'template-editor__element-placeholder--qr'));
-            }
-        });
-    }
-
     function syncHidden() {
         hiddenLandscape.value = JSON.stringify(normalizedSpecForSave(specs.landscape || defaults.landscape()));
         hiddenPortrait.value = specs.portrait ? JSON.stringify(normalizedSpecForSave(specs.portrait)) : '';
@@ -1142,13 +858,7 @@ require __DIR__ . '/../layouts/admin_header.php';
     function applyCanvasElementFrame(element) {
         const node = canvasElementNode(element);
         if (!node) return false;
-        node.style.left = pct(element.x);
-        node.style.top = pct(element.y);
-        node.style.width = pct(element.w);
-        node.style.height = pct(element.h);
-        node.style.zIndex = String(element.z || 0);
-        node.style.borderRadius = element.type === 'shape' && !roundedShapeElement(element) ? '0' : `${Number(element.style?.radius || 0)}cqw`;
-        node.style.setProperty('--template-editor-element-shadow', element.type === 'shape' ? '0 0 0 rgba(0, 0, 0, 0)' : editorBoxShadow(element));
+        window.HuginTemplateCanvasRenderer?.applyElementFrame(node, element);
         applyCanvasElementSelection(node, element);
         return true;
     }
@@ -1193,31 +903,26 @@ require __DIR__ . '/../layouts/admin_header.php';
             pendingCanvasFrameElementId = '';
         }
         const current = spec();
-        const ratio = `${current.canvas.width} / ${current.canvas.height}`;
-        const ratioValue = current.canvas.width / current.canvas.height;
         const steps = snapSteps();
-        canvas.style.aspectRatio = ratio;
-        canvas.style.width = ratioValue >= 1 ? '100%' : `min(100%, ${Number((ratioValue * 76).toFixed(3))}vh)`;
-        canvas.style.setProperty('--template-grid-x', `${steps.x * 100}%`);
-        canvas.style.setProperty('--template-grid-y', `${steps.y * 100}%`);
-        canvas.innerHTML = '';
-        current.elements.slice().sort((a, b) => (a.z || 0) - (b.z || 0)).forEach(element => {
-            const node = document.createElement('button');
-            node.type = 'button';
-            node.className = `template-editor__element template-editor__element--${element.type}`;
-            node.setAttribute('aria-describedby', 'template-editor-canvas-instructions');
-            node.style.left = pct(element.x);
-            node.style.top = pct(element.y);
-            node.style.width = pct(element.w);
-            node.style.height = pct(element.h);
-            node.style.zIndex = String(element.z || 0);
-            node.style.color = element.style?.color || '';
-            node.style.background = ['qr', 'shape'].includes(element.type) ? 'transparent' : (element.style?.backgroundColor || (element.type === 'background' ? '#0f172a' : 'rgba(255,255,255,0.18)'));
-            node.style.borderRadius = element.type === 'shape' && !roundedShapeElement(element) ? '0' : `${Number(element.style?.radius || 0)}cqw`;
-            node.style.setProperty('--template-editor-element-shadow', element.type === 'shape' ? '0 0 0 rgba(0, 0, 0, 0)' : editorBoxShadow(element));
-            node.dataset.elementId = element.id;
+        window.HuginTemplateCanvasRenderer.render(canvas, {
+            spec: current,
+            fields: allTemplateFields(),
+            values: {},
+            mediaAssets,
+            fontOptions,
+            i18n,
+            mode: 'editor',
+            selectedId,
+            previewQrUrl,
+            gridSteps: steps,
+            maxHeightVh: 76,
+            ariaDescribedBy: 'template-editor-canvas-instructions',
+            elementAriaLabel: canvasElementAriaLabel,
+        });
+        current.elements.forEach(element => {
+            const node = canvasElementNode(element);
+            if (!node) return;
             applyCanvasElementSelection(node, element);
-            node.appendChild(renderElementPreview(element));
             node.addEventListener('pointerdown', startDrag);
             node.addEventListener('click', () => {
                 if (suppressCanvasClickElementId === element.id) {
@@ -1233,9 +938,7 @@ require __DIR__ . '/../layouts/admin_header.php';
                 handle.addEventListener('pointerdown', startResize);
                 node.appendChild(handle);
             }
-            canvas.appendChild(node);
         });
-        renderEditorQrCodes();
         focusPendingCanvasElement();
     }
 
@@ -1844,18 +1547,24 @@ require __DIR__ . '/../layouts/admin_header.php';
     }
 
     function confirmAction(config) {
-        if (typeof window.HuginConfirm?.confirm === 'function') {
-            return Promise.resolve(window.HuginConfirm.confirm(config));
+        if (typeof window.HuginDialog?.confirm === 'function') {
+            const dialogConfig = Object.assign({}, config || {});
+            const acceptLabel = dialogConfig.accept || dialogConfig.acceptLabel || '';
+            const acceptPreset = dialogConfig.icon === 'trash' || dialogConfig.variant === 'danger' ? 'delete' : 'yes';
+            if (!dialogConfig.buttons) {
+                dialogConfig.buttons = ['cancel', acceptLabel ? { preset: acceptPreset, label: acceptLabel } : acceptPreset];
+                dialogConfig.acceptButton = acceptPreset;
+            }
+            delete dialogConfig.accept;
+            delete dialogConfig.acceptLabel;
+            return Promise.resolve(window.HuginDialog.confirm(dialogConfig));
         }
         return Promise.resolve(false);
     }
 
     function alertAction(config) {
-        if (typeof window.HuginConfirm?.alert === 'function') {
-            return Promise.resolve(window.HuginConfirm.alert(config));
-        }
-        if (typeof window.HuginConfirm?.info === 'function') {
-            return Promise.resolve(window.HuginConfirm.info(config));
+        if (typeof window.HuginDialog?.alert === 'function') {
+            return Promise.resolve(window.HuginDialog.alert(config));
         }
         return Promise.resolve();
     }
@@ -1864,7 +1573,9 @@ require __DIR__ . '/../layouts/admin_header.php';
         return confirmAction({
             title: i18n.delete || '',
             message: templateText('delete_unused_field_confirm', { field: field.label || field.key || fieldKey }),
-            accept: i18n.delete || '',
+            icon: 'trash',
+            buttons: ['cancel', { preset: 'delete', label: i18n.delete || '' }],
+            acceptButton: 'delete',
         });
     }
 
@@ -2397,7 +2108,10 @@ require __DIR__ . '/../layouts/admin_header.php';
         if (href === '' || href.startsWith('#') || href.startsWith('javascript:') || href.startsWith('mailto:') || href.startsWith('tel:') || link.target || link.hasAttribute('download')) return;
         event.preventDefault();
         confirmAction({
+            icon: 'warning',
             message: i18n.unsaved_changes_confirm || 'You have unsaved changes. Leave this page?',
+            buttons: ['cancel', 'yes'],
+            acceptButton: 'yes',
         }).then(accepted => {
             if (!accepted) return;
             isSubmitting = true;
@@ -2447,6 +2161,7 @@ require __DIR__ . '/../layouts/admin_header.php';
                 render();
             } catch (error) {
                 alertAction({
+                    icon: 'error',
                     message: i18n.import_invalid || 'The selected JSON file is invalid.',
                 });
             }
