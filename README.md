@@ -9,7 +9,7 @@ Hugin is designed for simple web-based signage deployments: point a display brow
 
 Current application metadata:
 
-- Version: `0.8`
+- Version: `1.0`
 - License: `AGPL-3.0-or-later`
 - Runtime: PHP, MySQL, JavaScript
 - Plugin API version: `2`
@@ -18,12 +18,39 @@ Current application metadata:
 
 ### Requirements
 
-- PHP `8.0+`
+- PHP `8.1+`
+- PHP extensions: `pdo_mysql`, `fileinfo`, `mbstring`, and `json`
 - MySQL or MariaDB compatible with the provided schema
 - Composer
-- Node.js `18+` and npm for frontend asset development or release builds
 - Apache with `mod_rewrite` or an equivalent Nginx/PHP-FPM setup
 - A web server document root pointing to `public/`
+- Write access for PHP to `public/uploads/` and `storage/`
+- Node.js `18+` and npm for frontend asset development or generated asset checks
+- Optional: `ffmpeg` for automatic video preview thumbnails
+- Optional: PHP `curl` for HTTP-backed plugins; without it, plugins fall back to PHP stream requests where possible
+- Optional: PHP `intl` for richer localized date formatting in the TL1 Menu plugin
+
+### Dependency Inventory
+
+Production PHP dependencies are installed with Composer:
+
+- `erusev/parsedown`: safe Markdown rendering for text slides.
+- `dompdf/php-font-lib`: font metadata extraction for uploaded TTF/OTF/WOFF fonts.
+
+Frontend build dependencies are installed with npm and are only needed when regenerating committed admin assets:
+
+- `@rsuite/icon-font`: source icon components for generated admin SVG icons.
+- `react` and `react-dom`: used by the icon generation script.
+
+The normal admin and display runtime does not depend on external JavaScript CDNs; assets are served from `public/assets/`, uploaded media, or plugin asset routes.
+
+Bundled plugins can use external HTTP services when enabled/configured:
+
+- `weather`: Open-Meteo forecast and geocoding APIs.
+- `brightsky-dwd-weather`: Bright Sky current weather API, using bundled DWD station data by default.
+- `tl1-menu`: a configurable TL1 XML menu feed URL.
+
+Slides can also reference external media or website URLs when administrators configure those slide types.
 
 ### Quick Installation
 
@@ -52,7 +79,7 @@ Current application metadata:
 
 6. Point the web server document root to `public/`.
 
-7. Make sure PHP can write uploaded media below `public/uploads/`.
+7. Make sure PHP can write uploaded media below `public/uploads/` and plugin/cache data below `storage/`.
 
 8. Open `/admin/login`.
 
@@ -152,6 +179,7 @@ Built-in slide types:
 - `video`: external video URL or media library asset.
 - `website`: external URL rendered in an iframe.
 - `text`: safe Markdown content rendered with Parsedown.
+- `template`: reusable WYSIWYG template slides with canvas elements and slide-specific field values.
 
 Slide capabilities:
 
@@ -177,9 +205,12 @@ Text slide capabilities:
 - Upload and reuse image or video assets.
 - Supported images: JPG, PNG, GIF, WEBP.
 - Supported videos: MP4, WEBM, OGG.
+- Supported fonts: WOFF2, WOFF, TTF, OTF.
 - Filter media by kind.
 - Media usage checks prevent deleting assets that are still referenced.
 - Uploaded files are stored below `public/uploads/YYYY/MM/`.
+- Uploaded fonts are stored below `public/uploads/fonts/YYYY/MM/`.
+- Video preview thumbnails are generated when `ffmpeg` is available.
 
 ### Admin, Users, And Security
 
