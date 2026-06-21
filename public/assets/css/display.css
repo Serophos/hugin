@@ -841,7 +841,8 @@ html, body {
     .slide.is-active .template-slide__element--shape[class*="template-slide__element--entrance-"] .template-slide__shape-frame,
     .slide.is-active.is-template-animating .template-slide__element--shape[class*="template-slide__element--entrance-"] .template-slide__shape-frame,
     .slide.is-active .template-slide__element--shape[class*="template-slide__element--continuous-"] .template-slide__shape-motion,
-    .slide.is-active.is-template-animating .template-slide__element--shape[class*="template-slide__element--entrance-"][class*="template-slide__element--continuous-"] .template-slide__shape-motion {
+    .slide.is-active.is-template-animating .template-slide__element--shape[class*="template-slide__element--entrance-"][class*="template-slide__element--continuous-"] .template-slide__shape-motion,
+    .template-slide__dynamic-text-track {
         opacity: inherit;
         animation: none;
         transform: none;
@@ -850,6 +851,7 @@ html, body {
 }
 
 .template-slide__element--text,
+.template-slide__element--dynamic_text,
 .template-slide__element--datetime,
 .template-slide__element--countdown {
     align-items: center;
@@ -859,10 +861,159 @@ html, body {
 }
 
 .template-slide__text-content,
+.template-slide__dynamic-text-content,
 .template-slide__datetime-content,
 .template-slide__countdown-content {
     min-width: 0;
     overflow-wrap: anywhere;
+}
+
+.template-slide__dynamic-text-content {
+    width: 100%;
+    overflow: hidden;
+    text-align: inherit;
+}
+
+.template-slide__dynamic-text-content--carousel,
+.template-slide__dynamic-text-content--push_carousel,
+.template-slide__dynamic-text-content--typewriter,
+.template-slide__dynamic-text-content--word_reveal {
+    display: grid;
+    align-items: center;
+}
+
+.template-slide__dynamic-text-content--carousel .template-slide__dynamic-text-line,
+.template-slide__dynamic-text-content--push_carousel .template-slide__dynamic-text-line,
+.template-slide__dynamic-text-content--typewriter .template-slide__dynamic-text-line,
+.template-slide__dynamic-text-content--word_reveal .template-slide__dynamic-text-line {
+    grid-area: 1 / 1;
+    min-width: 0;
+    opacity: 0;
+    visibility: hidden;
+    overflow-wrap: anywhere;
+}
+
+.template-slide__dynamic-text-content--carousel.template-slide__dynamic-text-content--fade .template-slide__dynamic-text-line {
+    transition: opacity var(--template-dynamic-text-transition, var(--template-dynamic-carousel-transition, 400ms)) ease;
+}
+
+.template-slide__dynamic-text-content--carousel .template-slide__dynamic-text-line.is-active,
+.template-slide__dynamic-text-content--push_carousel .template-slide__dynamic-text-line.is-active,
+.template-slide__dynamic-text-content--typewriter .template-slide__dynamic-text-line.is-active,
+.template-slide__dynamic-text-content--word_reveal .template-slide__dynamic-text-line.is-active {
+    opacity: 1;
+    visibility: visible;
+}
+
+.template-slide__dynamic-text-content--push_carousel .template-slide__dynamic-text-line {
+    transition:
+        opacity var(--template-dynamic-text-transition, 400ms) ease,
+        transform var(--template-dynamic-text-transition, 400ms) ease;
+    will-change: opacity, transform;
+}
+
+.template-slide__dynamic-text-content--push-left .template-slide__dynamic-text-line {
+    transform: translate3d(100%, 0, 0);
+}
+
+.template-slide__dynamic-text-content--push-right .template-slide__dynamic-text-line {
+    transform: translate3d(-100%, 0, 0);
+}
+
+.template-slide__dynamic-text-content--push_carousel .template-slide__dynamic-text-line.is-active {
+    transform: translate3d(0, 0, 0);
+}
+
+.template-slide__dynamic-text-content--push_carousel .template-slide__dynamic-text-line.is-exiting {
+    opacity: 0;
+    visibility: visible;
+}
+
+.template-slide__dynamic-text-content--push-left .template-slide__dynamic-text-line.is-exiting {
+    transform: translate3d(-100%, 0, 0);
+}
+
+.template-slide__dynamic-text-content--push-right .template-slide__dynamic-text-line.is-exiting {
+    transform: translate3d(100%, 0, 0);
+}
+
+.template-slide__dynamic-text-content--typewriter .template-slide__dynamic-text-line.is-active::after {
+    content: "";
+    display: inline-block;
+    height: 0.9em;
+    margin-left: 0.08em;
+    border-right: 0.08em solid currentColor;
+    vertical-align: -0.08em;
+    animation: template-dynamic-text-caret 1s steps(1, end) infinite;
+}
+
+.template-slide__dynamic-text-word {
+    display: inline-block;
+    opacity: 0;
+    transform: translate3d(0, 0.25em, 0);
+    transition:
+        opacity var(--template-dynamic-text-transition, 400ms) ease,
+        transform var(--template-dynamic-text-transition, 400ms) ease;
+}
+
+.template-slide__dynamic-text-word.is-visible {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+}
+
+.template-slide__element--dynamic_text[data-template-dynamic-text-mode="marquee"] {
+    padding-inline: 0;
+}
+
+.template-slide__dynamic-text-content--marquee {
+    white-space: nowrap;
+    text-wrap: nowrap;
+}
+
+.template-slide__dynamic-text-track {
+    display: inline-flex;
+    min-width: max-content;
+    will-change: transform;
+}
+
+.template-slide__dynamic-text-content--marquee-left .template-slide__dynamic-text-track {
+    animation: template-dynamic-marquee-left var(--template-dynamic-marquee-duration, 12000ms) linear infinite;
+}
+
+.template-slide__dynamic-text-content--marquee-right .template-slide__dynamic-text-track {
+    animation: template-dynamic-marquee-right var(--template-dynamic-marquee-duration, 12000ms) linear infinite;
+}
+
+.template-slide__dynamic-text-marquee-item {
+    flex: 0 0 auto;
+    padding-inline: 2.4cqw;
+}
+
+@keyframes template-dynamic-marquee-left {
+    from { transform: translate3d(0, 0, 0); }
+    to { transform: translate3d(-50%, 0, 0); }
+}
+
+@keyframes template-dynamic-marquee-right {
+    from { transform: translate3d(-50%, 0, 0); }
+    to { transform: translate3d(0, 0, 0); }
+}
+
+@keyframes template-dynamic-text-caret {
+    0%, 45% { opacity: 1; }
+    46%, 100% { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .template-slide__dynamic-text-content--push_carousel .template-slide__dynamic-text-line,
+    .template-slide__dynamic-text-word {
+        transition: none;
+        transform: none;
+    }
+
+    .template-slide__dynamic-text-content--typewriter .template-slide__dynamic-text-line.is-active::after {
+        animation: none;
+    }
 }
 
 .template-slide__datetime-content,

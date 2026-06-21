@@ -127,6 +127,217 @@
         return hasDateTime || hasCountdown;
     };
 
+    const dynamicTextCleanups = new WeakMap();
+
+    const templateDynamicTextIntervalMs = element => {
+        const intervalMs = Number(element?.dataset.templateDynamicTextIntervalMs || 4000);
+        if (!Number.isFinite(intervalMs)) return 4000;
+        return Math.max(500, Math.min(60000, Math.round(intervalMs)));
+    };
+
+    const templateDynamicTextTransitionMs = element => {
+        const transitionMs = Number(element?.dataset.templateDynamicTextTransitionMs || 400);
+        if (!Number.isFinite(transitionMs)) return 400;
+        return Math.max(0, Math.min(5000, Math.round(transitionMs)));
+    };
+
+    const prefersReducedMotion = () => !!window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+
+    const clearTemplateDynamicTextRuntime = element => {
+        const cleanup = dynamicTextCleanups.get(element);
+        if (cleanup) {
+            cleanup();
+            dynamicTextCleanups.delete(element);
+        }
+    };
+
+    const activeTemplateDynamicTextLineIndex = lines => {
+        const index = lines.findIndex(line => line.classList.contains('is-active'));
+        if (index >= 0) return index;
+        lines[0]?.classList.add('is-active');
+        return 0;
+    };
+
+    const startTemplateDynamicTextLineRotation = (element, push = false) => {
+        const lines = Array.from(element.querySelectorAll('.template-slide__dynamic-text-line'));
+        if (lines.length <= 1) return;
+
+        let lineIndex = activeTemplateDynamicTextLineIndex(lines);
+        const exitTimers = new Set();
+        const clearExitTimers = () => {
+            exitTimers.forEach(timer => window.clearTimeout(timer));
+            exitTimers.clear();
+        };
+
+        // Dynamic Text animation state must remain DOM-local. Do not write line indexes,
+        // typed/word positions, timestamps, or transforms to slide data used for reload checks.
+        const timer = window.setInterval(() => {
+            const previous = lines[lineIndex];
+            lineIndex = (lineIndex + 1) % lines.length;
+            const next = lines[lineIndex];
+
+            if (push) {
+                clearExitTimers();
+                previous?.classList.add('is-exiting');
+                previous?.classList.remove('is-active');
+                next?.classList.add('is-active');
+                const exitTimer = window.setTimeout(() => {
+                    previous?.classList.remove('is-exiting');
+                    exitTimers.delete(exitTimer);
+                }, templateDynamicTextTransitionMs(element));
+                exitTimers.add(exitTimer);
+                return;
+            }
+
+            previous?.classList.remove('is-active');
+            next?.classList.add('is-active');
+        }, templateDynamicTextIntervalMs(element));
+
+        dynamicTextCleanups.set(element, () => {
+            window.clearInterval(timer);
+            clearExitTimers();
+        });
+    };
+
+    const startTemplateDynamicTextTypewriter = element => {
+        const lines = Array.from(element.querySelectorAll('.template-slide__dynamic-text-line'));
+        if (lines.length === 0) return;
+
+        const sourceLines = lines.map(line => line.textContent || '\u00a0');
+        const timers = new Set();
+        const schedule = (callback, delayMs) => {
+            const timer = window.setTimeout(() => {
+                timers.delete(timer);
+                callback();
+            }, Math.max(0, delayMs));
+            timers.add(timer);
+        };
+        let lineIndex = activeTemplateDynamicTextLineIndex(lines);
+
+        dynamicTextCleanups.set(element, () => {
+            timers.forEach(timer => window.clearTimeout(timer));
+            timers.clear();
+        });
+
+        const showLine = () => {
+            lines.forEach((line, index) => {
+                line.classList.toggle('is-active', index === lineIndex);
+                line.textContent = index === lineIndex ? '' : sourceLines[index];
+            });
+
+            const activeLine = lines[lineIndex];
+            const characters = Array.from(sourceLines[lineIndex] || '\u00a0');
+            const transitionMs = templateDynamicTextTransitionMs(element);
+            const stepMs = characters.length > 0 && transitionMs > 0 ? transitionMs / characters.length : 0;
+
+            const reveal = characterIndex => {
+                activeLine.textContent = characters.slice(0, characterIndex).join('') || '\u00a0';
+                if (characterIndex >= characters.length) {
+                    schedule(() => {
+                        lineIndex = (lineIndex + 1) % lines.length;
+                        showLine();
+                    }, templateDynamicTextIntervalMs(element));
+                    return;
+                }
+                schedule(() => reveal(characterIndex + 1), stepMs);
+            };
+
+            reveal(transitionMs > 0 ? 0 : characters.length);
+        };
+
+        showLine();
+    };
+
+    const templateDynamicTextWordParts = text => {
+        const parts = String(text || '\u00a0').split(/(\s+)/).filter(part => part !== '');
+        return parts.length > 0 ? parts.map(part => ({ text: part, word: !/^\s+$/.test(part) })) : [{ text: '\u00a0', word: false }];
+    };
+
+    const renderTemplateDynamicTextWords = (line, parts, visibleWords) => {
+        line.textContent = '';
+        let wordIndex = 0;
+        parts.forEach(part => {
+            if (!part.word) {
+                line.appendChild(document.createTextNode(part.text));
+                return;
+            }
+
+            wordIndex += 1;
+            const word = document.createElement('span');
+            word.className = `template-slide__dynamic-text-word ${wordIndex <= visibleWords ? 'is-visible' : ''}`.trim();
+            word.textContent = part.text;
+            line.appendChild(word);
+        });
+    };
+
+    const startTemplateDynamicTextWordReveal = element => {
+        const lines = Array.from(element.querySelectorAll('.template-slide__dynamic-text-line'));
+        if (lines.length === 0) return;
+
+        const sourceLines = lines.map(line => line.textContent || '\u00a0');
+        const timers = new Set();
+        const schedule = (callback, delayMs) => {
+            const timer = window.setTimeout(() => {
+                timers.delete(timer);
+                callback();
+            }, Math.max(0, delayMs));
+            timers.add(timer);
+        };
+        let lineIndex = activeTemplateDynamicTextLineIndex(lines);
+
+        dynamicTextCleanups.set(element, () => {
+            timers.forEach(timer => window.clearTimeout(timer));
+            timers.clear();
+        });
+
+        const showLine = () => {
+            lines.forEach((line, index) => {
+                line.classList.toggle('is-active', index === lineIndex);
+                line.textContent = sourceLines[index];
+            });
+
+            const activeLine = lines[lineIndex];
+            const parts = templateDynamicTextWordParts(sourceLines[lineIndex]);
+            const wordCount = parts.filter(part => part.word).length;
+            const transitionMs = templateDynamicTextTransitionMs(element);
+            const stepMs = wordCount > 0 && transitionMs > 0 ? transitionMs / wordCount : 0;
+
+            const reveal = visibleWords => {
+                renderTemplateDynamicTextWords(activeLine, parts, visibleWords);
+                if (visibleWords >= wordCount) {
+                    schedule(() => {
+                        lineIndex = (lineIndex + 1) % lines.length;
+                        showLine();
+                    }, templateDynamicTextIntervalMs(element));
+                    return;
+                }
+                schedule(() => reveal(visibleWords + 1), stepMs);
+            };
+
+            reveal(transitionMs > 0 ? 0 : wordCount);
+        };
+
+        showLine();
+    };
+
+    const initializeTemplateDynamicTextElements = () => {
+        document.querySelectorAll('[data-template-dynamic-text]').forEach(element => {
+            clearTemplateDynamicTextRuntime(element);
+            if (prefersReducedMotion()) return;
+
+            const mode = element.dataset.templateDynamicTextMode || 'carousel';
+            if (mode === 'carousel') {
+                startTemplateDynamicTextLineRotation(element, false);
+            } else if (mode === 'push_carousel') {
+                startTemplateDynamicTextLineRotation(element, true);
+            } else if (mode === 'typewriter') {
+                startTemplateDynamicTextTypewriter(element);
+            } else if (mode === 'word_reveal') {
+                startTemplateDynamicTextWordReveal(element);
+            }
+        });
+    };
+
     const hasStoredScheduledSyncReload = () => {
         try {
             const raw = window.sessionStorage.getItem(SCHEDULED_SYNC_RELOAD_KEY);
@@ -1517,6 +1728,7 @@
     }
 
     renderTextSlideQrCodes();
+    initializeTemplateDynamicTextElements();
     if (updateTemplateTimedElements()) {
         window.setInterval(updateTemplateTimedElements, 1000);
     }

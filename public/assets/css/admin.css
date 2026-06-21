@@ -4057,6 +4057,11 @@ input[type="color"] {
     background: #eff6ff;
 }
 
+.template-tool-button--dynamic-text .template-tool-button__icon {
+    background: #fdf2f8;
+    color: #be185d;
+}
+
 .template-tool-button--media .template-tool-button__icon {
     background: #ecfdf5;
 }
@@ -4393,6 +4398,154 @@ input[type="color"] {
 
 .template-editor__text-preview {
     white-space: pre-wrap;
+}
+
+.template-editor__dynamic-text-preview {
+    width: 100%;
+    min-width: 0;
+    padding: 1.2cqw;
+    overflow: hidden;
+    overflow-wrap: anywhere;
+    line-height: 1.12;
+    text-wrap: balance;
+}
+
+.template-editor__dynamic-text-preview--carousel,
+.template-editor__dynamic-text-preview--push_carousel,
+.template-editor__dynamic-text-preview--typewriter,
+.template-editor__dynamic-text-preview--word_reveal {
+    display: grid;
+    align-items: center;
+}
+
+.template-editor__dynamic-text-preview--carousel .template-editor__dynamic-text-line,
+.template-editor__dynamic-text-preview--push_carousel .template-editor__dynamic-text-line,
+.template-editor__dynamic-text-preview--typewriter .template-editor__dynamic-text-line,
+.template-editor__dynamic-text-preview--word_reveal .template-editor__dynamic-text-line {
+    grid-area: 1 / 1;
+    min-width: 0;
+    opacity: 0;
+    visibility: hidden;
+    overflow-wrap: anywhere;
+}
+
+.template-editor__dynamic-text-preview--carousel.template-editor__dynamic-text-preview--fade .template-editor__dynamic-text-line {
+    transition: opacity var(--template-dynamic-text-transition, var(--template-dynamic-carousel-transition, 400ms)) ease;
+}
+
+.template-editor__dynamic-text-preview--carousel .template-editor__dynamic-text-line.is-active,
+.template-editor__dynamic-text-preview--push_carousel .template-editor__dynamic-text-line.is-active,
+.template-editor__dynamic-text-preview--typewriter .template-editor__dynamic-text-line.is-active,
+.template-editor__dynamic-text-preview--word_reveal .template-editor__dynamic-text-line.is-active {
+    opacity: 1;
+    visibility: visible;
+}
+
+.template-editor__dynamic-text-preview--push_carousel .template-editor__dynamic-text-line {
+    transition:
+        opacity var(--template-dynamic-text-transition, 400ms) ease,
+        transform var(--template-dynamic-text-transition, 400ms) ease;
+    will-change: opacity, transform;
+}
+
+.template-editor__dynamic-text-preview--push-left .template-editor__dynamic-text-line {
+    transform: translate3d(100%, 0, 0);
+}
+
+.template-editor__dynamic-text-preview--push-right .template-editor__dynamic-text-line {
+    transform: translate3d(-100%, 0, 0);
+}
+
+.template-editor__dynamic-text-preview--push_carousel .template-editor__dynamic-text-line.is-active {
+    transform: translate3d(0, 0, 0);
+}
+
+.template-editor__dynamic-text-preview--push_carousel .template-editor__dynamic-text-line.is-exiting {
+    opacity: 0;
+    visibility: visible;
+}
+
+.template-editor__dynamic-text-preview--push-left .template-editor__dynamic-text-line.is-exiting {
+    transform: translate3d(-100%, 0, 0);
+}
+
+.template-editor__dynamic-text-preview--push-right .template-editor__dynamic-text-line.is-exiting {
+    transform: translate3d(100%, 0, 0);
+}
+
+.template-editor__dynamic-text-preview--typewriter .template-editor__dynamic-text-line.is-active::after {
+    content: "";
+    display: inline-block;
+    height: 0.9em;
+    margin-left: 0.08em;
+    border-right: 0.08em solid currentColor;
+    vertical-align: -0.08em;
+    animation: template-editor-dynamic-text-caret 1s steps(1, end) infinite;
+}
+
+.template-editor__dynamic-text-word {
+    display: inline-block;
+    opacity: 0;
+    transform: translate3d(0, 0.25em, 0);
+    transition:
+        opacity var(--template-dynamic-text-transition, 400ms) ease,
+        transform var(--template-dynamic-text-transition, 400ms) ease;
+}
+
+.template-editor__dynamic-text-word.is-visible {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+}
+
+.template-editor__dynamic-text-preview--marquee {
+    white-space: nowrap;
+    text-wrap: nowrap;
+}
+
+.template-editor__dynamic-text-track {
+    display: inline-flex;
+    min-width: max-content;
+    will-change: transform;
+}
+
+.template-editor__dynamic-text-preview--marquee-left .template-editor__dynamic-text-track {
+    animation: template-editor-dynamic-marquee-left var(--template-dynamic-marquee-duration, 12000ms) linear infinite;
+}
+
+.template-editor__dynamic-text-preview--marquee-right .template-editor__dynamic-text-track {
+    animation: template-editor-dynamic-marquee-right var(--template-dynamic-marquee-duration, 12000ms) linear infinite;
+}
+
+.template-editor__dynamic-text-marquee-item {
+    flex: 0 0 auto;
+    padding-inline: 2cqw;
+}
+
+@keyframes template-editor-dynamic-marquee-left {
+    from { transform: translate3d(0, 0, 0); }
+    to { transform: translate3d(-50%, 0, 0); }
+}
+
+@keyframes template-editor-dynamic-marquee-right {
+    from { transform: translate3d(-50%, 0, 0); }
+    to { transform: translate3d(0, 0, 0); }
+}
+
+@keyframes template-editor-dynamic-text-caret {
+    0%, 45% { opacity: 1; }
+    46%, 100% { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .template-editor__dynamic-text-preview--push_carousel .template-editor__dynamic-text-line,
+    .template-editor__dynamic-text-word {
+        transition: none;
+        transform: none;
+    }
+
+    .template-editor__dynamic-text-preview--typewriter .template-editor__dynamic-text-line.is-active::after {
+        animation: none;
+    }
 }
 
 .template-editor__datetime-preview,

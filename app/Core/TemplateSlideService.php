@@ -8,11 +8,14 @@ class TemplateSlideService
 {
     private const SPEC_VERSION = 1;
     private const FIELD_TYPES = ['text', 'multiline', 'url', 'media_image', 'media_video', 'qr_url', 'color'];
-    private const ELEMENT_TYPES = ['background', 'text', 'media', 'qr', 'shape', 'datetime', 'countdown'];
+    private const ELEMENT_TYPES = ['background', 'text', 'dynamic_text', 'media', 'qr', 'shape', 'datetime', 'countdown'];
     private const SHAPE_TYPES = ['square', 'circle', 'triangle', 'diamond', 'star', 'hexagon', 'pentagon', 'arrow'];
     private const DATE_TIME_MODES = ['clock', 'date'];
     private const TIME_FORMATS = ['24h', 'ampm'];
-    private const TEXT_ELEMENT_TYPES = ['text', 'datetime', 'countdown'];
+    private const TEXT_ELEMENT_TYPES = ['text', 'dynamic_text', 'datetime', 'countdown'];
+    private const TEXT_ALIGNMENTS = ['left', 'center', 'right'];
+    private const DYNAMIC_TEXT_MODES = ['carousel', 'marquee', 'typewriter', 'push_carousel', 'word_reveal'];
+    private const DYNAMIC_TEXT_DIRECTIONS = ['left', 'right'];
     private const SYSTEM_FONT_STACKS = [
         'system-sans' => 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans", Ubuntu, Cantarell, "Liberation Sans", "DejaVu Sans", Arial, sans-serif',
         'system-serif' => 'Georgia, "Noto Serif", "Liberation Serif", "DejaVu Serif", Times, "Times New Roman", serif',
@@ -534,6 +537,9 @@ class TemplateSlideService
                     $normalizedElement['staticText'] = $staticText;
                 }
             }
+            if ($type === 'dynamic_text') {
+                $normalizedElement['dynamicText'] = $this->normalizeDynamicText($element['dynamicText'] ?? []);
+            }
 
             if ($type !== 'background') {
                 $normalizedElement['animation'] = $this->normalizeAnimation(is_array($element['animation'] ?? null) ? $element['animation'] : []);
@@ -553,9 +559,15 @@ class TemplateSlideService
                 $out[$key] = substr(trim((string)$style[$key]), 0, 40);
             }
         }
-        foreach (['fontWeight', 'align'] as $key) {
+        foreach (['fontWeight'] as $key) {
             if (isset($style[$key]) && is_scalar($style[$key])) {
                 $out[$key] = substr(trim((string)$style[$key]), 0, 24);
+            }
+        }
+        if (self::isTextElementType($type) && isset($style['align']) && is_scalar($style['align'])) {
+            $align = $this->normalizeTextAlign((string)$style['align']);
+            if ($align !== '') {
+                $out['align'] = $align;
             }
         }
         if (self::isTextElementType($type)) {
@@ -610,6 +622,68 @@ class TemplateSlideService
 
         $text = str_replace(["\r\n", "\r"], "\n", trim((string)$value));
         return substr($text, 0, 4000);
+    }
+
+    private function normalizeDynamicText(mixed $value): array
+    {
+        $input = is_array($value) ? $value : [];
+
+        return [
+            'lines' => $this->normalizeDynamicTextLines($input['lines'] ?? []),
+            'mode' => $this->normalizeDynamicTextMode((string)($input['mode'] ?? 'carousel')),
+            'intervalMs' => $this->intRange($input['intervalMs'] ?? 4000, 4000, 500, 60000),
+            'transitionMs' => $this->intRange($input['transitionMs'] ?? 400, 400, 0, 5000),
+            'marqueeDurationMs' => $this->intRange($input['marqueeDurationMs'] ?? 12000, 12000, 1000, 120000),
+            'direction' => $this->normalizeDynamicTextDirection((string)($input['direction'] ?? 'left')),
+            'fade' => array_key_exists('fade', $input) ? $this->truthy($input['fade']) : true,
+        ];
+    }
+
+    private function normalizeDynamicTextLines(mixed $value): array
+    {
+        $rawLines = is_array($value) ? $value : (is_scalar($value) ? preg_split('/\R/u', (string)$value) : []);
+        if (!is_array($rawLines)) {
+            return [];
+        }
+
+        $lines = [];
+        $totalLength = 0;
+        foreach ($rawLines as $rawLine) {
+            if (!is_scalar($rawLine)) {
+                continue;
+            }
+
+            foreach (preg_split('/\R/u', (string)$rawLine) ?: [] as $line) {
+                // Empty lines are ignored so accidental blank textarea rows do not become blank carousel slides.
+                $line = trim((string)$line);
+                if ($line === '') {
+                    continue;
+                }
+
+                $remaining = 4000 - $totalLength;
+                if ($remaining <= 0 || count($lines) >= 100) {
+                    break 2;
+                }
+
+                $line = substr($line, 0, min(500, $remaining));
+                $lines[] = $line;
+                $totalLength += strlen($line);
+            }
+        }
+
+        return $lines;
+    }
+
+    private function normalizeDynamicTextMode(string $mode): string
+    {
+        $mode = strtolower(trim($mode));
+        return in_array($mode, self::DYNAMIC_TEXT_MODES, true) ? $mode : 'carousel';
+    }
+
+    private function normalizeDynamicTextDirection(string $direction): string
+    {
+        $direction = strtolower(trim($direction));
+        return in_array($direction, self::DYNAMIC_TEXT_DIRECTIONS, true) ? $direction : 'left';
     }
 
     private function normalizeAnimation(array $animation): array
@@ -689,6 +763,9 @@ class TemplateSlideService
 
             return '<div class="' . e($classes) . '" style="' . e($styleAttr) . '"' . $animationAttr . ' data-template-countdown="1" data-template-countdown-target="' . e($target) . '" data-template-countdown-target-ms="' . e($targetMs) . '"><div class="template-slide__countdown-content">' . e($content) . '</div></div>';
         }
+        if ($type === 'dynamic_text') {
+            return $this->renderDynamicTextElement($element, $classes, $styleAttr, $animationAttr, $field !== '' ? (string)$value : null);
+        }
 
         $content = (string)$value;
         $fieldType = (string)($fieldMap[$field]['type'] ?? 'text');
@@ -698,6 +775,48 @@ class TemplateSlideService
         }
 
         return '<div class="' . e($classes) . '" style="' . e($styleAttr) . '"' . $animationAttr . '><div class="template-slide__text-content">' . $html . '</div></div>';
+    }
+
+    private function renderDynamicTextElement(array $element, string $classes, string $styleAttr, string $animationAttr, ?string $boundText = null): string
+    {
+        $dynamicText = $this->normalizeDynamicText($element['dynamicText'] ?? []);
+        $mode = $dynamicText['mode'];
+        $lines = $boundText !== null ? $this->normalizeDynamicTextLines($boundText) : $dynamicText['lines'];
+        $attrs = ' data-template-dynamic-text="1"'
+            . ' data-template-dynamic-text-mode="' . e($mode) . '"'
+            . ' data-template-dynamic-text-interval-ms="' . e((string)$dynamicText['intervalMs']) . '"'
+            . ' data-template-dynamic-text-transition-ms="' . e((string)$dynamicText['transitionMs']) . '"'
+            . ' data-template-dynamic-text-marquee-duration-ms="' . e((string)$dynamicText['marqueeDurationMs']) . '"'
+            . ' data-template-dynamic-text-direction="' . e($dynamicText['direction']) . '"'
+            . ' data-template-dynamic-text-fade="' . ($dynamicText['fade'] ? '1' : '0') . '"';
+
+        // Dynamic Text runtime state belongs only to client-side DOM/JS. Do not add line indexes,
+        // typed/word positions, timestamps, or transforms to config used for slide signatures.
+        if ($mode === 'marquee') {
+            $text = implode(' · ', $lines);
+            $item = $text !== '' ? e($text) : '&nbsp;';
+
+            return '<div class="' . e($classes) . '" style="' . e($styleAttr) . '"' . $animationAttr . $attrs . '><div class="template-slide__dynamic-text-content template-slide__dynamic-text-content--marquee template-slide__dynamic-text-content--marquee-' . e($dynamicText['direction']) . '"><span class="template-slide__dynamic-text-track"><span class="template-slide__dynamic-text-marquee-item">' . $item . '</span><span class="template-slide__dynamic-text-marquee-item" aria-hidden="true">' . $item . '</span></span></div></div>';
+        }
+
+        $contentClasses = 'template-slide__dynamic-text-content template-slide__dynamic-text-content--' . $mode;
+        if ($mode === 'carousel' && $dynamicText['fade']) {
+            $contentClasses .= ' template-slide__dynamic-text-content--fade';
+        }
+        if ($mode === 'push_carousel') {
+            $contentClasses .= ' template-slide__dynamic-text-content--push-' . $dynamicText['direction'];
+        }
+
+        $lineHtml = '';
+        foreach ($lines as $index => $line) {
+            $lineClasses = 'template-slide__dynamic-text-line' . ($index === 0 ? ' is-active' : '');
+            $lineHtml .= '<span class="' . e($lineClasses) . '">' . e($line) . '</span>';
+        }
+        if ($lineHtml === '') {
+            $lineHtml = '<span class="template-slide__dynamic-text-line is-active">&nbsp;</span>';
+        }
+
+        return '<div class="' . e($classes) . '" style="' . e($styleAttr) . '"' . $animationAttr . $attrs . '><div class="' . e($contentClasses) . '">' . $lineHtml . '</div></div>';
     }
 
     private function animationAttributes(array $element): string
@@ -773,6 +892,12 @@ class TemplateSlideService
                 $css[] = 'font-family:' . $fontFamily;
             }
         }
+        if (($element['type'] ?? '') === 'dynamic_text') {
+            $dynamicText = $this->normalizeDynamicText($element['dynamicText'] ?? []);
+            $css[] = '--template-dynamic-carousel-transition:' . $dynamicText['transitionMs'] . 'ms';
+            $css[] = '--template-dynamic-text-transition:' . $dynamicText['transitionMs'] . 'ms';
+            $css[] = '--template-dynamic-marquee-duration:' . $dynamicText['marqueeDurationMs'] . 'ms';
+        }
         if (($element['type'] ?? '') !== 'background' && ($element['type'] ?? '') !== 'shape') {
             $shadow = $this->dropShadowCss($style, false);
             if ($shadow !== null) {
@@ -817,6 +942,12 @@ class TemplateSlideService
     {
         $format = strtolower(trim($format));
         return in_array($format, self::TIME_FORMATS, true) ? $format : '24h';
+    }
+
+    private function normalizeTextAlign(string $align): string
+    {
+        $align = strtolower(trim($align));
+        return in_array($align, self::TEXT_ALIGNMENTS, true) ? $align : '';
     }
 
     private function formatDateTimeElement(string $mode, string $format): string

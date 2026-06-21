@@ -863,6 +863,8 @@ class FrontendController
         $signaturePayload = $payload;
         unset($signaturePayload['frontend_assets']);
         foreach ($signaturePayload['slides'] as &$signatureSlide) {
+            // Template-rendered HTML can contain time-based or client-animated elements.
+            // Keep reload signatures tied to stable saved config/values instead of runtime DOM state.
             unset($signatureSlide['template_rendered_hash']);
         }
         unset($signatureSlide);

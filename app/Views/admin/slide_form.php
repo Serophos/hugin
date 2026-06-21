@@ -95,6 +95,7 @@ $templatePreviewI18n = [
     'preview_unavailable' => __('templates.preview_unavailable'),
     'background' => __('templates.element_background'),
     'element_text' => __('templates.element_text'),
+    'element_dynamic_text' => __('templates.element_dynamic_text'),
     'element_media' => __('templates.element_media'),
     'element_qr' => __('templates.element_qr'),
     'element_shape' => __('templates.element_shape'),

@@ -62,6 +62,7 @@ $editorI18n = [
     'element_shape' => __('templates.element_shape'),
     'element_datetime' => __('templates.element_datetime'),
     'element_countdown' => __('templates.element_countdown'),
+    'element_dynamic_text' => __('templates.element_dynamic_text'),
     'field' => __('templates.property_field'),
     'static_text' => __('templates.property_static_text'),
     'field_key' => __('templates.field_key'),
@@ -96,6 +97,25 @@ $editorI18n = [
     'time_format_24h' => __('templates.time_format_24h'),
     'time_format_ampm' => __('templates.time_format_ampm'),
     'countdown_target' => __('templates.property_countdown_target'),
+    'dynamic_text_lines' => __('templates.property_dynamic_text_lines'),
+    'dynamic_text_mode' => __('templates.property_dynamic_text_mode'),
+    'dynamic_text_mode_carousel' => __('templates.dynamic_text_mode_carousel'),
+    'dynamic_text_mode_marquee' => __('templates.dynamic_text_mode_marquee'),
+    'dynamic_text_mode_typewriter' => __('templates.dynamic_text_mode_typewriter'),
+    'dynamic_text_mode_push_carousel' => __('templates.dynamic_text_mode_push_carousel'),
+    'dynamic_text_mode_word_reveal' => __('templates.dynamic_text_mode_word_reveal'),
+    'dynamic_text_interval' => __('templates.property_dynamic_text_interval'),
+    'dynamic_text_transition' => __('templates.property_dynamic_text_transition'),
+    'dynamic_text_duration' => __('templates.property_dynamic_text_duration'),
+    'dynamic_text_direction' => __('templates.property_dynamic_text_direction'),
+    'dynamic_text_direction_left' => __('templates.dynamic_text_direction_left'),
+    'dynamic_text_direction_right' => __('templates.dynamic_text_direction_right'),
+    'dynamic_text_fade' => __('templates.property_dynamic_text_fade'),
+    'dynamic_text_fade_enabled' => __('templates.property_dynamic_text_fade_enabled'),
+    'property_align' => __('templates.property_align'),
+    'align_left' => __('templates.align_left'),
+    'align_center' => __('templates.align_center'),
+    'align_right' => __('templates.align_right'),
     'drop_shadow' => __('templates.property_drop_shadow'),
     'drop_shadow_enabled' => __('templates.property_drop_shadow_enabled'),
     'drop_shadow_direction' => __('templates.property_drop_shadow_direction'),
@@ -256,6 +276,10 @@ require __DIR__ . '/../layouts/admin_header.php';
                     <span class="template-tool-button__icon" aria-hidden="true"><img src="<?= e(url('/assets/icons/admin/template-tool-text.png')) ?>" alt=""></span>
                     <span class="template-tool-button__label"><?= e(__('templates.element_text')) ?></span>
                 </button>
+                <button type="button" class="template-tool-button template-tool-button--dynamic-text" data-add-element="dynamic_text" aria-label="<?= e(__('templates.add_element_accessible_label', ['type' => __('templates.element_dynamic_text')])) ?>" title="<?= e(__('templates.add_element_shortcut_tooltip', ['type' => __('templates.element_dynamic_text'), 'shortcut' => __('templates.shortcut_add_dynamic_text')])) ?>">
+                    <span class="template-tool-button__icon" aria-hidden="true"><?= admin_icon('reload') ?></span>
+                    <span class="template-tool-button__label"><?= e(__('templates.element_dynamic_text')) ?></span>
+                </button>
                 <button type="button" class="template-tool-button template-tool-button--media" data-add-element="media" aria-label="<?= e(__('templates.add_element_accessible_label', ['type' => __('templates.element_media')])) ?>" title="<?= e(__('templates.add_element_shortcut_tooltip', ['type' => __('templates.element_media'), 'shortcut' => __('templates.shortcut_add_media')])) ?>">
                     <span class="template-tool-button__icon" aria-hidden="true"><img src="<?= e(url('/assets/icons/admin/template-tool-media.png')) ?>" alt=""></span>
                     <span class="template-tool-button__label"><?= e(__('templates.element_media')) ?></span>
@@ -375,8 +399,11 @@ require __DIR__ . '/../layouts/admin_header.php';
     const shapeTypes = ['square', 'circle', 'triangle', 'diamond', 'star', 'hexagon', 'pentagon', 'arrow'];
     const dateTimeModes = ['clock', 'date'];
     const timeFormats = ['24h', 'ampm'];
+    const dynamicTextModes = ['carousel', 'marquee', 'typewriter', 'push_carousel', 'word_reveal'];
+    const dynamicTextDirections = ['left', 'right'];
+    const textAlignments = ['left', 'center', 'right'];
     const dropShadowDirections = ['top', 'top-right', 'right', 'bottom-right', 'bottom', 'bottom-left', 'left', 'top-left'];
-    const addElementShortcuts = { Digit1: 'text', Digit2: 'media', Digit3: 'qr', Digit4: 'shape', Digit5: 'datetime', Digit6: 'countdown' };
+    const addElementShortcuts = { Digit1: 'text', Digit2: 'media', Digit3: 'qr', Digit4: 'shape', Digit5: 'datetime', Digit6: 'countdown', Digit7: 'dynamic_text' };
     const snapColumns = 24;
     const snapGuidePixelThreshold = 9;
     const snapGuidePrecision = 0.0001;
@@ -599,7 +626,7 @@ require __DIR__ . '/../layouts/admin_header.php';
     function findTemplateField(key) { return allTemplateFields().find(field => field.key === key) || null; }
     function fieldOptions(selected) { return [`<option value="">${escapeHtml(i18n.none)}</option>`].concat(allTemplateFields().map(field => `<option value="${attr(field.key)}" ${field.key === selected ? 'selected' : ''}>${escapeHtml(field.label || field.key)}</option>`)).join(''); }
     function mediaOptions() { return [`<option value="0">${escapeHtml(i18n.none)}</option>`].concat(mediaAssets.map(asset => `<option value="${asset.id}">${escapeHtml(asset.name)} (${escapeHtml(asset.kind)})</option>`)).join(''); }
-    function textFontElement(element) { return ['text', 'datetime', 'countdown'].includes(element?.type || ''); }
+    function textFontElement(element) { return ['text', 'dynamic_text', 'datetime', 'countdown'].includes(element?.type || ''); }
     function normalizeFontFamily(value) {
         const raw = String(value || '').trim();
         return fontOptions.some(option => option.value === raw) ? raw : '';
@@ -648,6 +675,50 @@ require __DIR__ . '/../layouts/admin_header.php';
     function timeFormatOptions(selected) {
         const current = normalizeTimeFormat(selected);
         return timeFormats.map(format => `<option value="${attr(format)}" ${format === current ? 'selected' : ''}>${escapeHtml(i18n[`time_format_${format.replace(/-/g, '_')}`] || format)}</option>`).join('');
+    }
+    function normalizeDynamicTextMode(mode) {
+        const value = String(mode || '').trim().toLowerCase();
+        return dynamicTextModes.includes(value) ? value : 'carousel';
+    }
+    function dynamicTextModeOptions(selected) {
+        const current = normalizeDynamicTextMode(selected);
+        return dynamicTextModes.map(mode => `<option value="${attr(mode)}" ${mode === current ? 'selected' : ''}>${escapeHtml(i18n[`dynamic_text_mode_${mode}`] || mode)}</option>`).join('');
+    }
+    function normalizeDynamicTextDirection(direction) {
+        const value = String(direction || '').trim().toLowerCase();
+        return dynamicTextDirections.includes(value) ? value : 'left';
+    }
+    function dynamicTextDirectionOptions(selected) {
+        const current = normalizeDynamicTextDirection(selected);
+        return dynamicTextDirections.map(direction => `<option value="${attr(direction)}" ${direction === current ? 'selected' : ''}>${escapeHtml(i18n[`dynamic_text_direction_${direction}`] || direction)}</option>`).join('');
+    }
+    function dynamicTextLines(value) {
+        const rawLines = Array.isArray(value)
+            ? value.flatMap(line => String(line ?? '').replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n'))
+            : String(value ?? '').replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
+
+        // Empty lines are ignored so accidental blank textarea rows do not become blank carousel slides.
+        return rawLines.map(line => String(line).trim()).filter(line => line !== '').slice(0, 100);
+    }
+    function dynamicTextSettings(element) {
+        const input = element?.dynamicText && typeof element.dynamicText === 'object' ? element.dynamicText : {};
+        return {
+            lines: dynamicTextLines(input.lines || []),
+            mode: normalizeDynamicTextMode(input.mode || 'carousel'),
+            intervalMs: Math.round(clamp(input.intervalMs ?? 4000, 500, 60000) / 100) * 100,
+            transitionMs: Math.round(clamp(input.transitionMs ?? 400, 0, 5000) / 50) * 50,
+            marqueeDurationMs: Math.round(clamp(input.marqueeDurationMs ?? 12000, 1000, 120000) / 250) * 250,
+            direction: normalizeDynamicTextDirection(input.direction || 'left'),
+            fade: input.fade === undefined ? true : truthy(input.fade),
+        };
+    }
+    function normalizeTextAlign(align) {
+        const value = String(align || '').trim().toLowerCase();
+        return textAlignments.includes(value) ? value : 'center';
+    }
+    function textAlignOptions(selected) {
+        const current = normalizeTextAlign(selected || 'center');
+        return textAlignments.map(align => `<option value="${attr(align)}" ${align === current ? 'selected' : ''}>${escapeHtml(i18n[`align_${align}`] || align)}</option>`).join('');
     }
     function dateTimeLocalInputValue(date = new Date()) {
         const local = new Date(date.getTime() - (date.getTimezoneOffset() * 60000));
@@ -728,6 +799,7 @@ require __DIR__ . '/../layouts/admin_header.php';
             normalizeCountdownForSave(element);
             normalizeFontForSave(element);
             normalizeStaticTextForSave(element);
+            normalizeDynamicTextForSave(element);
             if (isBackground(element)) {
                 delete element.animation;
                 normalizeDropShadowForSave(element);
@@ -754,6 +826,24 @@ require __DIR__ . '/../layouts/admin_header.php';
         }
     }
 
+    function normalizeDynamicTextForSave(element) {
+        if (element?.type !== 'dynamic_text') {
+            delete element.dynamicText;
+            return;
+        }
+
+        const settings = dynamicTextSettings(element);
+        element.dynamicText = {
+            lines: settings.lines,
+            mode: settings.mode,
+            intervalMs: settings.intervalMs,
+            transitionMs: settings.transitionMs,
+            marqueeDurationMs: settings.marqueeDurationMs,
+            direction: settings.direction,
+            fade: settings.fade,
+        };
+    }
+
     function normalizeDateTimeForSave(element) {
         if (element?.type !== 'datetime') return;
         element.field = '';
@@ -778,6 +868,7 @@ require __DIR__ . '/../layouts/admin_header.php';
         element.style = element.style || {};
         if (!textFontElement(element)) {
             delete element.style.fontFamily;
+            delete element.style.align;
             return;
         }
 
@@ -786,6 +877,13 @@ require __DIR__ . '/../layouts/admin_header.php';
             element.style.fontFamily = fontFamily;
         } else {
             delete element.style.fontFamily;
+        }
+
+        const rawAlign = String(element.style.align || '').trim();
+        if (rawAlign !== '') {
+            element.style.align = normalizeTextAlign(rawAlign);
+        } else {
+            delete element.style.align;
         }
     }
 
@@ -969,6 +1067,7 @@ require __DIR__ . '/../layouts/admin_header.php';
         if (element.type === 'shape') return shapeLabel(element.style?.shape || 'square');
         if (element.type === 'datetime') return dateTimeModeLabel(element.style?.dateTimeMode || 'clock');
         if (element.type === 'countdown') return i18n.element_countdown || 'Countdown';
+        if (element.type === 'dynamic_text') return i18n.element_dynamic_text || 'Dynamic Text';
         if (element.field) return element.field;
         return i18n[`element_${element.type}`] || element.type;
     }
@@ -1192,6 +1291,36 @@ require __DIR__ . '/../layouts/admin_header.php';
             content = propertySection(i18n.section_content, propertyRow(i18n.background_media, selectInput('style', 'backgroundMediaAssetId', element.style?.backgroundMediaAssetId || 0, mediaOptionHtml)) + propertyRow(i18n.fit, selectInput('style', 'fit', element.style?.fit || 'cover', fitOptions)));
         } else if (element.type === 'text') {
             content = propertySection(i18n.section_content, propertyRow(i18n.static_text, `<textarea rows="4" maxlength="4000" data-static-text>${escapeHtml(element.staticText || '')}</textarea>`));
+        } else if (element.type === 'dynamic_text') {
+            const settings = dynamicTextSettings(element);
+            const modeControls = propertyRow(i18n.dynamic_text_mode, selectInput('dynamic-text', 'mode', settings.mode, dynamicTextModeOptions(settings.mode)));
+            const timedLineControls = ['carousel', 'push_carousel', 'typewriter', 'word_reveal'].includes(settings.mode)
+                ? propertyRow(i18n.dynamic_text_interval, numberInput('dynamic-text', 'intervalMs', settings.intervalMs, 'step="100" min="500" max="60000"')) +
+                    propertyRow(i18n.dynamic_text_transition, numberInput('dynamic-text', 'transitionMs', settings.transitionMs, 'step="50" min="0" max="5000"'))
+                : '';
+            const carouselControls = settings.mode === 'carousel'
+                ? timedLineControls +
+                    propertyRow(i18n.dynamic_text_fade, `<span class="checkbox-row"><input type="checkbox" data-dynamic-text="fade" ${settings.fade ? 'checked' : ''}> ${escapeHtml(i18n.dynamic_text_fade_enabled)}</span>`)
+                : '';
+            const pushControls = settings.mode === 'push_carousel'
+                ? timedLineControls +
+                    propertyRow(i18n.dynamic_text_direction, selectInput('dynamic-text', 'direction', settings.direction, dynamicTextDirectionOptions(settings.direction)))
+                : '';
+            const revealControls = ['typewriter', 'word_reveal'].includes(settings.mode) ? timedLineControls : '';
+            const marqueeControls = settings.mode === 'marquee'
+                ? propertyRow(i18n.dynamic_text_duration, numberInput('dynamic-text', 'marqueeDurationMs', settings.marqueeDurationMs, 'step="250" min="1000" max="120000"')) +
+                    propertyRow(i18n.dynamic_text_direction, selectInput('dynamic-text', 'direction', settings.direction, dynamicTextDirectionOptions(settings.direction)))
+                : '';
+            // TODO: Ask maintainers which Dynamic Text mode should be next: ticker separators,
+            // random rotation, RSS/feed-backed text, date/time placeholders, loop pauses, or rolling credits.
+            content = propertySection(i18n.section_content,
+                propertyRow(i18n.dynamic_text_lines, `<textarea rows="5" maxlength="4000" data-dynamic-text="lines">${escapeHtml(settings.lines.join('\n'))}</textarea>`) +
+                modeControls +
+                carouselControls +
+                pushControls +
+                revealControls +
+                marqueeControls
+            );
         } else if (element.type === 'datetime') {
             const mode = normalizeDateTimeMode(element.style?.dateTimeMode || 'clock');
             content = propertySection(i18n.section_content,
@@ -1205,9 +1334,10 @@ require __DIR__ . '/../layouts/admin_header.php';
         const appearanceRows = [];
         if (element.type === 'shape') appearanceRows.push(propertyRow(i18n.shape_type, selectInput('style', 'shape', normalizeShapeType(element.style?.shape || 'square'), shapeTypeOptions(element.style?.shape || 'square'))));
         if (textFontElement(element)) appearanceRows.push(propertyRow(i18n.font, selectInput('style', 'fontFamily', normalizeFontFamily(element.style?.fontFamily || ''), fontFamilyOptions(element.style?.fontFamily || ''))));
-        if (['text', 'qr', 'datetime', 'countdown'].includes(element.type)) appearanceRows.push(propertyRow(i18n.text_color, colorInput('color', element.style?.color || '')));
-        if (['text', 'media', 'qr', 'shape', 'background', 'datetime', 'countdown'].includes(element.type)) appearanceRows.push(propertyRow(i18n.background_color, colorInput('backgroundColor', element.style?.backgroundColor || '', true)));
-        if (['text', 'datetime', 'countdown'].includes(element.type)) appearanceRows.push(propertyRow(i18n.size, numberInput('style', 'fontSize', element.style?.fontSize || 4, 'step="0.1" min="0.5"')));
+        if (['text', 'dynamic_text', 'qr', 'datetime', 'countdown'].includes(element.type)) appearanceRows.push(propertyRow(i18n.text_color, colorInput('color', element.style?.color || '')));
+        if (['text', 'dynamic_text', 'media', 'qr', 'shape', 'background', 'datetime', 'countdown'].includes(element.type)) appearanceRows.push(propertyRow(i18n.background_color, colorInput('backgroundColor', element.style?.backgroundColor || '', true)));
+        if (['text', 'dynamic_text', 'datetime', 'countdown'].includes(element.type)) appearanceRows.push(propertyRow(i18n.size, numberInput('style', 'fontSize', element.style?.fontSize || 4, 'step="0.1" min="0.5"')));
+        if (textFontElement(element)) appearanceRows.push(propertyRow(i18n.property_align, selectInput('style', 'align', normalizeTextAlign(element.style?.align || 'center'), textAlignOptions(element.style?.align || 'center'))));
         if (element.type === 'shape') appearanceRows.push(propertyRow(i18n.outline_color, colorInput('borderColor', element.style?.borderColor || '', true)));
         if (element.type === 'shape') appearanceRows.push(propertyRow(i18n.outline_width, numberInput('style', 'borderWidth', element.style?.borderWidth || 0, 'step="0.1" min="0" max="40"')));
         if (!isBackground(element) && (element.type !== 'shape' || roundedShapeElement(element))) appearanceRows.push(propertyRow(i18n.radius, numberInput('style', 'radius', element.style?.radius || 0, 'step="0.1" min="0"')));
@@ -1329,6 +1459,27 @@ require __DIR__ . '/../layouts/admin_header.php';
         elementPanel.querySelectorAll('[data-static-text]').forEach(input => {
             const update = () => {
                 element.staticText = String(input.value || '').slice(0, 4000);
+                renderLiveCanvas();
+            };
+            input.addEventListener('input', update);
+            input.addEventListener('change', update);
+        });
+        elementPanel.querySelectorAll('[data-dynamic-text]').forEach(input => {
+            const update = () => {
+                const settings = dynamicTextSettings(element);
+                const key = input.dataset.dynamicText;
+                if (key === 'lines') settings.lines = dynamicTextLines(input.value);
+                if (key === 'mode') settings.mode = normalizeDynamicTextMode(input.value);
+                if (key === 'intervalMs') settings.intervalMs = Math.round(clamp(input.value, 500, 60000) / 100) * 100;
+                if (key === 'transitionMs') settings.transitionMs = Math.round(clamp(input.value, 0, 5000) / 50) * 50;
+                if (key === 'marqueeDurationMs') settings.marqueeDurationMs = Math.round(clamp(input.value, 1000, 120000) / 250) * 250;
+                if (key === 'direction') settings.direction = normalizeDynamicTextDirection(input.value);
+                if (key === 'fade') settings.fade = input.checked;
+                element.dynamicText = settings;
+                if (key === 'mode') {
+                    render();
+                    return;
+                }
                 renderLiveCanvas();
             };
             input.addEventListener('input', update);
@@ -1507,7 +1658,7 @@ require __DIR__ . '/../layouts/admin_header.php';
     }
 
     function fieldCapableElement(element) {
-        return ['text', 'media', 'qr'].includes(element?.type || '');
+        return ['text', 'dynamic_text', 'media', 'qr'].includes(element?.type || '');
     }
 
     function fieldForElement(element) {
@@ -1518,6 +1669,7 @@ require __DIR__ . '/../layouts/admin_header.php';
     function defaultFieldTypeForElement(element) {
         if (element?.type === 'media') return 'media_image';
         if (element?.type === 'qr') return 'qr_url';
+        if (element?.type === 'dynamic_text') return 'multiline';
         return 'text';
     }
 
@@ -1866,6 +2018,22 @@ require __DIR__ . '/../layouts/admin_header.php';
             element.style.borderWidth = 2;
         }
         if (type === 'text') { element.staticText = i18n.element_text || 'Text'; }
+        if (type === 'dynamic_text') {
+            element.w = 0.42;
+            element.h = 0.16;
+            element.style.fontSize = 4.2;
+            element.style.fontWeight = '700';
+            element.style.align = 'center';
+            element.dynamicText = {
+                lines: ['First line', 'Second line', 'Third line'],
+                mode: 'carousel',
+                intervalMs: 4000,
+                transitionMs: 400,
+                marqueeDurationMs: 12000,
+                direction: 'left',
+                fade: true,
+            };
+        }
         if (type === 'qr') { element.w = 0.18; element.h = 0.32; element.style.backgroundColor = 'rgba(255,255,255,1)'; element.style.color = 'rgba(15,23,42,1)'; }
         if (type === 'media') { element.w = 0.42; element.h = 0.32; }
         if (type === 'datetime') {

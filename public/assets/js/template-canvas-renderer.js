@@ -2,6 +2,8 @@
     const shapeTypes = ['square', 'circle', 'triangle', 'diamond', 'star', 'hexagon', 'pentagon', 'arrow'];
     const dateTimeModes = ['clock', 'date'];
     const timeFormats = ['24h', 'ampm'];
+    const dynamicTextModes = ['carousel', 'marquee', 'typewriter', 'push_carousel', 'word_reveal'];
+    const dynamicTextDirections = ['left', 'right'];
     const dropShadowDirections = ['top', 'top-right', 'right', 'bottom-right', 'bottom', 'bottom-left', 'left', 'top-left'];
 
     function clamp(value, min, max) {
@@ -153,7 +155,7 @@
     }
 
     function textElement(element) {
-        return ['text', 'datetime', 'countdown'].includes(element?.type || '');
+        return ['text', 'dynamic_text', 'datetime', 'countdown'].includes(element?.type || '');
     }
 
     function applyTextPreviewStyle(node, element, fontOptions) {
@@ -288,6 +290,259 @@
         return formatCountdownSeconds((targetMs - Date.now()) / 1000);
     }
 
+    function normalizeDynamicTextMode(mode) {
+        const value = String(mode || '').trim().toLowerCase();
+        return dynamicTextModes.includes(value) ? value : 'carousel';
+    }
+
+    function normalizeDynamicTextDirection(direction) {
+        const value = String(direction || '').trim().toLowerCase();
+        return dynamicTextDirections.includes(value) ? value : 'left';
+    }
+
+    function dynamicTextLines(value) {
+        const rawLines = Array.isArray(value)
+            ? value.flatMap(line => String(line ?? '').replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n'))
+            : String(value ?? '').replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
+
+        // Ignore empty textarea rows so accidental blank lines do not become blank carousel slides.
+        return rawLines.map(line => String(line).trim()).filter(line => line !== '').slice(0, 100);
+    }
+
+    function dynamicTextSettings(element) {
+        const input = element?.dynamicText && typeof element.dynamicText === 'object' ? element.dynamicText : {};
+        return {
+            lines: dynamicTextLines(input.lines || []),
+            mode: normalizeDynamicTextMode(input.mode || 'carousel'),
+            intervalMs: Math.round(clamp(input.intervalMs ?? 4000, 500, 60000)),
+            transitionMs: Math.round(clamp(input.transitionMs ?? 400, 0, 5000)),
+            marqueeDurationMs: Math.round(clamp(input.marqueeDurationMs ?? 12000, 1000, 120000)),
+            direction: normalizeDynamicTextDirection(input.direction || 'left'),
+            fade: input.fade === undefined ? true : truthy(input.fade),
+        };
+    }
+
+    function dynamicTextPreviewLines(element, context, settings) {
+        const field = fieldForElement(element, context.fieldMap);
+        if (field) {
+            return dynamicTextLines(resolvedFieldValue(field, context.values, context));
+        }
+
+        return settings.lines.length > 0 ? settings.lines : [elementLabel(element, context.i18n, context.fieldMap)];
+    }
+
+    function clearDynamicTextNodeRuntime(node) {
+        if (!node) return;
+        if (typeof node._huginDynamicTextCleanup === 'function') {
+            node._huginDynamicTextCleanup();
+            node._huginDynamicTextCleanup = null;
+        }
+        if (node._huginDynamicTextTimer) {
+            window.clearInterval(node._huginDynamicTextTimer);
+            node._huginDynamicTextTimer = 0;
+        }
+    }
+
+    function setDynamicTextCleanup(node, cleanup) {
+        clearDynamicTextNodeRuntime(node);
+        node._huginDynamicTextCleanup = cleanup;
+    }
+
+    function clearDynamicTextRuntime(root) {
+        root?.querySelectorAll?.('[data-template-editor-dynamic-text-runtime]').forEach(clearDynamicTextNodeRuntime);
+    }
+
+    function dynamicTextPrefersReducedMotion() {
+        return !!window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+    }
+
+    function dynamicTextTransitionMs(settings) {
+        return Math.max(0, Math.min(5000, Math.round(Number(settings.transitionMs) || 0)));
+    }
+
+    function activeDynamicTextLineIndex(lines) {
+        const index = lines.findIndex(line => line.classList.contains('is-active'));
+        if (index >= 0) return index;
+        lines[0]?.classList.add('is-active');
+        return 0;
+    }
+
+    function startDynamicTextLineRotation(node, settings, push = false) {
+        const lines = Array.from(node.querySelectorAll('.template-editor__dynamic-text-line'));
+        if (lines.length <= 1) return;
+
+        let index = activeDynamicTextLineIndex(lines);
+        const exitTimers = new Set();
+        const clearExitTimers = () => {
+            exitTimers.forEach(timer => window.clearTimeout(timer));
+            exitTimers.clear();
+        };
+
+        // Runtime animation state is deliberately attached to this rendered DOM node only.
+        const timer = window.setInterval(() => {
+            const previous = lines[index];
+            index = (index + 1) % lines.length;
+            const next = lines[index];
+
+            if (push) {
+                clearExitTimers();
+                previous?.classList.add('is-exiting');
+                previous?.classList.remove('is-active');
+                next?.classList.add('is-active');
+                const exitTimer = window.setTimeout(() => {
+                    previous?.classList.remove('is-exiting');
+                    exitTimers.delete(exitTimer);
+                }, dynamicTextTransitionMs(settings));
+                exitTimers.add(exitTimer);
+                return;
+            }
+
+            previous?.classList.remove('is-active');
+            next?.classList.add('is-active');
+        }, settings.intervalMs);
+
+        setDynamicTextCleanup(node, () => {
+            window.clearInterval(timer);
+            node._huginDynamicTextTimer = 0;
+            clearExitTimers();
+        });
+        node._huginDynamicTextTimer = timer;
+    }
+
+    function startDynamicTextTypewriter(node, settings) {
+        const lines = Array.from(node.querySelectorAll('.template-editor__dynamic-text-line'));
+        if (lines.length === 0) return;
+
+        const sourceLines = lines.map(line => line.textContent || '\u00a0');
+        const timers = new Set();
+        const schedule = (callback, delayMs) => {
+            const timer = window.setTimeout(() => {
+                timers.delete(timer);
+                callback();
+            }, Math.max(0, delayMs));
+            timers.add(timer);
+        };
+        let lineIndex = activeDynamicTextLineIndex(lines);
+
+        setDynamicTextCleanup(node, () => {
+            timers.forEach(timer => window.clearTimeout(timer));
+            timers.clear();
+        });
+
+        const showLine = () => {
+            lines.forEach((line, index) => {
+                line.classList.toggle('is-active', index === lineIndex);
+                line.textContent = index === lineIndex ? '' : sourceLines[index];
+            });
+
+            const activeLine = lines[lineIndex];
+            const characters = Array.from(sourceLines[lineIndex] || '\u00a0');
+            const transitionMs = dynamicTextTransitionMs(settings);
+            const stepMs = characters.length > 0 && transitionMs > 0 ? transitionMs / characters.length : 0;
+
+            const reveal = characterIndex => {
+                activeLine.textContent = characters.slice(0, characterIndex).join('') || '\u00a0';
+                if (characterIndex >= characters.length) {
+                    schedule(() => {
+                        lineIndex = (lineIndex + 1) % lines.length;
+                        showLine();
+                    }, settings.intervalMs);
+                    return;
+                }
+                schedule(() => reveal(characterIndex + 1), stepMs);
+            };
+
+            reveal(transitionMs > 0 ? 0 : characters.length);
+        };
+
+        showLine();
+    }
+
+    function dynamicTextWordParts(text) {
+        const parts = String(text || '\u00a0').split(/(\s+)/).filter(part => part !== '');
+        return parts.length > 0 ? parts.map(part => ({ text: part, word: !/^\s+$/.test(part) })) : [{ text: '\u00a0', word: false }];
+    }
+
+    function renderDynamicTextWords(line, parts, visibleWords) {
+        line.textContent = '';
+        let wordIndex = 0;
+        parts.forEach(part => {
+            if (!part.word) {
+                line.appendChild(document.createTextNode(part.text));
+                return;
+            }
+
+            wordIndex += 1;
+            const word = document.createElement('span');
+            word.className = `template-editor__dynamic-text-word ${wordIndex <= visibleWords ? 'is-visible' : ''}`.trim();
+            word.textContent = part.text;
+            line.appendChild(word);
+        });
+    }
+
+    function startDynamicTextWordReveal(node, settings) {
+        const lines = Array.from(node.querySelectorAll('.template-editor__dynamic-text-line'));
+        if (lines.length === 0) return;
+
+        const sourceLines = lines.map(line => line.textContent || '\u00a0');
+        const timers = new Set();
+        const schedule = (callback, delayMs) => {
+            const timer = window.setTimeout(() => {
+                timers.delete(timer);
+                callback();
+            }, Math.max(0, delayMs));
+            timers.add(timer);
+        };
+        let lineIndex = activeDynamicTextLineIndex(lines);
+
+        setDynamicTextCleanup(node, () => {
+            timers.forEach(timer => window.clearTimeout(timer));
+            timers.clear();
+        });
+
+        const showLine = () => {
+            lines.forEach((line, index) => {
+                line.classList.toggle('is-active', index === lineIndex);
+                line.textContent = sourceLines[index];
+            });
+
+            const activeLine = lines[lineIndex];
+            const parts = dynamicTextWordParts(sourceLines[lineIndex]);
+            const wordCount = parts.filter(part => part.word).length;
+            const transitionMs = dynamicTextTransitionMs(settings);
+            const stepMs = wordCount > 0 && transitionMs > 0 ? transitionMs / wordCount : 0;
+
+            const reveal = visibleWords => {
+                renderDynamicTextWords(activeLine, parts, visibleWords);
+                if (visibleWords >= wordCount) {
+                    schedule(() => {
+                        lineIndex = (lineIndex + 1) % lines.length;
+                        showLine();
+                    }, settings.intervalMs);
+                    return;
+                }
+                schedule(() => reveal(visibleWords + 1), stepMs);
+            };
+
+            reveal(transitionMs > 0 ? 0 : wordCount);
+        };
+
+        showLine();
+    }
+
+    function startDynamicTextRuntime(node, settings) {
+        if (!node || settings.mode === 'marquee' || dynamicTextPrefersReducedMotion()) return;
+        if (settings.mode === 'carousel') {
+            startDynamicTextLineRotation(node, settings, false);
+        } else if (settings.mode === 'push_carousel') {
+            startDynamicTextLineRotation(node, settings, true);
+        } else if (settings.mode === 'typewriter') {
+            startDynamicTextTypewriter(node, settings);
+        } else if (settings.mode === 'word_reveal') {
+            startDynamicTextWordReveal(node, settings);
+        }
+    }
+
     function elementLabel(element, i18n = {}, fieldMap = new Map()) {
         if (element?.type === 'background') return i18n.background || 'Background';
         if (element?.type === 'shape') {
@@ -298,6 +553,7 @@
             const mode = normalizeDateTimeMode(element.style?.dateTimeMode || 'clock');
             return i18n[`datetime_mode_${mode}`] || mode;
         }
+        if (element?.type === 'dynamic_text') return i18n.element_dynamic_text || 'Dynamic Text';
         if (element?.type === 'countdown') return i18n.element_countdown || 'Countdown';
         const field = fieldForElement(element, fieldMap);
         if (field) return field.label || field.key || element.field;
@@ -388,6 +644,50 @@
         return placeholder;
     }
 
+    function renderDynamicTextPreview(element, context) {
+        const settings = dynamicTextSettings(element);
+        const lines = dynamicTextPreviewLines(element, context, settings);
+        const preview = document.createElement('span');
+        preview.className = 'template-editor__dynamic-text-preview';
+        preview.dataset.templateEditorDynamicTextRuntime = '1';
+        preview.style.setProperty('--template-dynamic-carousel-transition', `${settings.transitionMs}ms`);
+        preview.style.setProperty('--template-dynamic-text-transition', `${settings.transitionMs}ms`);
+        preview.style.setProperty('--template-dynamic-marquee-duration', `${settings.marqueeDurationMs}ms`);
+        applyTextPreviewStyle(preview, element, context.fontOptions);
+
+        if (settings.mode === 'marquee') {
+            preview.classList.add('template-editor__dynamic-text-preview--marquee', `template-editor__dynamic-text-preview--marquee-${settings.direction}`);
+            const track = document.createElement('span');
+            track.className = 'template-editor__dynamic-text-track';
+            const text = lines.join(' · ');
+            [false, true].forEach(hidden => {
+                const item = document.createElement('span');
+                item.className = 'template-editor__dynamic-text-marquee-item';
+                item.textContent = text;
+                if (hidden) item.setAttribute('aria-hidden', 'true');
+                track.appendChild(item);
+            });
+            preview.appendChild(track);
+            return preview;
+        }
+
+        preview.classList.add(`template-editor__dynamic-text-preview--${settings.mode}`);
+        if (settings.mode === 'carousel' && settings.fade) {
+            preview.classList.add('template-editor__dynamic-text-preview--fade');
+        }
+        if (settings.mode === 'push_carousel') {
+            preview.classList.add(`template-editor__dynamic-text-preview--push-${settings.direction}`);
+        }
+        lines.forEach((line, index) => {
+            const item = document.createElement('span');
+            item.className = `template-editor__dynamic-text-line ${index === 0 ? 'is-active' : ''}`.trim();
+            item.textContent = line;
+            preview.appendChild(item);
+        });
+        startDynamicTextRuntime(preview, settings);
+        return preview;
+    }
+
     function renderElementPreview(element, context) {
         const preview = document.createElement('span');
         preview.className = 'template-editor__element-preview';
@@ -437,6 +737,10 @@
             countdown.textContent = countdownPreviewValue(element);
             applyTextPreviewStyle(countdown, element, context.fontOptions);
             preview.appendChild(countdown);
+            return preview;
+        }
+        if (element.type === 'dynamic_text') {
+            preview.appendChild(renderDynamicTextPreview(element, context));
             return preview;
         }
         if (element.type === 'text') {
@@ -512,6 +816,7 @@
             container.style.setProperty('--template-grid-x', `${Number(options.gridSteps.x || 0) * 100}%`);
             container.style.setProperty('--template-grid-y', `${Number(options.gridSteps.y || 0) * 100}%`);
         }
+        clearDynamicTextRuntime(container);
         container.innerHTML = '';
 
         const nodes = [];
