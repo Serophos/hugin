@@ -2,8 +2,14 @@
 $formId = 'template';
 $template = $templateModel ?? [];
 $title = !empty($template['id']) ? __('templates.edit_title') : __('templates.create_title');
+$activeEditorOrientation = strtolower(trim((string)($editorOrientation ?? old('template_editor_orientation', $_GET['orientation'] ?? 'landscape', $formId))));
+$activeEditorOrientation = in_array($activeEditorOrientation, ['portrait', 'vertical'], true) ? 'portrait' : 'landscape';
+if ($activeEditorOrientation === 'portrait' && $portraitSpec === null) {
+    $activeEditorOrientation = 'landscape';
+}
 $landscapeJson = json_encode($landscapeSpec, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 $portraitJson = json_encode($portraitSpec, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+$activeEditorOrientationJson = json_encode($activeEditorOrientation, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 $uploadedFonts = is_array($uploadedFonts ?? null) ? $uploadedFonts : [];
 $fontToolOptions = [
     [
@@ -264,6 +270,7 @@ require __DIR__ . '/../layouts/admin_header.php';
 
     <input type="hidden" name="landscape_spec_json" data-template-spec="landscape" value="<?= e((string)old('landscape_spec_json', $template['landscape_spec_json'] ?? '', $formId)) ?>">
     <input type="hidden" name="portrait_spec_json" data-template-spec="portrait" value="<?= e((string)old('portrait_spec_json', $template['portrait_spec_json'] ?? '', $formId)) ?>">
+    <input type="hidden" name="template_editor_orientation" data-template-editor-orientation value="<?= e($activeEditorOrientation) ?>">
     <?= field_error_html('landscape_spec_json', $formId) ?>
 
     <section class="template-editor full-width" data-template-editor>
@@ -317,8 +324,8 @@ require __DIR__ . '/../layouts/admin_header.php';
         <div class="template-editor__layout">
             <div class="template-editor__canvas-shell">
                 <div class="template-editor__canvas-tabs" role="tablist" aria-label="<?= e(__('common.orientation')) ?>">
-                    <button type="button" class="is-active" data-orientation-tab="landscape" role="tab" aria-selected="true"><?= e(__('orientations.landscape')) ?></button>
-                    <button type="button" data-orientation-tab="portrait" role="tab" aria-selected="false" tabindex="-1"><?= e(__('orientations.vertical')) ?></button>
+                    <button type="button" class="<?= $activeEditorOrientation === 'landscape' ? 'is-active' : '' ?>" data-orientation-tab="landscape" role="tab" aria-selected="<?= $activeEditorOrientation === 'landscape' ? 'true' : 'false' ?>"<?= $activeEditorOrientation === 'landscape' ? '' : ' tabindex="-1"' ?>><?= e(__('orientations.landscape')) ?></button>
+                    <button type="button" class="<?= $activeEditorOrientation === 'portrait' ? 'is-active' : '' ?>" data-orientation-tab="portrait" role="tab" aria-selected="<?= $activeEditorOrientation === 'portrait' ? 'true' : 'false' ?>"<?= $activeEditorOrientation === 'portrait' ? '' : ' tabindex="-1"' ?>><?= e(__('orientations.vertical')) ?></button>
                 </div>
                 <div class="template-editor__canvas-frame">
                     <p id="template-editor-canvas-instructions" class="sr-only"><?= e(__('templates.canvas_instructions')) ?></p>
@@ -419,7 +426,7 @@ require __DIR__ . '/../layouts/admin_header.php';
         portrait: () => ({ version: 1, canvas: { width: 1080, height: 1920 }, fields: [], elements: [{ id: uid('background'), type: 'background', x: 0, y: 0, w: 1, h: 1, z: 0, style: { backgroundColor: '#0f172a' } }] }),
     };
     const icons = <?= $editorIconsJson ?: '{}' ?>;
-    let orientation = 'landscape';
+    let orientation = <?= $activeEditorOrientationJson ?: '"landscape"' ?>;
     let selectedId = null;
     let activeInspectorTab = 'element';
     let draggedLayerElementId = '';
@@ -439,6 +446,7 @@ require __DIR__ . '/../layouts/admin_header.php';
     const animationsPanel = editor.querySelector('[data-inspector-panel="animations"]');
     const hiddenLandscape = form.querySelector('[data-template-spec="landscape"]');
     const hiddenPortrait = form.querySelector('[data-template-spec="portrait"]');
+    const hiddenEditorOrientation = form.querySelector('[data-template-editor-orientation]');
     const debugLandscape = form.querySelector('[data-json-debug="landscape"]');
     const debugPortrait = form.querySelector('[data-json-debug="portrait"]');
     const snapToGridToggle = editor.querySelector('[data-snap-to-grid]');
@@ -615,6 +623,7 @@ require __DIR__ . '/../layouts/admin_header.php';
     function attr(value) { return escapeHtml(value).replace(/"/g, '&quot;'); }
     function isBackground(element) { return element?.type === 'background'; }
     function allSpecs() { return [specs.landscape, specs.portrait].filter(item => item && Array.isArray(item.fields) && Array.isArray(item.elements)); }
+    function normalizeEditorOrientation(value) { return value === 'portrait' ? 'portrait' : 'landscape'; }
     function allTemplateFields() {
         const fields = new Map();
         [spec()].concat(allSpecs().filter(item => item !== spec())).forEach(currentSpec => {
@@ -625,6 +634,20 @@ require __DIR__ . '/../layouts/admin_header.php';
         return Array.from(fields.values());
     }
     function findTemplateField(key) { return allTemplateFields().find(field => field.key === key) || null; }
+    function ensureFieldInSpec(field, targetSpec = spec()) {
+        if (!field?.key || !targetSpec || !Array.isArray(targetSpec.fields)) return null;
+        const existing = targetSpec.fields.find(item => item?.key === field.key);
+        if (existing) return existing;
+        const copy = {
+            key: field.key,
+            label: field.label || field.key,
+            type: field.type || 'text',
+            required: Boolean(field.required),
+            default: field.default ?? '',
+        };
+        targetSpec.fields.push(copy);
+        return copy;
+    }
     function fieldOptions(selected) { return [`<option value="">${escapeHtml(i18n.none)}</option>`].concat(allTemplateFields().map(field => `<option value="${attr(field.key)}" ${field.key === selected ? 'selected' : ''}>${escapeHtml(field.label || field.key)}</option>`)).join(''); }
     function mediaOptions() { return [`<option value="0">${escapeHtml(i18n.none)}</option>`].concat(mediaAssets.map(asset => `<option value="${asset.id}">${escapeHtml(asset.name)} (${escapeHtml(asset.kind)})</option>`)).join(''); }
     function textFontElement(element) { return ['text', 'dynamic_text', 'datetime', 'countdown'].includes(element?.type || ''); }
@@ -759,10 +782,22 @@ require __DIR__ . '/../layouts/admin_header.php';
         };
     }
     function syncHidden() {
+        orientation = normalizeEditorOrientation(orientation);
+        if (hiddenEditorOrientation) hiddenEditorOrientation.value = orientation;
         hiddenLandscape.value = JSON.stringify(normalizedSpecForSave(specs.landscape || defaults.landscape()));
         hiddenPortrait.value = specs.portrait ? JSON.stringify(normalizedSpecForSave(specs.portrait)) : '';
         debugLandscape.value = JSON.stringify(JSON.parse(hiddenLandscape.value || '{}'), null, 2);
         debugPortrait.value = hiddenPortrait.value ? JSON.stringify(JSON.parse(hiddenPortrait.value), null, 2) : '';
+    }
+
+    function updateOrientationTabs() {
+        orientation = normalizeEditorOrientation(orientation);
+        editor.querySelectorAll('[data-orientation-tab]').forEach(tab => {
+            const active = tab.dataset.orientationTab === orientation;
+            tab.classList.toggle('is-active', active);
+            tab.setAttribute('aria-selected', active ? 'true' : 'false');
+            tab.tabIndex = active ? 0 : -1;
+        });
     }
 
     let cleanSnapshot = '';
@@ -855,7 +890,6 @@ require __DIR__ . '/../layouts/admin_header.php';
 
     function normalizeCountdownForSave(element) {
         if (element?.type !== 'countdown') return;
-        element.field = '';
         element.style = element.style || {};
         const target = normalizeCountdownTarget(element.style.countdownTarget || '');
         if (target) {
@@ -1093,6 +1127,7 @@ require __DIR__ . '/../layouts/admin_header.php';
             if (focusCanvasElement) focusWithoutScroll(canvasElementNode(id));
             return;
         }
+        flushPendingFieldBinding();
         selectedId = id;
         if (focusElementTab) activeInspectorTab = 'element';
         const element = spec().elements.find(item => item.id === id);
@@ -1413,7 +1448,6 @@ require __DIR__ . '/../layouts/admin_header.php';
                     } else {
                         delete element.style.countdownTarget;
                     }
-                    element.field = '';
                     renderLiveCanvas();
                     return;
                 }
@@ -1502,16 +1536,33 @@ require __DIR__ . '/../layouts/admin_header.php';
             fieldsPanel.innerHTML += `<div class="template-editor__empty-state">${escapeHtml(i18n.element_cannot_use_fields)}</div>`;
             return;
         }
+        const bindExistingFieldSelect = () => {
+            const bindingSelect = fieldsPanel.querySelector('[data-bind-existing-field]');
+            if (!bindingSelect) return;
+            const updateBinding = () => {
+                if (selectedElement()?.id !== element.id || !fieldsPanel.contains(bindingSelect)) return;
+                const previousField = String(element.field || '');
+                const nextField = String(bindingSelect.value || '');
+                const hasDetails = Boolean(fieldsPanel.querySelector('.template-editor__field-row'));
+                if (previousField === nextField && (nextField === '' || hasDetails)) return;
+                applyFieldBinding(element, nextField);
+                renderFieldsPanel();
+                renderLiveCanvas();
+            };
+            const scheduleBindingUpdate = () => window.setTimeout(updateBinding, 0);
+            bindingSelect.addEventListener('input', scheduleBindingUpdate);
+            bindingSelect.addEventListener('change', scheduleBindingUpdate);
+            bindingSelect.addEventListener('click', scheduleBindingUpdate);
+            bindingSelect.addEventListener('keyup', scheduleBindingUpdate);
+            bindingSelect.addEventListener('blur', updateBinding);
+        };
         if (allTemplateFields().length > 0) {
             fieldsPanel.innerHTML += propertySection(i18n.section_binding, propertyRow(i18n.field, `<select data-bind-existing-field>${fieldOptions(element.field || '')}</select>`));
-            fieldsPanel.querySelector('[data-bind-existing-field]').addEventListener('change', event => {
-                element.field = event.currentTarget.value;
-                render();
-            });
         }
         const field = fieldForElement(element);
         if (!field) {
             fieldsPanel.innerHTML += `<div class="template-editor__empty-state">${escapeHtml(i18n.element_has_no_field)}</div><button type="button" class="button button--normal button--small" data-create-bind-field>${icons.add || ''}<span>${escapeHtml(i18n.create_and_bind_field)}</span></button>`;
+            bindExistingFieldSelect();
             fieldsPanel.querySelector('[data-create-bind-field]').addEventListener('click', () => { createAndBindField(element); });
             return;
         }
@@ -1610,6 +1661,7 @@ require __DIR__ . '/../layouts/admin_header.php';
         list.className = 'template-editor__field-list';
         list.appendChild(row);
         fieldsPanel.appendChild(list);
+        bindExistingFieldSelect();
     }
 
     function renderAnimationsPanel() {
@@ -1665,6 +1717,25 @@ require __DIR__ . '/../layouts/admin_header.php';
     function fieldForElement(element) {
         if (!fieldCapableElement(element) || !element.field) return null;
         return findTemplateField(element.field);
+    }
+
+    function applyFieldBinding(element, value) {
+        if (!fieldCapableElement(element)) return;
+        const nextField = String(value || '');
+        const field = nextField ? findTemplateField(nextField) : null;
+        element.field = nextField;
+        if (field) ensureFieldInSpec(field);
+    }
+
+    function flushPendingFieldBinding() {
+        const element = selectedElement();
+        const bindingSelect = fieldsPanel.querySelector('[data-bind-existing-field]');
+        if (!element || !bindingSelect) return;
+        const nextField = String(bindingSelect.value || '');
+        if (String(element.field || '') === nextField) return;
+        applyFieldBinding(element, nextField);
+        syncHidden();
+        markDirty();
     }
 
     function defaultFieldTypeForElement(element) {
@@ -1928,6 +1999,7 @@ require __DIR__ . '/../layouts/admin_header.php';
                 }
             });
             button.addEventListener('dragstart', event => {
+                if (selectedId !== element.id) flushPendingFieldBinding();
                 draggedLayerElementId = element.id;
                 selectedId = element.id;
                 button.classList.add('is-dragging');
@@ -2009,6 +2081,7 @@ require __DIR__ . '/../layouts/admin_header.php';
     function normalizeKey(value) { return String(value || '').toLowerCase().replace(/[^a-z0-9_]+/g, '_').replace(/^_+|_+$/g, '') || 'field'; }
 
     function addElement(type, shapeType = '') {
+        flushPendingFieldBinding();
         const z = type === 'background' ? 0 : nextContentLayerZ();
         const element = { id: uid(type), type, field: '', x: 0.2, y: 0.2, w: 0.35, h: 0.22, z, style: { backgroundColor: type === 'shape' ? 'rgba(255,255,255,0.35)' : 'rgba(15,23,42,0.55)', color: '#ffffff', fontSize: 4, radius: 0, fit: 'cover' } };
         if (type !== 'background') element.animation = defaultAnimation();
@@ -2160,6 +2233,7 @@ require __DIR__ . '/../layouts/admin_header.php';
         if (!element) return;
         suppressCanvasClickElementId = '';
         const wasSelected = selectedId === element.id;
+        if (!wasSelected) flushPendingFieldBinding();
         selectedId = element.id;
         applyCanvasSelectionState();
         if (!wasSelected) {
@@ -2200,6 +2274,7 @@ require __DIR__ . '/../layouts/admin_header.php';
         if (!element || isBackground(element)) return;
         suppressCanvasClickElementId = '';
         const wasSelected = selectedId === element.id;
+        if (!wasSelected) flushPendingFieldBinding();
         selectedId = element.id;
         applyCanvasSelectionState();
         if (!wasSelected) {
@@ -2232,15 +2307,11 @@ require __DIR__ . '/../layouts/admin_header.php';
     }
 
     editor.querySelectorAll('[data-orientation-tab]').forEach(button => button.addEventListener('click', () => {
-        editor.querySelectorAll('[data-orientation-tab]').forEach(tab => {
-            const active = tab === button;
-            tab.classList.toggle('is-active', active);
-            tab.setAttribute('aria-selected', active ? 'true' : 'false');
-            tab.tabIndex = active ? 0 : -1;
-        });
-        orientation = button.dataset.orientationTab;
+        flushPendingFieldBinding();
+        orientation = normalizeEditorOrientation(button.dataset.orientationTab);
         selectedId = null;
         spec();
+        updateOrientationTabs();
         render();
     }));
     editor.querySelectorAll('[data-orientation-tab]').forEach(button => {
@@ -2360,6 +2431,7 @@ require __DIR__ . '/../layouts/admin_header.php';
         syncHidden();
     });
     editor.classList.toggle('is-snap-enabled', snapEnabled());
+    updateOrientationTabs();
     render();
     resetDirtyState();
 })();
