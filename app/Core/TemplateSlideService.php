@@ -44,7 +44,7 @@ class TemplateSlideService
         return self::SYSTEM_FONT_STACKS;
     }
 
-    public static function normalizeFontFamilyToken(string $fontFamily, ?array $publicFonts = null): string
+    public static function normalizeFontFamilyToken(string $fontFamily, ?array $uploadedFonts = null): string
     {
         $fontFamily = trim($fontFamily);
         if ($fontFamily === '') {
@@ -56,18 +56,22 @@ class TemplateSlideService
             return isset(self::SYSTEM_FONT_STACKS[$key]) ? 'system:' . $key : '';
         }
 
-        if (str_starts_with($fontFamily, 'local:')) {
-            $family = substr($fontFamily, 6);
-            $publicFonts ??= list_public_fonts();
-            return $family !== '' && isset($publicFonts[$family]) ? 'local:' . $family : '';
+        if (str_starts_with($fontFamily, 'font:')) {
+            $id = uploaded_font_id_from_token($fontFamily);
+            if ($id <= 0) {
+                return '';
+            }
+
+            $uploadedFonts ??= list_uploaded_fonts([$id]);
+            return isset($uploadedFonts[$id]) ? 'font:' . $id : '';
         }
 
         return '';
     }
 
-    public static function fontFamilyCssForToken(string $fontFamily, ?array $publicFonts = null): ?string
+    public static function fontFamilyCssForToken(string $fontFamily, ?array $uploadedFonts = null): ?string
     {
-        $token = self::normalizeFontFamilyToken($fontFamily, $publicFonts);
+        $token = self::normalizeFontFamilyToken($fontFamily, $uploadedFonts);
         if ($token === '') {
             return null;
         }
@@ -76,9 +80,8 @@ class TemplateSlideService
             return self::SYSTEM_FONT_STACKS[substr($token, 7)] ?? null;
         }
 
-        if (str_starts_with($token, 'local:')) {
-            $family = substr($token, 6);
-            return "'" . self::cssString($family) . "', sans-serif";
+        if (str_starts_with($token, 'font:')) {
+            return "'" . self::cssString(uploaded_font_css_family(uploaded_font_id_from_token($token))) . "', sans-serif";
         }
 
         return null;
@@ -349,6 +352,12 @@ class TemplateSlideService
                         $ids[$id] = true;
                     }
                 }
+                if (self::isTextElementType((string)($element['type'] ?? ''))) {
+                    $token = self::normalizeFontFamilyToken((string)($style['fontFamily'] ?? ''));
+                    if (str_starts_with($token, 'font:')) {
+                        $ids[uploaded_font_id_from_token($token)] = true;
+                    }
+                }
                 $field = (string)($element['field'] ?? '');
                 if ($field !== '') {
                     $id = (int)($values[$field] ?? 0);
@@ -362,9 +371,9 @@ class TemplateSlideService
         return array_keys($ids);
     }
 
-    public function localFontFamiliesForTemplate(array $template): array
+    public function fontAssetIdsForTemplate(array $template): array
     {
-        $families = [];
+        $ids = [];
         foreach ($this->decodeTemplateSpecs($template) as $spec) {
             if (!is_array($spec)) {
                 continue;
@@ -375,13 +384,13 @@ class TemplateSlideService
                 }
                 $style = is_array($element['style'] ?? null) ? $element['style'] : [];
                 $token = self::normalizeFontFamilyToken((string)($style['fontFamily'] ?? ''));
-                if (str_starts_with($token, 'local:')) {
-                    $families[substr($token, 6)] = true;
+                if (str_starts_with($token, 'font:')) {
+                    $ids[uploaded_font_id_from_token($token)] = true;
                 }
             }
         }
 
-        return array_keys($families);
+        return array_map('intval', array_keys($ids));
     }
 
     private function decodeTemplateSpecs(array $template): array

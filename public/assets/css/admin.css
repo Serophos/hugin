@@ -1197,7 +1197,8 @@ td.actions .button span {
     box-shadow: 0 -1px 0 var(--panel), 0 1px 0 var(--panel);
 }
 
-.media-kind-tabs + .card {
+.media-kind-tabs + .card,
+.media-kind-tabs + style + .card {
     border-top-left-radius: 0;
 }
 
@@ -1300,6 +1301,20 @@ td.actions .button span {
     background: #000;
 }
 
+.media-font-thumb {
+    display: grid;
+    place-items: center;
+    width: min(96px, 100%);
+    aspect-ratio: 12 / 7;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: #f8fafc;
+    color: #111827;
+    font-size: 1.85rem;
+    line-height: 1;
+    overflow: hidden;
+}
+
 .media-preview-dialog {
     inset: 0;
     width: 100vw;
@@ -1348,6 +1363,37 @@ td.actions .button span {
 
 .media-preview-asset[hidden] {
     display: none;
+}
+
+.media-font-preview {
+    display: grid;
+    gap: clamp(0.55rem, 1.2vw, 1rem);
+    width: min(920px, 100%);
+    max-height: 100%;
+    overflow: auto;
+    padding: clamp(1rem, 3vw, 2rem);
+    border-radius: 8px;
+    background: #f8fafc;
+    color: #111827;
+    box-shadow: 0 20px 80px rgba(15, 23, 42, 0.36);
+}
+
+.media-font-preview[hidden] {
+    display: none;
+}
+
+.media-font-preview p {
+    margin: 0;
+    overflow-wrap: anywhere;
+    line-height: 1.15;
+}
+
+.media-font-preview p:first-child {
+    font-size: clamp(2rem, 5vw, 5.4rem);
+}
+
+.media-font-preview p:not(:first-child) {
+    font-size: clamp(1.25rem, 2.4vw, 2.6rem);
 }
 
 .media-preview-details {
@@ -1407,6 +1453,29 @@ td.actions .button span {
 .media-preview-meta dd {
     margin: 0;
     overflow-wrap: anywhere;
+}
+
+.media-font-preview-control {
+    display: grid;
+    gap: 0.4rem;
+    color: var(--text);
+    font-size: 0.86rem;
+    font-weight: 700;
+}
+
+.media-font-preview-control[hidden] {
+    display: none;
+}
+
+.media-font-preview-control textarea {
+    min-height: 5.5rem;
+    resize: vertical;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-field);
+    padding: 0.65rem;
+    color: var(--text);
+    font: inherit;
+    font-weight: 400;
 }
 
 @media (max-width: 820px) {

@@ -477,7 +477,7 @@ class FrontendController
                     'portrait_spec_json' => (string)($slide['template_portrait_spec_json'] ?? ''),
                 ];
                 $values = $this->templateSlides->decodeValues((string)($slide['template_values_json'] ?? ''));
-                $slide['template_font_families'] = $this->templateSlides->localFontFamiliesForTemplate($template);
+                $slide['template_font_asset_ids'] = $this->templateSlides->fontAssetIdsForTemplate($template);
                 $slide['template_rendered_html'] = $this->templateSlides->render($template, $values, (string)($display['orientation'] ?? 'landscape'));
                 $slide['resolved_source_url'] = '';
             }
@@ -535,17 +535,15 @@ class FrontendController
             $this->addManifestAsset($assets, (string)$asset, 'plugin', 'script', $this->publicFileSizeFromUrl((string)$asset), true);
         }
 
-        $loadedFontFamilies = array_values(array_unique(array_filter([
-            (string)($brandingSettings['default_font_heading'] ?? ''),
-            (string)($brandingSettings['default_font_text'] ?? ''),
-            ...$this->templateFontFamiliesForSlides($resolvedSlides),
-        ])));
-        $publicFonts = list_public_fonts();
-        foreach ($loadedFontFamilies as $family) {
-            foreach (($publicFonts[$family]['files'] ?? []) as $file) {
-                $path = '/assets/fonts/' . $file;
-                $this->addManifestAsset($assets, url($path), 'font', 'font', $this->publicFileSize($path), false);
-            }
+        $fontAssetIds = array_values(array_unique(array_merge(
+            uploaded_font_ids_from_tokens([
+                (string)($brandingSettings['default_font_heading'] ?? ''),
+                (string)($brandingSettings['default_font_text'] ?? ''),
+            ]),
+            $this->templateFontAssetIdsForSlides($resolvedSlides)
+        )));
+        foreach (list_uploaded_fonts($fontAssetIds) as $font) {
+            $this->addManifestAsset($assets, asset_url((string)$font['file_path']), 'font', 'font', $this->publicFileSize((string)$font['file_path']), false);
         }
 
         foreach ($resolvedSlides as $slide) {
@@ -743,18 +741,19 @@ class FrontendController
         };
     }
 
-    private function templateFontFamiliesForSlides(array $resolvedSlides): array
+    private function templateFontAssetIdsForSlides(array $resolvedSlides): array
     {
-        $families = [];
+        $ids = [];
         foreach ($resolvedSlides as $slide) {
-            foreach ((array)($slide['template_font_families'] ?? []) as $family) {
-                if (is_string($family) && $family !== '') {
-                    $families[$family] = true;
+            foreach ((array)($slide['template_font_asset_ids'] ?? []) as $id) {
+                $id = (int)$id;
+                if ($id > 0) {
+                    $ids[$id] = true;
                 }
             }
         }
 
-        return array_keys($families);
+        return array_map('intval', array_keys($ids));
     }
 
     private function loadBrandingSettings(): array
@@ -852,6 +851,7 @@ class FrontendController
                     'text_rendered_hash' => is_string($slide['text_rendered_html'] ?? null) ? sha1((string)$slide['text_rendered_html']) : '',
                     'template_id' => (int)($slide['template_id'] ?? 0),
                     'template_updated_at' => (string)($slide['template_updated_at'] ?? ''),
+                    'template_font_asset_ids' => array_values(array_map('intval', (array)($slide['template_font_asset_ids'] ?? []))),
                     'template_values_hash' => is_string($slide['template_values_json'] ?? null) ? sha1((string)$slide['template_values_json']) : '',
                     'template_rendered_hash' => is_string($slide['template_rendered_html'] ?? null) ? sha1((string)$slide['template_rendered_html']) : '',
                     'plugin_name' => (string)($slide['plugin_name'] ?? ''),

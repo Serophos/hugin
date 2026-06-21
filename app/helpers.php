@@ -753,60 +753,142 @@ function normalize_css_rgba_color(?string $value, string $default = 'rgba(17, 24
     return $default;
 }
 
-function list_public_fonts(): array
+function list_uploaded_fonts(?array $ids = null): array
 {
-    $fontDir = realpath(__DIR__ . '/../public/assets/fonts');
-    if ($fontDir === false || !is_dir($fontDir)) {
+    $db = $GLOBALS['app_db'] ?? null;
+    if (!$db || !method_exists($db, 'all')) {
         return [];
     }
 
-    $supportedTypes = [
+    $params = [];
+    $where = " WHERE media_kind = 'font'";
+    if ($ids !== null) {
+        $ids = array_values(array_unique(array_filter(array_map(
+            static fn(mixed $id): int => (int)$id,
+            $ids
+        ), static fn(int $id): bool => $id > 0)));
+
+        if ($ids === []) {
+            return [];
+        }
+
+        $where .= ' AND id IN (' . implode(', ', array_fill(0, count($ids), '?')) . ')';
+        $params = $ids;
+    }
+
+    try {
+        $rows = $db->all(
+            'SELECT * FROM media_assets' . $where . '
+             ORDER BY COALESCE(NULLIF(font_family_name, \'\'), name) ASC,
+                      COALESCE(NULLIF(font_subfamily, \'\'), \'Regular\') ASC,
+                      id ASC',
+            $params
+        );
+    } catch (\Throwable) {
+        return [];
+    }
+
+    $fonts = [];
+    foreach ($rows as $row) {
+        $id = (int)($row['id'] ?? 0);
+        if ($id <= 0 || empty($row['file_path'])) {
+            continue;
+        }
+
+        $format = strtolower((string)($row['font_format'] ?? pathinfo((string)$row['file_path'], PATHINFO_EXTENSION)));
+        $row['font_format'] = in_array($format, ['woff2', 'woff', 'ttf', 'otf'], true) ? $format : '';
+        $row['css_family'] = uploaded_font_css_family($id);
+        $row['css_weight'] = uploaded_font_css_weight($row);
+        $row['css_style'] = uploaded_font_css_style($row);
+        $row['css_format'] = font_format_css_label((string)$row['font_format']);
+        $row['label'] = (string)(($row['font_full_name'] ?? '') ?: ($row['font_family_name'] ?? '') ?: ($row['name'] ?? ''));
+        $fonts[$id] = $row;
+    }
+
+    return $fonts;
+}
+
+function uploaded_font_token(int $id): string
+{
+    return 'font:' . max(0, $id);
+}
+
+function uploaded_font_id_from_token(string $token): int
+{
+    $token = trim($token);
+    if (!preg_match('/^font:([1-9][0-9]*)$/', $token, $matches)) {
+        return 0;
+    }
+
+    return (int)$matches[1];
+}
+
+function uploaded_font_ids_from_tokens(array $tokens): array
+{
+    $ids = [];
+    foreach ($tokens as $token) {
+        $id = uploaded_font_id_from_token((string)$token);
+        if ($id > 0) {
+            $ids[$id] = true;
+        }
+    }
+
+    return array_map('intval', array_keys($ids));
+}
+
+function uploaded_font_css_family(int $id): string
+{
+    return 'hugin-font-' . max(0, $id);
+}
+
+function uploaded_font_css_weight(array $font): int
+{
+    $weight = (int)($font['font_weight'] ?? 0);
+    return $weight >= 1 && $weight <= 1000 ? $weight : 400;
+}
+
+function uploaded_font_css_style(array $font): string
+{
+    $style = strtolower((string)($font['font_subfamily'] ?? ''));
+    return str_contains($style, 'italic') || str_contains($style, 'oblique') ? 'italic' : 'normal';
+}
+
+function font_format_css_label(string $format): string
+{
+    return match (strtolower($format)) {
         'woff2' => 'woff2',
         'woff' => 'woff',
         'ttf' => 'truetype',
         'otf' => 'opentype',
-    ];
+        default => '',
+    };
+}
 
-    $fonts = [];
-    foreach (scandir($fontDir) ?: [] as $file) {
-        if ($file === '.' || $file === '..') {
-            continue;
-        }
+function css_string_literal(string $value): string
+{
+    return str_replace(["\\", "'", "\n", "\r"], ["\\\\", "\\'", '', ''], $value);
+}
 
-        $path = $fontDir . '/' . $file;
-        if (!is_file($path)) {
-            continue;
-        }
-
-        $extension = strtolower(pathinfo($file, PATHINFO_EXTENSION));
-        if (!isset($supportedTypes[$extension])) {
-            continue;
-        }
-
-        $family = pathinfo($file, PATHINFO_FILENAME);
-        $fonts[$family]['family'] = $family;
-        $fonts[$family]['files'][$extension] = $file;
+function uploaded_font_face_css(array $font): string
+{
+    $id = (int)($font['id'] ?? 0);
+    $path = (string)($font['file_path'] ?? '');
+    if ($id <= 0 || $path === '') {
+        return '';
     }
 
-    ksort($fonts);
-    foreach ($fonts as $family => $font) {
-        $sources = [];
-        foreach (['woff2', 'woff', 'ttf', 'otf'] as $extension) {
-            if (!empty($font['files'][$extension])) {
-                $sources[] = sprintf("url('%s') format('%s')", url('/assets/fonts/' . $font['files'][$extension]), $supportedTypes[$extension]);
-            }
-        }
+    $format = font_format_css_label((string)($font['font_format'] ?? ''));
+    $formatCss = $format !== '' ? " format('" . css_string_literal($format) . "')" : '';
 
-        if ($sources === []) {
-            unset($fonts[$family]);
-            continue;
-        }
-
-        $fonts[$family]['src'] = implode(', ', $sources);
-        $fonts[$family]['label'] = str_replace(['-', '_'], ' ', $family);
-    }
-
-    return $fonts;
+    return implode("\n", [
+        '@font-face {',
+        "    font-family: '" . css_string_literal(uploaded_font_css_family($id)) . "';",
+        "    src: url('" . css_string_literal(asset_url($path)) . "')" . $formatCss . ';',
+        '    font-weight: ' . uploaded_font_css_weight($font) . ';',
+        '    font-style: ' . uploaded_font_css_style($font) . ';',
+        '    font-display: swap;',
+        '}',
+    ]);
 }
 
 function color_luminance(string $hex): float

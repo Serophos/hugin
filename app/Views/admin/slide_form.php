@@ -51,12 +51,13 @@ $templateFieldDefinitions = $templateFieldDefinitions ?? [];
 $templatePreviewSpecs = $templatePreviewSpecs ?? [];
 $templateValues = is_array($templateValues ?? null) ? $templateValues : [];
 $selectedTemplateId = (int)old('template_id', $selectedTemplateId ?? 0, $formId);
-$publicFonts = is_array($publicFonts ?? null) ? $publicFonts : [];
+$uploadedFonts = is_array($uploadedFonts ?? null) ? $uploadedFonts : [];
 $templateFontOptions = [
     [
         'value' => '',
         'label' => __('templates.font_default'),
         'css' => '',
+        'group' => '',
     ],
 ];
 foreach (\App\Core\TemplateSlideService::systemFontOptions() as $fontKey => $fontStack) {
@@ -64,15 +65,17 @@ foreach (\App\Core\TemplateSlideService::systemFontOptions() as $fontKey => $fon
     $templateFontOptions[] = [
         'value' => $token,
         'label' => __('templates.font_system_' . str_replace('-', '_', $fontKey)),
-        'css' => \App\Core\TemplateSlideService::fontFamilyCssForToken($token, $publicFonts) ?? $fontStack,
+        'css' => \App\Core\TemplateSlideService::fontFamilyCssForToken($token, $uploadedFonts) ?? $fontStack,
+        'group' => __('templates.font_group_system', [], 'System fonts'),
     ];
 }
-foreach ($publicFonts as $fontFamily => $font) {
-    $token = 'local:' . $fontFamily;
+foreach ($uploadedFonts as $font) {
+    $token = uploaded_font_token((int)$font['id']);
     $templateFontOptions[] = [
         'value' => $token,
-        'label' => (string)($font['label'] ?? $fontFamily),
-        'css' => \App\Core\TemplateSlideService::fontFamilyCssForToken($token, $publicFonts) ?? '',
+        'label' => (string)($font['label'] ?? $font['name'] ?? $token),
+        'css' => \App\Core\TemplateSlideService::fontFamilyCssForToken($token, $uploadedFonts) ?? '',
+        'group' => __('templates.font_group_uploaded', [], 'Custom uploaded fonts'),
     ];
 }
 $templatePreviewMediaJson = json_encode(array_map(static function (array $asset): array {
@@ -129,14 +132,10 @@ $selectedSlideTypeIcon = $slideTypeIconMap[$selectedSlideType] ?? [
 require __DIR__ . '/../layouts/admin_header.php';
 ?>
 <?php if ($error): ?><div class="alert error"><?= e($error) ?></div><?php endif; ?>
-<?php if ($publicFonts): ?>
+<?php if ($uploadedFonts): ?>
     <style data-template-preview-fonts>
-        <?php foreach ($publicFonts as $fontFamily => $font): ?>
-            @font-face {
-                font-family: '<?= e($fontFamily) ?>';
-                font-display: swap;
-                src: <?= $font['src'] ?>;
-            }
+        <?php foreach ($uploadedFonts as $font): ?>
+            <?= uploaded_font_face_css($font) ?>
         <?php endforeach; ?>
     </style>
 <?php endif; ?>

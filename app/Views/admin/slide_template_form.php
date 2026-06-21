@@ -4,12 +4,13 @@ $template = $templateModel ?? [];
 $title = !empty($template['id']) ? __('templates.edit_title') : __('templates.create_title');
 $landscapeJson = json_encode($landscapeSpec, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 $portraitJson = json_encode($portraitSpec, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-$publicFonts = is_array($publicFonts ?? null) ? $publicFonts : [];
+$uploadedFonts = is_array($uploadedFonts ?? null) ? $uploadedFonts : [];
 $fontToolOptions = [
     [
         'value' => '',
         'label' => __('templates.font_default'),
         'css' => '',
+        'group' => '',
     ],
 ];
 foreach (\App\Core\TemplateSlideService::systemFontOptions() as $fontKey => $fontStack) {
@@ -17,15 +18,17 @@ foreach (\App\Core\TemplateSlideService::systemFontOptions() as $fontKey => $fon
     $fontToolOptions[] = [
         'value' => $token,
         'label' => __('templates.font_system_' . str_replace('-', '_', $fontKey)),
-        'css' => \App\Core\TemplateSlideService::fontFamilyCssForToken($token, $publicFonts) ?? $fontStack,
+        'css' => \App\Core\TemplateSlideService::fontFamilyCssForToken($token, $uploadedFonts) ?? $fontStack,
+        'group' => __('templates.font_group_system', [], 'System fonts'),
     ];
 }
-foreach ($publicFonts as $fontFamily => $font) {
-    $token = 'local:' . $fontFamily;
+foreach ($uploadedFonts as $font) {
+    $token = uploaded_font_token((int)$font['id']);
     $fontToolOptions[] = [
         'value' => $token,
-        'label' => (string)($font['label'] ?? $fontFamily),
-        'css' => \App\Core\TemplateSlideService::fontFamilyCssForToken($token, $publicFonts) ?? '',
+        'label' => (string)($font['label'] ?? $font['name'] ?? $token),
+        'css' => \App\Core\TemplateSlideService::fontFamilyCssForToken($token, $uploadedFonts) ?? '',
+        'group' => __('templates.font_group_uploaded', [], 'Custom uploaded fonts'),
     ];
 }
 $fontOptionsJson = json_encode($fontToolOptions, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
@@ -218,14 +221,10 @@ $editorIconsJson = json_encode([
 require __DIR__ . '/../layouts/admin_header.php';
 ?>
 <?php if ($error): ?><div class="alert error"><?= e($error) ?></div><?php endif; ?>
-<?php if ($publicFonts): ?>
+<?php if ($uploadedFonts): ?>
     <style data-template-editor-fonts>
-        <?php foreach ($publicFonts as $fontFamily => $font): ?>
-            @font-face {
-                font-family: '<?= e($fontFamily) ?>';
-                font-display: swap;
-                src: <?= $font['src'] ?>;
-            }
+        <?php foreach ($uploadedFonts as $font): ?>
+            <?= uploaded_font_face_css($font) ?>
         <?php endforeach; ?>
     </style>
 <?php endif; ?>
@@ -607,7 +606,16 @@ require __DIR__ . '/../layouts/admin_header.php';
     }
     function fontFamilyOptions(selected) {
         const current = normalizeFontFamily(selected);
-        return fontOptions.map(option => `<option value="${attr(option.value)}" ${option.value === current ? 'selected' : ''}>${escapeHtml(option.label || option.value || i18n.none)}</option>`).join('');
+        const groups = new Map();
+        fontOptions.forEach(option => {
+            const group = String(option.group || '');
+            if (!groups.has(group)) groups.set(group, []);
+            groups.get(group).push(option);
+        });
+        return Array.from(groups.entries()).map(([group, options]) => {
+            const html = options.map(option => `<option value="${attr(option.value)}" ${option.value === current ? 'selected' : ''}>${escapeHtml(option.label || option.value || i18n.none)}</option>`).join('');
+            return group ? `<optgroup label="${attr(group)}">${html}</optgroup>` : html;
+        }).join('');
     }
     function cssColor(value) { return String(value || '').trim() || 'transparent'; }
     function normalizeShapeType(shape) {

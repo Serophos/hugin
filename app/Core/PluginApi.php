@@ -63,7 +63,7 @@ class PluginApi
 
     public function listMediaAssets(?string $kind = null): array
     {
-        if ($kind !== null && !in_array($kind, ['image', 'video'], true)) {
+        if ($kind !== null && !in_array($kind, ['image', 'video', 'font'], true)) {
             throw new \RuntimeException(__('media.invalid_kind', [], 'Invalid media kind.'));
         }
 

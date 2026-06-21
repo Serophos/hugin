@@ -3,18 +3,26 @@ $heartbeatInterval = max(30, min(120, (int)floor(((int)app_core_setting('monitor
 $displayGroup = $displayGroup ?? null;
 $syncReloadToFullMinute = !empty($displayGroup['sync_reload_to_full_minute']);
 $startupSyncKey = 'hugin:slideshow-started:' . (string)($display['slug'] ?? '');
-$templateFontFamilies = [];
+$templateFontAssetIds = [];
 foreach (($slides ?? []) as $slide) {
-    foreach ((array)($slide['template_font_families'] ?? []) as $family) {
-        if (is_string($family) && $family !== '') {
-            $templateFontFamilies[$family] = true;
+    foreach ((array)($slide['template_font_asset_ids'] ?? []) as $fontAssetId) {
+        $fontAssetId = (int)$fontAssetId;
+        if ($fontAssetId > 0) {
+            $templateFontAssetIds[$fontAssetId] = true;
         }
     }
 }
-$loadedFontFamilies = array_values(array_unique(array_filter(array_merge([
+$brandingFontTokens = [
     (string)($brandingSettings['default_font_heading'] ?? ''),
     (string)($brandingSettings['default_font_text'] ?? ''),
-], array_keys($templateFontFamilies)))));
+];
+$fontAssetIds = array_values(array_unique(array_merge(
+    uploaded_font_ids_from_tokens($brandingFontTokens),
+    array_map('intval', array_keys($templateFontAssetIds))
+)));
+$uploadedFonts = list_uploaded_fonts($fontAssetIds);
+$defaultTextFontCss = \App\Core\TemplateSlideService::fontFamilyCssForToken((string)($brandingSettings['default_font_text'] ?? ''), $uploadedFonts) ?? '';
+$defaultHeadingFontCss = \App\Core\TemplateSlideService::fontFamilyCssForToken((string)($brandingSettings['default_font_heading'] ?? ''), $uploadedFonts) ?? '';
 ?>
 <!doctype html>
 <html lang="<?= e(current_locale()) ?>">
@@ -49,25 +57,17 @@ $loadedFontFamilies = array_values(array_unique(array_filter(array_merge([
     <?php foreach (($pluginAssets['css'] ?? []) as $cssAsset): ?>
         <link rel="stylesheet" href="<?= e($cssAsset) ?>">
     <?php endforeach; ?>
-    <?php if ($loadedFontFamilies): ?>
-        <?php $fonts = list_public_fonts(); ?>
-        <?php if ($fonts): ?>
+    <?php if ($uploadedFonts || $defaultTextFontCss !== '' || $defaultHeadingFontCss !== ''): ?>
             <style>
-                <?php foreach ($loadedFontFamilies as $family): ?>
-                    <?php if (isset($fonts[$family])): ?>
-                        @font-face {
-                            font-family: '<?= e($family) ?>';
-                            font-display: swap;
-                            src: <?= $fonts[$family]['src'] ?>;
-                        }
-                    <?php endif; ?>
+                <?php foreach ($uploadedFonts as $font): ?>
+                    <?= uploaded_font_face_css($font) ?>
                 <?php endforeach; ?>
                 :root {
-                    <?php if (!empty($brandingSettings['default_font_text'])): ?>
-                        --hugin-font-text: '<?= e($brandingSettings['default_font_text']) ?>', sans-serif;
+                    <?php if ($defaultTextFontCss !== ''): ?>
+                        --hugin-font-text: <?= $defaultTextFontCss ?>;
                     <?php endif; ?>
-                    <?php if (!empty($brandingSettings['default_font_heading'])): ?>
-                        --hugin-font-heading: '<?= e($brandingSettings['default_font_heading']) ?>', sans-serif;
+                    <?php if ($defaultHeadingFontCss !== ''): ?>
+                        --hugin-font-heading: <?= $defaultHeadingFontCss ?>;
                     <?php endif; ?>
                 }
                 .text-slide-content {
@@ -82,7 +82,6 @@ $loadedFontFamilies = array_values(array_unique(array_filter(array_merge([
                     font-family: var(--hugin-font-heading, var(--hugin-font-text, inherit));
                 }
             </style>
-        <?php endif; ?>
     <?php endif; ?>
 </head>
 <body class="display-orientation-<?= e($orientation ?? ($display['orientation'] ?? 'landscape')) ?>">

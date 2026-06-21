@@ -344,7 +344,7 @@ class AdminController
         $this->view->render('admin/settings', [
             'settings' => $settings,
             'availableLocales' => app_available_locales(),
-            'fonts' => list_public_fonts(),
+            'fonts' => list_uploaded_fonts(),
             'error' => flash('error'),
         ]);
     }
@@ -353,7 +353,7 @@ class AdminController
     {
         $this->auth->requireRole('admin');
         $input = (array)$this->request->input('settings', []);
-        $availableFonts = array_keys(list_public_fonts());
+        $availableFonts = list_uploaded_fonts();
         $availableLocales = app_available_locales();
 
         $locale = trim((string)($input['locale'] ?? app_core_setting('system.locale', app_config('app.locale', 'en'))));
@@ -361,6 +361,8 @@ class AdminController
         $defaultTextColor = normalize_hex_color((string)($input['default_text_color'] ?? '#f8fafc'), '#f8fafc');
         $defaultFontHeading = trim((string)($input['default_font_heading'] ?? ''));
         $defaultFontText = trim((string)($input['default_font_text'] ?? ''));
+        $normalizedFontHeading = $defaultFontHeading !== '' ? TemplateSlideService::normalizeFontFamilyToken($defaultFontHeading, $availableFonts) : '';
+        $normalizedFontText = $defaultFontText !== '' ? TemplateSlideService::normalizeFontFamilyToken($defaultFontText, $availableFonts) : '';
         $uploadMaxSizeMb = (int)($input['upload_max_size_mb'] ?? 50);
         $monitoringEnabled = !empty($input['monitoring_enabled']);
         $monitoringApiToken = trim((string)($input['monitoring_api_token'] ?? ''));
@@ -379,10 +381,10 @@ class AdminController
         if (!array_key_exists($locale, $availableLocales)) {
             $errors['locale'] = __('settings.invalid_locale', [], 'Please choose an available language.');
         }
-        if ($defaultFontHeading !== '' && !in_array($defaultFontHeading, $availableFonts, true)) {
+        if ($defaultFontHeading !== '' && $normalizedFontHeading === '') {
             $errors['default_font_heading'] = __('settings.invalid_font');
         }
-        if ($defaultFontText !== '' && !in_array($defaultFontText, $availableFonts, true)) {
+        if ($defaultFontText !== '' && $normalizedFontText === '') {
             $errors['default_font_text'] = __('settings.invalid_font');
         }
         if ($uploadMaxSizeMb < 1) {
@@ -429,8 +431,8 @@ class AdminController
             self::BRANDING_SETTINGS_NAMESPACE => [
                 'default_background_color' => $defaultBackgroundColor,
                 'default_text_color' => $defaultTextColor,
-                'default_font_heading' => $defaultFontHeading,
-                'default_font_text' => $defaultFontText,
+                'default_font_heading' => $normalizedFontHeading,
+                'default_font_text' => $normalizedFontText,
             ],
             self::UPLOAD_SETTINGS_NAMESPACE => [
                 'max_size_bytes' => (string)($uploadMaxSizeMb * 1048576),
@@ -1630,8 +1632,8 @@ class AdminController
             'templateModel' => $template,
             'landscapeSpec' => $this->templateSlides->decodeSpec((string)($template['landscape_spec_json'] ?? ''), 'landscape'),
             'portraitSpec' => trim((string)($template['portrait_spec_json'] ?? '')) !== '' ? $this->templateSlides->decodeSpec((string)$template['portrait_spec_json'], 'portrait') : null,
-            'mediaAssets' => $this->db->all('SELECT id, name, original_name, media_kind, file_path, preview_file_path FROM media_assets ORDER BY created_at DESC, id DESC'),
-            'publicFonts' => list_public_fonts(),
+            'mediaAssets' => $this->db->all("SELECT id, name, original_name, media_kind, file_path, preview_file_path FROM media_assets WHERE media_kind IN ('image', 'video') ORDER BY created_at DESC, id DESC"),
+            'uploadedFonts' => list_uploaded_fonts(),
             'error' => flash('error'),
         ]);
     }
@@ -1786,7 +1788,7 @@ class AdminController
         }
 
         $channels = $this->db->all('SELECT id, name AS label, is_active FROM channels ORDER BY name ASC');
-        $mediaAssets = $this->db->all('SELECT * FROM media_assets ORDER BY created_at DESC, id DESC');
+        $mediaAssets = $this->db->all("SELECT * FROM media_assets WHERE media_kind IN ('image', 'video') ORDER BY created_at DESC, id DESC");
         $slideTemplates = $this->db->all('SELECT * FROM slide_templates WHERE is_active = 1 OR id IN (SELECT template_id FROM slide_template_data WHERE slide_id = ?) ORDER BY is_active DESC, name ASC', [$id ?: 0]);
         $templateData = $id ? $this->db->one('SELECT * FROM slide_template_data WHERE slide_id = ?', [$id]) : null;
         $templateValues = $this->templateSlides->decodeValues((string)($templateData['values_json'] ?? ''));
@@ -1873,7 +1875,7 @@ class AdminController
                 $carry[(int)$template['id']] = $this->templateSlides->specsForTemplate($template);
                 return $carry;
             }, []),
-            'publicFonts' => list_public_fonts(),
+            'uploadedFonts' => list_uploaded_fonts(),
             'pluginDefinitions' => $pluginDefinitions,
             'pluginForms' => $pluginForms,
             'pluginLabels' => $this->plugins->getPluginLabelMap(),
@@ -2182,7 +2184,7 @@ class AdminController
                 if ($uploadedFile && ($uploadedFile['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
                     $expectedKind = $slideType === 'image' ? 'image' : 'video';
                     $uploadedKind = $this->uploadedMediaKind($uploadedFile);
-                    if ($uploadedKind !== null && $uploadedKind !== $expectedKind) {
+                    if ($uploadedKind !== $expectedKind) {
                         throw new RuntimeException(__('slide.selected_media_type_mismatch'));
                     }
                     $mediaAsset = $this->uploadManager->storeUploadedFile($uploadedFile, (int)$this->auth->id(), $name);
@@ -2393,7 +2395,7 @@ class AdminController
         $this->auth->requireLogin();
 
         $kind = trim((string)$this->request->input('kind', ''));
-        $allowedKinds = ['image', 'video'];
+        $allowedKinds = ['image', 'video', 'font'];
         if ($kind !== '' && !in_array($kind, $allowedKinds, true)) {
             $kind = '';
         }
@@ -2443,9 +2445,17 @@ class AdminController
     public function uploadMedia(): void
     {
         $this->auth->requireLogin();
-        $old = ['name' => (string)$this->request->input('name')];
+        $old = [
+            'name' => (string)$this->request->input('name'),
+            'license_note' => (string)$this->request->input('license_note'),
+        ];
         try {
-            $asset = $this->uploadManager->storeUploadedFile($this->request->file('media_file'), (int)$this->auth->id(), trim((string)$this->request->input('name')));
+            $asset = $this->uploadManager->storeUploadedFile(
+                $this->request->file('media_file'),
+                (int)$this->auth->id(),
+                trim((string)$this->request->input('name')),
+                trim((string)$this->request->input('license_note'))
+            );
             if (!$asset) {
                 throw new RuntimeException(__('media.choose_file'));
             }
@@ -2455,7 +2465,8 @@ class AdminController
                 'media_file' => $e->getMessage(),
             ], 'media_upload');
         }
-        redirect('/admin/media');
+        $kind = (string)($asset['media_kind'] ?? '');
+        redirect('/admin/media' . ($kind !== '' ? '?kind=' . rawurlencode($kind) : ''));
     }
 
     public function deleteMedia(int $id): void
@@ -2472,11 +2483,12 @@ class AdminController
             flash('error', __('media.not_found'));
             redirect('/admin/media');
         }
+        $mediaRedirect = '/admin/media?kind=' . rawurlencode((string)$asset['media_kind']);
         $usageCounts = $this->mediaUsageCounts([$id]);
         $usage = (int)($usageCounts[$id] ?? 0);
         if ($usage > 0) {
             flash('error', __('media.still_used'));
-            redirect('/admin/media');
+            redirect($mediaRedirect);
         }
         $this->db->execute('DELETE FROM media_assets WHERE id = ?', [$id]);
         $this->uploadManager->deleteMediaFile((string)$asset['file_path']);
@@ -2484,7 +2496,7 @@ class AdminController
             $this->uploadManager->deleteMediaFile((string)$asset['preview_file_path']);
         }
         flash('success', __('media.deleted'));
-        redirect('/admin/media');
+        redirect($mediaRedirect);
     }
 
     public function users(): void
@@ -2686,6 +2698,20 @@ class AdminController
                 if (isset($assetLookup[$assetId])) {
                     $usageByAsset[$assetId][$usageKey] = true;
                 }
+            }
+        }
+
+        $fontSettingRows = $this->db->all(
+            "SELECT setting_key, setting_value
+             FROM app_settings
+             WHERE namespace = ?
+               AND setting_key IN ('default_font_heading', 'default_font_text')",
+            [self::BRANDING_SETTINGS_NAMESPACE]
+        );
+        foreach ($fontSettingRows as $row) {
+            $assetId = uploaded_font_id_from_token((string)($row['setting_value'] ?? ''));
+            if (isset($assetLookup[$assetId])) {
+                $usageByAsset[$assetId]['settings-' . (string)($row['setting_key'] ?? 'font')] = true;
             }
         }
 
@@ -3032,6 +3058,18 @@ class AdminController
         }
         if (str_starts_with($mimeType, 'video/')) {
             return 'video';
+        }
+        if (in_array($mimeType, [
+            'font/woff2',
+            'font/woff',
+            'font/ttf',
+            'font/otf',
+            'font/sfnt',
+            'application/font-woff',
+            'application/x-font-ttf',
+            'application/x-font-otf',
+        ], true)) {
+            return 'font';
         }
 
         return null;

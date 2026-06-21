@@ -4,7 +4,7 @@
     <?= csrf_field() ?>
     <fieldset class="card settings-card">
         <legend><?= e(__('settings.branding_heading', [], 'Branding and slide defaults')) ?></legend>
-        <p class="muted"><?= e(__('settings.branding_intro', [], 'Configure the default slide background, text color, and optional fonts loaded from public/assets/fonts.')) ?></p>
+        <p class="muted"><?= e(__('settings.branding_intro', [], 'Configure the default slide background, text color, and uploaded media-library fonts.')) ?></p>
         <div class="settings-card-grid">
             <label><?= e(__('settings.default_background_color')) ?>
                 <span class="admin-color-picker admin-color-picker--compact" data-admin-color-picker data-color-format="hex" data-color-alpha="false" data-default-color="#0f172a" data-default-alpha="1">
@@ -23,8 +23,9 @@
             <label><?= e(__('settings.default_font_heading')) ?>
                 <select name="settings[default_font_heading]"<?= field_attrs('default_font_heading', 'settings') ?>>
                     <option value=""><?= e(__('settings.system_default')) ?></option>
-                    <?php foreach ($fonts as $fontFamily => $font): ?>
-                        <option value="<?= e($fontFamily) ?>" <?= old_selected('default_font_heading', $fontFamily, $settings['default_font_heading'] ?? '', 'settings') ?>><?= e($font['label']) ?></option>
+                    <?php foreach ($fonts as $font): ?>
+                        <?php $fontToken = uploaded_font_token((int)$font['id']); ?>
+                        <option value="<?= e($fontToken) ?>" <?= old_selected('default_font_heading', $fontToken, $settings['default_font_heading'] ?? '', 'settings') ?>><?= e((string)$font['label']) ?></option>
                     <?php endforeach; ?>
                 </select>
                 <?= field_error_html('default_font_heading', 'settings') ?>
@@ -32,8 +33,9 @@
             <label><?= e(__('settings.default_font_text')) ?>
                 <select name="settings[default_font_text]"<?= field_attrs('default_font_text', 'settings') ?>>
                     <option value=""><?= e(__('settings.system_default')) ?></option>
-                    <?php foreach ($fonts as $fontFamily => $font): ?>
-                        <option value="<?= e($fontFamily) ?>" <?= old_selected('default_font_text', $fontFamily, $settings['default_font_text'] ?? '', 'settings') ?>><?= e($font['label']) ?></option>
+                    <?php foreach ($fonts as $font): ?>
+                        <?php $fontToken = uploaded_font_token((int)$font['id']); ?>
+                        <option value="<?= e($fontToken) ?>" <?= old_selected('default_font_text', $fontToken, $settings['default_font_text'] ?? '', 'settings') ?>><?= e((string)$font['label']) ?></option>
                     <?php endforeach; ?>
                 </select>
                 <?= field_error_html('default_font_text', 'settings') ?>

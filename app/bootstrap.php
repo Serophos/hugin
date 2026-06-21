@@ -38,6 +38,7 @@ require_once __DIR__ . '/Core/Database.php';
 require_once __DIR__ . '/Core/View.php';
 require_once __DIR__ . '/Core/Request.php';
 require_once __DIR__ . '/Core/Auth.php';
+require_once __DIR__ . '/Core/FontMetadataExtractor.php';
 require_once __DIR__ . '/Core/UploadManager.php';
 require_once __DIR__ . '/Core/SlidePluginInterface.php';
 require_once __DIR__ . '/Core/AbstractSlidePlugin.php';

@@ -12,8 +12,10 @@ $kindQuery = $kind !== '' ? '?kind=' . rawurlencode($kind) : '';
 $allUrl = $baseMediaUrl;
 $imageUrl = $baseMediaUrl . '?kind=image';
 $videoUrl = $baseMediaUrl . '?kind=video';
+$fontUrl = $baseMediaUrl . '?kind=font';
 $prevPageUrl = $baseMediaUrl . ($kind !== '' ? '?kind=' . rawurlencode($kind) . '&page=' . max(1, $page - 1) : '?page=' . max(1, $page - 1));
 $nextPageUrl = $baseMediaUrl . ($kind !== '' ? '?kind=' . rawurlencode($kind) . '&page=' . ($page + 1) : '?page=' . ($page + 1));
+$fontPreviewText = __('media.font_preview_default', [], 'The quick brown fox jumps over the lazy dog');
 ?>
 
 
@@ -27,9 +29,14 @@ $nextPageUrl = $baseMediaUrl . ($kind !== '' ? '?kind=' . rawurlencode($kind) . 
                 <?= field_error_html('name', $uploadForm) ?>
             </label>
             <label><?= e(__('media.file')) ?>
-                <input type="file" name="media_file" accept="image/*,video/*" required<?= field_attrs('media_file', $uploadForm, field_note_id('media_file', $uploadForm)) ?>>
+                <input type="file" name="media_file" accept="image/*,video/*,.woff2,.woff,.ttf,.otf,font/woff2,font/woff,font/ttf,font/otf" required<?= field_attrs('media_file', $uploadForm, field_note_id('media_file', $uploadForm)) ?>>
                 <?= field_error_html('media_file', $uploadForm) ?>
                 <small id="<?= e(field_note_id('media_file', $uploadForm)) ?>" class="field-note"><?= e(__('forms.file_reselect_hint')) ?></small>
+            </label>
+            <label class="full-width"><?= e(__('media.license_note')) ?>
+                <textarea name="license_note" rows="3"<?= field_attrs('license_note', $uploadForm) ?>><?= e((string)old('license_note', '', $uploadForm)) ?></textarea>
+                <?= field_error_html('license_note', $uploadForm) ?>
+                <small class="field-note"><?= e(__('media.font_license_warning')) ?></small>
             </label>
             <button type="submit" class="button button--default"><?= admin_icon('upload') ?><span><?= e(__('media.upload_title')) ?></span></button>
         </form>
@@ -49,9 +56,18 @@ $nextPageUrl = $baseMediaUrl . ($kind !== '' ? '?kind=' . rawurlencode($kind) . 
     <a class="tab<?= $kind === '' ? ' active' : '' ?>" href="<?= e($allUrl) ?>"><?= e(__('media.all')) ?></a>
     <a class="tab<?= $kind === 'image' ? ' active' : '' ?>" href="<?= e($imageUrl) ?>"><?= e(__('media.images')) ?></a>
     <a class="tab<?= $kind === 'video' ? ' active' : '' ?>" href="<?= e($videoUrl) ?>"><?= e(__('media.videos')) ?></a>
+    <a class="tab<?= $kind === 'font' ? ' active' : '' ?>" href="<?= e($fontUrl) ?>"><?= e(__('media.fonts')) ?></a>
 </div>
 
-
+<?php if ($media): ?>
+    <style data-media-font-previews>
+        <?php foreach ($media as $asset): ?>
+            <?php if (($asset['media_kind'] ?? '') === 'font'): ?>
+                <?= uploaded_font_face_css($asset) ?>
+            <?php endif; ?>
+        <?php endforeach; ?>
+    </style>
+<?php endif; ?>
 
 <div class="card">
     <div class="table-scroll">
@@ -84,9 +100,18 @@ $nextPageUrl = $baseMediaUrl . ($kind !== '' ? '?kind=' . rawurlencode($kind) . 
                 $assetPreviewUrl = $assetKind === 'video' && !empty($asset['preview_file_path'])
                     ? url('/api/media/' . (int)$asset['id'] . '/preview')
                     : '';
-                $assetTypeLabel = enum_label('slide_types', $assetKind, $assetKind);
+                $assetTypeLabel = $assetKind === 'font' ? __('media.font', [], 'Font') : enum_label('slide_types', $assetKind, $assetKind);
                 $assetSize = format_bytes((int)$asset['file_size']);
                 $assetUploadedBy = $asset['uploaded_by'] ?? __('common.unknown', [], 'Unknown');
+                $fontCssFamily = $assetKind === 'font' ? uploaded_font_css_family((int)$asset['id']) : '';
+                $fontFamilyName = (string)($asset['font_family_name'] ?? '');
+                $fontFullName = (string)($asset['font_full_name'] ?? '');
+                $fontSubfamily = (string)($asset['font_subfamily'] ?? '');
+                $fontWeight = (string)($asset['font_weight'] ?? '');
+                $fontFormat = strtoupper((string)($asset['font_format'] ?? ''));
+                $fontPostscriptName = (string)($asset['font_postscript_name'] ?? '');
+                $fontVersion = (string)($asset['font_version'] ?? '');
+                $licenseNote = (string)($asset['license_note'] ?? '');
                 ?>
                 <tr
                     data-admin-row
@@ -101,6 +126,15 @@ $nextPageUrl = $baseMediaUrl . ($kind !== '' ? '?kind=' . rawurlencode($kind) . 
                     data-media-size="<?= e($assetSize) ?>"
                     data-media-usage="<?= e((string)$asset['usage_count']) ?>"
                     data-media-uploaded-by="<?= e($assetUploadedBy) ?>"
+                    data-media-font-css-family="<?= e($fontCssFamily) ?>"
+                    data-media-font-family="<?= e($fontFamilyName) ?>"
+                    data-media-font-full-name="<?= e($fontFullName) ?>"
+                    data-media-font-subfamily="<?= e($fontSubfamily) ?>"
+                    data-media-font-weight="<?= e($fontWeight) ?>"
+                    data-media-font-format="<?= e($fontFormat) ?>"
+                    data-media-font-postscript="<?= e($fontPostscriptName) ?>"
+                    data-media-font-version="<?= e($fontVersion) ?>"
+                    data-media-license-note="<?= e($licenseNote) ?>"
                 >
                     <td class="preview-cell">
                         <button type="button" class="media-thumb-button" data-media-preview-open aria-label="<?= e(__('media.open_preview_for', ['name' => $asset['name']], 'Preview :name')) ?>">
@@ -108,6 +142,8 @@ $nextPageUrl = $baseMediaUrl . ($kind !== '' ? '?kind=' . rawurlencode($kind) . 
                             <img class="thumb" src="<?= e($assetUrl) ?>" alt="<?= e($asset['name']) ?>">
                         <?php elseif ($assetPreviewUrl !== ''): ?>
                             <img class="thumb" src="<?= e($assetPreviewUrl) ?>" alt="<?= e($asset['name']) ?>">
+                        <?php elseif ($assetKind === 'font'): ?>
+                            <span class="media-font-thumb" style="font-family: '<?= e($fontCssFamily) ?>', sans-serif;">Ag</span>
                         <?php else: ?>
                             <video class="thumb" src="<?= e($assetUrl) ?>" muted preload="metadata"></video>
                         <?php endif; ?>
@@ -116,8 +152,11 @@ $nextPageUrl = $baseMediaUrl . ($kind !== '' ? '?kind=' . rawurlencode($kind) . 
                     <td class="media-name-cell" data-admin-cell="name" data-sort-value="<?= e((string)$asset['name']) ?>" data-filter-value="<?= e(trim((string)$asset['name'] . ' ' . (string)$asset['original_name'])) ?>">
                         <strong class="break-word"><?= e($asset['name']) ?></strong><br>
                         <span class="muted break-word"><?= e($asset['original_name']) ?></span>
+                        <?php if ($assetKind === 'font' && ($fontFamilyName !== '' || $fontFullName !== '')): ?>
+                            <br><span class="muted break-word"><?= e($fontFullName !== '' ? $fontFullName : $fontFamilyName) ?></span>
+                        <?php endif; ?>
                     </td>
-                    <td class="break-word" data-admin-cell="type" data-sort-value="<?= e($assetTypeLabel) ?>" data-filter-value="<?= e(trim($assetTypeLabel . ' ' . (string)$asset['mime_type'])) ?>"><?= e($assetTypeLabel) ?><br><span class="muted break-word"><?= e($asset['mime_type']) ?></span></td>
+                    <td class="break-word" data-admin-cell="type" data-sort-value="<?= e($assetTypeLabel) ?>" data-filter-value="<?= e(trim($assetTypeLabel . ' ' . (string)$asset['mime_type'] . ' ' . $fontFormat . ' ' . $fontSubfamily . ' ' . $fontWeight)) ?>"><?= e($assetTypeLabel) ?><?= $fontFormat !== '' ? ' · ' . e($fontFormat) : '' ?><br><span class="muted break-word"><?= e($asset['mime_type']) ?></span><?php if ($assetKind === 'font' && ($fontSubfamily !== '' || $fontWeight !== '')): ?><br><span class="muted break-word"><?= e(trim($fontSubfamily . ($fontWeight !== '' ? ' · ' . $fontWeight : ''))) ?></span><?php endif; ?></td>
                     <td data-admin-cell="size" data-sort-value="<?= e((string)$asset['file_size']) ?>" data-filter-value="<?= e($assetSize) ?>"><?= e($assetSize) ?></td>
                     <td data-admin-cell="usage" data-sort-value="<?= e((string)$asset['usage_count']) ?>" data-filter-value="<?= e((string)$asset['usage_count']) ?>"><?= e((string)$asset['usage_count']) ?></td>
                     <td class="break-word" data-admin-cell="uploaded_by" data-sort-value="<?= e($assetUploadedBy) ?>" data-filter-value="<?= e($assetUploadedBy) ?>"><?= e($assetUploadedBy) ?></td>
@@ -157,6 +196,13 @@ $nextPageUrl = $baseMediaUrl . ($kind !== '' ? '?kind=' . rawurlencode($kind) . 
         <div class="media-preview-stage" data-media-preview-stage tabindex="-1">
             <img class="media-preview-asset" data-media-preview-image alt="" hidden>
             <video class="media-preview-asset" data-media-preview-video controls playsinline preload="metadata" hidden></video>
+            <div class="media-font-preview" data-media-preview-font hidden>
+                <p data-media-preview-font-line><?= e($fontPreviewText) ?></p>
+                <p data-media-preview-font-line><?= e(__('media.font_preview_hamburgefontsiv', [], 'Hamburgefontsiv')) ?></p>
+                <p data-media-preview-font-line><?= e(__('media.font_preview_numbers', [], '0123456789')) ?></p>
+                <p data-media-preview-font-line><?= e(__('media.font_preview_german', [], 'Falsches Üben von Xylophonmusik quält jeden größeren Zwerg.')) ?></p>
+                <p data-media-preview-font-line><?= e(__('media.font_preview_turkish', [], 'Pijamalı hasta yağız şoföre çabucak güvendi.')) ?></p>
+            </div>
         </div>
         <aside class="media-preview-details">
             <div class="media-preview-details__head">
@@ -177,13 +223,41 @@ $nextPageUrl = $baseMediaUrl . ($kind !== '' ? '?kind=' . rawurlencode($kind) . 
                     <dt><?= e(__('common.type')) ?></dt>
                     <dd data-media-preview-type></dd>
                 </div>
-                <div>
+                <div data-media-preview-dimensions-row>
                     <dt><?= e(__('media.dimensions', [], 'Dimensions')) ?></dt>
                     <dd data-media-preview-dimensions><?= e(__('media.metadata_loading', [], 'Loading...')) ?></dd>
                 </div>
-                <div>
+                <div data-media-preview-aspect-ratio-row>
                     <dt><?= e(__('media.aspect_ratio', [], 'Aspect ratio')) ?></dt>
                     <dd data-media-preview-aspect-ratio><?= e(__('media.metadata_loading', [], 'Loading...')) ?></dd>
+                </div>
+                <div data-media-preview-font-row hidden>
+                    <dt><?= e(__('media.font_family_name')) ?></dt>
+                    <dd data-media-preview-font-family></dd>
+                </div>
+                <div data-media-preview-font-row hidden>
+                    <dt><?= e(__('media.font_full_name')) ?></dt>
+                    <dd data-media-preview-font-full-name></dd>
+                </div>
+                <div data-media-preview-font-row hidden>
+                    <dt><?= e(__('media.font_subfamily')) ?></dt>
+                    <dd data-media-preview-font-subfamily></dd>
+                </div>
+                <div data-media-preview-font-row hidden>
+                    <dt><?= e(__('media.font_weight')) ?></dt>
+                    <dd data-media-preview-font-weight></dd>
+                </div>
+                <div data-media-preview-font-row hidden>
+                    <dt><?= e(__('media.font_postscript_name')) ?></dt>
+                    <dd data-media-preview-font-postscript></dd>
+                </div>
+                <div data-media-preview-font-row hidden>
+                    <dt><?= e(__('media.font_version')) ?></dt>
+                    <dd data-media-preview-font-version></dd>
+                </div>
+                <div data-media-preview-font-row hidden>
+                    <dt><?= e(__('media.license_note')) ?></dt>
+                    <dd data-media-preview-license-note></dd>
                 </div>
                 <div>
                     <dt><?= e(__('common.size', [], 'Size')) ?></dt>
@@ -202,6 +276,9 @@ $nextPageUrl = $baseMediaUrl . ($kind !== '' ? '?kind=' . rawurlencode($kind) . 
                     <dd data-media-preview-uploaded-by></dd>
                 </div>
             </dl>
+            <label class="media-font-preview-control" data-media-preview-font-control hidden><?= e(__('media.font_preview_text')) ?>
+                <textarea rows="3" data-media-preview-font-input><?= e($fontPreviewText) ?></textarea>
+            </label>
         </aside>
     </div>
 </dialog>
@@ -212,8 +289,15 @@ $nextPageUrl = $baseMediaUrl . ($kind !== '' ? '?kind=' . rawurlencode($kind) . 
 
     const image = dialog.querySelector('[data-media-preview-image]');
     const video = dialog.querySelector('[data-media-preview-video]');
+    const fontPreview = dialog.querySelector('[data-media-preview-font]');
+    const fontPreviewLines = Array.from(dialog.querySelectorAll('[data-media-preview-font-line]'));
+    const fontPreviewControl = dialog.querySelector('[data-media-preview-font-control]');
+    const fontPreviewInput = dialog.querySelector('[data-media-preview-font-input]');
     const stage = dialog.querySelector('[data-media-preview-stage]');
     const durationRow = dialog.querySelector('[data-media-preview-duration-row]');
+    const dimensionsRow = dialog.querySelector('[data-media-preview-dimensions-row]');
+    const aspectRatioRow = dialog.querySelector('[data-media-preview-aspect-ratio-row]');
+    const fontRows = Array.from(dialog.querySelectorAll('[data-media-preview-font-row]'));
     let activeKind = '';
     let opener = null;
     const fields = {
@@ -227,10 +311,18 @@ $nextPageUrl = $baseMediaUrl . ($kind !== '' ? '?kind=' . rawurlencode($kind) . 
         duration: dialog.querySelector('[data-media-preview-duration]'),
         usage: dialog.querySelector('[data-media-preview-usage]'),
         uploadedBy: dialog.querySelector('[data-media-preview-uploaded-by]'),
+        fontFamily: dialog.querySelector('[data-media-preview-font-family]'),
+        fontFullName: dialog.querySelector('[data-media-preview-font-full-name]'),
+        fontSubfamily: dialog.querySelector('[data-media-preview-font-subfamily]'),
+        fontWeight: dialog.querySelector('[data-media-preview-font-weight]'),
+        fontPostscript: dialog.querySelector('[data-media-preview-font-postscript]'),
+        fontVersion: dialog.querySelector('[data-media-preview-font-version]'),
+        licenseNote: dialog.querySelector('[data-media-preview-license-note]'),
     };
     const labels = {
         loading: <?= json_encode(__('media.metadata_loading', [], 'Loading...')) ?>,
         unknown: <?= json_encode(__('common.unknown', [], 'Unknown')) ?>,
+        fontPreviewText: <?= json_encode($fontPreviewText, JSON_UNESCAPED_UNICODE) ?>,
     };
 
     const setText = (node, value) => {
@@ -301,6 +393,12 @@ $nextPageUrl = $baseMediaUrl . ($kind !== '' ? '?kind=' . rawurlencode($kind) . 
         video.removeAttribute('src');
         video.removeAttribute('poster');
         video.load();
+        fontPreview.hidden = true;
+        fontPreview.style.fontFamily = '';
+        if (fontPreviewInput) fontPreviewInput.value = labels.fontPreviewText;
+        fontPreviewLines.forEach((line, index) => {
+            if (index === 0) line.textContent = labels.fontPreviewText;
+        });
     };
 
     const closePreview = () => {
@@ -327,13 +425,34 @@ $nextPageUrl = $baseMediaUrl . ($kind !== '' ? '?kind=' . rawurlencode($kind) . 
         setText(fields.size, media.mediaSize);
         setText(fields.usage, media.mediaUsage);
         setText(fields.uploadedBy, media.mediaUploadedBy);
+        setText(fields.fontFamily, media.mediaFontFamily);
+        setText(fields.fontFullName, media.mediaFontFullName);
+        setText(fields.fontSubfamily, media.mediaFontSubfamily);
+        setText(fields.fontWeight, media.mediaFontWeight);
+        setText(fields.fontPostscript, media.mediaFontPostscript);
+        setText(fields.fontVersion, media.mediaFontVersion);
+        setText(fields.licenseNote, media.mediaLicenseNote);
 
+        const isFont = media.mediaKind === 'font';
         const isVideo = media.mediaKind === 'video';
-        activeKind = isVideo ? 'video' : 'image';
+        activeKind = isFont ? 'font' : (isVideo ? 'video' : 'image');
         durationRow.hidden = !isVideo;
+        dimensionsRow.hidden = isFont;
+        aspectRatioRow.hidden = isFont;
+        fontRows.forEach(row => { row.hidden = !isFont; });
+        if (fontPreviewControl) fontPreviewControl.hidden = !isFont;
         setText(fields.duration, labels.loading);
 
-        if (isVideo) {
+        if (isFont) {
+            fontPreview.hidden = false;
+            fontPreview.style.fontFamily = media.mediaFontCssFamily ? `"${media.mediaFontCssFamily}", sans-serif` : 'sans-serif';
+            if (fontPreviewInput) {
+                fontPreviewInput.value = labels.fontPreviewText;
+                fontPreviewInput.dispatchEvent(new Event('input'));
+            }
+            setText(fields.dimensions, labels.unknown);
+            setText(fields.aspectRatio, labels.unknown);
+        } else if (isVideo) {
             video.hidden = false;
             if (media.mediaPreviewUrl) {
                 video.poster = media.mediaPreviewUrl;
@@ -371,6 +490,10 @@ $nextPageUrl = $baseMediaUrl . ($kind !== '' ? '?kind=' . rawurlencode($kind) . 
         if (activeKind !== 'video') return;
         setMediaGeometry(0, 0);
         setText(fields.duration, labels.unknown);
+    });
+    fontPreviewInput?.addEventListener('input', () => {
+        const text = fontPreviewInput.value.trim() || labels.fontPreviewText;
+        if (fontPreviewLines[0]) fontPreviewLines[0].textContent = text;
     });
 
     document.addEventListener('click', (event) => {
