@@ -5,6 +5,24 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?= e($title ?? __('app.admin')) ?></title>
     <link rel="icon" type="image/webp" href="<?= e(url('/assets/img/hugin-logo-mini.webp')) ?>">
+    <script>
+        (() => {
+            if (!('serviceWorker' in navigator) || typeof navigator.serviceWorker.getRegistrations !== 'function') return;
+            navigator.serviceWorker.getRegistrations().then(registrations => {
+                const rootScope = `${window.location.origin}/`;
+                registrations.forEach(registration => {
+                    const worker = registration.active || registration.waiting || registration.installing;
+                    let scriptPath = '';
+                    try {
+                        scriptPath = worker?.scriptURL ? new URL(worker.scriptURL).pathname : '';
+                    } catch (error) {}
+                    if (registration.scope === rootScope && scriptPath === '/display-service-worker.js') {
+                        registration.unregister();
+                    }
+                });
+            }).catch(() => {});
+        })();
+    </script>
     <link rel="stylesheet" href="<?= e(asset_url('/assets/css/admin.css')) ?>">
     <?php
     $pluginCssLinks = [];

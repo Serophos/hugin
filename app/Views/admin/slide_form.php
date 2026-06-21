@@ -784,7 +784,7 @@ function renderTemplateValueFields() {
             controlMount = picker;
         } else {
             control = document.createElement('input');
-            control.type = field.type === 'url' || field.type === 'qr_url' ? 'url' : 'text';
+            control.type = field.type === 'datetime' ? 'datetime-local' : (field.type === 'url' || field.type === 'qr_url' ? 'url' : 'text');
             control.value = value;
             if (field.type === 'url' || field.type === 'qr_url') control.maxLength = 1024;
         }

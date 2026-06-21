@@ -77,6 +77,7 @@ $editorI18n = [
     'media_video' => __('templates.field_type_media_video'),
     'qr_url' => __('templates.field_type_qr_url'),
     'color' => __('templates.field_type_color'),
+    'datetime' => __('templates.field_type_datetime'),
     'x' => __('templates.property_x'),
     'y' => __('templates.property_y'),
     'w' => __('templates.property_w'),
@@ -273,19 +274,19 @@ require __DIR__ . '/../layouts/admin_header.php';
             </label>
             <div class="template-editor__tools">
                 <button type="button" class="template-tool-button template-tool-button--text" data-add-element="text" aria-label="<?= e(__('templates.add_element_accessible_label', ['type' => __('templates.element_text')])) ?>" title="<?= e(__('templates.add_element_shortcut_tooltip', ['type' => __('templates.element_text'), 'shortcut' => __('templates.shortcut_add_text')])) ?>">
-                    <span class="template-tool-button__icon" aria-hidden="true"><img src="<?= e(url('/assets/icons/admin/template-tool-text.png')) ?>" alt=""></span>
+                    <span class="template-tool-button__icon" aria-hidden="true"><img src="<?= e(asset_url('/assets/icons/admin/template-tool-text.png')) ?>" alt=""></span>
                     <span class="template-tool-button__label"><?= e(__('templates.element_text')) ?></span>
                 </button>
                 <button type="button" class="template-tool-button template-tool-button--dynamic-text" data-add-element="dynamic_text" aria-label="<?= e(__('templates.add_element_accessible_label', ['type' => __('templates.element_dynamic_text')])) ?>" title="<?= e(__('templates.add_element_shortcut_tooltip', ['type' => __('templates.element_dynamic_text'), 'shortcut' => __('templates.shortcut_add_dynamic_text')])) ?>">
-                    <span class="template-tool-button__icon" aria-hidden="true"><?= admin_icon('reload') ?></span>
+                    <span class="template-tool-button__icon" aria-hidden="true"><img src="<?= e(asset_url('/assets/icons/admin/template-tool-dynamic-text.png')) ?>" alt=""></span>
                     <span class="template-tool-button__label"><?= e(__('templates.element_dynamic_text')) ?></span>
                 </button>
                 <button type="button" class="template-tool-button template-tool-button--media" data-add-element="media" aria-label="<?= e(__('templates.add_element_accessible_label', ['type' => __('templates.element_media')])) ?>" title="<?= e(__('templates.add_element_shortcut_tooltip', ['type' => __('templates.element_media'), 'shortcut' => __('templates.shortcut_add_media')])) ?>">
-                    <span class="template-tool-button__icon" aria-hidden="true"><img src="<?= e(url('/assets/icons/admin/template-tool-media.png')) ?>" alt=""></span>
+                    <span class="template-tool-button__icon" aria-hidden="true"><img src="<?= e(asset_url('/assets/icons/admin/template-tool-media.png')) ?>" alt=""></span>
                     <span class="template-tool-button__label"><?= e(__('templates.element_media')) ?></span>
                 </button>
                 <button type="button" class="template-tool-button template-tool-button--qr" data-add-element="qr" aria-label="<?= e(__('templates.add_element_accessible_label', ['type' => __('templates.element_qr')])) ?>" title="<?= e(__('templates.add_element_shortcut_tooltip', ['type' => __('templates.element_qr'), 'shortcut' => __('templates.shortcut_add_qr')])) ?>">
-                    <span class="template-tool-button__icon" aria-hidden="true"><img src="<?= e(url('/assets/icons/admin/template-tool-qr.png')) ?>" alt=""></span>
+                    <span class="template-tool-button__icon" aria-hidden="true"><img src="<?= e(asset_url('/assets/icons/admin/template-tool-qr.png')) ?>" alt=""></span>
                     <span class="template-tool-button__label"><?= e(__('templates.element_qr')) ?></span>
                 </button>
                 <button type="button" class="template-tool-button template-tool-button--datetime" data-add-element="datetime" aria-label="<?= e(__('templates.add_element_accessible_label', ['type' => __('templates.element_datetime')])) ?>" title="<?= e(__('templates.add_element_shortcut_tooltip', ['type' => __('templates.element_datetime'), 'shortcut' => __('templates.shortcut_add_datetime')])) ?>">
@@ -298,7 +299,7 @@ require __DIR__ . '/../layouts/admin_header.php';
                 </button>
                 <div class="template-tool-split template-tool-split--shape" data-shape-dropdown>
                     <button type="button" class="template-tool-button template-tool-button--shape" data-add-element="shape" data-shape-type="square" aria-label="<?= e(__('templates.add_element_accessible_label', ['type' => __('templates.element_shape')])) ?>" title="<?= e(__('templates.add_element_shortcut_tooltip', ['type' => __('templates.element_shape'), 'shortcut' => __('templates.shortcut_add_shape')])) ?>">
-                        <span class="template-tool-button__icon" aria-hidden="true"><img src="<?= e(url('/assets/icons/admin/template-tool-shape.png')) ?>" alt=""></span>
+                        <span class="template-tool-button__icon" aria-hidden="true"><img src="<?= e(asset_url('/assets/icons/admin/template-tool-shape.png')) ?>" alt=""></span>
                         <span class="template-tool-button__label"><?= e(__('templates.element_shape')) ?></span>
                     </button>
                     <button type="button" class="template-tool-dropdown-toggle" data-shape-dropdown-toggle aria-haspopup="true" aria-expanded="false" aria-label="<?= e(__('templates.shape_dropdown_label')) ?>" title="<?= e(__('templates.shape_dropdown_label')) ?>"><span aria-hidden="true"></span></button>
@@ -1525,7 +1526,7 @@ require __DIR__ . '/../layouts/admin_header.php';
             <div class="template-editor__field-grid">
                 <label>${escapeHtml(i18n.field_key)}<input type="text" value="${attr(field.key)}" autocomplete="off" autocapitalize="none" spellcheck="false" data-field-key></label>
                 <label>${escapeHtml(i18n.field_label)}<input type="text" value="${attr(field.label)}" data-field-label></label>
-                <label>${escapeHtml(i18n.field)}<select data-field-type><option value="text">${escapeHtml(i18n.text)}</option><option value="multiline">${escapeHtml(i18n.multiline)}</option><option value="url">${escapeHtml(i18n.url)}</option><option value="media_image">${escapeHtml(i18n.media_image)}</option><option value="media_video">${escapeHtml(i18n.media_video)}</option><option value="qr_url">${escapeHtml(i18n.qr_url)}</option><option value="color">${escapeHtml(i18n.color)}</option></select></label>
+                <label>${escapeHtml(i18n.field)}<select data-field-type><option value="text">${escapeHtml(i18n.text)}</option><option value="multiline">${escapeHtml(i18n.multiline)}</option><option value="url">${escapeHtml(i18n.url)}</option><option value="media_image">${escapeHtml(i18n.media_image)}</option><option value="media_video">${escapeHtml(i18n.media_video)}</option><option value="qr_url">${escapeHtml(i18n.qr_url)}</option><option value="color">${escapeHtml(i18n.color)}</option><option value="datetime">${escapeHtml(i18n.datetime)}</option></select></label>
                 <label class="checkbox-row"><input type="checkbox" data-field-required ${field.required ? 'checked' : ''}> ${escapeHtml(i18n.field_required)}</label>
                 ${fieldDefaultControl(field)}
             </div>`;
@@ -1658,7 +1659,7 @@ require __DIR__ . '/../layouts/admin_header.php';
     }
 
     function fieldCapableElement(element) {
-        return ['text', 'dynamic_text', 'media', 'qr'].includes(element?.type || '');
+        return ['text', 'dynamic_text', 'media', 'qr', 'countdown'].includes(element?.type || '');
     }
 
     function fieldForElement(element) {
@@ -1670,6 +1671,7 @@ require __DIR__ . '/../layouts/admin_header.php';
         if (element?.type === 'media') return 'media_image';
         if (element?.type === 'qr') return 'qr_url';
         if (element?.type === 'dynamic_text') return 'multiline';
+        if (element?.type === 'countdown') return 'datetime';
         return 'text';
     }
 
@@ -1752,7 +1754,7 @@ require __DIR__ . '/../layouts/admin_header.php';
                 .map(asset => `<option value="${attr(asset.id)}" ${String(asset.id) === value ? 'selected' : ''}>${escapeHtml(asset.name)} (${escapeHtml(asset.kind)})</option>`));
             return `<label class="template-editor__field-default">${escapeHtml(i18n.field_default)}<select data-field-default>${options.join('')}</select></label>`;
         }
-        const inputType = type === 'url' || type === 'qr_url' ? 'url' : 'text';
+        const inputType = type === 'datetime' ? 'datetime-local' : (type === 'url' || type === 'qr_url' ? 'url' : 'text');
         return `<label class="template-editor__field-default">${escapeHtml(i18n.field_default)}<input type="${inputType}" value="${attr(value)}" data-field-default></label>`;
     }
 

@@ -259,6 +259,7 @@ return [
         'field_type_media_video' => 'Video',
         'field_type_qr_url' => 'QR URL',
         'field_type_color' => 'Color',
+        'field_type_datetime' => 'Date/Time',
         'property_field' => 'Field',
         'property_static_text' => 'Static text',
         'property_x' => 'X',

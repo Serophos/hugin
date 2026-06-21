@@ -502,7 +502,7 @@
             return Promise.resolve(false);
         }
 
-        return navigator.serviceWorker.register(serviceWorkerUrl, { scope: '/' })
+        return navigator.serviceWorker.register(serviceWorkerUrl, { scope: '/display/' })
             .then(() => navigator.serviceWorker.ready)
             .then(() => true)
             .catch(() => false);

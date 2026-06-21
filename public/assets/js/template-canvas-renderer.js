@@ -284,8 +284,12 @@
         return `${pad2(days)}d ${pad2(hours)}h ${pad2(minutes)}m ${pad2(seconds)}s`;
     }
 
-    function countdownPreviewValue(element) {
-        const targetMs = countdownTargetMs(element?.style?.countdownTarget || '');
+    function countdownPreviewValue(element, context) {
+        const field = fieldForElement(element, context.fieldMap);
+        const target = field
+            ? resolvedFieldValue(field, context.values, context)
+            : element?.style?.countdownTarget || '';
+        const targetMs = countdownTargetMs(target);
         if (!Number.isFinite(targetMs)) return formatCountdownSeconds(0);
         return formatCountdownSeconds((targetMs - Date.now()) / 1000);
     }
@@ -734,7 +738,7 @@
         if (element.type === 'countdown') {
             const countdown = document.createElement('span');
             countdown.className = 'template-editor__countdown-preview';
-            countdown.textContent = countdownPreviewValue(element);
+            countdown.textContent = countdownPreviewValue(element, context);
             applyTextPreviewStyle(countdown, element, context.fontOptions);
             preview.appendChild(countdown);
             return preview;

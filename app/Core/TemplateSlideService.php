@@ -7,7 +7,7 @@ use RuntimeException;
 class TemplateSlideService
 {
     private const SPEC_VERSION = 1;
-    private const FIELD_TYPES = ['text', 'multiline', 'url', 'media_image', 'media_video', 'qr_url', 'color'];
+    private const FIELD_TYPES = ['text', 'multiline', 'url', 'media_image', 'media_video', 'qr_url', 'color', 'datetime'];
     private const ELEMENT_TYPES = ['background', 'text', 'dynamic_text', 'media', 'qr', 'shape', 'datetime', 'countdown'];
     private const SHAPE_TYPES = ['square', 'circle', 'triangle', 'diamond', 'star', 'hexagon', 'pentagon', 'arrow'];
     private const DATE_TIME_MODES = ['clock', 'date'];
@@ -253,6 +253,8 @@ class TemplateSlideService
                     throw new RuntimeException(__('templates.invalid_url_value'));
                 }
                 $values[$key] = substr($url, 0, 1024);
+            } elseif ($type === 'datetime') {
+                $values[$key] = $this->normalizeCountdownTarget((string)$raw);
             } elseif ($type === 'color') {
                 $values[$key] = normalize_css_rgba_color((string)$raw, (string)($field['default'] ?? 'rgba(255, 255, 255, 1)'));
             } else {
@@ -481,13 +483,18 @@ class TemplateSlideService
             if (!in_array($type, self::FIELD_TYPES, true)) {
                 $type = 'text';
             }
+            $default = is_scalar($field['default'] ?? null) ? (string)$field['default'] : '';
+            if ($type === 'datetime') {
+                $default = $this->normalizeCountdownTarget($default);
+            }
+
             $seen[$key] = true;
             $normalized[] = [
                 'key' => $key,
                 'label' => substr(trim((string)($field['label'] ?? $key)), 0, 120) ?: $key,
                 'type' => $type,
                 'required' => !empty($field['required']),
-                'default' => is_scalar($field['default'] ?? null) ? (string)$field['default'] : '',
+                'default' => $default,
             ];
         }
 
@@ -509,7 +516,7 @@ class TemplateSlideService
             if ($field !== '' && !isset($fieldKeys[$field])) {
                 $field = '';
             }
-            if (in_array($type, ['datetime', 'countdown'], true)) {
+            if ($type === 'datetime') {
                 $field = '';
             }
 
@@ -757,7 +764,9 @@ class TemplateSlideService
             return '<div class="' . e($classes) . '" style="' . e($styleAttr) . '"' . $animationAttr . ' data-template-datetime="1" data-template-datetime-mode="' . e($mode) . '" data-template-time-format="' . e($format) . '"><div class="template-slide__datetime-content">' . e($content) . '</div></div>';
         }
         if ($type === 'countdown') {
-            $target = $this->normalizeCountdownTarget((string)($style['countdownTarget'] ?? ''));
+            $target = $field !== ''
+                ? $this->normalizeCountdownTarget((string)$value)
+                : $this->normalizeCountdownTarget((string)($style['countdownTarget'] ?? ''));
             $targetMs = $this->countdownTargetMilliseconds($target);
             $content = $this->formatCountdownElement($target);
 

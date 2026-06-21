@@ -62,9 +62,28 @@ self.addEventListener('fetch', event => {
     }
 
     if (CACHEABLE_PATH_RE.test(url.pathname)) {
-        event.respondWith(cacheableAsset(request));
+        event.respondWith((async () => {
+            if (!await isDisplayClientRequest(event)) {
+                return fetch(request);
+            }
+
+            return cacheableAsset(request);
+        })());
     }
 });
+
+async function isDisplayClientRequest(event) {
+    const clientId = event.clientId || event.resultingClientId || '';
+    if (!clientId) return false;
+
+    try {
+        const client = await self.clients.get(clientId);
+        if (!client?.url) return false;
+        return DISPLAY_PAGE_RE.test(new URL(client.url).pathname);
+    } catch (error) {
+        return false;
+    }
+}
 
 async function networkFirst(request) {
     const cache = await caches.open(CACHE_NAME);
