@@ -1,7 +1,7 @@
 {
   "name": "hugin",
   "display_name": "Hugin",
-  "version": "1.0.1",
+  "version": "1.1.0-dev",
   "release_date": "2026-06-21",
   "description": "Open source digital signage and information display management.",
   "license": "AGPL-3.0-or-later",
