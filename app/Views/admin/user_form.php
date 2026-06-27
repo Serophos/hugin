@@ -1,6 +1,11 @@
 <?php
 $formId = 'user';
 $title = $user ? __('users.edit_title') : __('users.create_title');
+$userBreadcrumbLabel = $user ? (string)($user['display_name'] ?: $user['username']) : __('users.create_title');
+$breadcrumbs = [
+    ['label' => __('users.title'), 'url' => '/admin/users'],
+    ['label' => $userBreadcrumbLabel],
+];
 require __DIR__ . '/../layouts/admin_header.php';
 ?>
 <?php if ($error): ?><div class="alert error"><?= e($error) ?></div><?php endif; ?>

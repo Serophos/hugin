@@ -1,5 +1,6 @@
 <?php
 $title = __('slide.plural');
+$breadcrumbs = [['label' => $title]];
 $allSlides = $allSlides ?? [];
 $pluginLabels = $pluginLabels ?? [];
 $slideTypeDefinitions = array_values($slideTypeDefinitions ?? []);

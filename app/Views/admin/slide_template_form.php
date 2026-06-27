@@ -2,6 +2,10 @@
 $formId = 'template';
 $template = $templateModel ?? [];
 $title = !empty($template['id']) ? __('templates.edit_title') : __('templates.create_title');
+$breadcrumbs = [
+    ['label' => __('templates.plural'), 'url' => '/admin/slide-templates'],
+    ['label' => !empty($template['id']) ? $template['name'] : __('templates.create_title')],
+];
 $activeEditorOrientation = strtolower(trim((string)($editorOrientation ?? old('template_editor_orientation', $_GET['orientation'] ?? 'landscape', $formId))));
 $activeEditorOrientation = in_array($activeEditorOrientation, ['portrait', 'vertical'], true) ? 'portrait' : 'landscape';
 if ($activeEditorOrientation === 'portrait' && $portraitSpec === null) {

@@ -1,4 +1,8 @@
-<?php $title = __('settings.title'); require __DIR__ . '/../layouts/admin_header.php'; ?>
+<?php
+$title = __('settings.title');
+$breadcrumbs = [['label' => $title]];
+require __DIR__ . '/../layouts/admin_header.php';
+?>
 <?php if ($error): ?><div class="alert error"><?= e($error) ?></div><?php endif; ?>
 <form method="post" action="<?= e(url('/admin/settings')) ?>" class="form-grid settings-form">
     <?= csrf_field() ?>

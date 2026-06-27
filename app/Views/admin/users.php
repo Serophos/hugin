@@ -1,4 +1,8 @@
-<?php $title = __('users.title'); require __DIR__ . '/../layouts/admin_header.php'; ?>
+<?php
+$title = __('users.title');
+$breadcrumbs = [['label' => $title]];
+require __DIR__ . '/../layouts/admin_header.php';
+?>
 <div class="page-actions">
     <a class="button button--default" href="<?= e(url('/admin/users/create')) ?>"><?= admin_icon('add') ?><span><?= e(__('users.new')) ?></span></a>
 </div>

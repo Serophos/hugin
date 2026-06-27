@@ -1,5 +1,6 @@
 <?php
 $title = __('channel.plural');
+$breadcrumbs = [['label' => $title]];
 $defaultScheduleId = (int)($defaultScheduleId ?? 0);
 $playlistAddTargets = [];
 foreach ($groups as $group) {

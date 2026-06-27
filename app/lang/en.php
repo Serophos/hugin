@@ -101,6 +101,8 @@ return [
         'settings' => 'Settings',
         'users' => 'Users',
         'accessibility' => 'Accessibility',
+        'account' => 'Account',
+        'breadcrumbs' => 'Breadcrumbs',
     ],
     'roles' => [
         'admin' => 'Admin',

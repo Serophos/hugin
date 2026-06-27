@@ -1,6 +1,7 @@
 <?php
 $locationCreateForm = 'location_create';
 $title = __('locations.plural');
+$breadcrumbs = [['label' => $title]];
 require __DIR__ . '/../layouts/admin_header.php';
 ?>
 <div class="page-actions">

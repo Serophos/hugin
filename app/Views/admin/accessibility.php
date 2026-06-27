@@ -1,4 +1,8 @@
-<?php $title = __('accessibility.title', [], 'Accessibility statement'); require __DIR__ . '/../layouts/admin_header.php'; ?>
+<?php
+$title = __('accessibility.title', [], 'Accessibility statement');
+$breadcrumbs = [['label' => $title]];
+require __DIR__ . '/../layouts/admin_header.php';
+?>
 <p class="muted"><?= e(__('accessibility.intro', [], 'This statement documents the accessibility target and feedback channels for the Hugin admin backend.')) ?></p>
 
 <section class="card accessibility-statement" aria-labelledby="accessibility-target">

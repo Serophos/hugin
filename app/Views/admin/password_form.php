@@ -1,6 +1,10 @@
 <?php
 $formId = 'password';
 $title = __('auth.change_password_title');
+$breadcrumbs = [
+    ['label' => __('nav.account')],
+    ['label' => $title],
+];
 require __DIR__ . '/../layouts/admin_header.php';
 ?>
 <?php if ($flash): ?><div class="alert success"><?= e($flash) ?></div><?php endif; ?>

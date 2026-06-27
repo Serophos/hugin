@@ -2,6 +2,10 @@
 $locationEditForm = 'location_edit';
 $groupCreateForm = 'display_group_create';
 $title = __('common.edit') . ': ' . $location['name'];
+$breadcrumbs = [
+    ['label' => __('locations.plural'), 'url' => '/admin/locations'],
+    ['label' => $location['name']],
+];
 require __DIR__ . '/../layouts/admin_header.php';
 ?>
 <div class="page-actions">

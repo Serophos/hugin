@@ -1,5 +1,6 @@
 <?php
 $title = __('templates.plural');
+$breadcrumbs = [['label' => $title]];
 $templates = $templates ?? [];
 require __DIR__ . '/../layouts/admin_header.php';
 ?>

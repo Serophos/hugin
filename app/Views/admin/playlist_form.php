@@ -1,6 +1,10 @@
 <?php
 $formId = 'channel';
 $title = $channel ? __('channel.edit_title') : __('channel.create_title');
+$breadcrumbs = [
+    ['label' => __('channel.plural'), 'url' => '/admin/playlists'],
+    ['label' => $channel ? $channel['name'] : __('channel.create_title')],
+];
 $prefillAssignment = is_array($prefillAssignment ?? null) ? $prefillAssignment : null;
 if (form_has_old($formId)) {
     $displayValues = old_array('assignment_display_id', [], $formId);

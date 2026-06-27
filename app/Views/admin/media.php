@@ -1,6 +1,7 @@
 <?php
 $uploadForm = 'media_upload';
 $title = __('media.title');
+$breadcrumbs = [['label' => $title]];
 require __DIR__ . '/../layouts/admin_header.php';
 ?>
 <?php if ($flash): ?><div class="alert success"><?= e($flash) ?></div><?php endif; ?>

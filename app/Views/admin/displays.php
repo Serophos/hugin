@@ -1,4 +1,8 @@
-<?php $title = __('display.plural'); require __DIR__ . '/../layouts/admin_header.php'; ?>
+<?php
+$title = __('display.plural');
+$breadcrumbs = [['label' => $title]];
+require __DIR__ . '/../layouts/admin_header.php';
+?>
 <div class="page-actions">
     <a class="button button--normal" href="<?= e(url('/admin/locations')) ?>"><?= admin_icon('manage') ?><span><?= e(__('locations.manage')) ?></span></a>
     <a class="button button--default" href="<?= e(url('/admin/displays/create')) ?>"><?= admin_icon('add') ?><span><?= e(__('display.new')) ?></span></a>

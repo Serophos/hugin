@@ -1,6 +1,10 @@
 <?php
 $formId = 'schedule';
 $title = $schedule ? __('schedule.edit_title') : __('schedule.create_title');
+$breadcrumbs = [
+    ['label' => __('schedule.plural'), 'url' => '/admin/schedules'],
+    ['label' => $schedule ? $schedule['name'] : __('schedule.create_title')],
+];
 if (form_has_old($formId)) {
     $weekdayValues = old_array('rule_weekday', [], $formId);
     $startValues = old_array('rule_start_time', [], $formId);

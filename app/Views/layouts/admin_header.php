@@ -76,6 +76,25 @@ $adminNavItems = [
     ['label' => __('nav.accessibility', [], 'Accessibility'), 'url' => '/admin/accessibility', 'icon' => 'about', 'active' => ['/admin/accessibility']],
     ['label' => __('nav.about'), 'url' => '/admin/about', 'icon' => 'about', 'active' => ['/admin/about']],
 ];
+$rawBreadcrumbs = isset($breadcrumbs) && is_array($breadcrumbs) ? $breadcrumbs : [];
+$adminBreadcrumbs = [];
+foreach ($rawBreadcrumbs as $breadcrumb) {
+    if (!is_array($breadcrumb)) {
+        continue;
+    }
+    $label = trim((string)($breadcrumb['label'] ?? ''));
+    if ($label === '') {
+        continue;
+    }
+    $adminBreadcrumbs[] = [
+        'label' => $label,
+        'url' => isset($breadcrumb['url']) ? trim((string)$breadcrumb['url']) : '',
+    ];
+}
+if ($adminBreadcrumbs === []) {
+    $adminBreadcrumbs[] = ['label' => (string)($title ?? __('app.admin')), 'url' => ''];
+}
+$adminBreadcrumbLast = array_key_last($adminBreadcrumbs);
 $bodyClasses = trim(($adminShellActive ? 'admin-shell-body' : 'admin-guest-body') . ' ' . admin_accessibility_body_classes());
 ?>
 <body class="<?= e($bodyClasses) ?>">
@@ -118,8 +137,27 @@ $bodyClasses = trim(($adminShellActive ? 'admin-shell-body' : 'admin-guest-body'
             <button type="button" class="admin-menu-toggle" data-admin-sidebar-toggle aria-controls="admin-sidebar" aria-expanded="false" aria-label="<?= e(__('nav.admin', [], 'Admin')) ?>">
                 <?= admin_icon('menu') ?>
             </button>
-            <div>
-                <h1 class="admin-topbar__title"><?= e($title ?? __('app.admin')) ?></h1>
+            <div class="admin-topbar__heading">
+                <nav class="admin-breadcrumb" aria-label="<?= e(__('nav.breadcrumbs', [], 'Breadcrumbs')) ?>">
+                    <ol class="admin-breadcrumb__list">
+                        <?php foreach ($adminBreadcrumbs as $index => $breadcrumb): ?>
+                            <?php
+                            $isLastBreadcrumb = $index === $adminBreadcrumbLast;
+                            $breadcrumbLabel = (string)$breadcrumb['label'];
+                            $breadcrumbUrl = (string)($breadcrumb['url'] ?? '');
+                            ?>
+                            <li class="admin-breadcrumb__item<?= $isLastBreadcrumb ? ' is-current' : '' ?>">
+                                <?php if (!$isLastBreadcrumb && $breadcrumbUrl !== ''): ?>
+                                    <a class="admin-breadcrumb__link" href="<?= e(url($breadcrumbUrl)) ?>"><?= e($breadcrumbLabel) ?></a>
+                                <?php elseif ($isLastBreadcrumb): ?>
+                                    <h1 class="admin-topbar__title admin-breadcrumb__current" aria-current="page"><?= e($breadcrumbLabel) ?></h1>
+                                <?php else: ?>
+                                    <span class="admin-breadcrumb__text"><?= e($breadcrumbLabel) ?></span>
+                                <?php endif; ?>
+                            </li>
+                        <?php endforeach; ?>
+                    </ol>
+                </nav>
             </div>
             <span class="user-pill"><?= e(current_user_name()) ?></span>
         </header>

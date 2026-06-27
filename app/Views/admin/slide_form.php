@@ -2,7 +2,12 @@
 $formId = 'slide';
 $selectedSlideType = (string)old('slide_type', $slide['slide_type'] ?? 'image', $formId);
 $returnToPath = (string)old('return_to', $returnTo ?? '/admin/slides', $formId);
-$title = $slide ? __('slide.edit_title') : __('slide.create_title');
+$isExistingSlide = !empty($slide['id']);
+$title = $isExistingSlide ? __('slide.edit_title') : __('slide.create_title');
+$breadcrumbs = [
+    ['label' => __('slide.plural'), 'url' => '/admin/slides'],
+    ['label' => $isExistingSlide ? $slide['name'] : __('slide.create_title')],
+];
 $textSlideLayouts = text_slide_layout_options();
 $textSlideAnimations = text_slide_animation_options();
 $textSlideQrPositions = text_slide_qr_position_options();

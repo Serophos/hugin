@@ -1,5 +1,6 @@
 <?php
 $title = __('plugins.title');
+$breadcrumbs = [['label' => $title]];
 $pluginDialogStrings = [
     'title' => __('plugins.disable_impact_title'),
     'message' => __('plugins.disable_impact_message'),

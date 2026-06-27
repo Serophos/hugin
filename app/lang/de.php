@@ -121,6 +121,8 @@ return [
         'settings' => 'Einstellungen',
         'users' => 'Benutzer',
         'accessibility' => 'Barrierefreiheit',
+        'account' => 'Konto',
+        'breadcrumbs' => 'Breadcrumb-Navigation',
     ],
     'roles' => [
         'admin' => 'Administrator',

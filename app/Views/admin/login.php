@@ -1,4 +1,8 @@
-<?php $title = __('auth.login_title'); require __DIR__ . '/../layouts/admin_header.php'; ?>
+<?php
+$title = __('auth.login_title');
+$breadcrumbs = [['label' => $title]];
+require __DIR__ . '/../layouts/admin_header.php';
+?>
 <div class="card login-card">
     <h1><?= e(__('app.name', [], 'Hugin')) ?></h1>
     <p class="muted"><?= e(__('app.tagline')) ?></p>

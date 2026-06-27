@@ -1,5 +1,6 @@
 <?php
 $title = __('schedule.plural');
+$breadcrumbs = [['label' => $title]];
 $formatTime = static fn ($value): string => substr((string)$value, 0, 5);
 $ruleSummary = static function (array $rules) use ($formatTime): string {
     if (!$rules) {

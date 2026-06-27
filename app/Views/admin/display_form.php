@@ -1,6 +1,10 @@
 <?php
 $formId = 'display';
 $title = $display ? __('display.edit_title') : __('display.create_title');
+$breadcrumbs = [
+    ['label' => __('display.plural'), 'url' => '/admin/displays'],
+    ['label' => $display ? $display['name'] : __('display.create_title')],
+];
 $displayIcons = $displayIcons ?? [];
 $defaultDisplayIcon = $defaultDisplayIcon ?? 'display_16_9.png';
 $selectedDisplayIcon = (string)old('icon_file', $display['icon_file'] ?? $defaultDisplayIcon, $formId);

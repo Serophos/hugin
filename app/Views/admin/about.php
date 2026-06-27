@@ -1,4 +1,8 @@
-<?php $title = __('about.title'); require __DIR__ . '/../layouts/admin_header.php'; ?>
+<?php
+$title = __('about.title');
+$breadcrumbs = [['label' => $title]];
+require __DIR__ . '/../layouts/admin_header.php';
+?>
 <div class="about-layout">
     <section class="card about-logo-card">
         <img src="<?= e(url('/assets/img/hugin-logo.webp')) ?>" alt="<?= e(__('about.logo_alt')) ?>" class="about-logo">

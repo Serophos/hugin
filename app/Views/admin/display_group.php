@@ -1,6 +1,12 @@
 <?php
 $groupEditForm = 'display_group_edit';
 $title = $group['name'];
+$breadcrumbs = [
+    ['label' => __('locations.plural'), 'url' => '/admin/locations'],
+    ['label' => $group['location_name'], 'url' => '/admin/locations/' . $group['location_id'] . '/edit'],
+    ['label' => __('display_groups.plural')],
+    ['label' => $group['name']],
+];
 require __DIR__ . '/../layouts/admin_header.php';
 ?>
 <div class="page-actions">
