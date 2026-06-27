@@ -144,7 +144,7 @@ Notes:
 - Manual display reload requests from the admin UI.
 - Automatic heartbeat collection from display clients.
 - Display state endpoint at `/display/<slug>/state` for client-side refresh detection.
-- Display clients wait until the next full minute on first load and may show the Hugin logo during that startup phase.
+- Display clients cache their display shell and same-origin slideshow media during the startup loading phase, then wait until the next full minute before playback.
 
 ### Locations And Display Groups
 
@@ -152,7 +152,7 @@ Notes:
 - Create display groups inside locations.
 - Move displays between groups in bulk.
 - Maintain group layout metadata: x/y position, width, height, rotation, and sort order.
-- Optionally synchronize grouped playlist/config reloads to the next full minute. During these later updates, the current content remains visible and the Hugin startup logo is not shown. Clients use their local epoch clock for this behavior, so grouped displays should run with NTP-synchronized system clocks. This does not add server-side slide orchestration or live slide-change synchronization.
+- Optionally synchronize grouped playlist/config reloads to the next full minute. Grouped displays cache the updated slideshow first, report readiness to Hugin, and start together after currently online active group members are ready. Clients still depend on reasonably synchronized system clocks for the final start minute. This does not add live slide-change synchronization.
 
 ### Playlists
 

@@ -22,10 +22,13 @@ self.addEventListener('activate', event => {
 self.addEventListener('message', event => {
     const data = event.data || {};
     if (data.type === 'CACHE_DISPLAY_MANIFEST') {
-        event.waitUntil(cacheDisplayManifest(data.manifest, Number(data.maxBytes || 0)).then(result => {
-            event.ports?.[0]?.postMessage(Object.assign({ ok: true, type: 'CACHE_DISPLAY_MANIFEST_RESULT' }, result));
+        const port = event.ports?.[0] || null;
+        event.waitUntil(cacheDisplayManifest(data.manifest, Number(data.maxBytes || 0), progress => {
+            port?.postMessage({ ok: true, type: 'CACHE_DISPLAY_MANIFEST_PROGRESS', progress });
+        }).then(result => {
+            port?.postMessage(Object.assign({ ok: true, type: 'CACHE_DISPLAY_MANIFEST_RESULT' }, result));
         }).catch(error => {
-            event.ports?.[0]?.postMessage({ ok: false, type: 'CACHE_DISPLAY_MANIFEST_RESULT', error: String(error?.message || error) });
+            port?.postMessage({ ok: false, type: 'CACHE_DISPLAY_MANIFEST_RESULT', error: String(error?.message || error) });
         }));
         return;
     }
@@ -170,7 +173,7 @@ async function cachedRangeResponse(request) {
     });
 }
 
-async function cacheDisplayManifest(manifest, maxBytes) {
+async function cacheDisplayManifest(manifest, maxBytes, onProgress = () => {}) {
     if (!manifest || manifest.ok !== true || !Array.isArray(manifest.assets)) {
         throw new Error('Invalid offline manifest.');
     }
@@ -179,20 +182,46 @@ async function cacheDisplayManifest(manifest, maxBytes) {
     const cachedUrls = [];
     const skippedUrls = [];
     let reservedBytes = 0;
+    let completedAssets = 0;
+    let cachedAssets = 0;
 
     const sortedAssets = manifest.assets.slice().sort((left, right) => priority(left) - priority(right));
+    const totalAssets = sortedAssets.length;
+    const report = stage => {
+        try {
+            onProgress({
+                stage,
+                completed: completedAssets,
+                total: totalAssets,
+                cached: cachedAssets,
+                skipped: skippedUrls.length,
+                bytesReserved: reservedBytes,
+            });
+        } catch (error) {}
+    };
+
+    report('preparing');
     for (const asset of sortedAssets) {
         const url = absoluteSameOriginUrl(asset?.url);
-        if (!url) continue;
+        if (!url) {
+            completedAssets += 1;
+            skippedUrls.push('');
+            report('caching');
+            continue;
+        }
 
         const size = Math.max(0, Number(asset.size || 0));
         const budgeted = size > 0 ? size : 512 * 1024;
         if (maxBytes > 0 && reservedBytes + budgeted > maxBytes && asset.required !== true) {
             skippedUrls.push(url);
+            completedAssets += 1;
+            report('caching');
             continue;
         }
         if (maxBytes > 0 && reservedBytes + budgeted > maxBytes && asset.required === true && isLargeMedia(asset)) {
             skippedUrls.push(url);
+            completedAssets += 1;
+            report('caching');
             continue;
         }
 
@@ -202,12 +231,15 @@ async function cacheDisplayManifest(manifest, maxBytes) {
                 if (await cacheVideoAsset(url)) {
                     cachedUrls.push(url);
                     reservedBytes += budgeted;
+                    cachedAssets += 1;
                 } else {
                     skippedUrls.push(url);
                 }
             } catch (error) {
                 skippedUrls.push(url);
             }
+            completedAssets += 1;
+            report('caching');
             continue;
         }
 
@@ -215,6 +247,9 @@ async function cacheDisplayManifest(manifest, maxBytes) {
         if (alreadyCached) {
             cachedUrls.push(url);
             reservedBytes += budgeted;
+            cachedAssets += 1;
+            completedAssets += 1;
+            report('caching');
             continue;
         }
 
@@ -222,23 +257,32 @@ async function cacheDisplayManifest(manifest, maxBytes) {
             const response = await fetch(request);
             if (!canCache(response)) {
                 skippedUrls.push(url);
+                completedAssets += 1;
+                report('caching');
                 continue;
             }
             await cache.put(request, response.clone());
             cachedUrls.push(url);
             reservedBytes += budgeted;
+            cachedAssets += 1;
         } catch (error) {
             skippedUrls.push(url);
         }
+        completedAssets += 1;
+        report('caching');
     }
 
     const allManifestUrls = manifest.assets.map(asset => absoluteSameOriginUrl(asset.url)).filter(Boolean);
     const status = await cacheStatus(allManifestUrls);
+    report('complete');
     return {
         signature: String(manifest.signature || ''),
         cachedUrls: status.cachedUrls,
-        skippedUrls,
+        skippedUrls: skippedUrls.filter(Boolean),
         bytesReserved: reservedBytes,
+        totalAssets: allManifestUrls.length,
+        cachedAssets: status.cachedUrls.length,
+        skippedAssets: skippedUrls.filter(Boolean).length,
     };
 }
 

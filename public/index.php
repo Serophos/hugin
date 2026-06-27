@@ -112,7 +112,9 @@ $monitoring = new MonitoringController($db, $displayStatusService);
 $uri = $request->uri();
 $method = $request->method();
 
-if ($method === 'POST' && !preg_match('#^/display/[a-zA-Z0-9\-_]+/heartbeat$#', $uri)) {
+if ($method === 'POST'
+    && !preg_match('#^/display/[a-zA-Z0-9\-_]+/(?:heartbeat|cache-readiness)$#', $uri)
+) {
     require_csrf();
 }
 
@@ -222,6 +224,8 @@ if (preg_match('#^/api/media/(\d+)/preview$#', $uri, $m) && $method === 'GET') {
 if (preg_match('#^/display/([a-zA-Z0-9\-_]+)/offline-manifest$#', $uri, $m) && $method === 'GET') { $frontend->offlineManifest($m[1]); exit; }
 if (preg_match('#^/display/([a-zA-Z0-9\-_]+)$#', $uri, $m) && $method === 'GET') { $frontend->display($m[1]); exit; }
 if (preg_match('#^/display/([a-zA-Z0-9\-_]+)/heartbeat$#', $uri, $m) && $method === 'POST') { $frontend->heartbeat($m[1]); exit; }
+if (preg_match('#^/display/([a-zA-Z0-9\-_]+)/cache-readiness$#', $uri, $m) && $method === 'POST') { $frontend->cacheReadiness($m[1]); exit; }
+if (preg_match('#^/display/([a-zA-Z0-9\-_]+)/cache-readiness$#', $uri, $m) && $method === 'GET') { $frontend->cacheReadinessStatus($m[1]); exit; }
 if (preg_match('#^/display/([a-zA-Z0-9\-_]+)/state$#', $uri, $m) && $method === 'GET') { $frontend->state($m[1]); exit; }
 
 http_response_code(404);

@@ -3,6 +3,9 @@ $heartbeatInterval = max(30, min(120, (int)floor(((int)app_core_setting('monitor
 $displayGroup = $displayGroup ?? null;
 $syncReloadToFullMinute = !empty($displayGroup['sync_reload_to_full_minute']);
 $startupSyncKey = 'hugin:slideshow-started:' . (string)($display['slug'] ?? '');
+$startupLocationName = (string)($displayGroup['location_name'] ?? __('locations.unassigned'));
+$startupGroupName = (string)($displayGroup['name'] ?? __('common.none'));
+$startupDisplayName = (string)($display['name'] ?? '');
 $templateFontAssetIds = [];
 foreach (($slides ?? []) as $slide) {
     foreach ((array)($slide['template_font_asset_ids'] ?? []) as $fontAssetId) {
@@ -47,7 +50,7 @@ $defaultHeadingFontCss = \App\Core\TemplateSlideService::fontFamilyCssForToken((
                     && scheduledReloadAgeMs >= 0
                     && scheduledReloadAgeMs <= maxScheduledReloadAgeMs;
 
-                if (isReload || hasStartedBefore || hasFreshScheduledReload) {
+                if (!hasFreshScheduledReload && (isReload || hasStartedBefore)) {
                     document.documentElement.classList.add('hugin-startup-loading-seen');
                 }
             } catch (error) {}
@@ -99,6 +102,7 @@ if (str_starts_with($display['slug'] ?? '', 'preview-slide-') && preg_match('#^p
      data-heartbeat-url="<?= e(url($displayRoutePrefix . '/heartbeat')) ?>"
      data-heartbeat-interval="<?= e((string)$heartbeatInterval) ?>"
      data-state-url="<?= e(url($displayRoutePrefix . '/state')) ?>"
+     data-cache-readiness-url="<?= $isPreviewDisplay ? '' : e(url($displayRoutePrefix . '/cache-readiness')) ?>"
      data-offline-manifest-url="<?= $isPreviewDisplay ? '' : e(url($displayRoutePrefix . '/offline-manifest')) ?>"
      data-service-worker-url="<?= $isPreviewDisplay ? '' : e(asset_url('/display-service-worker.js')) ?>"
      data-state-check-interval="60"
@@ -108,6 +112,14 @@ if (str_starts_with($display['slug'] ?? '', 'preview-slide-') && preg_match('#^p
      data-display-group-id="<?= e((string)($displayGroup['id'] ?? '')) ?>"
      data-display-group-name="<?= e((string)($displayGroup['name'] ?? '')) ?>"
      data-display-group-sync-mode="<?= e((string)($displayGroup['sync_mode'] ?? 'independent')) ?>"
+     data-loading-stage-preparing="<?= e(__('frontend.loading_stage_preparing')) ?>"
+     data-loading-stage-caching="<?= e(__('frontend.loading_stage_caching')) ?>"
+     data-loading-stage-degraded="<?= e(__('frontend.loading_stage_degraded')) ?>"
+     data-loading-stage-ready="<?= e(__('frontend.loading_stage_ready')) ?>"
+     data-loading-stage-waiting-group="<?= e(__('frontend.loading_stage_waiting_group')) ?>"
+     data-loading-stage-waiting-minute="<?= e(__('frontend.loading_stage_waiting_minute')) ?>"
+     data-loading-stage-starting="<?= e(__('frontend.loading_stage_starting')) ?>"
+     data-loading-progress-template="<?= e(__('frontend.loading_progress_template')) ?>"
      data-startup-sync-key="<?= e($startupSyncKey) ?>">
     <div class="startup-loading" role="status" aria-live="polite">
         <div class="startup-loading__content">
@@ -115,10 +127,25 @@ if (str_starts_with($display['slug'] ?? '', 'preview-slide-') && preg_match('#^p
             <div class="startup-loading__copy">
                 <h1><?= e(__('frontend.loading_title')) ?></h1>
                 <p class="startup-loading__status"><?= e(__('frontend.loading_status')) ?></p>
+                <p class="startup-loading__progress" data-startup-cache-progress></p>
             </div>
             <div class="startup-loading__bar" aria-hidden="true"></div>
             <p class="startup-loading__legal"><?= e(__('frontend.loading_legal')) ?></p>
         </div>
+        <dl class="startup-loading__identity" aria-label="<?= e(__('display.singular')) ?>">
+            <div>
+                <dt><?= e(__('locations.singular')) ?></dt>
+                <dd><?= e($startupLocationName) ?></dd>
+            </div>
+            <div>
+                <dt><?= e(__('display_groups.singular')) ?></dt>
+                <dd><?= e($startupGroupName) ?></dd>
+            </div>
+            <div>
+                <dt><?= e(__('display.singular')) ?></dt>
+                <dd><?= e($startupDisplayName) ?></dd>
+            </div>
+        </dl>
     </div>
     <?php foreach ($slides as $index => $slide): ?>
         <?php

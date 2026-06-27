@@ -24,12 +24,42 @@
     const videoStartHandlers = new WeakMap();
     const MINUTE_MS = 60000;
     const SYNC_RELOAD_MIN_LEAD_MS = 3000;
+    const SYNC_RELOAD_PAGE_LOAD_LEAD_MS = 5000;
+    const CACHE_READINESS_POLL_MS = 2000;
     const SCHEDULED_SYNC_RELOAD_KEY = 'huginScheduledSyncReload';
     const SCHEDULED_SYNC_RELOAD_MAX_AGE_MS = 120000;
     let serverClockOffsetMs = 0;
+    const startupStatus = slideshow.querySelector('.startup-loading__status');
+    const startupProgress = slideshow.querySelector('[data-startup-cache-progress]');
     const requestFrame = window.requestAnimationFrame
         ? window.requestAnimationFrame.bind(window)
         : (callback => window.setTimeout(callback, 16));
+
+    const loadingStages = {
+        preparing: slideshow.dataset.loadingStagePreparing || 'Preparing offline support...',
+        caching: slideshow.dataset.loadingStageCaching || 'Caching slideshow media...',
+        degraded: slideshow.dataset.loadingStageDegraded || 'Continuing with limited offline cache...',
+        ready: slideshow.dataset.loadingStageReady || 'Slideshow media is ready.',
+        waitingGroup: slideshow.dataset.loadingStageWaitingGroup || 'Waiting for synchronized displays...',
+        waitingMinute: slideshow.dataset.loadingStageWaitingMinute || 'Starting at the next full minute...',
+        starting: slideshow.dataset.loadingStageStarting || 'Starting slideshow...',
+    };
+
+    const progressTemplate = slideshow.dataset.loadingProgressTemplate || ':completed of :total items prepared';
+
+    const setStartupStage = (stage, progress = null) => {
+        if (startupStatus && loadingStages[stage]) {
+            startupStatus.textContent = loadingStages[stage];
+        }
+
+        if (!startupProgress) return;
+
+        const total = Math.max(0, Number(progress?.total || 0));
+        const completed = Math.max(0, Math.min(total, Number(progress?.completed || 0)));
+        startupProgress.textContent = total > 0
+            ? progressTemplate.replace(':completed', String(completed)).replace(':total', String(total))
+            : '';
+    };
 
     const updateServerClock = value => {
         const serverTimeMs = Number(value);
@@ -510,7 +540,7 @@
 
     const serviceWorkerReady = registerDisplayServiceWorker();
 
-    const postServiceWorkerMessage = (type, payload = {}) => serviceWorkerReady.then(ready => {
+    const postServiceWorkerMessage = (type, payload = {}, options = {}) => serviceWorkerReady.then(ready => {
         if (!ready || !navigator.serviceWorker) {
             throw new Error('Display service worker is unavailable.');
         }
@@ -523,15 +553,36 @@
             }
 
             const channel = new MessageChannel();
-            const timeout = window.setTimeout(() => reject(new Error('Display service worker timed out.')), 45000);
-            channel.port1.onmessage = event => {
+            const idleTimeoutMs = Math.max(15000, Number(options.idleTimeoutMs || 45000));
+            let settled = false;
+            let timeout = null;
+            const finish = callback => value => {
+                if (settled) return;
+                settled = true;
                 window.clearTimeout(timeout);
+                callback(value);
+            };
+            const fail = finish(reject);
+            const succeed = finish(resolve);
+            const resetTimeout = () => {
+                window.clearTimeout(timeout);
+                timeout = window.setTimeout(() => fail(new Error('Display service worker timed out.')), idleTimeoutMs);
+            };
+            resetTimeout();
+            channel.port1.onmessage = event => {
+                resetTimeout();
                 const data = event.data || {};
                 if (data.ok === false) {
-                    reject(new Error(data.error || 'Display service worker request failed.'));
+                    fail(new Error(data.error || 'Display service worker request failed.'));
                     return;
                 }
-                resolve(data);
+                if (data.type === `${type}_PROGRESS` || data.progress) {
+                    if (typeof options.onProgress === 'function') {
+                        options.onProgress(data.progress || data);
+                    }
+                    return;
+                }
+                succeed(data);
             };
             worker.postMessage(Object.assign({ type }, payload), [channel.port2]);
         }));
@@ -587,34 +638,82 @@
         }).length;
     };
 
-    const warmOfflineCache = (reason = 'startup') => {
+    const warmOfflineCache = (reason = 'startup', options = {}) => {
         if (reason === 'state-check' && currentSignature && lastWarmSignature === currentSignature) {
-            return Promise.resolve({ manifest: null, offlinePlayableCount: 0, cachedUrls: Array.from(cachedAssetUrls), reason });
+            return Promise.resolve({
+                manifest: null,
+                offlinePlayableCount: 0,
+                cachedUrls: Array.from(cachedAssetUrls),
+                cacheStatus: 'ready',
+                reason,
+            });
         }
         if (offlineCacheWarmPromise) return offlineCacheWarmPromise;
 
+        setStartupStage(reason === 'startup' ? 'preparing' : 'caching');
         offlineCacheWarmPromise = fetchOfflineManifest()
             .then(manifest => {
-                if (!manifest) return { manifest: null, offlinePlayableCount: 0, cachedUrls: Array.from(cachedAssetUrls) };
+                if (!manifest) {
+                    return {
+                        manifest: null,
+                        offlinePlayableCount: 0,
+                        cachedUrls: Array.from(cachedAssetUrls),
+                        cacheStatus: 'degraded',
+                        totalAssets: 0,
+                        cachedAssets: cachedAssetUrls.size,
+                        skippedAssets: 0,
+                        bytesReserved: 0,
+                        reason,
+                    };
+                }
                 applyManifestSlidePolicies(manifest);
+                setStartupStage('caching', { completed: 0, total: Array.isArray(manifest.assets) ? manifest.assets.length : 0 });
                 return resolveOfflineCacheBudget()
-                    .then(maxBytes => postServiceWorkerMessage('CACHE_DISPLAY_MANIFEST', { manifest, maxBytes }))
+                    .then(maxBytes => postServiceWorkerMessage('CACHE_DISPLAY_MANIFEST', { manifest, maxBytes }, {
+                        idleTimeoutMs: 120000,
+                        onProgress: progress => {
+                            if (typeof options.onProgress === 'function') {
+                                options.onProgress(progress);
+                            }
+                            setStartupStage('caching', {
+                                completed: progress?.completed || 0,
+                                total: progress?.total || 0,
+                            });
+                        },
+                    }))
                     .then(result => {
                         mergeCachedUrls(result.cachedUrls || []);
                         lastWarmSignature = manifest.signature || lastWarmSignature;
+                        const skippedAssets = Number(result.skippedAssets || 0);
+                        const cacheStatus = skippedAssets > 0 ? 'degraded' : 'ready';
+                        setStartupStage(cacheStatus === 'ready' ? 'ready' : 'degraded');
                         return {
                             manifest,
                             offlinePlayableCount: offlinePlayableCount(manifest, result.cachedUrls || []),
                             cachedUrls: result.cachedUrls || [],
+                            cacheStatus,
+                            totalAssets: Number(result.totalAssets || manifest.assets?.length || 0),
+                            cachedAssets: Number(result.cachedAssets || (result.cachedUrls || []).length),
+                            skippedAssets,
+                            bytesReserved: Number(result.bytesReserved || 0),
                             reason,
                         };
                     })
-                    .catch(() => ({
-                        manifest,
-                        offlinePlayableCount: offlinePlayableCount(manifest, Array.from(cachedAssetUrls)),
-                        cachedUrls: Array.from(cachedAssetUrls),
-                        reason,
-                    }));
+                    .catch(error => {
+                        setStartupStage('degraded');
+                        return {
+                            manifest,
+                            offlinePlayableCount: offlinePlayableCount(manifest, Array.from(cachedAssetUrls)),
+                            cachedUrls: Array.from(cachedAssetUrls),
+                            cacheStatus: 'degraded',
+                            totalAssets: Array.isArray(manifest.assets) ? manifest.assets.length : 0,
+                            cachedAssets: cachedAssetUrls.size,
+                            skippedAssets: 0,
+                            bytesReserved: 0,
+                            reason,
+                            error: String(error?.message || error),
+                        };
+                    });
             })
             .then(result => {
                 offlineCacheWarmPromise = null;
@@ -622,14 +721,26 @@
             })
             .catch(error => {
                 offlineCacheWarmPromise = null;
-                throw error;
+                setStartupStage('degraded');
+                return {
+                    manifest: null,
+                    offlinePlayableCount: 0,
+                    cachedUrls: Array.from(cachedAssetUrls),
+                    cacheStatus: 'degraded',
+                    totalAssets: 0,
+                    cachedAssets: cachedAssetUrls.size,
+                    skippedAssets: 0,
+                    bytesReserved: 0,
+                    reason,
+                    error: String(error?.message || error),
+                };
             });
 
         return offlineCacheWarmPromise;
     };
 
     const prepareOfflineCacheForReload = stateData => warmOfflineCache('config-reload')
-        .then(result => ({ defer: Boolean(result.manifest && result.offlinePlayableCount <= 0), result }))
+        .then(result => ({ defer: false, result }))
         .catch(() => ({ defer: false, result: null, stateData }));
 
     const runWhenOfflineReady = (stateData, applyReload) => {
@@ -643,6 +754,117 @@
             }
             applyReload();
         }).catch(applyReload);
+    };
+
+    const cacheReadinessUrl = () => resolveEndpointUrl(slideshow.dataset.cacheReadinessUrl || '');
+
+    const cacheReadinessPayload = (reason, cacheResult = {}) => {
+        const signature = cacheResult?.manifest?.signature || cacheResult?.stateSignature || currentSignature || '';
+        return {
+            reason,
+            state_signature: signature,
+            manifest_signature: cacheResult?.manifest?.signature || signature,
+            cache_status: cacheResult?.cacheStatus === 'ready' ? 'ready' : 'degraded',
+            total_assets: Math.max(0, Number(cacheResult?.totalAssets || 0)),
+            cached_assets: Math.max(0, Number(cacheResult?.cachedAssets || 0)),
+            skipped_assets: Math.max(0, Number(cacheResult?.skippedAssets || 0)),
+            bytes_reserved: Math.max(0, Number(cacheResult?.bytesReserved || 0)),
+        };
+    };
+
+    const normalizeReadinessStatus = data => {
+        if (data?.server_time_ms) {
+            updateServerClock(data.server_time_ms);
+        }
+        return {
+            ok: data?.ok === true,
+            syncEnabled: data?.sync_enabled === true,
+            released: data?.released === true,
+            startAtMs: Number(data?.start_at_ms || 0),
+            participantCount: Math.max(0, Number(data?.participant_count || 0)),
+            readyCount: Math.max(0, Number(data?.ready_count || 0)),
+            pendingCount: Math.max(0, Number(data?.pending_count || 0)),
+            generationHash: data?.generation_hash || '',
+            raw: data || {},
+        };
+    };
+
+    const postCacheReadiness = (reason, cacheResult = {}) => {
+        const url = cacheReadinessUrl();
+        if (!url || !window.fetch) {
+            return Promise.resolve(normalizeReadinessStatus({ ok: true, released: true }));
+        }
+
+        return fetch(url, {
+            method: 'POST',
+            headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+            body: JSON.stringify(cacheReadinessPayload(reason, cacheResult)),
+            cache: 'no-store',
+            credentials: 'same-origin',
+        })
+            .then(response => response.ok ? response.json() : null)
+            .then(data => normalizeReadinessStatus(data || { ok: false, released: true }));
+    };
+
+    const fetchCacheReadinessStatus = () => {
+        const url = cacheReadinessUrl();
+        if (!url || !window.fetch) {
+            return Promise.resolve(normalizeReadinessStatus({ ok: true, released: true }));
+        }
+
+        return fetch(url, {
+            method: 'GET',
+            headers: { 'Accept': 'application/json' },
+            cache: 'no-store',
+            credentials: 'same-origin',
+        })
+            .then(response => response.ok ? response.json() : null)
+            .then(data => normalizeReadinessStatus(data || { ok: false, released: true }));
+    };
+
+    const waitForCacheReadinessRelease = (reason, cacheResult = {}) => postCacheReadiness(reason, cacheResult)
+        .then(status => {
+            if (!shouldUseSyncedGroupReload() || !status.syncEnabled) {
+                return status;
+            }
+
+            const poll = currentStatus => {
+                if (currentStatus.released && (currentStatus.startAtMs > 0 || currentStatus.participantCount <= 0)) {
+                    return currentStatus;
+                }
+
+                setStartupStage('waitingGroup', {
+                    completed: currentStatus.readyCount,
+                    total: currentStatus.participantCount,
+                });
+
+                return new Promise(resolve => {
+                    window.setTimeout(resolve, CACHE_READINESS_POLL_MS);
+                })
+                    .then(fetchCacheReadinessStatus)
+                    .then(poll);
+            };
+
+            return poll(status);
+        })
+        .catch(error => {
+            logSyncDebug('cache readiness coordination failed open', {
+                reason,
+                error: String(error?.message || error),
+            });
+            return normalizeReadinessStatus({ ok: false, released: true });
+        });
+
+    const waitForReadinessStart = status => {
+        const startAtMs = Number(status?.startAtMs || 0);
+        if (startAtMs > serverNowMs()) {
+            setStartupStage('waitingMinute');
+            return new Promise(resolve => {
+                window.setTimeout(resolve, delayUntilServerTime(startAtMs));
+            });
+        }
+
+        return Promise.resolve();
     };
 
 
@@ -719,6 +941,7 @@
                 reason: pendingReload.reason,
                 signature: pendingReload.signature || '',
                 activateAt: new Date(pendingReload.activateAtMs).toISOString(),
+                startAt: pendingReload.startAtMs ? new Date(pendingReload.startAtMs).toISOString() : '',
                 msUntilActivate: delayUntilServerTime(pendingReload.activateAtMs),
             } : null,
             storedScheduledReload: scheduledSyncReloadForDebug(),
@@ -782,7 +1005,8 @@
     };
 
     const markScheduledSyncReload = reload => {
-        const startAtMs = reload?.activateAtMs ? computeNextFullMinuteActivation(Number(reload.activateAtMs) + 1) : 0;
+        const startAtMs = Number(reload?.startAtMs || 0)
+            || (reload?.activateAtMs ? computeNextFullMinuteActivation(Number(reload.activateAtMs) + 1) : 0);
         try {
             window.sessionStorage.setItem(SCHEDULED_SYNC_RELOAD_KEY, JSON.stringify({
                 at: Date.now(),
@@ -892,14 +1116,16 @@
             clearTimeout(pendingReloadTimer);
         }
 
-        const scheduleReload = () => {
-            const activateAtMs = computeNextFullMinuteActivation();
+        const scheduleReload = status => {
+            const startAtMs = Number(status?.startAtMs || 0) || computeNextFullMinuteActivation();
+            const activateAtMs = Math.max(serverNowMs(), startAtMs - SYNC_RELOAD_PAGE_LOAD_LEAD_MS);
             pendingReload = {
                 reason,
                 stateData,
                 signature,
                 displayGroup,
                 activateAtMs,
+                startAtMs,
             };
             pendingReloadTimer = window.setTimeout(applyPendingReload, delayUntilServerTime(activateAtMs));
 
@@ -908,6 +1134,7 @@
                 displayGroup,
                 signature,
                 activateAt: new Date(activateAtMs).toISOString(),
+                startAt: new Date(startAtMs).toISOString(),
             });
             logSyncDebug(replaced ? 'replaced pending synchronized reload' : 'scheduled synchronized reload', {
                 reason,
@@ -915,11 +1142,22 @@
                 displayGroup,
                 stateServerTimeMs: stateData?.server_time_ms || null,
                 activateAt: new Date(activateAtMs).toISOString(),
+                startAt: new Date(startAtMs).toISOString(),
                 msUntilActivate: delayUntilServerTime(activateAtMs),
             });
         };
 
-        runWhenOfflineReady(stateData, scheduleReload);
+        warmOfflineCache('config-reload')
+            .then(cacheResult => waitForCacheReadinessRelease('config-reload', Object.assign({ stateSignature: signature }, cacheResult)))
+            .then(scheduleReload)
+            .catch(error => {
+                logSyncDebug('synchronized reload cache readiness failed open', {
+                    reason,
+                    signature,
+                    error: String(error?.message || error),
+                });
+                scheduleReload(null);
+            });
     };
 
     const renderTextSlideQrCodes = () => {
@@ -1664,7 +1902,7 @@
         restartTemplateElementAnimations(slides[index]);
         startVideo(slides[index]);
         cleanupFarMedia(index);
-        warmOfflineCache('startup');
+        setStartupStage('starting');
         logSyncDebug('slideshow started', {
             activeIndex: index,
             activeSlideId: slides[index]?.dataset.slideId || '',
@@ -1674,6 +1912,33 @@
         queueMinuteAlignedStateCheck();
         queueWatchdog();
         queueNext();
+    };
+
+    const prepareStartup = () => {
+        const scheduledReload = shouldUseSyncedGroupReload() ? readScheduledSyncReload() : null;
+        const fallbackStartAtMs = Number(scheduledReload?.startAtMs || 0);
+
+        return warmOfflineCache('startup')
+            .then(cacheResult => {
+                if (!shouldUseSyncedGroupReload()) {
+                    return postCacheReadiness('startup', cacheResult)
+                        .catch(() => null)
+                        .then(waitForStartupSync);
+                }
+
+                return waitForCacheReadinessRelease('startup', cacheResult)
+                    .then(status => {
+                        if ((!status.startAtMs || status.startAtMs <= serverNowMs()) && fallbackStartAtMs > serverNowMs()) {
+                            status.startAtMs = fallbackStartAtMs;
+                        } else if (!status.startAtMs || status.startAtMs <= serverNowMs()) {
+                            status.startAtMs = computeNextFullMinuteActivation();
+                        }
+                        return waitForReadinessStart(status);
+                    });
+            })
+            .then(() => {
+                setStartupStage('starting');
+            });
     };
 
     window.addEventListener('online', () => {
@@ -1732,7 +1997,6 @@
     if (updateTemplateTimedElements()) {
         window.setInterval(updateTemplateTimedElements, 1000);
     }
-    prepareMediaAround(index);
     queueHeartbeat();
-    waitForStartupSync().then(startSlideshow);
+    prepareStartup().then(startSlideshow, startSlideshow);
 })();

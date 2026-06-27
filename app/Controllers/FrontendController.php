@@ -393,6 +393,373 @@ class FrontendController
         ]);
     }
 
+    public function cacheReadiness(string $slug): void
+    {
+        $display = $this->db->one('SELECT * FROM displays WHERE slug = ? AND is_active = 1', [$slug]);
+        if (!$display) {
+            json_response(['ok' => false, 'message' => __('frontend.state_message_display_not_found')], 404);
+        }
+
+        $displayGroup = $this->loadDisplayGroup((int)$display['id']);
+        $context = $this->currentDisplayStateContext($display, $displayGroup);
+        if (!$context) {
+            json_response(['ok' => false, 'message' => __('frontend.state_message_no_channel')], 409);
+        }
+
+        $payload = $this->readJsonBody();
+        $state = $context['state'];
+        $payloadStateSignature = $this->signatureFromPayload($payload['state_signature'] ?? null, (string)$state['signature']);
+        $manifestSignature = $this->signatureFromPayload($payload['manifest_signature'] ?? null, $payloadStateSignature);
+        $cacheStatus = $this->cacheStatusFromPayload($payload['cache_status'] ?? null);
+        $accepted = hash_equals((string)$state['signature'], $payloadStateSignature);
+
+        $this->storeCacheReadiness(
+            (int)$display['id'],
+            $displayGroup ? (int)$displayGroup['id'] : null,
+            $payloadStateSignature,
+            $manifestSignature,
+            $cacheStatus,
+            (string)($this->limitString($payload['reason'] ?? 'startup', 50) ?? 'startup'),
+            $this->nonNegativeInt($payload['total_assets'] ?? 0),
+            $this->nonNegativeInt($payload['cached_assets'] ?? 0),
+            $this->nonNegativeInt($payload['skipped_assets'] ?? 0),
+            $this->nonNegativeInt($payload['bytes_reserved'] ?? 0),
+            $this->normalizeJson($payload)
+        );
+
+        $response = $this->cacheReadinessResponse($display, $displayGroup, $state);
+        $response['accepted'] = $accepted;
+        json_response($response);
+    }
+
+    public function cacheReadinessStatus(string $slug): void
+    {
+        $display = $this->db->one('SELECT * FROM displays WHERE slug = ? AND is_active = 1', [$slug]);
+        if (!$display) {
+            json_response(['ok' => false, 'message' => __('frontend.state_message_display_not_found')], 404);
+        }
+
+        $displayGroup = $this->loadDisplayGroup((int)$display['id']);
+        $context = $this->currentDisplayStateContext($display, $displayGroup);
+        if (!$context) {
+            json_response(['ok' => false, 'message' => __('frontend.state_message_no_channel')], 409);
+        }
+
+        json_response($this->cacheReadinessResponse($display, $displayGroup, $context['state']));
+    }
+
+    private function currentDisplayStateContext(array $display, ?array $displayGroup): ?array
+    {
+        $activeAssignment = $this->resolveActiveAssignment($display);
+        if (!$activeAssignment) {
+            return null;
+        }
+
+        $slides = $this->loadChannelSlides((int)$activeAssignment['channel_id']);
+        if (!$slides) {
+            return null;
+        }
+
+        $effect = $activeAssignment['transition_effect'] !== 'inherit'
+            ? $activeAssignment['transition_effect']
+            : $display['transition_effect'];
+
+        $duration = (int)($activeAssignment['slide_duration_seconds'] ?: $display['slide_duration_seconds']);
+        $heartbeat = $this->db->one('SELECT * FROM display_heartbeats WHERE display_id = ?', [$display['id']]);
+        [$resolvedSlides, $pluginAssets] = $this->resolveSlides($slides, $display, $activeAssignment, $heartbeat, $duration);
+
+        return [
+            'active_assignment' => $activeAssignment,
+            'resolved_slides' => $resolvedSlides,
+            'plugin_assets' => $pluginAssets,
+            'state' => $this->buildDisplayState($display, $activeAssignment, $resolvedSlides, $effect, $duration, $displayGroup, $pluginAssets),
+        ];
+    }
+
+    private function storeCacheReadiness(
+        int $displayId,
+        ?int $displayGroupId,
+        string $stateSignature,
+        string $manifestSignature,
+        string $cacheStatus,
+        string $reason,
+        int $totalAssets,
+        int $cachedAssets,
+        int $skippedAssets,
+        int $bytesReserved,
+        ?string $payloadJson
+    ): void {
+        $this->db->execute(
+            'INSERT INTO display_cache_readiness (
+                display_id, display_group_id, state_signature, manifest_signature, cache_status, reason,
+                total_assets, cached_assets, skipped_assets, bytes_reserved, client_payload_json, ready_at
+            )
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+             ON DUPLICATE KEY UPDATE
+                display_group_id = VALUES(display_group_id),
+                manifest_signature = VALUES(manifest_signature),
+                cache_status = VALUES(cache_status),
+                reason = VALUES(reason),
+                total_assets = VALUES(total_assets),
+                cached_assets = VALUES(cached_assets),
+                skipped_assets = VALUES(skipped_assets),
+                bytes_reserved = VALUES(bytes_reserved),
+                client_payload_json = VALUES(client_payload_json),
+                ready_at = NOW()',
+            [
+                $displayId,
+                $displayGroupId,
+                $stateSignature,
+                $manifestSignature,
+                $cacheStatus,
+                $reason,
+                $totalAssets,
+                $cachedAssets,
+                $skippedAssets,
+                $bytesReserved,
+                $payloadJson,
+            ]
+        );
+    }
+
+    private function cacheReadinessResponse(array $display, ?array $displayGroup, array $state): array
+    {
+        $response = [
+            'ok' => true,
+            'server_time_ms' => (int)floor(microtime(true) * 1000),
+            'state_signature' => (string)$state['signature'],
+            'sync_enabled' => false,
+            'released' => true,
+            'participant_count' => 1,
+            'ready_count' => 1,
+            'pending_count' => 0,
+            'current_display_ready' => true,
+            'generation_hash' => '',
+            'start_at_ms' => 0,
+        ];
+
+        if (!$displayGroup || empty($displayGroup['sync_reload_to_full_minute'])) {
+            return $response;
+        }
+
+        return array_replace(
+            $response,
+            $this->groupCacheReadinessResponse((int)$displayGroup['id'], (int)$display['id'], $displayGroup)
+        );
+    }
+
+    private function groupCacheReadinessResponse(int $groupId, int $currentDisplayId, array $displayGroup): array
+    {
+        $participants = $this->onlineGroupParticipants($groupId, $currentDisplayId, $displayGroup);
+        if (!$participants) {
+            return [
+                'sync_enabled' => true,
+                'released' => true,
+                'participant_count' => 0,
+                'ready_count' => 0,
+                'pending_count' => 0,
+                'current_display_ready' => false,
+                'generation_hash' => '',
+                'start_at_ms' => 0,
+            ];
+        }
+
+        $generationPayload = array_map(
+            static fn(array $participant): array => [
+                'display_id' => (int)$participant['display_id'],
+                'state_signature' => (string)$participant['state_signature'],
+            ],
+            $participants
+        );
+        $generationHash = sha1(json_encode($generationPayload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '');
+        $readinessRows = $this->cacheReadinessRows($participants);
+        $readyCount = 0;
+        $currentDisplayReady = false;
+
+        foreach ($participants as $participant) {
+            $key = $this->readinessKey((int)$participant['display_id'], (string)$participant['state_signature']);
+            $row = $readinessRows[$key] ?? null;
+            $isReady = $row && in_array((string)$row['cache_status'], ['ready', 'degraded'], true);
+            if ($isReady) {
+                $readyCount++;
+            }
+            if ((int)$participant['display_id'] === $currentDisplayId) {
+                $currentDisplayReady = $isReady;
+            }
+        }
+
+        $participantCount = count($participants);
+        $release = $this->syncRelease($groupId, $generationHash);
+        if (!$release && $readyCount >= $participantCount) {
+            $release = $this->releaseSyncGeneration($groupId, $generationHash, $participantCount, $readyCount);
+        } elseif (!$release) {
+            $this->storeSyncGenerationProgress($groupId, $generationHash, $participantCount, $readyCount);
+        }
+
+        $startAtMs = $release ? $this->syncReleaseStartAtMs($release) : 0;
+
+        return [
+            'sync_enabled' => true,
+            'released' => $startAtMs > 0,
+            'participant_count' => $participantCount,
+            'ready_count' => $readyCount,
+            'pending_count' => max(0, $participantCount - $readyCount),
+            'current_display_ready' => $currentDisplayReady,
+            'generation_hash' => $generationHash,
+            'start_at_ms' => $startAtMs,
+        ];
+    }
+
+    private function onlineGroupParticipants(int $groupId, int $currentDisplayId, array $displayGroup): array
+    {
+        $onlineThresholdSeconds = max(30, (int)app_core_setting('monitoring.online_threshold_seconds', 180));
+        $rows = $this->db->all(
+            'SELECT d.*, TIMESTAMPDIFF(SECOND, h.last_seen_at, NOW()) AS heartbeat_age_seconds
+             FROM display_group_memberships dgm
+             INNER JOIN displays d ON d.id = dgm.display_id
+             LEFT JOIN display_heartbeats h ON h.display_id = d.id
+             WHERE dgm.group_id = ?
+               AND d.is_active = 1
+               AND (
+                    d.id = ?
+                    OR (h.last_seen_at IS NOT NULL AND TIMESTAMPDIFF(SECOND, h.last_seen_at, NOW()) <= ?)
+               )
+             ORDER BY dgm.sort_order ASC, d.sort_order ASC, d.id ASC',
+            [$groupId, $currentDisplayId, $onlineThresholdSeconds]
+        );
+
+        $participants = [];
+        foreach ($rows as $row) {
+            $context = $this->currentDisplayStateContext($row, $displayGroup);
+            if (!$context) {
+                continue;
+            }
+            $participants[] = [
+                'display_id' => (int)$row['id'],
+                'state_signature' => (string)$context['state']['signature'],
+            ];
+        }
+
+        return $participants;
+    }
+
+    private function cacheReadinessRows(array $participants): array
+    {
+        $displayIds = array_values(array_unique(array_map(static fn(array $participant): int => (int)$participant['display_id'], $participants)));
+        if (!$displayIds) {
+            return [];
+        }
+
+        $placeholders = implode(', ', array_fill(0, count($displayIds), '?'));
+        $rows = $this->db->all(
+            'SELECT display_id, state_signature, cache_status, ready_at
+             FROM display_cache_readiness
+             WHERE display_id IN (' . $placeholders . ')',
+            $displayIds
+        );
+
+        $readiness = [];
+        foreach ($rows as $row) {
+            $readiness[$this->readinessKey((int)$row['display_id'], (string)$row['state_signature'])] = $row;
+        }
+
+        return $readiness;
+    }
+
+    private function syncRelease(int $groupId, string $generationHash): ?array
+    {
+        return $this->db->one(
+            'SELECT *
+             FROM display_sync_releases
+             WHERE display_group_id = ?
+               AND generation_hash = ?
+               AND start_at IS NOT NULL
+               AND released_at >= (NOW() - INTERVAL 5 MINUTE)
+             LIMIT 1',
+            [$groupId, $generationHash]
+        );
+    }
+
+    private function storeSyncGenerationProgress(int $groupId, string $generationHash, int $participantCount, int $readyCount): void
+    {
+        $this->db->execute(
+            'INSERT INTO display_sync_releases (display_group_id, generation_hash, participant_count, ready_count)
+             VALUES (?, ?, ?, ?)
+             ON DUPLICATE KEY UPDATE
+                participant_count = VALUES(participant_count),
+                ready_count = VALUES(ready_count),
+                start_at = IF(released_at IS NOT NULL AND released_at < (NOW() - INTERVAL 5 MINUTE), NULL, start_at),
+                released_at = IF(released_at IS NOT NULL AND released_at < (NOW() - INTERVAL 5 MINUTE), NULL, released_at)',
+            [$groupId, $generationHash, $participantCount, $readyCount]
+        );
+    }
+
+    private function releaseSyncGeneration(int $groupId, string $generationHash, int $participantCount, int $readyCount): ?array
+    {
+        $startAt = date('Y-m-d H:i:s', $this->nextFullMinuteTimestamp(3));
+        $this->db->execute(
+            'INSERT INTO display_sync_releases (
+                display_group_id, generation_hash, participant_count, ready_count, start_at, released_at
+            )
+             VALUES (?, ?, ?, ?, ?, NOW())
+             ON DUPLICATE KEY UPDATE
+                participant_count = VALUES(participant_count),
+                ready_count = VALUES(ready_count),
+                start_at = IF(released_at IS NULL OR released_at < (NOW() - INTERVAL 5 MINUTE), VALUES(start_at), start_at),
+                released_at = IF(released_at IS NULL OR released_at < (NOW() - INTERVAL 5 MINUTE), VALUES(released_at), released_at)',
+            [$groupId, $generationHash, $participantCount, $readyCount, $startAt]
+        );
+
+        return $this->syncRelease($groupId, $generationHash);
+    }
+
+    private function syncReleaseStartAtMs(array $release): int
+    {
+        $timestamp = strtotime((string)($release['start_at'] ?? ''));
+        return $timestamp === false ? 0 : $timestamp * 1000;
+    }
+
+    private function nextFullMinuteTimestamp(int $minLeadSeconds): int
+    {
+        $now = microtime(true);
+        $next = (int)(ceil($now / 60) * 60);
+        if (($next - $now) < max(0, $minLeadSeconds)) {
+            $next += 60;
+        }
+
+        return $next;
+    }
+
+    private function readinessKey(int $displayId, string $stateSignature): string
+    {
+        return $displayId . ':' . $stateSignature;
+    }
+
+    private function signatureFromPayload(mixed $value, string $fallback): string
+    {
+        if (!is_scalar($value)) {
+            return $fallback;
+        }
+
+        $signature = strtolower(trim((string)$value));
+        return preg_match('/\A[a-f0-9]{40}\z/', $signature) ? $signature : $fallback;
+    }
+
+    private function cacheStatusFromPayload(mixed $value): string
+    {
+        $status = is_scalar($value) ? strtolower(trim((string)$value)) : '';
+        return in_array($status, ['ready', 'degraded'], true) ? $status : 'degraded';
+    }
+
+    private function nonNegativeInt(mixed $value): int
+    {
+        if (!is_numeric($value)) {
+            return 0;
+        }
+
+        return max(0, (int)$value);
+    }
+
     private function loadChannelSlides(int $channelId): array
     {
         return $this->db->all(
@@ -910,9 +1277,10 @@ class FrontendController
         }
 
         $group = $this->db->one(
-            'SELECT g.id, g.name, g.sync_enabled, g.sync_mode
+            'SELECT g.id, g.name, g.sync_enabled, g.sync_mode, l.name AS location_name
              FROM display_group_memberships dgm
              INNER JOIN display_groups g ON g.id = dgm.group_id
+             INNER JOIN display_locations l ON l.id = g.location_id
              WHERE dgm.display_id = ?
              LIMIT 1',
             [$displayId]
@@ -926,6 +1294,7 @@ class FrontendController
         return [
             'id' => (int)$group['id'],
             'name' => (string)$group['name'],
+            'location_name' => (string)($group['location_name'] ?? ''),
             'sync_enabled' => $syncEnabled ? 1 : 0,
             'sync_mode' => (string)($group['sync_mode'] ?? 'independent'),
             'sync_reload_to_full_minute' => $syncEnabled,
