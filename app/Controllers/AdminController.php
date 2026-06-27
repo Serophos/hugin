@@ -1628,12 +1628,14 @@ class AdminController
             $template = array_replace($template, $old);
         }
         $editorOrientation = $this->sanitizeTemplateEditorOrientation((string)($old['template_editor_orientation'] ?? $this->request->input('orientation', 'landscape')));
+        $editorInspectorTab = $this->sanitizeTemplateEditorInspectorTab((string)($old['template_editor_inspector_tab'] ?? $this->request->input('inspector_tab', 'element')));
 
         $this->view->render('admin/slide_template_form', [
             'templateModel' => $template,
             'landscapeSpec' => $this->templateSlides->decodeSpec((string)($template['landscape_spec_json'] ?? ''), 'landscape'),
             'portraitSpec' => trim((string)($template['portrait_spec_json'] ?? '')) !== '' ? $this->templateSlides->decodeSpec((string)$template['portrait_spec_json'], 'portrait') : null,
             'editorOrientation' => $editorOrientation,
+            'editorInspectorTab' => $editorInspectorTab,
             'mediaAssets' => $this->db->all("SELECT id, name, original_name, media_kind, file_path, preview_file_path FROM media_assets WHERE media_kind IN ('image', 'video') ORDER BY created_at DESC, id DESC"),
             'uploadedFonts' => list_uploaded_fonts(),
             'error' => flash('error'),
@@ -1656,6 +1658,7 @@ class AdminController
         $landscapeRaw = (string)$this->request->input('landscape_spec_json', '');
         $portraitRaw = (string)$this->request->input('portrait_spec_json', '');
         $editorOrientation = $this->sanitizeTemplateEditorOrientation((string)$this->request->input('template_editor_orientation', 'landscape'));
+        $editorInspectorTab = $this->sanitizeTemplateEditorInspectorTab((string)$this->request->input('template_editor_inspector_tab', 'element'));
         $saveAction = (string)$this->request->input('save_action', 'save');
         $old = [
             'name' => $nameRaw,
@@ -1664,6 +1667,7 @@ class AdminController
             'landscape_spec_json' => $landscapeRaw,
             'portrait_spec_json' => $portraitRaw,
             'template_editor_orientation' => $editorOrientation,
+            'template_editor_inspector_tab' => $editorInspectorTab,
         ];
         $errors = [];
 
@@ -1696,7 +1700,7 @@ class AdminController
 
         if ($errors !== []) {
             $this->redirectWithForm(
-                ($id ? '/admin/slide-templates/' . $id . '/edit' : '/admin/slide-templates/create') . '?orientation=' . rawurlencode($editorOrientation),
+                ($id ? '/admin/slide-templates/' . $id . '/edit' : '/admin/slide-templates/create') . '?orientation=' . rawurlencode($editorOrientation) . '&inspector_tab=' . rawurlencode($editorInspectorTab),
                 __('validation.fix_marked_fields'),
                 $old,
                 $errors,
@@ -1722,7 +1726,7 @@ class AdminController
 
         $affectedSlides = $id ? $this->db->all('SELECT slide_id FROM slide_template_data WHERE template_id = ?', [$id]) : [];
         $this->requestReloadForDisplays($this->displayIdsForSlides(array_map(static fn(array $row): int => (int)$row['slide_id'], $affectedSlides)));
-        redirect($saveAction === 'save_and_close' ? '/admin/slide-templates' : '/admin/slide-templates/' . $templateId . '/edit?orientation=' . rawurlencode($editorOrientation));
+        redirect($saveAction === 'save_and_close' ? '/admin/slide-templates' : '/admin/slide-templates/' . $templateId . '/edit?orientation=' . rawurlencode($editorOrientation) . '&inspector_tab=' . rawurlencode($editorInspectorTab));
     }
 
     public function deleteSlideTemplate(int $id): void
@@ -3670,6 +3674,12 @@ class AdminController
     {
         $value = strtolower(trim($value));
         return in_array($value, ['portrait', 'vertical'], true) ? 'portrait' : 'landscape';
+    }
+
+    private function sanitizeTemplateEditorInspectorTab(string $value): string
+    {
+        $value = strtolower(trim($value));
+        return in_array($value, ['element', 'fields', 'layers', 'animations'], true) ? $value : 'element';
     }
 
     private function sanitizeTitlePosition(string $value): string

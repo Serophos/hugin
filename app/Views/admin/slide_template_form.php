@@ -7,9 +7,12 @@ $activeEditorOrientation = in_array($activeEditorOrientation, ['portrait', 'vert
 if ($activeEditorOrientation === 'portrait' && $portraitSpec === null) {
     $activeEditorOrientation = 'landscape';
 }
+$activeEditorInspectorTab = strtolower(trim((string)($editorInspectorTab ?? old('template_editor_inspector_tab', $_GET['inspector_tab'] ?? 'element', $formId))));
+$activeEditorInspectorTab = in_array($activeEditorInspectorTab, ['element', 'fields', 'layers', 'animations'], true) ? $activeEditorInspectorTab : 'element';
 $landscapeJson = json_encode($landscapeSpec, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 $portraitJson = json_encode($portraitSpec, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 $activeEditorOrientationJson = json_encode($activeEditorOrientation, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+$activeEditorInspectorTabJson = json_encode($activeEditorInspectorTab, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 $uploadedFonts = is_array($uploadedFonts ?? null) ? $uploadedFonts : [];
 $fontToolOptions = [
     [
@@ -271,6 +274,7 @@ require __DIR__ . '/../layouts/admin_header.php';
     <input type="hidden" name="landscape_spec_json" data-template-spec="landscape" value="<?= e((string)old('landscape_spec_json', $template['landscape_spec_json'] ?? '', $formId)) ?>">
     <input type="hidden" name="portrait_spec_json" data-template-spec="portrait" value="<?= e((string)old('portrait_spec_json', $template['portrait_spec_json'] ?? '', $formId)) ?>">
     <input type="hidden" name="template_editor_orientation" data-template-editor-orientation value="<?= e($activeEditorOrientation) ?>">
+    <input type="hidden" name="template_editor_inspector_tab" data-template-editor-inspector-tab value="<?= e($activeEditorInspectorTab) ?>">
     <?= field_error_html('landscape_spec_json', $formId) ?>
 
     <section class="template-editor full-width" data-template-editor>
@@ -428,7 +432,7 @@ require __DIR__ . '/../layouts/admin_header.php';
     const icons = <?= $editorIconsJson ?: '{}' ?>;
     let orientation = <?= $activeEditorOrientationJson ?: '"landscape"' ?>;
     let selectedId = null;
-    let activeInspectorTab = 'element';
+    let activeInspectorTab = <?= $activeEditorInspectorTabJson ?: '"element"' ?>;
     let draggedLayerElementId = '';
     let pendingFocusElementId = '';
     let isDeletingElement = false;
@@ -447,6 +451,7 @@ require __DIR__ . '/../layouts/admin_header.php';
     const hiddenLandscape = form.querySelector('[data-template-spec="landscape"]');
     const hiddenPortrait = form.querySelector('[data-template-spec="portrait"]');
     const hiddenEditorOrientation = form.querySelector('[data-template-editor-orientation]');
+    const hiddenEditorInspectorTab = form.querySelector('[data-template-editor-inspector-tab]');
     const debugLandscape = form.querySelector('[data-json-debug="landscape"]');
     const debugPortrait = form.querySelector('[data-json-debug="portrait"]');
     const snapToGridToggle = editor.querySelector('[data-snap-to-grid]');
@@ -1107,9 +1112,24 @@ require __DIR__ . '/../layouts/admin_header.php';
         return i18n[`element_${element.type}`] || element.type;
     }
 
+    function normalizeInspectorTab(tab) {
+        const value = String(tab || '');
+        return Array.from(inspectorTabs).some(button => button.dataset.inspectorTab === value) ? value : 'element';
+    }
+
+    function syncInspectorTabHidden() {
+        if (hiddenEditorInspectorTab) hiddenEditorInspectorTab.value = activeInspectorTab;
+    }
+
+    function setActiveInspectorTab(tab) {
+        activeInspectorTab = normalizeInspectorTab(tab);
+        syncInspectorTabHidden();
+    }
+
     function setInspectorTab(tab) {
-        activeInspectorTab = tab;
+        setActiveInspectorTab(tab);
         renderInspector();
+        syncActiveInspectorTabScroll();
     }
 
     function focusPendingCanvasElement() {
@@ -1129,7 +1149,7 @@ require __DIR__ . '/../layouts/admin_header.php';
         }
         flushPendingFieldBinding();
         selectedId = id;
-        if (focusElementTab) activeInspectorTab = 'element';
+        if (focusElementTab) setActiveInspectorTab('element');
         const element = spec().elements.find(item => item.id === id);
         if (element) announce(templateText('element_selected_status', { label: elementLabel(element), position: elementPositionLabel(element) }));
         if (focusCanvasElement) {
@@ -1173,15 +1193,24 @@ require __DIR__ . '/../layouts/admin_header.php';
                 panel.setAttribute('aria-labelledby', tabId);
                 panel.tabIndex = 0;
             }
-            if (active) {
-                ensureInspectorTabVisible(tab);
-            }
         });
         inspectorPanels.forEach(panel => { panel.hidden = panel.dataset.inspectorPanel !== activeInspectorTab; });
         updateInspectorTabScroll();
     }
 
-    function ensureInspectorTabVisible(tab) {
+    function setInspectorTabsScrollLeft(value, instant = false) {
+        if (!inspectorTabsScroll) return;
+        if (!instant) {
+            inspectorTabsScroll.scrollLeft = value;
+            return;
+        }
+        const previousScrollBehavior = inspectorTabsScroll.style.scrollBehavior;
+        inspectorTabsScroll.style.scrollBehavior = 'auto';
+        inspectorTabsScroll.scrollLeft = value;
+        inspectorTabsScroll.style.scrollBehavior = previousScrollBehavior;
+    }
+
+    function ensureInspectorTabVisible(tab, instant = false) {
         if (!inspectorTabsScroll || !tab || tab.parentElement !== inspectorTabsScroll) return;
         const left = tab.offsetLeft;
         const right = left + tab.offsetWidth;
@@ -1189,9 +1218,42 @@ require __DIR__ . '/../layouts/admin_header.php';
         const viewRight = viewLeft + inspectorTabsScroll.clientWidth;
 
         if (left < viewLeft) {
-            inspectorTabsScroll.scrollLeft = left;
+            setInspectorTabsScrollLeft(left, instant);
         } else if (right > viewRight) {
-            inspectorTabsScroll.scrollLeft = right - inspectorTabsScroll.clientWidth;
+            setInspectorTabsScrollLeft(right - inspectorTabsScroll.clientWidth, instant);
+        }
+    }
+
+    function syncActiveInspectorTabScroll(instant = false) {
+        if (!inspectorTabsScroll) return;
+        const activeTab = Array.from(inspectorTabs).find(tab => tab.dataset.inspectorTab === activeInspectorTab);
+        if (activeInspectorTab === 'element') {
+            setInspectorTabsScrollLeft(0, instant);
+        } else {
+            ensureInspectorTabVisible(activeTab, instant);
+        }
+        updateInspectorTabScroll();
+    }
+
+    function settleInitialInspectorTabScroll() {
+        syncActiveInspectorTabScroll(true);
+    }
+
+    function scheduleInitialInspectorTabScroll() {
+        window.requestAnimationFrame(() => window.requestAnimationFrame(settleInitialInspectorTabScroll));
+        window.addEventListener('load', settleInitialInspectorTabScroll, { once: true });
+        window.addEventListener('pageshow', () => window.requestAnimationFrame(settleInitialInspectorTabScroll), { once: true });
+    }
+
+    function clearInspectorTabUrlState() {
+        if (!window.history?.replaceState) return;
+        try {
+            const url = new URL(window.location.href);
+            if (!url.searchParams.has('inspector_tab')) return;
+            url.searchParams.delete('inspector_tab');
+            window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
+        } catch (error) {
+            // Leave the URL alone if the browser cannot parse or replace it.
         }
     }
 
@@ -1748,7 +1810,7 @@ require __DIR__ . '/../layouts/admin_header.php';
 
     function createAndBindField(element) {
         if (!fieldCapableElement(element)) return;
-        activeInspectorTab = 'fields';
+        setActiveInspectorTab('fields');
         const existingKeys = new Set(allTemplateFields().map(field => field.key));
         let fieldNumber = allTemplateFields().length + 1;
         let key = normalizeKey(`field_${fieldNumber}`);
@@ -2137,7 +2199,7 @@ require __DIR__ . '/../layouts/admin_header.php';
         }
         spec().elements.push(element);
         selectedId = element.id;
-        activeInspectorTab = 'element';
+        setActiveInspectorTab('element');
         pendingFocusElementId = element.id;
         announce(templateText('element_added_status', { label: elementLabel(element), position: elementPositionLabel(element) }));
         render();
@@ -2428,11 +2490,15 @@ require __DIR__ . '/../layouts/admin_header.php';
     }));
     form.addEventListener('submit', () => {
         isSubmitting = true;
+        syncInspectorTabHidden();
         syncHidden();
     });
     editor.classList.toggle('is-snap-enabled', snapEnabled());
+    setActiveInspectorTab(activeInspectorTab);
     updateOrientationTabs();
     render();
+    scheduleInitialInspectorTabScroll();
+    clearInspectorTabUrlState();
     resetDirtyState();
 })();
 </script>
