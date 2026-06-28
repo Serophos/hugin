@@ -535,8 +535,11 @@ class AdminController
              ORDER BY d.name ASC'
         );
 
+        $displayIcons = $this->displayIcons();
         $this->view->render('admin/displays', [
             'displays' => $displays,
+            'displayIcons' => $displayIcons,
+            'defaultDisplayIcon' => $this->defaultDisplayIcon($displayIcons),
             'flash' => flash('success'),
         ]);
     }
@@ -572,10 +575,15 @@ class AdminController
         }
 
         $displayIcons = $this->displayIcons();
+        $defaultDisplayIcon = $this->defaultDisplayIcon($displayIcons);
+        if (!$id) {
+            $defaultDisplayIcon = $this->normalizeDisplayIcon((string)$this->request->input('icon_file', ''), $displayIcons);
+        }
+
         $this->view->render('admin/display_form', [
             'display' => $display,
             'displayIcons' => $displayIcons,
-            'defaultDisplayIcon' => $this->defaultDisplayIcon($displayIcons),
+            'defaultDisplayIcon' => $defaultDisplayIcon,
             'heartbeat' => $heartbeat,
             'error' => flash('error'),
         ]);
@@ -739,6 +747,19 @@ class AdminController
         ]);
     }
 
+    public function locationCreateForm(): void
+    {
+        $this->auth->requireRole('admin');
+
+        $returnTo = $this->adminReturnPath('/admin/locations');
+
+        $this->view->render('admin/location_create', [
+            'returnTo' => $returnTo,
+            'flash' => flash('success'),
+            'error' => flash('error'),
+        ]);
+    }
+
     public function locationForm(int $id): void
     {
         $this->auth->requireRole('admin');
@@ -792,7 +813,8 @@ class AdminController
         $description = trim((string)$this->request->input('description'));
         $sortOrder = max(0, (int)$sortOrderRaw);
         $form = $id ? 'location_edit' : 'location_create';
-        $returnPath = $id ? '/admin/locations/' . $id . '/edit' : '/admin/locations';
+        $returnTo = $this->adminReturnPath('/admin/locations');
+        $returnPath = $id ? '/admin/locations/' . $id . '/edit' : '/admin/locations/create?return_to=' . rawurlencode($returnTo);
         $old = [
             'name' => $nameRaw,
             'address' => (string)$this->request->input('address'),
@@ -836,7 +858,7 @@ class AdminController
                 [$name, $address, $description, $nextSort]
             );
             flash('success', __('locations.created'));
-            redirect('/admin/locations/' . $this->db->lastInsertId() . '/edit');
+            redirect($returnTo);
         }
     }
 
@@ -882,6 +904,9 @@ class AdminController
         $syncMode = $syncEnabled ? 'full_minute_reload' : 'independent';
         $defaultReturn = $locationId > 0 ? '/admin/locations/' . $locationId . '/edit' : '/admin/locations';
         $returnTo = $this->adminReturnPath($defaultReturn);
+        $returnPath = $id
+            ? $returnTo
+            : '/admin/display-groups/create?location_id=' . rawurlencode((string)$locationId) . '&return_to=' . rawurlencode($returnTo);
         $form = $id ? 'display_group_edit' : 'display_group_create';
         $old = [
             'location_id' => $locationId,
@@ -899,7 +924,7 @@ class AdminController
             $errors['sort_order'] = __('validation.non_negative_number');
         }
         if ($errors !== []) {
-            $this->redirectWithForm($returnTo, __('validation.fix_marked_fields'), $old, $errors, $form);
+            $this->redirectWithForm($returnPath, __('validation.fix_marked_fields'), $old, $errors, $form);
         }
 
         $location = $this->db->one('SELECT id FROM display_locations WHERE id = ?', [$locationId]);
@@ -912,7 +937,7 @@ class AdminController
             [$locationId, $name]
         );
         if ($existing && (int)$existing['id'] !== (int)$id) {
-            $this->redirectWithForm($returnTo, __('display_groups.name_exists'), $old, ['name' => __('display_groups.name_exists')], $form);
+            $this->redirectWithForm($returnPath, __('display_groups.name_exists'), $old, ['name' => __('display_groups.name_exists')], $form);
         }
 
         if ($id) {
@@ -941,6 +966,32 @@ class AdminController
         }
 
         redirect($returnTo);
+    }
+
+    public function displayGroupCreateForm(): void
+    {
+        $this->auth->requireRole('admin');
+
+        $locationId = (int)$this->request->input('location_id');
+        if ($locationId <= 0) {
+            flash('error', __('locations.not_found'));
+            redirect('/admin/locations');
+        }
+
+        $location = $this->db->one('SELECT id, name FROM display_locations WHERE id = ?', [$locationId]);
+        if (!$location) {
+            flash('error', __('locations.not_found'));
+            redirect('/admin/locations');
+        }
+
+        $returnTo = $this->adminReturnPath('/admin/locations/' . $locationId . '/edit');
+
+        $this->view->render('admin/display_group_create', [
+            'location' => $location,
+            'returnTo' => $returnTo,
+            'flash' => flash('success'),
+            'error' => flash('error'),
+        ]);
     }
 
     public function deleteDisplayGroup(int $id): void
@@ -3310,12 +3361,9 @@ class AdminController
                     continue;
                 }
 
-                $label = pathinfo($file, PATHINFO_FILENAME);
-                $label = preg_replace('/[_:-]+/', ' ', $label) ?? $label;
-                $label = trim(preg_replace('/\s+/', ' ', $label) ?? $label);
                 $icons[$file] = [
                     'file' => $file,
-                    'label' => ucwords($label),
+                    'label' => $this->displayIconLabel($file),
                     'url' => url($publicDir . '/' . $file),
                 ];
             }
@@ -3323,6 +3371,48 @@ class AdminController
 
         uasort($icons, static fn(array $a, array $b): int => strnatcasecmp($a['label'], $b['label']));
         return $icons;
+    }
+
+    private function displayIconLabel(string $file): string
+    {
+        $name = strtolower(pathinfo($file, PATHINFO_FILENAME));
+        $tokens = array_values(array_filter(
+            preg_split('/[_:-]+/', $name) ?: [],
+            static fn(string $token): bool => $token !== ''
+        ));
+        $parts = [];
+        $terms = [
+            'display' => __('display.model_terms.display', [], 'Display'),
+            'screen' => __('display.model_terms.display', [], 'Display'),
+            'stele' => __('display.model_terms.stele', [], 'Stele'),
+            'custom' => __('display.model_terms.custom', [], 'Custom'),
+            'custome' => __('display.model_terms.custom', [], 'Custom'),
+            'customer' => __('display.model_terms.customer', [], 'Customer'),
+            'stop' => __('display.model_terms.stop', [], 'Stop'),
+            'wide' => __('display.model_terms.wide', [], 'Wide'),
+            'ceiling' => __('display.model_terms.ceiling', [], 'Ceiling'),
+        ];
+
+        for ($index = 0; $index < count($tokens); $index++) {
+            $token = $tokens[$index];
+            $next = $tokens[$index + 1] ?? '';
+
+            if (ctype_digit($token) && $next !== '' && ctype_digit($next)) {
+                $parts[] = $token . ':' . $next;
+                $index++;
+                continue;
+            }
+
+            if ($token === 'customer' && $next === 'stop') {
+                $parts[] = __('display.model_terms.customer_stop', [], $terms['customer'] . ' ' . $terms['stop']);
+                $index++;
+                continue;
+            }
+
+            $parts[] = $terms[$token] ?? ucwords(str_replace('-', ' ', $token));
+        }
+
+        return trim(implode(' ', $parts));
     }
 
     private function defaultDisplayIcon(array $displayIcons): string

@@ -1,11 +1,22 @@
 <?php
 $title = __('display.plural');
 $breadcrumbs = [['label' => $title]];
+$displayIcons = is_array($displayIcons ?? null) ? $displayIcons : [];
+$defaultDisplayIcon = (string)($defaultDisplayIcon ?? ($displayIcons === [] ? '' : array_key_first($displayIcons)));
+$defaultDisplayModel = $displayIcons[$defaultDisplayIcon] ?? ($displayIcons === [] ? null : reset($displayIcons));
 require __DIR__ . '/../layouts/admin_header.php';
 ?>
 <div class="page-actions">
     <a class="button button--normal" href="<?= e(url('/admin/locations')) ?>"><?= admin_icon('manage') ?><span><?= e(__('locations.manage')) ?></span></a>
-    <a class="button button--default" href="<?= e(url('/admin/displays/create')) ?>"><?= admin_icon('add') ?><span><?= e(__('display.new')) ?></span></a>
+    <a
+        class="button button--default"
+        href="<?= e(url('/admin/displays/create')) ?>"
+        <?php if ($displayIcons !== []): ?>
+            data-open-display-model-dialog
+            data-create-url="<?= e(url('/admin/displays/create')) ?>"
+            aria-haspopup="dialog"
+        <?php endif; ?>
+    ><?= admin_icon('add') ?><span><?= e(__('display.new')) ?></span></a>
 </div>
 <?php if ($flash): ?><div class="alert success"><?= e($flash) ?></div><?php endif; ?>
 <div class="card">
@@ -72,4 +83,161 @@ require __DIR__ . '/../layouts/admin_header.php';
     </table>
     </div>
 </div>
+
+<?php if ($displayIcons !== [] && is_array($defaultDisplayModel)): ?>
+    <?php
+    $firstDisplayModelUrl = url('/admin/displays/create?icon_file=' . rawurlencode((string)$defaultDisplayModel['file']));
+    ?>
+    <dialog class="admin-dialog display-model-dialog" data-display-model-dialog aria-labelledby="display-model-dialog-title" aria-describedby="display-model-dialog-description">
+        <form method="dialog" class="admin-dialog__panel display-model-dialog__panel">
+            <div class="section-head display-model-dialog__head">
+                <div>
+                    <h2 id="display-model-dialog-title"><?= e(__('display.model_picker_title')) ?></h2>
+                    <p id="display-model-dialog-description" class="muted"><?= e(__('display.model_picker_hint')) ?></p>
+                </div>
+            </div>
+            <div class="display-model-dialog__scroll">
+                <div class="display-model-grid" data-display-model-options role="radiogroup" aria-labelledby="display-model-dialog-title">
+                    <?php $displayModelIndex = 0; ?>
+                    <?php foreach ($displayIcons as $icon): ?>
+                        <?php $isSelected = (string)$icon['file'] === (string)$defaultDisplayModel['file']; ?>
+                        <button
+                            type="button"
+                            class="display-model-card"
+                            data-display-model-option
+                            data-icon-file="<?= e((string)$icon['file']) ?>"
+                            data-label="<?= e((string)$icon['label']) ?>"
+                            aria-pressed="<?= $isSelected ? 'true' : 'false' ?>"
+                            role="radio"
+                            aria-checked="<?= $isSelected ? 'true' : 'false' ?>"
+                            tabindex="<?= $isSelected ? '0' : '-1' ?>"
+                        >
+                            <span class="display-model-card__image">
+                                <img src="<?= e((string)$icon['url']) ?>" alt="" loading="<?= $displayModelIndex < 6 ? 'eager' : 'lazy' ?>">
+                            </span>
+                            <span class="display-model-card__name"><?= e((string)$icon['label']) ?></span>
+                        </button>
+                        <?php $displayModelIndex++; ?>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+            <p class="display-model-empty muted" data-display-model-empty hidden><?= e(__('display.model_picker_empty')) ?></p>
+            <div class="form-actions display-model-dialog__actions">
+                <button type="button" class="button button--normal" data-display-model-close><?= admin_icon('cancel') ?><span><?= e(__('common.cancel')) ?></span></button>
+                <a class="button button--default" href="<?= e($firstDisplayModelUrl) ?>" data-display-model-continue><?= admin_icon('add') ?><span><?= e(__('display.model_picker_continue')) ?></span></a>
+            </div>
+        </form>
+    </dialog>
+
+    <script>
+    (() => {
+        const dialog = document.querySelector('[data-display-model-dialog]');
+        const openButton = document.querySelector('[data-open-display-model-dialog]');
+        if (!dialog || !openButton || typeof dialog.showModal !== 'function') return;
+
+        const options = Array.from(dialog.querySelectorAll('[data-display-model-option]'));
+        const continueLink = dialog.querySelector('[data-display-model-continue]');
+        const closeButton = dialog.querySelector('[data-display-model-close]');
+        const emptyMessage = dialog.querySelector('[data-display-model-empty]');
+        let selectedOption = options.find(option => option.getAttribute('aria-checked') === 'true') || options[0] || null;
+        let opener = null;
+
+        if (emptyMessage) {
+            emptyMessage.hidden = options.length > 0;
+        }
+
+        function buildCreateUrl(iconFile) {
+            const target = new URL(openButton.dataset.createUrl || openButton.href, window.location.href);
+            target.searchParams.set('icon_file', iconFile || '');
+            return target.toString();
+        }
+
+        function selectOption(option, focus = false) {
+            if (!option) return;
+            selectedOption = option;
+            options.forEach(item => {
+                const selected = item === option;
+                item.setAttribute('aria-pressed', selected ? 'true' : 'false');
+                item.setAttribute('aria-checked', selected ? 'true' : 'false');
+                item.tabIndex = selected ? 0 : -1;
+            });
+            if (continueLink) {
+                continueLink.href = buildCreateUrl(option.dataset.iconFile || '');
+            }
+            if (focus) {
+                option.focus({ preventScroll: true });
+            }
+        }
+
+        function closeDialog() {
+            if (dialog.open) {
+                dialog.close();
+            }
+            opener?.focus?.({ preventScroll: true });
+            opener = null;
+        }
+
+        function continueWithSelected() {
+            if (continueLink) {
+                window.location.href = continueLink.href;
+            }
+        }
+
+        function moveSelection(event) {
+            if (!['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
+            event.preventDefault();
+            const current = Math.max(0, options.indexOf(selectedOption));
+            const last = options.length - 1;
+            let next = current;
+            if (event.key === 'Home') next = 0;
+            if (event.key === 'End') next = last;
+            if (event.key === 'ArrowRight' || event.key === 'ArrowDown') next = current >= last ? 0 : current + 1;
+            if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') next = current <= 0 ? last : current - 1;
+            selectOption(options[next], true);
+        }
+
+        options.forEach(option => {
+            option.addEventListener('click', () => selectOption(option));
+            option.addEventListener('dblclick', () => {
+                selectOption(option);
+                continueWithSelected();
+            });
+            option.addEventListener('keydown', event => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    selectOption(option);
+                    return;
+                }
+                moveSelection(event);
+            });
+        });
+
+        openButton.addEventListener('click', event => {
+            event.preventDefault();
+            if (options.length === 0) {
+                window.location.href = openButton.href;
+                return;
+            }
+            opener = openButton;
+            selectOption(selectedOption || options[0]);
+            dialog.showModal();
+            window.setTimeout(() => selectedOption?.focus({ preventScroll: true }), 0);
+        });
+
+        closeButton?.addEventListener('click', closeDialog);
+        continueLink?.addEventListener('click', () => {
+            opener = null;
+        });
+        dialog.addEventListener('cancel', event => {
+            event.preventDefault();
+            closeDialog();
+        });
+        dialog.addEventListener('click', event => {
+            if (event.target === dialog) {
+                closeDialog();
+            }
+        });
+    })();
+    </script>
+<?php endif; ?>
 <?php require __DIR__ . '/../layouts/admin_footer.php'; ?>

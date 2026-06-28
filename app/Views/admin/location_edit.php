@@ -1,6 +1,6 @@
 <?php
 $locationEditForm = 'location_edit';
-$groupCreateForm = 'display_group_create';
+$groupCreateUrl = '/admin/display-groups/create?location_id=' . rawurlencode((string)$location['id']) . '&return_to=' . rawurlencode('/admin/locations/' . $location['id'] . '/edit');
 $title = __('common.edit') . ': ' . $location['name'];
 $breadcrumbs = [
     ['label' => __('locations.plural'), 'url' => '/admin/locations'],
@@ -9,7 +9,7 @@ $breadcrumbs = [
 require __DIR__ . '/../layouts/admin_header.php';
 ?>
 <div class="page-actions">
-    <a class="button button--normal" href="<?= e(url('/admin/locations')) ?>"><?= admin_icon('back') ?><span><?= e(__('locations.plural')) ?></span></a>
+    <a class="button button--default" href="<?= e(url($groupCreateUrl)) ?>"><?= admin_icon('add') ?><span><?= e(__('display_groups.add_new')) ?></span></a>
 </div>
 
 <?php if ($flash): ?><div class="alert success"><?= e($flash) ?></div><?php endif; ?>
@@ -96,30 +96,6 @@ require __DIR__ . '/../layouts/admin_header.php';
     </section>
 
     <aside class="organization-side">
-        <div class="card">
-            <h2><?= e(__('display_groups.new')) ?></h2>
-            <form method="post" action="<?= e(url('/admin/display-groups/create')) ?>" class="form-grid">
-                <?= csrf_field() ?>
-                <input type="hidden" name="location_id" value="<?= e((string)$location['id']) ?>">
-                <input type="hidden" name="return_to" value="<?= e('/admin/locations/' . $location['id'] . '/edit') ?>">
-                <label><?= e(__('common.name')) ?>
-                    <input name="name" value="<?= e((string)old('name', '', $groupCreateForm)) ?>" placeholder="<?= e(__('display_groups.name_placeholder')) ?>" required<?= field_attrs('name', $groupCreateForm) ?>>
-                    <?= field_error_html('name', $groupCreateForm) ?>
-                </label>
-                <label><?= e(__('common.description')) ?>
-                    <textarea name="description" rows="3" placeholder="<?= e(__('display_groups.description_placeholder')) ?>"<?= field_attrs('description', $groupCreateForm) ?>><?= e((string)old('description', '', $groupCreateForm)) ?></textarea>
-                    <?= field_error_html('description', $groupCreateForm) ?>
-                </label>
-                <label><?= e(__('common.sort_order')) ?>
-                    <input type="number" name="sort_order" value="<?= e((string)old('sort_order', '0', $groupCreateForm)) ?>" min="0" placeholder="<?= e(__('display_groups.sort_order_placeholder')) ?>"<?= field_attrs('sort_order', $groupCreateForm) ?>>
-                    <?= field_error_html('sort_order', $groupCreateForm) ?>
-                </label>
-                <label class="checkbox-row"><input type="checkbox" name="sync_enabled" value="1" <?= old_checked('sync_enabled', 0, $groupCreateForm) ?>> <?= e(__('display_groups.sync_reload_to_full_minute')) ?></label>
-                <small class="field-note"><?= e(__('display_groups.sync_reload_to_full_minute_help')) ?></small>
-                <button type="submit" class="button button--default"><?= admin_icon('add') ?><span><?= e(__('common.create')) ?></span></button>
-            </form>
-        </div>
-
         <div class="card">
             <h2><?= e(__('locations.unassigned')) ?></h2>
             <p class="muted"><?= e(__('locations.unassigned_hint')) ?></p>

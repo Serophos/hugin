@@ -3124,6 +3124,115 @@ body.hugin-dialog-fallback-open .hugin-dialog[open] {
     text-align: center;
 }
 
+.display-model-dialog {
+    width: min(900px, calc(100vw - 2rem));
+}
+
+.display-model-dialog__panel {
+    gap: 0;
+    padding: 0;
+    max-height: calc(100vh - 2rem);
+    max-height: calc(100dvh - 2rem);
+    overflow: hidden;
+}
+
+.display-model-dialog__head {
+    margin: 0;
+    padding: 1rem 1.1rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--panel-tint);
+}
+
+.display-model-dialog__scroll {
+    max-height: min(560px, 62vh);
+    max-height: min(560px, 62dvh);
+    overflow: auto;
+    padding: 1rem;
+    background: #fff;
+}
+
+.display-model-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(144px, 1fr));
+    gap: 0.75rem;
+}
+
+.display-model-card {
+    position: relative;
+    display: grid;
+    grid-template-rows: auto minmax(2.4rem, auto);
+    gap: 0.55rem;
+    min-width: 0;
+    padding: 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: #fff;
+    color: var(--text);
+    cursor: pointer;
+    font: inherit;
+    text-align: center;
+    transition: border-color 0.16s ease, box-shadow 0.16s ease, background 0.16s ease, transform 0.16s ease;
+}
+
+.display-model-card:hover {
+    border-color: #bfdbfe;
+    background: #f8fbff;
+    transform: translateY(-1px);
+}
+
+.display-model-card:focus-visible {
+    outline: var(--focus-outline);
+    outline-offset: var(--focus-outline-offset);
+}
+
+.display-model-card[aria-checked="true"] {
+    border-color: rgba(60, 141, 188, 0.68);
+    background: var(--accent-soft);
+    box-shadow: var(--focus-ring);
+}
+
+.display-model-card__image {
+    display: grid;
+    place-items: center;
+    min-width: 0;
+    min-height: 0;
+    padding: 0.35rem;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    background: var(--panel-alt);
+    overflow: hidden;
+}
+
+.display-model-card__image img {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-width: 100%;
+    max-height: none;
+    object-fit: contain;
+}
+
+.display-model-card__name {
+    align-self: center;
+    min-width: 0;
+    font-size: 0.86rem;
+    font-weight: 700;
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+}
+
+.display-model-empty {
+    margin: 0;
+    padding: 1rem;
+}
+
+.display-model-dialog__actions {
+    justify-content: flex-end;
+    padding: 0.85rem 1rem 1rem;
+    border-top: 1px solid var(--border);
+    background: var(--panel-alt);
+}
+
 .display-sidebar-icon {
     display: grid;
     grid-template-rows: minmax(120px, 180px) auto;

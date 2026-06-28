@@ -155,10 +155,12 @@ if (preg_match('#^/admin/displays/(\d+)/reload$#', $uri, $m) && $method === 'POS
 if (preg_match('#^/admin/displays/(\d+)/delete$#', $uri, $m) && $method === 'POST') { $admin->deleteDisplay((int)$m[1]); exit; }
 
 if ($uri === '/admin/locations' && $method === 'GET') { $admin->locations(); exit; }
+if ($uri === '/admin/locations/create' && $method === 'GET') { $admin->locationCreateForm(); exit; }
 if ($uri === '/admin/locations/create' && $method === 'POST') { $admin->saveLocation(); exit; }
 if (preg_match('#^/admin/locations/(\d+)/edit$#', $uri, $m) && $method === 'GET') { $admin->locationForm((int)$m[1]); exit; }
 if (preg_match('#^/admin/locations/(\d+)/edit$#', $uri, $m) && $method === 'POST') { $admin->saveLocation((int)$m[1]); exit; }
 if (preg_match('#^/admin/locations/(\d+)/delete$#', $uri, $m) && $method === 'POST') { $admin->deleteLocation((int)$m[1]); exit; }
+if ($uri === '/admin/display-groups/create' && $method === 'GET') { $admin->displayGroupCreateForm(); exit; }
 if ($uri === '/admin/display-groups/create' && $method === 'POST') { $admin->saveDisplayGroup(); exit; }
 if ($uri === '/admin/display-groups/bulk' && $method === 'POST') { $admin->moveDisplaysToGroup(); exit; }
 if (preg_match('#^/admin/display-groups/(\d+)$#', $uri, $m) && $method === 'GET') { $admin->displayGroup((int)$m[1]); exit; }
