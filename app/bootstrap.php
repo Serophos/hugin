@@ -56,28 +56,7 @@ app_import_legacy_config_settings($config);
 
 $locale = (string)app_core_setting('system.locale', $config['app']['locale'] ?? 'en');
 $fallbackLocale = (string)($config['app']['fallback_locale'] ?? $locale);
-$i18n = new App\Core\I18n($locale, $fallbackLocale);
-$i18n->loadFile($fallbackLocale, __DIR__ . '/lang/' . $fallbackLocale . '.php');
-if ($locale !== $fallbackLocale) {
-    $i18n->loadFile($locale, __DIR__ . '/lang/' . $locale . '.php');
-}
-
-$pluginsRoot = __DIR__ . '/../plugins';
-if (is_dir($pluginsRoot)) {
-    foreach (scandir($pluginsRoot) ?: [] as $entry) {
-        if ($entry === '.' || $entry === '..') {
-            continue;
-        }
-        $langDir = $pluginsRoot . '/' . $entry . '/lang';
-        if (!is_dir($langDir)) {
-            continue;
-        }
-        $i18n->loadFile($fallbackLocale, $langDir . '/' . $fallbackLocale . '.php', 'plugins.' . $entry);
-        if ($locale !== $fallbackLocale) {
-            $i18n->loadFile($locale, $langDir . '/' . $locale . '.php', 'plugins.' . $entry);
-        }
-    }
-}
+$i18n = app_build_i18n($locale, $fallbackLocale);
 
 $GLOBALS['i18n'] = $i18n;
 $GLOBALS['i18n_locale'] = $locale;

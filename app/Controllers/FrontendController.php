@@ -10,11 +10,31 @@ use DateTimeZone;
 
 class FrontendController
 {
+    private const DISPLAY_LANGUAGE_SYSTEM = 'system';
+    private const DISPLAY_LANGUAGE_OPTIONS = ['en', 'de'];
+    private const SYNC_JOIN_STABILIZATION_SECONDS = 8;
+    private const SYNC_RELEASE_TTL_SECONDS = 300;
+
     private TemplateSlideService $templateSlides;
 
     public function __construct(private Database $db, private View $view, private PluginManager $plugins)
     {
         $this->templateSlides = new TemplateSlideService($db);
+    }
+
+    private function applyDisplayLocale(array $display): string
+    {
+        return app_switch_locale($this->resolveDisplayLocale($display));
+    }
+
+    private function resolveDisplayLocale(array $display): string
+    {
+        $displayLanguage = trim((string)($display['display_language'] ?? self::DISPLAY_LANGUAGE_SYSTEM));
+        if (in_array($displayLanguage, self::DISPLAY_LANGUAGE_OPTIONS, true)) {
+            return $displayLanguage;
+        }
+
+        return (string)app_core_setting('system.locale', app_config('app.locale', 'en'));
     }
 
     public function display(string $slug): void
@@ -27,6 +47,7 @@ class FrontendController
             return;
         }
 
+        $this->applyDisplayLocale($display);
         $displayGroup = $this->loadDisplayGroup((int)$display['id']);
         $activeAssignment = $this->resolveActiveAssignment($display);
         if (!$activeAssignment) {
@@ -248,6 +269,7 @@ class FrontendController
             json_response(['ok' => false, 'message' => __('frontend.state_message_display_not_found')], 404);
         }
 
+        $this->applyDisplayLocale($display);
         $displayGroup = $this->loadDisplayGroup((int)$display['id']);
         $activeAssignment = $this->resolveActiveAssignment($display);
         if (!$activeAssignment) {
@@ -277,6 +299,7 @@ class FrontendController
             json_response(['ok' => false, 'message' => __('frontend.state_message_display_not_found')], 404);
         }
 
+        $this->applyDisplayLocale($display);
         $displayGroup = $this->loadDisplayGroup((int)$display['id']);
         $activeAssignment = $this->resolveActiveAssignment($display);
         if (!$activeAssignment) {
@@ -307,6 +330,7 @@ class FrontendController
             json_response(['ok' => false, 'message' => __('frontend.state_message_display_not_found')], 404);
         }
 
+        $this->applyDisplayLocale($display);
         $activeAssignment = $this->resolveActiveAssignment($display);
         $payload = $this->readJsonBody();
         $ipAddress = client_ip();
@@ -400,6 +424,7 @@ class FrontendController
             json_response(['ok' => false, 'message' => __('frontend.state_message_display_not_found')], 404);
         }
 
+        $this->applyDisplayLocale($display);
         $displayGroup = $this->loadDisplayGroup((int)$display['id']);
         $context = $this->currentDisplayStateContext($display, $displayGroup);
         if (!$context) {
@@ -439,6 +464,7 @@ class FrontendController
             json_response(['ok' => false, 'message' => __('frontend.state_message_display_not_found')], 404);
         }
 
+        $this->applyDisplayLocale($display);
         $displayGroup = $this->loadDisplayGroup((int)$display['id']);
         $context = $this->currentDisplayStateContext($display, $displayGroup);
         if (!$context) {
@@ -589,11 +615,14 @@ class FrontendController
         }
 
         $participantCount = count($participants);
+        $activeGroupDisplayCount = $this->activeGroupDisplayCount($groupId);
         $release = $this->syncRelease($groupId, $generationHash);
-        if (!$release && $readyCount >= $participantCount) {
-            $release = $this->releaseSyncGeneration($groupId, $generationHash, $participantCount, $readyCount);
-        } elseif (!$release) {
-            $this->storeSyncGenerationProgress($groupId, $generationHash, $participantCount, $readyCount);
+        if (!$release) {
+            $progress = $this->storeSyncGenerationProgress($groupId, $generationHash, $participantCount, $readyCount);
+            $generationStable = $this->syncGenerationIsStable($progress, $activeGroupDisplayCount);
+            if ($readyCount >= $participantCount && $generationStable) {
+                $release = $this->releaseSyncGeneration($groupId, $generationHash, $participantCount, $readyCount);
+            }
         }
 
         $startAtMs = $release ? $this->syncReleaseStartAtMs($release) : 0;
@@ -630,7 +659,8 @@ class FrontendController
 
         $participants = [];
         foreach ($rows as $row) {
-            $context = $this->currentDisplayStateContext($row, $displayGroup);
+            $participantDisplayGroup = $this->displayGroupForDisplay($displayGroup, (int)$row['id']);
+            $context = $this->currentDisplayStateContext($row, $participantDisplayGroup);
             if (!$context) {
                 continue;
             }
@@ -641,6 +671,13 @@ class FrontendController
         }
 
         return $participants;
+    }
+
+    private function displayGroupForDisplay(array $displayGroup, int $displayId): array
+    {
+        $participantDisplayGroup = $displayGroup;
+        $participantDisplayGroup['is_primary_display'] = (int)($displayGroup['primary_display_id'] ?? 0) === $displayId;
+        return $participantDisplayGroup;
     }
 
     private function cacheReadinessRows(array $participants): array
@@ -666,6 +703,20 @@ class FrontendController
         return $readiness;
     }
 
+    private function activeGroupDisplayCount(int $groupId): int
+    {
+        $row = $this->db->one(
+            'SELECT COUNT(*) AS active_count
+             FROM display_group_memberships dgm
+             INNER JOIN displays d ON d.id = dgm.display_id
+             WHERE dgm.group_id = ?
+               AND d.is_active = 1',
+            [$groupId]
+        );
+
+        return max(0, (int)($row['active_count'] ?? 0));
+    }
+
     private function syncRelease(int $groupId, string $generationHash): ?array
     {
         return $this->db->one(
@@ -674,13 +725,25 @@ class FrontendController
              WHERE display_group_id = ?
                AND generation_hash = ?
                AND start_at IS NOT NULL
-               AND released_at >= (NOW() - INTERVAL 5 MINUTE)
+               AND released_at >= (NOW() - INTERVAL ' . self::SYNC_RELEASE_TTL_SECONDS . ' SECOND)
              LIMIT 1',
             [$groupId, $generationHash]
         );
     }
 
-    private function storeSyncGenerationProgress(int $groupId, string $generationHash, int $participantCount, int $readyCount): void
+    private function syncGenerationProgress(int $groupId, string $generationHash): ?array
+    {
+        return $this->db->one(
+            'SELECT *, TIMESTAMPDIFF(SECOND, created_at, NOW()) AS age_seconds
+             FROM display_sync_releases
+             WHERE display_group_id = ?
+               AND generation_hash = ?
+             LIMIT 1',
+            [$groupId, $generationHash]
+        );
+    }
+
+    private function storeSyncGenerationProgress(int $groupId, string $generationHash, int $participantCount, int $readyCount): ?array
     {
         $this->db->execute(
             'INSERT INTO display_sync_releases (display_group_id, generation_hash, participant_count, ready_count)
@@ -688,10 +751,23 @@ class FrontendController
              ON DUPLICATE KEY UPDATE
                 participant_count = VALUES(participant_count),
                 ready_count = VALUES(ready_count),
-                start_at = IF(released_at IS NOT NULL AND released_at < (NOW() - INTERVAL 5 MINUTE), NULL, start_at),
-                released_at = IF(released_at IS NOT NULL AND released_at < (NOW() - INTERVAL 5 MINUTE), NULL, released_at)',
+                created_at = IF(updated_at < (NOW() - INTERVAL ' . self::SYNC_RELEASE_TTL_SECONDS . ' SECOND), CURRENT_TIMESTAMP, created_at),
+                start_at = IF(released_at IS NOT NULL AND released_at < (NOW() - INTERVAL ' . self::SYNC_RELEASE_TTL_SECONDS . ' SECOND), NULL, start_at),
+                released_at = IF(released_at IS NOT NULL AND released_at < (NOW() - INTERVAL ' . self::SYNC_RELEASE_TTL_SECONDS . ' SECOND), NULL, released_at)',
             [$groupId, $generationHash, $participantCount, $readyCount]
         );
+
+        return $this->syncGenerationProgress($groupId, $generationHash);
+    }
+
+    private function syncGenerationIsStable(?array $progress, int $activeGroupDisplayCount): bool
+    {
+        if ($activeGroupDisplayCount <= 1) {
+            return true;
+        }
+
+        $ageSeconds = max(0, (int)($progress['age_seconds'] ?? 0));
+        return $ageSeconds >= self::SYNC_JOIN_STABILIZATION_SECONDS;
     }
 
     private function releaseSyncGeneration(int $groupId, string $generationHash, int $participantCount, int $readyCount): ?array
@@ -705,8 +781,8 @@ class FrontendController
              ON DUPLICATE KEY UPDATE
                 participant_count = VALUES(participant_count),
                 ready_count = VALUES(ready_count),
-                start_at = IF(released_at IS NULL OR released_at < (NOW() - INTERVAL 5 MINUTE), VALUES(start_at), start_at),
-                released_at = IF(released_at IS NULL OR released_at < (NOW() - INTERVAL 5 MINUTE), VALUES(released_at), released_at)',
+                start_at = IF(released_at IS NULL OR released_at < (NOW() - INTERVAL ' . self::SYNC_RELEASE_TTL_SECONDS . ' SECOND), VALUES(start_at), start_at),
+                released_at = IF(released_at IS NULL OR released_at < (NOW() - INTERVAL ' . self::SYNC_RELEASE_TTL_SECONDS . ' SECOND), VALUES(released_at), released_at)',
             [$groupId, $generationHash, $participantCount, $readyCount, $startAt]
         );
 
@@ -963,6 +1039,8 @@ class FrontendController
             'generated_at' => date('c'),
             'signature' => (string)$state['signature'],
             'display_slug' => (string)$display['slug'],
+            'display_language' => (string)($display['display_language'] ?? self::DISPLAY_LANGUAGE_SYSTEM),
+            'display_locale' => current_locale(),
             'shell_url' => url('/display/' . $display['slug']),
             'state_url' => url('/display/' . $display['slug'] . '/state'),
             'assets' => array_values($assets),
@@ -1155,6 +1233,8 @@ class FrontendController
             'display_id' => (int)$display['id'],
             'display_slug' => (string)$display['slug'],
             'display_updated_at' => (string)($display['updated_at'] ?? ''),
+            'display_language' => (string)($display['display_language'] ?? self::DISPLAY_LANGUAGE_SYSTEM),
+            'display_locale' => current_locale(),
             'display_group' => $displayGroup,
             'channel_id' => (int)$activeAssignment['channel_id'],
             'channel_name' => (string)$activeAssignment['channel_name'],
@@ -1277,7 +1357,7 @@ class FrontendController
         }
 
         $group = $this->db->one(
-            'SELECT g.id, g.name, g.sync_enabled, g.sync_mode, l.name AS location_name
+            'SELECT g.id, g.name, g.primary_display_id, g.sync_enabled, g.sync_mode, l.name AS location_name
              FROM display_group_memberships dgm
              INNER JOIN display_groups g ON g.id = dgm.group_id
              INNER JOIN display_locations l ON l.id = g.location_id
@@ -1295,6 +1375,8 @@ class FrontendController
             'id' => (int)$group['id'],
             'name' => (string)$group['name'],
             'location_name' => (string)($group['location_name'] ?? ''),
+            'primary_display_id' => (int)($group['primary_display_id'] ?? 0),
+            'is_primary_display' => (int)($group['primary_display_id'] ?? 0) === $displayId,
             'sync_enabled' => $syncEnabled ? 1 : 0,
             'sync_mode' => (string)($group['sync_mode'] ?? 'independent'),
             'sync_reload_to_full_minute' => $syncEnabled,

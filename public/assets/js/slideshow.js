@@ -77,6 +77,10 @@
 
     const delayUntilServerTime = targetMs => Math.max(0, Math.ceil(Number(targetMs || 0) - serverNowMs()));
 
+    const sleep = ms => new Promise(resolve => {
+        window.setTimeout(resolve, Math.max(0, Math.ceil(Number(ms) || 0)));
+    });
+
     const padDateTimePart = value => String(Math.max(0, Number(value) || 0)).padStart(2, '0');
 
     const formatTemplateDateTime = element => {
@@ -822,49 +826,113 @@
             .then(data => normalizeReadinessStatus(data || { ok: false, released: true }));
     };
 
-    const waitForCacheReadinessRelease = (reason, cacheResult = {}) => postCacheReadiness(reason, cacheResult)
-        .then(status => {
-            if (!shouldUseSyncedGroupReload() || !status.syncEnabled) {
-                return status;
+    const failOpenReadinessStatus = () => normalizeReadinessStatus({ ok: false, released: true });
+
+    const showReadinessGroupStage = status => {
+        setStartupStage('waitingGroup', {
+            completed: status?.readyCount || 0,
+            total: status?.participantCount || 0,
+        });
+    };
+
+    const waitForCacheReadinessReleaseStatus = initialStatus => {
+        const poll = currentStatus => {
+            if (!shouldUseSyncedGroupReload() || !currentStatus?.syncEnabled || currentStatus.ok === false) {
+                return currentStatus;
             }
 
-            const poll = currentStatus => {
-                if (currentStatus.released && (currentStatus.startAtMs > 0 || currentStatus.participantCount <= 0)) {
-                    return currentStatus;
-                }
+            if (currentStatus.released && (currentStatus.startAtMs > 0 || currentStatus.participantCount <= 0)) {
+                return currentStatus;
+            }
 
-                setStartupStage('waitingGroup', {
-                    completed: currentStatus.readyCount,
-                    total: currentStatus.participantCount,
-                });
+            showReadinessGroupStage(currentStatus);
 
-                return new Promise(resolve => {
-                    window.setTimeout(resolve, CACHE_READINESS_POLL_MS);
-                })
-                    .then(fetchCacheReadinessStatus)
-                    .then(poll);
-            };
+            return sleep(CACHE_READINESS_POLL_MS)
+                .then(fetchCacheReadinessStatus)
+                .then(nextStatus => nextStatus.ok === false ? nextStatus : poll(nextStatus));
+        };
 
-            return poll(status);
-        })
+        return poll(initialStatus);
+    };
+
+    const waitForCacheReadinessRelease = (reason, cacheResult = {}) => postCacheReadiness(reason, cacheResult)
+        .then(waitForCacheReadinessReleaseStatus)
         .catch(error => {
             logSyncDebug('cache readiness coordination failed open', {
                 reason,
                 error: String(error?.message || error),
             });
-            return normalizeReadinessStatus({ ok: false, released: true });
+            return failOpenReadinessStatus();
         });
 
-    const waitForReadinessStart = status => {
-        const startAtMs = Number(status?.startAtMs || 0);
-        if (startAtMs > serverNowMs()) {
-            setStartupStage('waitingMinute');
-            return new Promise(resolve => {
-                window.setTimeout(resolve, delayUntilServerTime(startAtMs));
-            });
+    const readinessStatusWithFallbackStart = (status, fallbackStartAtMs = 0) => {
+        const nextStatus = Object.assign({}, status || {});
+        if (!nextStatus.released || Number(nextStatus.startAtMs || 0) > serverNowMs()) {
+            return nextStatus;
         }
 
-        return Promise.resolve();
+        const fallback = Number(fallbackStartAtMs || 0);
+        nextStatus.startAtMs = fallback > serverNowMs()
+            ? fallback
+            : computeNextFullMinuteActivation();
+        return nextStatus;
+    };
+
+    const releaseStillCoversStart = (latestStatus, expectedStatus) => {
+        if (!latestStatus?.syncEnabled || latestStatus.ok === false) {
+            return true;
+        }
+        if (!latestStatus.released) {
+            return false;
+        }
+
+        const latestStartAtMs = Number(latestStatus.startAtMs || 0);
+        const expectedStartAtMs = Number(expectedStatus?.startAtMs || 0);
+        return latestStartAtMs > 0 && latestStartAtMs <= expectedStartAtMs;
+    };
+
+    const waitForReadinessStart = (status, options = {}) => {
+        const firstStatus = readinessStatusWithFallbackStart(status, options?.fallbackStartAtMs || 0);
+
+        const poll = currentStatus => {
+            if (!shouldUseSyncedGroupReload() || !currentStatus?.syncEnabled || currentStatus.ok === false) {
+                const startAtMs = Number(currentStatus?.startAtMs || 0);
+                if (startAtMs > serverNowMs()) {
+                    setStartupStage('waitingMinute');
+                    return sleep(delayUntilServerTime(startAtMs));
+                }
+                return Promise.resolve(currentStatus);
+            }
+
+            if (!currentStatus.released || Number(currentStatus.startAtMs || 0) <= 0) {
+                showReadinessGroupStage(currentStatus);
+                return sleep(CACHE_READINESS_POLL_MS)
+                    .then(fetchCacheReadinessStatus)
+                    .then(nextStatus => nextStatus.ok === false ? nextStatus : poll(nextStatus))
+                    .catch(failOpenReadinessStatus);
+            }
+
+            const startAtMs = Number(currentStatus.startAtMs || 0);
+            if (startAtMs <= serverNowMs()) {
+                return Promise.resolve(currentStatus);
+            }
+
+            setStartupStage('waitingMinute');
+            return sleep(Math.min(delayUntilServerTime(startAtMs), CACHE_READINESS_POLL_MS))
+                .then(fetchCacheReadinessStatus)
+                .then(nextStatus => {
+                    if (nextStatus.ok === false) {
+                        return serverNowMs() >= startAtMs ? currentStatus : poll(currentStatus);
+                    }
+                    if (serverNowMs() >= startAtMs && releaseStillCoversStart(nextStatus, currentStatus)) {
+                        return nextStatus;
+                    }
+                    return poll(nextStatus);
+                })
+                .catch(() => serverNowMs() >= startAtMs ? currentStatus : poll(currentStatus));
+        };
+
+        return poll(firstStatus);
     };
 
 
@@ -1049,32 +1117,39 @@
         });
     };
 
-    const applyPendingReload = () => {
-        if (!pendingReload) return;
+    const schedulePendingReload = (reload, status = null, replaced = false) => {
+        const statusStartAtMs = Number(status?.startAtMs || 0);
+        const startAtMs = statusStartAtMs > serverNowMs()
+            ? statusStartAtMs
+            : computeNextFullMinuteActivation();
+        const activateAtMs = Math.max(serverNowMs(), startAtMs - SYNC_RELOAD_PAGE_LOAD_LEAD_MS);
 
-        const reload = pendingReload;
-        pendingReload = null;
-        pendingReloadTimer = null;
+        pendingReload = Object.assign({}, reload, {
+            activateAtMs,
+            startAtMs,
+            readinessGenerationHash: status?.generationHash || reload.readinessGenerationHash || '',
+        });
+        pendingReloadTimer = window.setTimeout(applyPendingReload, delayUntilServerTime(activateAtMs));
 
-        if (isProbablyOffline()) {
-            reload.activateAtMs = computeNextFullMinuteActivation();
-            pendingReload = reload;
-            pendingReloadTimer = window.setTimeout(applyPendingReload, delayUntilServerTime(reload.activateAtMs));
-            logReload('Postponed synchronized reload while offline', {
-                reason: reload.reason,
-                displayGroup: reload.displayGroup,
-                signature: reload.signature,
-                activateAt: new Date(reload.activateAtMs).toISOString(),
-            });
-            logSyncDebug('postponed synchronized reload while offline', {
-                reason: reload.reason,
-                signature: reload.signature,
-                activateAt: new Date(reload.activateAtMs).toISOString(),
-                msUntilActivate: delayUntilServerTime(reload.activateAtMs),
-            });
-            return;
-        }
+        logReload(replaced ? 'Replaced pending synchronized reload' : 'Scheduled synchronized reload', {
+            reason: pendingReload.reason,
+            displayGroup: pendingReload.displayGroup,
+            signature: pendingReload.signature,
+            activateAt: new Date(activateAtMs).toISOString(),
+            startAt: new Date(startAtMs).toISOString(),
+        });
+        logSyncDebug(replaced ? 'replaced pending synchronized reload' : 'scheduled synchronized reload', {
+            reason: pendingReload.reason,
+            signature: pendingReload.signature,
+            displayGroup: pendingReload.displayGroup,
+            activateAt: new Date(activateAtMs).toISOString(),
+            startAt: new Date(startAtMs).toISOString(),
+            generationHash: pendingReload.readinessGenerationHash,
+            msUntilActivate: delayUntilServerTime(activateAtMs),
+        });
+    };
 
+    const applyPendingReloadNow = reload => {
         logReload('Applying synchronized reload', {
             reason: reload.reason,
             displayGroup: reload.displayGroup,
@@ -1085,10 +1160,99 @@
             reason: reload.reason,
             signature: reload.signature,
             activateAt: new Date(reload.activateAtMs).toISOString(),
+            startAt: reload.startAtMs ? new Date(reload.startAtMs).toISOString() : '',
+            generationHash: reload.readinessGenerationHash || '',
         });
 
         markScheduledSyncReload(reload);
         window.location.reload();
+    };
+
+    const applyPendingReload = () => {
+        if (!pendingReload) return;
+
+        const reload = pendingReload;
+        pendingReload = null;
+        pendingReloadTimer = null;
+
+        if (isProbablyOffline()) {
+            reload.startAtMs = computeNextFullMinuteActivation();
+            reload.activateAtMs = Math.max(serverNowMs(), reload.startAtMs - SYNC_RELOAD_PAGE_LOAD_LEAD_MS);
+            pendingReload = reload;
+            pendingReloadTimer = window.setTimeout(applyPendingReload, delayUntilServerTime(reload.activateAtMs));
+            logReload('Postponed synchronized reload while offline', {
+                reason: reload.reason,
+                displayGroup: reload.displayGroup,
+                signature: reload.signature,
+                activateAt: new Date(reload.activateAtMs).toISOString(),
+                startAt: new Date(reload.startAtMs).toISOString(),
+            });
+            logSyncDebug('postponed synchronized reload while offline', {
+                reason: reload.reason,
+                signature: reload.signature,
+                activateAt: new Date(reload.activateAtMs).toISOString(),
+                startAt: new Date(reload.startAtMs).toISOString(),
+                msUntilActivate: delayUntilServerTime(reload.activateAtMs),
+            });
+            return;
+        }
+
+        if (!shouldUseSyncedGroupReload(reload.stateData)) {
+            applyPendingReloadNow(reload);
+            return;
+        }
+
+        fetchCacheReadinessStatus()
+            .then(status => {
+                if (status.ok === false || !status.syncEnabled) {
+                    applyPendingReloadNow(reload);
+                    return;
+                }
+
+                if (!status.released || Number(status.startAtMs || 0) <= 0) {
+                    logSyncDebug('synchronized reload release revoked before page load', {
+                        reason: reload.reason,
+                        signature: reload.signature,
+                        participantCount: status.participantCount,
+                        readyCount: status.readyCount,
+                        generationHash: status.generationHash,
+                    });
+                    return waitForCacheReadinessReleaseStatus(status)
+                        .then(nextStatus => {
+                            if (nextStatus.ok === false || !nextStatus.syncEnabled) {
+                                applyPendingReloadNow(reload);
+                                return;
+                            }
+                            schedulePendingReload(reload, nextStatus, true);
+                        })
+                        .catch(error => {
+                            logSyncDebug('synchronized reload readiness revalidation failed open', {
+                                reason: reload.reason,
+                                signature: reload.signature,
+                                error: String(error?.message || error),
+                            });
+                            applyPendingReloadNow(reload);
+                        });
+                }
+
+                const startAtMs = Number(status.startAtMs || 0);
+                if (startAtMs - serverNowMs() > SYNC_RELOAD_PAGE_LOAD_LEAD_MS + Math.floor(CACHE_READINESS_POLL_MS / 2)) {
+                    schedulePendingReload(reload, status, true);
+                    return;
+                }
+
+                reload.startAtMs = startAtMs || reload.startAtMs;
+                reload.readinessGenerationHash = status.generationHash || reload.readinessGenerationHash || '';
+                applyPendingReloadNow(reload);
+            })
+            .catch(error => {
+                logSyncDebug('synchronized reload readiness check failed open', {
+                    reason: reload.reason,
+                    signature: reload.signature,
+                    error: String(error?.message || error),
+                });
+                applyPendingReloadNow(reload);
+            });
     };
 
     const scheduleSyncedReload = (reason, stateData) => {
@@ -1117,34 +1281,13 @@
         }
 
         const scheduleReload = status => {
-            const startAtMs = Number(status?.startAtMs || 0) || computeNextFullMinuteActivation();
-            const activateAtMs = Math.max(serverNowMs(), startAtMs - SYNC_RELOAD_PAGE_LOAD_LEAD_MS);
-            pendingReload = {
+            schedulePendingReload({
                 reason,
                 stateData,
                 signature,
                 displayGroup,
-                activateAtMs,
-                startAtMs,
-            };
-            pendingReloadTimer = window.setTimeout(applyPendingReload, delayUntilServerTime(activateAtMs));
-
-            logReload(replaced ? 'Replaced pending synchronized reload' : 'Scheduled synchronized reload', {
-                reason,
-                displayGroup,
-                signature,
-                activateAt: new Date(activateAtMs).toISOString(),
-                startAt: new Date(startAtMs).toISOString(),
-            });
-            logSyncDebug(replaced ? 'replaced pending synchronized reload' : 'scheduled synchronized reload', {
-                reason,
-                signature,
-                displayGroup,
                 stateServerTimeMs: stateData?.server_time_ms || null,
-                activateAt: new Date(activateAtMs).toISOString(),
-                startAt: new Date(startAtMs).toISOString(),
-                msUntilActivate: delayUntilServerTime(activateAtMs),
-            });
+            }, status, replaced);
         };
 
         warmOfflineCache('config-reload')
@@ -1927,14 +2070,7 @@
                 }
 
                 return waitForCacheReadinessRelease('startup', cacheResult)
-                    .then(status => {
-                        if ((!status.startAtMs || status.startAtMs <= serverNowMs()) && fallbackStartAtMs > serverNowMs()) {
-                            status.startAtMs = fallbackStartAtMs;
-                        } else if (!status.startAtMs || status.startAtMs <= serverNowMs()) {
-                            status.startAtMs = computeNextFullMinuteActivation();
-                        }
-                        return waitForReadinessStart(status);
-                    });
+                    .then(status => waitForReadinessStart(status, { fallbackStartAtMs }));
             })
             .then(() => {
                 setStartupStage('starting');

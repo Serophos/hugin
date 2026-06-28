@@ -112,6 +112,8 @@ if (str_starts_with($display['slug'] ?? '', 'preview-slide-') && preg_match('#^p
      data-display-group-id="<?= e((string)($displayGroup['id'] ?? '')) ?>"
      data-display-group-name="<?= e((string)($displayGroup['name'] ?? '')) ?>"
      data-display-group-sync-mode="<?= e((string)($displayGroup['sync_mode'] ?? 'independent')) ?>"
+     data-display-language="<?= e((string)($display['display_language'] ?? 'system')) ?>"
+     data-display-locale="<?= e(current_locale()) ?>"
      data-loading-stage-preparing="<?= e(__('frontend.loading_stage_preparing')) ?>"
      data-loading-stage-caching="<?= e(__('frontend.loading_stage_caching')) ?>"
      data-loading-stage-degraded="<?= e(__('frontend.loading_stage_degraded')) ?>"

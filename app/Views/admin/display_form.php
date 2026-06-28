@@ -16,6 +16,15 @@ if (!isset($displayIcons[$selectedDisplayIcon])) {
 $selectedDisplayIconUrl = (string)($displayIcons[$selectedDisplayIcon]['url'] ?? '');
 $selectedDisplayIconLabel = (string)($displayIcons[$selectedDisplayIcon]['label'] ?? __('display.icon'));
 $displaySyncEnabled = !empty($display['group_sync_enabled']);
+$displayLanguageOptions = is_array($displayLanguageOptions ?? null) ? $displayLanguageOptions : [
+    'system' => __('display.language_options.system'),
+    'en' => __('display.language_options.en'),
+    'de' => __('display.language_options.de'),
+];
+$selectedDisplayLanguage = (string)old('display_language', $display['display_language'] ?? 'system', $formId);
+if (!array_key_exists($selectedDisplayLanguage, $displayLanguageOptions)) {
+    $selectedDisplayLanguage = 'system';
+}
 require __DIR__ . '/../layouts/admin_header.php';
 ?>
 <?php if ($error): ?><div class="alert error"><?= e($error) ?></div><?php endif; ?>
@@ -54,6 +63,15 @@ require __DIR__ . '/../layouts/admin_header.php';
             <label><?= e(__('common.timezone')) ?>
                 <input type="text" name="timezone" value="<?= e((string)old('timezone', $display['timezone'] ?? 'UTC', $formId)) ?>" placeholder="<?= e(__('display.timezone_placeholder')) ?>" required<?= field_attrs('timezone', $formId) ?>>
                 <?= field_error_html('timezone', $formId) ?>
+            </label>
+            <label><?= e(__('display.language')) ?>
+                <select name="display_language"<?= field_attrs('display_language', $formId, field_note_id('display_language', $formId)) ?>>
+                    <?php foreach ($displayLanguageOptions as $languageValue => $languageLabel): ?>
+                        <option value="<?= e((string)$languageValue) ?>" <?= selected($selectedDisplayLanguage, (string)$languageValue) ?>><?= e((string)$languageLabel) ?></option>
+                    <?php endforeach; ?>
+                </select>
+                <?= field_error_html('display_language', $formId) ?>
+                <small id="<?= e(field_note_id('display_language', $formId)) ?>" class="field-note"><?= e(__('display.language_help')) ?></small>
             </label>
             <label><?= e(__('common.sort_order')) ?>
                 <input type="number" min="0" name="sort_order" value="<?= e((string)old('sort_order', $display['sort_order'] ?? 0, $formId)) ?>" placeholder="<?= e(__('display.sort_order_placeholder')) ?>"<?= field_attrs('sort_order', $formId) ?>>
@@ -97,7 +115,7 @@ require __DIR__ . '/../layouts/admin_header.php';
                 <span class="display-sidebar-icon__image">
                     <img src="<?= e($selectedDisplayIconUrl) ?>" alt="" data-display-icon-preview-img>
                     <?php if ($displaySyncEnabled): ?>
-                        <span class="display-sync-indicator display-sync-indicator--sidebar" aria-hidden="true"><?= admin_icon('reload') ?></span>
+                        <span class="display-sync-indicator display-sync-indicator--sidebar" data-sync-tooltip="<?= e(__('display_groups.sync_enabled_indicator')) ?>" title="<?= e(__('display_groups.sync_enabled_indicator')) ?>" aria-hidden="true"><?= admin_icon('history') ?></span>
                     <?php endif; ?>
                 </span>
                 <span data-display-icon-preview-label><?= e($selectedDisplayIconLabel) ?></span>

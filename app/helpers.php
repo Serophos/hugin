@@ -75,6 +75,64 @@ function app_available_locales(): array
     return $locales;
 }
 
+function app_resolve_locale(string $locale, ?string $default = null): string
+{
+    $availableLocales = app_available_locales();
+    $locale = trim($locale);
+    if ($locale !== '' && array_key_exists($locale, $availableLocales)) {
+        return $locale;
+    }
+
+    $default = trim((string)($default ?? app_config('app.locale', 'en')));
+    if ($default !== '' && array_key_exists($default, $availableLocales)) {
+        return $default;
+    }
+
+    return array_key_first($availableLocales) ?: 'en';
+}
+
+function app_build_i18n(string $locale, ?string $fallbackLocale = null): \App\Core\I18n
+{
+    $locale = app_resolve_locale($locale);
+    $fallbackLocale = app_resolve_locale((string)($fallbackLocale ?? $locale), $locale);
+    $root = rtrim((string)app_config('paths.root', dirname(__DIR__)), '/');
+    $i18n = new \App\Core\I18n($locale, $fallbackLocale);
+
+    foreach (array_values(array_unique([$fallbackLocale, $locale])) as $loadedLocale) {
+        $i18n->loadFile($loadedLocale, $root . '/app/lang/' . $loadedLocale . '.php');
+    }
+
+    $pluginsRoot = $root . '/plugins';
+    if (is_dir($pluginsRoot)) {
+        foreach (scandir($pluginsRoot) ?: [] as $entry) {
+            if ($entry === '.' || $entry === '..') {
+                continue;
+            }
+            $langDir = $pluginsRoot . '/' . $entry . '/lang';
+            if (!is_dir($langDir)) {
+                continue;
+            }
+            foreach (array_values(array_unique([$fallbackLocale, $locale])) as $loadedLocale) {
+                $i18n->loadFile($loadedLocale, $langDir . '/' . $loadedLocale . '.php', 'plugins.' . $entry);
+            }
+        }
+    }
+
+    return $i18n;
+}
+
+function app_switch_locale(string $locale, ?string $fallbackLocale = null): string
+{
+    $systemLocale = (string)app_core_setting('system.locale', app_config('app.locale', 'en'));
+    $locale = app_resolve_locale($locale, $systemLocale);
+    $fallbackLocale = app_resolve_locale((string)($fallbackLocale ?? app_config('app.fallback_locale', $locale)), $locale);
+
+    $GLOBALS['i18n'] = app_build_i18n($locale, $fallbackLocale);
+    $GLOBALS['i18n_locale'] = $locale;
+
+    return $locale;
+}
+
 function __(string $key, array $replace = [], ?string $default = null): string
 {
     $i18n = $GLOBALS['i18n'] ?? null;
@@ -543,8 +601,8 @@ function admin_icon(string $name): string
         'about', 'add', 'back', 'cancel', 'check', 'dashboard', 'delete',
         'dialog-error', 'dialog-exclamation', 'dialog-information',
         'dialog-question', 'dialog-trash', 'dialog-warning', 'displays',
-        'edit', 'locations', 'login', 'logout', 'manage', 'media', 'menu',
-        'move', 'open', 'playlists', 'plugins', 'preview', 'reload',
+        'edit', 'history', 'locations', 'login', 'logout', 'manage', 'media', 'menu',
+        'move', 'open', 'playlists', 'plugins', 'primary-display', 'preview', 'reload',
         'remove', 'save', 'schedules', 'settings', 'slides', 'templates',
         'upload', 'users',
     ];

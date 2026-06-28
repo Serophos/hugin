@@ -21,6 +21,11 @@ class AdminController
     private const ACCESSIBILITY_SETTINGS_NAMESPACE = 'accessibility';
     private const SYSTEM_SETTINGS_NAMESPACE = 'system';
     private const DEFAULT_DISPLAY_ICON = 'display_16_9.png';
+    private const DISPLAY_LANGUAGE_OPTIONS = ['system', 'en', 'de'];
+    private const DISPLAY_LAYOUT_CANVAS_WIDTH = 780;
+    private const DISPLAY_LAYOUT_CANVAS_HEIGHT = 560;
+    private const DISPLAY_LAYOUT_GRID_SIZE = 24;
+    private const DISPLAY_LAYOUT_PLACEMENT_GAP = 24;
     private const DISPLAY_ICON_PUBLIC_DIRS = [
         '/assets/img/displays',
     ];
@@ -584,6 +589,7 @@ class AdminController
             'display' => $display,
             'displayIcons' => $displayIcons,
             'defaultDisplayIcon' => $defaultDisplayIcon,
+            'displayLanguageOptions' => $this->displayLanguageOptions(),
             'heartbeat' => $heartbeat,
             'error' => flash('error'),
         ]);
@@ -609,6 +615,7 @@ class AdminController
         $effect = $this->sanitizeEffect((string)$this->request->input('transition_effect', 'fade'), false);
         $duration = max(1, (int)$durationRaw);
         $timezone = trim((string)$this->request->input('timezone', 'UTC')) ?: 'UTC';
+        $displayLanguage = trim((string)$this->request->input('display_language', 'system')) ?: 'system';
         $sortOrder = max(0, (int)$sortOrderRaw);
         $orientation = $this->sanitizeOrientation((string)$this->request->input('orientation', 'landscape'));
         $iconFile = $this->normalizeDisplayIcon((string)$this->request->input('icon_file', ''), $displayIcons);
@@ -620,6 +627,7 @@ class AdminController
             'transition_effect' => $effect,
             'slide_duration_seconds' => $durationRaw,
             'timezone' => (string)$this->request->input('timezone', 'UTC'),
+            'display_language' => $displayLanguage,
             'sort_order' => $sortOrderRaw,
             'orientation' => $orientation,
             'icon_file' => $iconFile,
@@ -644,6 +652,9 @@ class AdminController
         if (!$this->isValidTimezone($timezone)) {
             $errors['timezone'] = __('display.invalid_timezone');
         }
+        if (!$this->isValidDisplayLanguage($displayLanguage)) {
+            $errors['display_language'] = __('display.invalid_language');
+        }
         if ($errors !== []) {
             $this->redirectWithForm(
                 $id ? '/admin/displays/' . $id . '/edit' : '/admin/displays/create',
@@ -667,16 +678,16 @@ class AdminController
 
         if ($id) {
             $this->db->execute(
-                'UPDATE displays SET name = ?, slug = ?, description = ?, transition_effect = ?, slide_duration_seconds = ?, timezone = ?, sort_order = ?, orientation = ?, icon_file = ?, is_active = ? WHERE id = ?',
-                [$name, $slug, $description, $effect, $duration, $timezone, $sortOrder, $orientation, $iconFile, $isActive, $id]
+                'UPDATE displays SET name = ?, slug = ?, description = ?, transition_effect = ?, slide_duration_seconds = ?, timezone = ?, display_language = ?, sort_order = ?, orientation = ?, icon_file = ?, is_active = ? WHERE id = ?',
+                [$name, $slug, $description, $effect, $duration, $timezone, $displayLanguage, $sortOrder, $orientation, $iconFile, $isActive, $id]
             );
             $displayId = $id;
             flash('success', __('display.updated'));
         } else {
             $nextSort = $sortOrder ?: ((int)($this->db->one('SELECT COALESCE(MAX(sort_order), 0) + 1 AS next_sort FROM displays')['next_sort'] ?? 1));
             $this->db->execute(
-                'INSERT INTO displays (name, slug, description, transition_effect, slide_duration_seconds, timezone, sort_order, orientation, icon_file, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                [$name, $slug, $description, $effect, $duration, $timezone, $nextSort, $orientation, $iconFile, $isActive]
+                'INSERT INTO displays (name, slug, description, transition_effect, slide_duration_seconds, timezone, display_language, sort_order, orientation, icon_file, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                [$name, $slug, $description, $effect, $duration, $timezone, $displayLanguage, $nextSort, $orientation, $iconFile, $isActive]
             );
             $displayId = (int)$this->db->lastInsertId();
             flash('success', __('display.created'));
@@ -902,6 +913,8 @@ class AdminController
         $sortOrder = max(0, (int)$sortOrderRaw);
         $syncEnabled = $this->request->input('sync_enabled') ? 1 : 0;
         $syncMode = $syncEnabled ? 'full_minute_reload' : 'independent';
+        $primaryDisplayInputPresent = $id !== null && $this->hasRequestInput('primary_display_id');
+        $primaryDisplayId = $primaryDisplayInputPresent ? $this->requestPrimaryDisplayId() : null;
         $defaultReturn = $locationId > 0 ? '/admin/locations/' . $locationId . '/edit' : '/admin/locations';
         $returnTo = $this->adminReturnPath($defaultReturn);
         $returnPath = $id
@@ -914,6 +927,7 @@ class AdminController
             'description' => (string)$this->request->input('description'),
             'sort_order' => $sortOrderRaw,
             'sync_enabled' => $syncEnabled,
+            'primary_display_id' => $primaryDisplayId ?? '',
         ];
         $errors = [];
 
@@ -951,7 +965,11 @@ class AdminController
                 'UPDATE display_groups SET location_id = ?, name = ?, description = ?, sort_order = ?, sync_enabled = ?, sync_mode = ? WHERE id = ?',
                 [$locationId, $name, $description, $sortOrder, $syncEnabled, $syncMode, $id]
             );
-            $this->requestReloadForDisplays($this->displayIdsForGroup($id));
+            $removedDisplayIds = $this->removeDisplaysFromGroup($id, $this->requestDisplayGroupRemovalIds());
+            if ($primaryDisplayInputPresent) {
+                $this->setGroupPrimaryDisplay($id, $this->normalizeGroupPrimaryDisplayId($id, $primaryDisplayId));
+            }
+            $this->requestReloadForDisplays(array_merge($this->displayIdsForGroup($id), $removedDisplayIds));
             flash('success', __('display_groups.updated'));
         } else {
             $nextSort = $sortOrder ?: ((int)($this->db->one(
@@ -1036,11 +1054,16 @@ class AdminController
             }
         }
 
-        $validDisplays = array_fill_keys(array_map(
-            static fn(array $row): int => (int)$row['id'],
-            $this->db->all('SELECT id FROM displays')
-        ), true);
-        $displayIds = array_values(array_filter($displayIds, static fn(int $id): bool => isset($validDisplays[$id])));
+        $displayPlaceholders = implode(', ', array_fill(0, count($displayIds), '?'));
+        $displayRows = $this->getDisplayOrganizationRows('d.id IN (' . $displayPlaceholders . ')', $displayIds);
+        $displayRowsById = [];
+        foreach ($displayRows as $displayRow) {
+            $displayRowsById[(int)$displayRow['id']] = $displayRow;
+        }
+        $displayIds = array_values(array_filter(
+            $displayIds,
+            static fn(int $id): bool => isset($displayRowsById[$id])
+        ));
 
         if ($displayIds === []) {
             flash('error', __('display_groups.bulk_none_selected'));
@@ -1056,11 +1079,33 @@ class AdminController
                 $displayIds
             );
         } else {
+            $occupiedLayoutRects = $this->displayGroupLayoutRects($targetGroupId);
+
             foreach ($displayIds as $index => $displayId) {
+                $displayRow = $displayRowsById[$displayId] ?? [];
+                $currentGroupId = isset($displayRow['group_id']) ? (int)$displayRow['group_id'] : null;
+                $layoutX = 0;
+                $layoutY = 0;
+
+                if ($currentGroupId !== $targetGroupId) {
+                    $defaults = $this->defaultLayoutSize($displayRow);
+                    $layoutWidth = max(72, (int)$defaults['width']);
+                    $layoutHeight = max(72, (int)$defaults['height']);
+                    $position = $this->findEmptyDisplayLayoutPosition($occupiedLayoutRects, $layoutWidth, $layoutHeight);
+                    $layoutX = $position['x'];
+                    $layoutY = $position['y'];
+                    $occupiedLayoutRects[] = [
+                        'x' => $layoutX,
+                        'y' => $layoutY,
+                        'width' => $layoutWidth,
+                        'height' => $layoutHeight,
+                    ];
+                }
+
                 $this->db->execute(
                     'INSERT INTO display_group_memberships
                         (display_id, group_id, layout_x, layout_y, layout_width, layout_height, layout_rotation_degrees, sort_order)
-                     VALUES (?, ?, 0, 0, NULL, NULL, 0, ?)
+                     VALUES (?, ?, ?, ?, NULL, NULL, 0, ?)
                      ON DUPLICATE KEY UPDATE
                         layout_x = IF(group_id <=> VALUES(group_id), layout_x, VALUES(layout_x)),
                         layout_y = IF(group_id <=> VALUES(group_id), layout_y, VALUES(layout_y)),
@@ -1070,11 +1115,12 @@ class AdminController
                         group_id = VALUES(group_id),
                         sort_order = VALUES(sort_order),
                         updated_at = CURRENT_TIMESTAMP',
-                    [$displayId, $targetGroupId, $index + 1]
+                    [$displayId, $targetGroupId, $layoutX, $layoutY, $index + 1]
                 );
             }
         }
 
+        $this->clearPrimaryDisplayAssignments($displayIds, $targetGroupId);
         $this->requestReloadForDisplays(array_merge($affectedDisplayIds, $displayIds));
         flash('success', __('display_groups.bulk_moved', ['count' => count($displayIds)]));
         redirect($returnTo);
@@ -1132,6 +1178,8 @@ class AdminController
         if (!is_array($items)) {
             json_response(['ok' => false, 'message' => __('display_groups.layout_invalid')], 422);
         }
+        $removedDisplayIds = $this->requestDisplayGroupRemovalIds();
+        $primaryDisplayId = $this->requestPrimaryDisplayId();
 
         $allowedDisplays = array_fill_keys(array_map(
             static fn(array $row): int => (int)$row['display_id'],
@@ -1165,12 +1213,15 @@ class AdminController
                 );
             }
 
+            $removedDisplayIds = $this->removeDisplaysFromGroup($id, $removedDisplayIds);
+            $this->setGroupPrimaryDisplay($id, $this->normalizeGroupPrimaryDisplayId($id, $primaryDisplayId));
             $this->db->pdo()->commit();
         } catch (\Throwable $e) {
             $this->db->pdo()->rollBack();
             json_response(['ok' => false, 'message' => __('display_groups.layout_save_failed')], 500);
         }
 
+        $this->requestReloadForDisplays(array_merge($this->displayIdsForGroup($id), $removedDisplayIds));
         json_response(['ok' => true, 'message' => __('display_groups.layout_saved')]);
     }
 
@@ -2922,6 +2973,117 @@ class AdminController
         );
     }
 
+    private function requestDisplayGroupRemovalIds(): array
+    {
+        $value = $this->request->input('removed_display_ids', []);
+        if (is_string($value)) {
+            $value = trim($value);
+            if ($value === '') {
+                return [];
+            }
+
+            $decoded = json_decode($value, true);
+            $value = is_array($decoded) ? $decoded : [$value];
+        }
+
+        return $this->normalizeIds($value);
+    }
+
+    private function hasRequestInput(string $key): bool
+    {
+        return array_key_exists($key, $_POST) || array_key_exists($key, $_GET);
+    }
+
+    private function requestPrimaryDisplayId(): ?int
+    {
+        $value = trim((string)$this->request->input('primary_display_id', ''));
+        if ($value === '') {
+            return null;
+        }
+
+        $displayId = (int)$value;
+        return $displayId > 0 ? $displayId : null;
+    }
+
+    private function normalizeGroupPrimaryDisplayId(int $groupId, ?int $displayId): ?int
+    {
+        if ($groupId <= 0 || $displayId === null || $displayId <= 0) {
+            return null;
+        }
+
+        $row = $this->db->one(
+            'SELECT display_id FROM display_group_memberships WHERE group_id = ? AND display_id = ? LIMIT 1',
+            [$groupId, $displayId]
+        );
+
+        return $row ? $displayId : null;
+    }
+
+    private function setGroupPrimaryDisplay(int $groupId, ?int $displayId): void
+    {
+        if ($groupId <= 0) {
+            return;
+        }
+
+        $this->db->execute(
+            'UPDATE display_groups SET primary_display_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+            [$displayId, $groupId]
+        );
+    }
+
+    private function clearPrimaryDisplayAssignments(array $displayIds, ?int $exceptGroupId = null): void
+    {
+        $displayIds = $this->uniquePositiveIds($displayIds);
+        if ($displayIds === []) {
+            return;
+        }
+
+        $placeholders = implode(', ', array_fill(0, count($displayIds), '?'));
+        $params = $displayIds;
+        $sql = 'UPDATE display_groups SET primary_display_id = NULL, updated_at = CURRENT_TIMESTAMP WHERE primary_display_id IN (' . $placeholders . ')';
+
+        if ($exceptGroupId !== null && $exceptGroupId > 0) {
+            $sql .= ' AND id <> ?';
+            $params[] = $exceptGroupId;
+        }
+
+        $this->db->execute($sql, $params);
+    }
+
+    private function removeDisplaysFromGroup(int $groupId, array $displayIds): array
+    {
+        $displayIds = $this->uniquePositiveIds($displayIds);
+        if ($groupId <= 0 || $displayIds === []) {
+            return [];
+        }
+
+        $placeholders = implode(', ', array_fill(0, count($displayIds), '?'));
+        $currentDisplayIds = $this->idsFromRows(
+            $this->db->all(
+                'SELECT display_id
+                 FROM display_group_memberships
+                 WHERE group_id = ? AND display_id IN (' . $placeholders . ')',
+                array_merge([$groupId], $displayIds)
+            ),
+            'display_id'
+        );
+
+        if ($currentDisplayIds === []) {
+            return [];
+        }
+
+        $placeholders = implode(', ', array_fill(0, count($currentDisplayIds), '?'));
+        $this->db->execute(
+            'UPDATE display_group_memberships
+             SET group_id = NULL, updated_at = CURRENT_TIMESTAMP
+             WHERE group_id = ? AND display_id IN (' . $placeholders . ')',
+            array_merge([$groupId], $currentDisplayIds)
+        );
+        $this->clearPrimaryDisplayAssignments($currentDisplayIds);
+
+        return $currentDisplayIds;
+    }
+
     private function displayIdsForChannels(array $channelIds): array
     {
         $channelIds = $this->uniquePositiveIds($channelIds);
@@ -3373,6 +3535,20 @@ class AdminController
         return $icons;
     }
 
+    private function displayLanguageOptions(): array
+    {
+        return [
+            'system' => __('display.language_options.system'),
+            'en' => __('display.language_options.en'),
+            'de' => __('display.language_options.de'),
+        ];
+    }
+
+    private function isValidDisplayLanguage(string $language): bool
+    {
+        return in_array($language, self::DISPLAY_LANGUAGE_OPTIONS, true);
+    }
+
     private function displayIconLabel(string $file): string
     {
         $name = strtolower(pathinfo($file, PATHINFO_FILENAME));
@@ -3463,6 +3639,153 @@ class AdminController
         return ($display['orientation'] ?? 'landscape') === 'vertical'
             ? ['width' => 124, 'height' => 220]
             : ['width' => 220, 'height' => 124];
+    }
+
+    private function displayGroupLayoutRects(int $groupId): array
+    {
+        $rects = [];
+        foreach ($this->getDisplayOrganizationRows('dgm.group_id = ?', [$groupId]) as $display) {
+            $defaults = $this->defaultLayoutSize($display);
+            $rects[] = [
+                'x' => (int)($display['layout_x'] ?? 0),
+                'y' => (int)($display['layout_y'] ?? 0),
+                'width' => max(72, (int)($display['layout_width'] ?: $defaults['width'])),
+                'height' => max(72, (int)($display['layout_height'] ?: $defaults['height'])),
+            ];
+        }
+
+        return $rects;
+    }
+
+    private function findEmptyDisplayLayoutPosition(array $occupiedRects, int $width, int $height): array
+    {
+        $width = max(72, $width);
+        $height = max(72, $height);
+        $maxX = max(0, self::DISPLAY_LAYOUT_CANVAS_WIDTH - $width);
+        $maxY = max(0, self::DISPLAY_LAYOUT_CANVAS_HEIGHT - $height);
+        $xCandidates = [0, $maxX, (int)round($maxX / 2)];
+        $yCandidates = [0, $maxY, (int)round($maxY / 2)];
+
+        foreach ($occupiedRects as $rect) {
+            $x = (int)($rect['x'] ?? 0);
+            $y = (int)($rect['y'] ?? 0);
+            $rectWidth = max(1, (int)($rect['width'] ?? 0));
+            $rectHeight = max(1, (int)($rect['height'] ?? 0));
+
+            $xCandidates[] = $x;
+            $xCandidates[] = $x + $rectWidth - $width;
+            $xCandidates[] = $x - $width - self::DISPLAY_LAYOUT_PLACEMENT_GAP;
+            $xCandidates[] = $x + $rectWidth + self::DISPLAY_LAYOUT_PLACEMENT_GAP;
+
+            $yCandidates[] = $y;
+            $yCandidates[] = $y + $rectHeight - $height;
+            $yCandidates[] = $y - $height - self::DISPLAY_LAYOUT_PLACEMENT_GAP;
+            $yCandidates[] = $y + $rectHeight + self::DISPLAY_LAYOUT_PLACEMENT_GAP;
+        }
+
+        for ($x = 0; $x <= $maxX; $x += self::DISPLAY_LAYOUT_GRID_SIZE) {
+            $xCandidates[] = $x;
+        }
+        for ($y = 0; $y <= $maxY; $y += self::DISPLAY_LAYOUT_GRID_SIZE) {
+            $yCandidates[] = $y;
+        }
+
+        $xCandidates = $this->normalizeLayoutCandidates($xCandidates, $maxX);
+        $yCandidates = $this->normalizeLayoutCandidates($yCandidates, $maxY);
+
+        foreach ([self::DISPLAY_LAYOUT_PLACEMENT_GAP, 0] as $gap) {
+            foreach ($yCandidates as $y) {
+                foreach ($xCandidates as $x) {
+                    $rect = ['x' => $x, 'y' => $y, 'width' => $width, 'height' => $height];
+                    if (!$this->layoutRectOverlaps($rect, $occupiedRects, $gap)) {
+                        return ['x' => $x, 'y' => $y];
+                    }
+                }
+            }
+        }
+
+        $bestRect = null;
+        $bestOverlap = PHP_INT_MAX;
+        foreach ($yCandidates as $y) {
+            foreach ($xCandidates as $x) {
+                $rect = ['x' => $x, 'y' => $y, 'width' => $width, 'height' => $height];
+                $overlap = $this->layoutOverlapScore($rect, $occupiedRects);
+                if (
+                    $bestRect === null
+                    || $overlap < $bestOverlap
+                    || ($overlap === $bestOverlap && ($y < $bestRect['y'] || ($y === $bestRect['y'] && $x < $bestRect['x'])))
+                ) {
+                    $bestOverlap = $overlap;
+                    $bestRect = $rect;
+                }
+            }
+        }
+
+        return [
+            'x' => (int)($bestRect['x'] ?? 0),
+            'y' => (int)($bestRect['y'] ?? 0),
+        ];
+    }
+
+    private function normalizeLayoutCandidates(array $values, int $max): array
+    {
+        $normalized = [];
+        foreach ($values as $value) {
+            $candidate = $this->clampInt((int)round((float)$value), 0, $max);
+            $normalized[$candidate] = $candidate;
+        }
+        sort($normalized, SORT_NUMERIC);
+
+        return array_values($normalized);
+    }
+
+    private function layoutRectOverlaps(array $rect, array $occupiedRects, int $gap = 0): bool
+    {
+        $left = (int)$rect['x'];
+        $top = (int)$rect['y'];
+        $right = $left + (int)$rect['width'];
+        $bottom = $top + (int)$rect['height'];
+
+        foreach ($occupiedRects as $occupied) {
+            $occupiedLeft = (int)($occupied['x'] ?? 0);
+            $occupiedTop = (int)($occupied['y'] ?? 0);
+            $occupiedRight = $occupiedLeft + (int)($occupied['width'] ?? 0);
+            $occupiedBottom = $occupiedTop + (int)($occupied['height'] ?? 0);
+
+            if (
+                $right + $gap <= $occupiedLeft
+                || $left >= $occupiedRight + $gap
+                || $bottom + $gap <= $occupiedTop
+                || $top >= $occupiedBottom + $gap
+            ) {
+                continue;
+            }
+
+            return true;
+        }
+
+        return false;
+    }
+
+    private function layoutOverlapScore(array $rect, array $occupiedRects): int
+    {
+        $left = (int)$rect['x'];
+        $top = (int)$rect['y'];
+        $right = $left + (int)$rect['width'];
+        $bottom = $top + (int)$rect['height'];
+        $score = 0;
+
+        foreach ($occupiedRects as $occupied) {
+            $occupiedLeft = (int)($occupied['x'] ?? 0);
+            $occupiedTop = (int)($occupied['y'] ?? 0);
+            $occupiedRight = $occupiedLeft + (int)($occupied['width'] ?? 0);
+            $occupiedBottom = $occupiedTop + (int)($occupied['height'] ?? 0);
+            $overlapWidth = max(0, min($right, $occupiedRight) - max($left, $occupiedLeft));
+            $overlapHeight = max(0, min($bottom, $occupiedBottom) - max($top, $occupiedTop));
+            $score += $overlapWidth * $overlapHeight;
+        }
+
+        return $score;
     }
 
     private function dashboardDisplayRow(array $display): array

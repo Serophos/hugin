@@ -69,7 +69,7 @@ if (!$isUnused) {
                 <?php if (!$isUnused && !empty($display['icon_url'])): ?>
                     <img src="<?= e($display['icon_url']) ?>" alt="" loading="lazy">
                     <?php if ($displaySyncEnabled): ?>
-                        <span class="display-sync-indicator display-sync-indicator--playlist"><?= admin_icon('reload') ?></span>
+                        <span class="display-sync-indicator display-sync-indicator--playlist" data-sync-tooltip="<?= e(__('display_groups.sync_enabled_indicator')) ?>" title="<?= e(__('display_groups.sync_enabled_indicator')) ?>" aria-hidden="true"><?= admin_icon('history') ?></span>
                     <?php endif; ?>
                 <?php else: ?>
                     <span class="playlist-display-group__icon-placeholder">-</span>

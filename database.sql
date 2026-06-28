@@ -44,6 +44,7 @@ CREATE TABLE displays (
     transition_effect ENUM('fade', 'slide-left', 'slide-right', 'slide-up', 'slide-down', 'zoom', 'flip', 'blur', 'none') NOT NULL DEFAULT 'fade',
     slide_duration_seconds INT UNSIGNED NOT NULL DEFAULT 8,
     timezone VARCHAR(64) NOT NULL DEFAULT 'UTC',
+    display_language ENUM('system', 'en', 'de') NOT NULL DEFAULT 'system',
     orientation ENUM('landscape', 'vertical') NOT NULL DEFAULT 'landscape',
     icon_file VARCHAR(120) NOT NULL DEFAULT 'display_16_9.png',
     sort_order INT NOT NULL DEFAULT 0,
@@ -68,6 +69,7 @@ CREATE TABLE display_groups (
     location_id INT UNSIGNED NOT NULL,
     name VARCHAR(150) NOT NULL,
     description TEXT NULL,
+    primary_display_id INT UNSIGNED NULL,
     sort_order INT NOT NULL DEFAULT 0,
     sync_enabled TINYINT(1) NOT NULL DEFAULT 0,
     sync_mode VARCHAR(50) NOT NULL DEFAULT 'independent',
@@ -75,7 +77,9 @@ CREATE TABLE display_groups (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     UNIQUE KEY uniq_display_group_location_name (location_id, name),
     KEY idx_display_groups_location_sort (location_id, sort_order),
-    CONSTRAINT fk_display_group_location FOREIGN KEY (location_id) REFERENCES display_locations(id) ON DELETE CASCADE
+    KEY idx_display_groups_primary_display (primary_display_id),
+    CONSTRAINT fk_display_group_location FOREIGN KEY (location_id) REFERENCES display_locations(id) ON DELETE CASCADE,
+    CONSTRAINT fk_display_group_primary_display FOREIGN KEY (primary_display_id) REFERENCES displays(id) ON DELETE SET NULL
 );
 
 CREATE TABLE display_group_memberships (

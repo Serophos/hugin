@@ -140,7 +140,7 @@ Notes:
 
 - Public display pages at `/display/<slug>`.
 - Landscape and vertical display orientation.
-- Per-display default slide duration, transition effect, timezone, icon, active flag, and sort order.
+- Per-display default slide duration, transition effect, timezone, language, icon, active flag, and sort order.
 - Manual display reload requests from the admin UI.
 - Automatic heartbeat collection from display clients.
 - Display state endpoint at `/display/<slug>/state` for client-side refresh detection.
@@ -152,6 +152,7 @@ Notes:
 - Create display groups inside locations.
 - Move displays between groups in bulk.
 - Maintain group layout metadata: x/y position, width, height, rotation, and sort order.
+- Optionally choose one primary display per group for future group-led behavior.
 - Optionally synchronize grouped playlist/config reloads to the next full minute. Grouped displays cache the updated slideshow first, report readiness to Hugin, and start together after currently online active group members are ready. Clients still depend on reasonably synchronized system clocks for the final start minute. This does not add live slide-change synchronization.
 
 ### Playlists
