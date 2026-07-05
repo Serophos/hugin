@@ -104,13 +104,18 @@ require __DIR__ . '/../layouts/admin_header.php';
             <?php else: ?>
                 <div class="unassigned-list">
                     <?php foreach ($unassignedDisplays as $display): ?>
-                        <a href="<?= e(url('/admin/displays/' . $display['id'] . '/edit')) ?>" class="unassigned-display">
-                            <span class="status-dot status-<?= e($display['monitoring_status']) ?>"></span>
-                            <span>
-                                <strong><?= e($display['name']) ?></strong>
-                                <small><?= e(enum_label('orientations', $display['orientation'], $display['orientation'])) ?> &middot; <?= e($display['monitoring_label']) ?></small>
+                        <div class="display-action-row">
+                            <a href="<?= e(url('/admin/displays/' . $display['id'] . '/edit')) ?>" class="unassigned-display unassigned-display--inline">
+                                <span class="status-dot status-<?= e($display['monitoring_status']) ?>"></span>
+                                <span class="display-list-copy">
+                                    <strong><?= e($display['name']) ?></strong>
+                                    <small><?= e(enum_label('orientations', $display['orientation'], $display['orientation'])) ?> &middot; <?= e($display['monitoring_label']) ?></small>
+                                </span>
+                            </a>
+                            <span class="display-list-actions">
+                                <a class="button button--normal button--small" href="<?= e(url('/admin/displays/' . $display['id'] . '/vnc')) ?>" target="_blank" rel="noopener noreferrer" aria-label="<?= e(__('display.vnc_connect_to', ['display' => $display['name']])) ?>"><?= admin_icon('open') ?><span><?= e(__('display.vnc')) ?></span></a>
                             </span>
-                        </a>
+                        </div>
                     <?php endforeach; ?>
                 </div>
             <?php endif; ?>

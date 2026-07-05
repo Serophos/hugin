@@ -52,6 +52,7 @@ require __DIR__ . '/../layouts/admin_header.php';
         <?php foreach ($displays as $display): ?>
             <?php
             $displayUrl = '/display/' . $display['slug'];
+            $displayPreviewUrl = $displayUrl . '?preview=1';
             $locationLabel = $display['location_name'] ?: __('locations.unassigned');
             $groupLabel = $display['group_name'] ?: __('locations.unassigned');
             $statusValue = $display['is_active'] ? 'active' : 'inactive';
@@ -65,7 +66,8 @@ require __DIR__ . '/../layouts/admin_header.php';
                 <td data-admin-cell="channels" data-sort-value="<?= e((string)$display['channel_count']) ?>" data-filter-value="<?= e((string)$display['channel_count']) ?>"><?= e((string)$display['channel_count']) ?></td>
                 <td data-admin-cell="status" data-sort-value="<?= e($statusLabel) ?>" data-filter-value="<?= e($statusValue) ?>"><?= e($statusLabel) ?></td>
                 <td class="actions">
-                    <a class="button button--normal button--small" href="<?= e(url($displayUrl)) ?>" target="_blank" rel="noopener noreferrer"><?= admin_icon('preview') ?><span><?= e(__('common.preview')) ?></span></a>
+                    <a class="button button--normal button--small" href="<?= e(url($displayPreviewUrl)) ?>" target="_blank" rel="noopener noreferrer"><?= admin_icon('preview') ?><span><?= e(__('common.preview')) ?></span></a>
+                    <a class="button button--normal button--small" href="<?= e(url('/admin/displays/' . $display['id'] . '/vnc')) ?>" target="_blank" rel="noopener noreferrer" aria-label="<?= e(__('display.vnc_connect_to', ['display' => $display['name']])) ?>"><?= admin_icon('open') ?><span><?= e(__('display.vnc')) ?></span></a>
                     <a class="button button--normal button--small" href="<?= e(url('/admin/displays/' . $display['id'] . '/edit')) ?>"><?= admin_icon('edit') ?><span><?= e(__('common.edit')) ?></span></a>
                     <form method="post" action="<?= e(url('/admin/displays/' . $display['id'] . '/reload')) ?>" class="inline-form">
                         <?= csrf_field() ?>

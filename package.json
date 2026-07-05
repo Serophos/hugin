@@ -8,14 +8,19 @@
     "node": ">=18"
   },
   "scripts": {
-    "build": "npm run build:icons",
+    "build": "npm run build:icons && npm run build:vnc",
     "build:icons": "node scripts/build-admin-icons.mjs",
-    "check": "npm run check:icons",
-    "check:icons": "node scripts/build-admin-icons.mjs --check"
+    "build:vnc": "node scripts/build-vnc-assets.mjs",
+    "check": "npm run check:icons && npm run check:vnc",
+    "check:icons": "node scripts/build-admin-icons.mjs --check",
+    "check:vnc": "node scripts/build-vnc-assets.mjs --check"
   },
   "devDependencies": {
     "@rsuite/icon-font": "4.1.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
+  },
+  "dependencies": {
+    "@novnc/novnc": "^1.7.0"
   }
 }

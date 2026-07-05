@@ -40,6 +40,7 @@ Production PHP dependencies are installed with Composer:
 Frontend build dependencies are installed with npm and are only needed when regenerating committed admin assets:
 
 - `@rsuite/icon-font`: source icon components for generated admin SVG icons.
+- `@novnc/novnc`: source modules for the bundled admin VNC viewer.
 - `react` and `react-dom`: used by the icon generation script.
 
 The normal admin and display runtime does not depend on external JavaScript CDNs; assets are served from `public/assets/`, uploaded media, or plugin asset routes.
@@ -99,7 +100,7 @@ npm ci
 npm run build
 ```
 
-`npm run build` currently regenerates the admin icon SVGs in `public/assets/icons/admin` from `@rsuite/icon-font`. Use `npm run check` in CI or before committing to verify those generated assets are current.
+`npm run build` regenerates the admin icon SVGs in `public/assets/icons/admin` from `@rsuite/icon-font` and copies noVNC browser modules into `public/assets/vendor/novnc`. Use `npm run check` in CI or before committing to verify those generated assets are current.
 
 ### `config.php`
 

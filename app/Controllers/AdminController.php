@@ -599,7 +599,8 @@ class AdminController
     {
         $this->auth->requireRole('admin');
 
-        if ($id && !$this->db->one('SELECT id FROM displays WHERE id = ?', [$id])) {
+        $existingDisplay = $id ? $this->db->one('SELECT id, vnc_password FROM displays WHERE id = ?', [$id]) : null;
+        if ($id && !$existingDisplay) {
             flash('error', __('display.not_found'));
             redirect('/admin/displays');
         }
@@ -616,6 +617,19 @@ class AdminController
         $duration = max(1, (int)$durationRaw);
         $timezone = trim((string)$this->request->input('timezone', 'UTC')) ?: 'UTC';
         $displayLanguage = trim((string)$this->request->input('display_language', 'system')) ?: 'system';
+        $vncUsernameRaw = (string)$this->request->input('vnc_username', '');
+        $vncUsername = trim($vncUsernameRaw);
+        $vncPasswordInput = (string)$this->request->input('vnc_password', '');
+        $clearVncPassword = $this->request->input('clear_vnc_password') ? true : false;
+        $vncPassword = null;
+        if ($id) {
+            $vncPassword = $clearVncPassword ? null : (string)($existingDisplay['vnc_password'] ?? '');
+            if ($vncPasswordInput !== '') {
+                $vncPassword = $vncPasswordInput;
+            }
+        } elseif ($vncPasswordInput !== '') {
+            $vncPassword = $vncPasswordInput;
+        }
         $sortOrder = max(0, (int)$sortOrderRaw);
         $orientation = $this->sanitizeOrientation((string)$this->request->input('orientation', 'landscape'));
         $iconFile = $this->normalizeDisplayIcon((string)$this->request->input('icon_file', ''), $displayIcons);
@@ -628,6 +642,8 @@ class AdminController
             'slide_duration_seconds' => $durationRaw,
             'timezone' => (string)$this->request->input('timezone', 'UTC'),
             'display_language' => $displayLanguage,
+            'vnc_username' => $vncUsernameRaw,
+            'clear_vnc_password' => $clearVncPassword ? 1 : 0,
             'sort_order' => $sortOrderRaw,
             'orientation' => $orientation,
             'icon_file' => $iconFile,
@@ -655,6 +671,12 @@ class AdminController
         if (!$this->isValidDisplayLanguage($displayLanguage)) {
             $errors['display_language'] = __('display.invalid_language');
         }
+        if (strlen($vncUsername) > 150) {
+            $errors['vnc_username'] = __('display.vnc_username_too_long');
+        }
+        if (strlen($vncPasswordInput) > 255) {
+            $errors['vnc_password'] = __('display.vnc_password_too_long');
+        }
         if ($errors !== []) {
             $this->redirectWithForm(
                 $id ? '/admin/displays/' . $id . '/edit' : '/admin/displays/create',
@@ -678,16 +700,16 @@ class AdminController
 
         if ($id) {
             $this->db->execute(
-                'UPDATE displays SET name = ?, slug = ?, description = ?, transition_effect = ?, slide_duration_seconds = ?, timezone = ?, display_language = ?, sort_order = ?, orientation = ?, icon_file = ?, is_active = ? WHERE id = ?',
-                [$name, $slug, $description, $effect, $duration, $timezone, $displayLanguage, $sortOrder, $orientation, $iconFile, $isActive, $id]
+                'UPDATE displays SET name = ?, slug = ?, description = ?, transition_effect = ?, slide_duration_seconds = ?, timezone = ?, display_language = ?, vnc_username = ?, vnc_password = ?, sort_order = ?, orientation = ?, icon_file = ?, is_active = ? WHERE id = ?',
+                [$name, $slug, $description, $effect, $duration, $timezone, $displayLanguage, $vncUsername !== '' ? $vncUsername : null, $vncPassword !== '' ? $vncPassword : null, $sortOrder, $orientation, $iconFile, $isActive, $id]
             );
             $displayId = $id;
             flash('success', __('display.updated'));
         } else {
             $nextSort = $sortOrder ?: ((int)($this->db->one('SELECT COALESCE(MAX(sort_order), 0) + 1 AS next_sort FROM displays')['next_sort'] ?? 1));
             $this->db->execute(
-                'INSERT INTO displays (name, slug, description, transition_effect, slide_duration_seconds, timezone, display_language, sort_order, orientation, icon_file, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                [$name, $slug, $description, $effect, $duration, $timezone, $displayLanguage, $nextSort, $orientation, $iconFile, $isActive]
+                'INSERT INTO displays (name, slug, description, transition_effect, slide_duration_seconds, timezone, display_language, vnc_username, vnc_password, sort_order, orientation, icon_file, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                [$name, $slug, $description, $effect, $duration, $timezone, $displayLanguage, $vncUsername !== '' ? $vncUsername : null, $vncPassword !== '' ? $vncPassword : null, $nextSort, $orientation, $iconFile, $isActive]
             );
             $displayId = (int)$this->db->lastInsertId();
             flash('success', __('display.created'));
@@ -695,6 +717,32 @@ class AdminController
 
         $this->requestReloadForDisplays([$displayId]);
         redirect('/admin/displays');
+    }
+
+    public function displayVnc(int $id): void
+    {
+        $this->auth->requireRole('admin');
+
+        $display = $this->db->one(
+            'SELECT d.id, d.name, d.slug, d.vnc_username, d.vnc_password,
+                    h.last_seen_ip, h.last_seen_at,
+                    TIMESTAMPDIFF(SECOND, h.last_seen_at, NOW()) AS heartbeat_age_seconds
+             FROM displays d
+             LEFT JOIN display_heartbeats h ON h.display_id = d.id
+             WHERE d.id = ?',
+            [$id]
+        );
+        if (!$display) {
+            flash('error', __('display.not_found'));
+            redirect('/admin/displays');
+        }
+
+        header('Cache-Control: no-store, private');
+        $this->view->render('admin/display_vnc', [
+            'display' => $display,
+            'vncUrl' => $this->displayVncWebSocketUrl($display),
+            'vncCredentials' => $this->displayVncCredentials($display),
+        ]);
     }
 
     public function deleteDisplay(int $id): void
@@ -3498,6 +3546,40 @@ class AdminController
         return $rows;
     }
 
+    private function displayVncWebSocketUrl(array $display): string
+    {
+        $host = trim((string)($display['last_seen_ip'] ?? ''));
+        if ($host === '') {
+            return '';
+        }
+
+        if (filter_var($host, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
+            $host = '[' . $host . ']';
+        }
+
+        $forwardedProto = strtolower(trim((string)($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '')));
+        $isHttps = (!empty($_SERVER['HTTPS']) && strtolower((string)$_SERVER['HTTPS']) !== 'off')
+            || $forwardedProto === 'https';
+        $scheme = $isHttps ? 'wss' : 'ws';
+
+        return $scheme . '://' . $host . ':5900';
+    }
+
+    private function displayVncCredentials(array $display): array
+    {
+        $credentials = [];
+        $username = (string)($display['vnc_username'] ?? '');
+        $password = (string)($display['vnc_password'] ?? '');
+        if ($username !== '') {
+            $credentials['username'] = $username;
+        }
+        if ($password !== '') {
+            $credentials['password'] = $password;
+        }
+
+        return $credentials;
+    }
+
     private function displayIcons(): array
     {
         static $icons = null;
@@ -3808,7 +3890,7 @@ class AdminController
             'client_label' => trim($browserLabel . ($browserLabel !== '' && $osLabel !== '' ? ' / ' : '') . $osLabel) ?: __('common.unknown'),
             'screen_label' => $screenLabel !== '' ? $screenLabel : __('common.unknown'),
             'detail_label' => $this->dashboardHeartbeatDetailLabel($display, $viewportLabel),
-            'preview_url' => '/display/' . (string)$display['slug'],
+            'preview_url' => '/display/' . (string)$display['slug'] . '?preview=1',
             'edit_url' => '/admin/displays/' . (int)$display['id'] . '/edit',
         ];
     }

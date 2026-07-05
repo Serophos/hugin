@@ -89,6 +89,7 @@ class FrontendController
             'orientation' => $display['orientation'] ?? 'landscape',
             'pluginAssets' => $pluginAssets,
             'brandingSettings' => $brandingSettings,
+            'isDisplayPreview' => $this->isDisplayPreviewRequest(),
         ]);
     }
 
@@ -332,6 +333,16 @@ class FrontendController
 
         $this->applyDisplayLocale($display);
         $activeAssignment = $this->resolveActiveAssignment($display);
+        if ($this->isDisplayPreviewRequest()) {
+            json_response([
+                'ok' => true,
+                'display' => $display['name'],
+                'channel' => $activeAssignment['channel_name'] ?? null,
+                'seen_at' => date('c'),
+                'preview' => true,
+            ]);
+        }
+
         $payload = $this->readJsonBody();
         $ipAddress = client_ip();
         $userAgent = substr((string)($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 255);
@@ -415,6 +426,16 @@ class FrontendController
             'channel' => $channelName,
             'seen_at' => date('c'),
         ]);
+    }
+
+    private function isDisplayPreviewRequest(): bool
+    {
+        $preview = strtolower(trim((string)($_GET['preview'] ?? '')));
+        if (!in_array($preview, ['1', 'true', 'yes', 'on'], true)) {
+            return false;
+        }
+
+        return \current_user() !== null;
     }
 
     public function cacheReadiness(string $slug): void

@@ -81,6 +81,21 @@ require __DIR__ . '/../layouts/admin_header.php';
                 <textarea name="description" rows="4" placeholder="<?= e(__('display.description_placeholder')) ?>"<?= field_attrs('description', $formId) ?>><?= e((string)old('description', $display['description'] ?? '', $formId)) ?></textarea>
                 <?= field_error_html('description', $formId) ?>
             </label>
+            <fieldset class="full-width">
+                <legend><?= e(__('display.vnc_settings')) ?></legend>
+                <label><?= e(__('display.vnc_username')) ?>
+                    <input type="text" name="vnc_username" value="<?= e((string)old('vnc_username', $display['vnc_username'] ?? '', $formId)) ?>" autocomplete="off" maxlength="150" placeholder="<?= e(__('display.vnc_username_placeholder')) ?>"<?= field_attrs('vnc_username', $formId) ?>>
+                    <?= field_error_html('vnc_username', $formId) ?>
+                </label>
+                <label><?= e(__('display.vnc_password')) ?> <?= $display ? '<span class="muted">' . e(__('display.vnc_password_keep_hint')) . '</span>' : '' ?>
+                    <input type="password" name="vnc_password" autocomplete="new-password" maxlength="255" placeholder="<?= e(__('display.vnc_password_placeholder')) ?>"<?= field_attrs('vnc_password', $formId) ?>>
+                    <?= field_error_html('vnc_password', $formId) ?>
+                </label>
+                <?php if ($display && isset($display['vnc_password']) && (string)$display['vnc_password'] !== ''): ?>
+                    <label class="checkbox-row"><input type="checkbox" name="clear_vnc_password" value="1" <?= old_checked('clear_vnc_password', 0, $formId) ?>> <?= e(__('display.vnc_clear_password')) ?></label>
+                <?php endif; ?>
+                <small class="field-note"><?= e(__('display.vnc_help')) ?></small>
+            </fieldset>
             <?php if ($displayIcons !== []): ?>
                 <fieldset class="display-icon-field full-width">
                     <legend><?= e(__('display.icon')) ?></legend>

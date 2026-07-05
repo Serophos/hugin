@@ -1979,6 +1979,10 @@
 
     const queueHeartbeat = () => {
         clearInterval(heartbeatTimer);
+        if (!resolveEndpointUrl(slideshow.dataset.heartbeatUrl)) {
+            heartbeatTimer = null;
+            return;
+        }
         sendHeartbeat();
         heartbeatTimer = setInterval(sendHeartbeat, heartbeatIntervalMs());
     };

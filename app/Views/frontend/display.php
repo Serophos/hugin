@@ -90,7 +90,7 @@ $defaultHeadingFontCss = \App\Core\TemplateSlideService::fontFamilyCssForToken((
 <body class="display-orientation-<?= e($orientation ?? ($display['orientation'] ?? 'landscape')) ?>">
 <?php
 $displayRoutePrefix = '/display/' . $display['slug'];
-$isPreviewDisplay = false;
+$isPreviewDisplay = !empty($isDisplayPreview);
 if (str_starts_with($display['slug'] ?? '', 'preview-slide-') && preg_match('#^preview-slide-(\d+)$#', $display['slug'], $slugMatch)) {
     $displayRoutePrefix = '/preview-slide/' . $slugMatch[1];
     $isPreviewDisplay = true;
@@ -99,7 +99,7 @@ if (str_starts_with($display['slug'] ?? '', 'preview-slide-') && preg_match('#^p
 <div id="slideshow"
      class="slideshow <?= $isPreviewDisplay ? '' : 'is-startup-sync-pending ' ?>effect-<?= e($effect) ?> orientation-<?= e($orientation ?? ($display['orientation'] ?? 'landscape')) ?>"
      data-default-duration="<?= e((string)$duration) ?>"
-     data-heartbeat-url="<?= e(url($displayRoutePrefix . '/heartbeat')) ?>"
+     data-heartbeat-url="<?= $isPreviewDisplay ? '' : e(url($displayRoutePrefix . '/heartbeat')) ?>"
      data-heartbeat-interval="<?= e((string)$heartbeatInterval) ?>"
      data-state-url="<?= e(url($displayRoutePrefix . '/state')) ?>"
      data-cache-readiness-url="<?= $isPreviewDisplay ? '' : e(url($displayRoutePrefix . '/cache-readiness')) ?>"

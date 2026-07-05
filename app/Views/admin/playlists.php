@@ -52,7 +52,7 @@ require __DIR__ . '/../layouts/admin_header.php';
 $display = $group['display'];
 $isUnused = !empty($display['is_unused']);
 $displaySyncEnabled = !$isUnused && !empty($display['group_sync_enabled']);
-$previewPath = $isUnused ? '' : '/display/' . $display['slug'];
+$previewPath = $isUnused ? '' : '/display/' . $display['slug'] . '?preview=1';
 $createPlaylistPath = '';
 if (!$isUnused) {
     $createPlaylistPath = '/admin/playlists/create?' . http_build_query([
@@ -89,6 +89,9 @@ if (!$isUnused) {
         <?php if (!$isUnused): ?>
             <span class="playlist-display-group__actions">
                 <a class="button button--normal button--small" href="<?= e(url($previewPath)) ?>" target="_blank" rel="noopener noreferrer"><?= admin_icon('preview') ?><span><?= e(__('common.preview')) ?></span></a>
+                <?php if (is_admin()): ?>
+                    <a class="button button--normal button--small" href="<?= e(url('/admin/displays/' . $display['id'] . '/vnc')) ?>" target="_blank" rel="noopener noreferrer" aria-label="<?= e(__('display.vnc_connect_to', ['display' => $display['name']])) ?>"><?= admin_icon('open') ?><span><?= e(__('display.vnc')) ?></span></a>
+                <?php endif; ?>
                 <button type="button" class="button button--normal button--small" data-playlist-add-open data-display-id="<?= e((string)$display['id']) ?>" aria-label="<?= e(__('channel.add_existing_playlist')) ?>"><?= admin_icon('add') ?><span><?= e(__('channel.add_existing_playlist_short')) ?></span></button>
                 <a class="button button--default button--small" href="<?= e(url($createPlaylistPath)) ?>" aria-label="<?= e(__('channel.add_new_playlist')) ?>"><?= admin_icon('add') ?><span><?= e(__('channel.add_new_playlist_short')) ?></span></a>
             </span>
