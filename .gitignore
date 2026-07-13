@@ -16,6 +16,10 @@ public/uploads/*
 
 # Fonts
 public/assets/fonts/*
+
+# Generated npm vendor assets
+public/assets/vendor/
+
 # Composer dependencies
 /vendor/
 composer.phar

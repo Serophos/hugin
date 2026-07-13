@@ -1,12 +1,15 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { execFile } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
 
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const sourceRoot = path.join(rootDir, 'node_modules', '@novnc', 'novnc');
 const targetRoot = path.join(rootDir, 'public', 'assets', 'vendor', 'novnc');
 const entries = ['core', 'vendor', 'AUTHORS', 'LICENSE.txt'];
 const checkOnly = process.argv.includes('--check');
+const execFileAsync = promisify(execFile);
 
 async function pathExists(filePath) {
   try {
@@ -56,6 +59,8 @@ async function copyAssets() {
 }
 
 async function checkAssets() {
+  await checkVendorAssetsAreUntracked();
+
   const missing = [];
   const stale = [];
   const expected = [];
@@ -106,6 +111,33 @@ async function checkAssets() {
     for (const file of extra) console.error(`  extra: ${file}`);
     process.exit(1);
   }
+}
+
+async function checkVendorAssetsAreUntracked() {
+  let stdout;
+  try {
+    ({ stdout } = await execFileAsync('git', ['ls-files', '--', 'public/assets/vendor'], {
+      cwd: rootDir,
+      encoding: 'utf8',
+    }));
+  } catch (error) {
+    if (error?.code === 128) {
+      return;
+    }
+    throw error;
+  }
+
+  const tracked = stdout.trim().split('\n').filter(Boolean);
+  if (tracked.length === 0) {
+    return;
+  }
+
+  console.error('Generated npm vendor assets must not be tracked:');
+  for (const file of tracked) {
+    console.error(`  tracked: ${file}`);
+  }
+  console.error('Run `git rm -r --cached public/assets/vendor` and keep the generated files ignored.');
+  process.exit(1);
 }
 
 if (checkOnly) {

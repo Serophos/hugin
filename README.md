@@ -37,7 +37,7 @@ Production PHP dependencies are installed with Composer:
 - `erusev/parsedown`: safe Markdown rendering for text slides.
 - `dompdf/php-font-lib`: font metadata extraction for uploaded TTF/OTF/WOFF fonts.
 
-Frontend build dependencies are installed with npm and are only needed when regenerating committed admin assets:
+Frontend build dependencies are installed with npm and are only needed when regenerating frontend assets:
 
 - `@rsuite/icon-font`: source icon components for generated admin SVG icons.
 - `@novnc/novnc`: source modules for the bundled admin VNC viewer.
@@ -93,14 +93,14 @@ Change initial passwords immediately on a real installation. Hugin shows a warni
 
 ### Frontend Asset Builds
 
-Hugin keeps generated frontend assets committed so a normal production deployment can remain PHP/Composer-only after checkout. Use npm when changing generated admin assets or preparing a release artifact:
+Hugin keeps app-owned generated admin assets committed so a normal production deployment can remain PHP/Composer-only after checkout. npm-generated vendor assets are not committed; they are generated below `public/assets/vendor/` during the build. Use npm when changing generated admin assets, using the VNC viewer from a clean checkout, or preparing a release artifact:
 
 ```bash
 npm ci
 npm run build
 ```
 
-`npm run build` regenerates the admin icon SVGs in `public/assets/icons/admin` from `@rsuite/icon-font` and copies noVNC browser modules into `public/assets/vendor/novnc`. Use `npm run check` in CI or before committing to verify those generated assets are current.
+`npm run build` regenerates the committed admin icon SVGs in `public/assets/icons/admin` from `@rsuite/icon-font` and copies noVNC browser modules into the ignored `public/assets/vendor/novnc` directory. Use `npm run check` in CI or before committing to verify committed admin assets are current and npm vendor assets are not tracked.
 
 ### `config.php`
 
