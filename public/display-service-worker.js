@@ -3,7 +3,7 @@ const DISPLAY_PAGE_RE = /^\/display\/[^/]+$/;
 const DISPLAY_MANIFEST_RE = /^\/display\/[^/]+\/offline-manifest$/;
 const DISPLAY_STATE_RE = /^\/display\/[^/]+\/state$/;
 const CACHEABLE_PATH_RE = /^(?:\/assets\/|\/uploads\/|\/plugin-assets\/|\/display-service-worker\.js$)/;
-const CRITICAL_STATIC_RE = /^(?:\/assets\/(?:js\/slideshow\.js|css\/display\.css)|\/display-service-worker\.js$)/;
+const CRITICAL_STATIC_RE = /^(?:\/assets\/(?:js\/(?:playback-scheduler|slideshow)\.js|css\/display\.css)|\/display-service-worker\.js$)/;
 const VIDEO_DB_NAME = 'hugin-display-video-cache-v1';
 const VIDEO_CHUNK_SIZE = 2 * 1024 * 1024;
 

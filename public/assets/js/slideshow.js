@@ -3,16 +3,12 @@
     if (!slideshow) return;
 
     const slides = Array.from(document.querySelectorAll('.slide'));
-    if (slides.length === 0) {
-        slideshow.classList.remove('is-startup-sync-pending');
-        return;
-    }
-
     let index = Math.max(0, slides.findIndex(slide => slide.classList.contains('is-active')));
     let timer = null;
     let heartbeatTimer = null;
     let stateTimer = null;
     let scheduleStateTimer = null;
+    let selectionBoundaryTimer = null;
     let watchdogTimer = null;
     let pendingReloadTimer = null;
     let pendingReload = null;
@@ -20,6 +16,7 @@
     let startupComplete = false;
     let stateRequestInFlight = false;
     let currentSignature = slideshow.dataset.stateSignature || '';
+    let nextSelectionAtMs = Number(slideshow.dataset.nextSelectionAtMs || 0);
     const videoStartTimers = new WeakMap();
     const videoStartHandlers = new WeakMap();
     const MINUTE_MS = 60000;
@@ -67,7 +64,9 @@
             return false;
         }
 
-        serverClockOffsetMs = serverTimeMs - Date.now();
+        serverClockOffsetMs = window.HuginPlaybackScheduler
+            ? window.HuginPlaybackScheduler.serverClockOffset(serverTimeMs)
+            : serverTimeMs - Date.now();
         return true;
     };
 
@@ -75,7 +74,26 @@
 
     const serverNowMs = () => Date.now() + serverClockOffsetMs;
 
-    const delayUntilServerTime = targetMs => Math.max(0, Math.ceil(Number(targetMs || 0) - serverNowMs()));
+    const delayUntilServerTime = targetMs => window.HuginPlaybackScheduler
+        ? window.HuginPlaybackScheduler.delayUntil(targetMs, serverClockOffsetMs)
+        : Math.max(0, Math.ceil(Number(targetMs || 0) - serverNowMs()));
+
+    // Timetable boundaries come from the server because only it has the full
+    // assignment set and display timezone. The periodic checks remain a safety
+    // net for suspended tabs, clock changes, and edited configuration.
+    const queueSelectionBoundaryCheck = value => {
+        window.clearTimeout(selectionBoundaryTimer);
+        selectionBoundaryTimer = null;
+        nextSelectionAtMs = window.HuginPlaybackScheduler
+            ? window.HuginPlaybackScheduler.normalizeTimestamp(value)
+            : Math.max(0, Number(value || 0));
+        if (nextSelectionAtMs <= 0) return;
+
+        selectionBoundaryTimer = window.setTimeout(() => {
+            selectionBoundaryTimer = null;
+            reloadIfChanged('selection-boundary');
+        }, Math.max(25, delayUntilServerTime(nextSelectionAtMs) + 25));
+    };
 
     const sleep = ms => new Promise(resolve => {
         window.setTimeout(resolve, Math.max(0, Math.ceil(Number(ms) || 0)));
@@ -1255,6 +1273,9 @@
             });
     };
 
+    // A signature change identifies a new server-selected playback generation.
+    // Sync groups cache/report that generation before the coordinator grants a
+    // shared full-minute start; independent displays reload without that gate.
     const scheduleSyncedReload = (reason, stateData) => {
         const signature = stateData?.signature || '';
         const displayGroup = displayGroupFromState(stateData);
@@ -1841,6 +1862,7 @@
                 }
                 const previousOffsetMs = serverClockOffsetMs;
                 const updatedClock = updateServerClock(data.server_time_ms);
+                queueSelectionBoundaryCheck(data.next_selection_at_ms);
                 logSyncDebug('state check payload', {
                     source,
                     ok: data.ok ?? null,
@@ -2035,6 +2057,14 @@
         startupComplete = true;
         markStartupSeen();
         slideshow.classList.remove('is-startup-sync-pending');
+        queueSelectionBoundaryCheck(nextSelectionAtMs);
+        if (slides.length === 0) {
+            setStartupStage('starting');
+            reloadIfChanged('startup');
+            queueStateCheck();
+            queueMinuteAlignedStateCheck();
+            return;
+        }
         if (!isSlidePlayable(slides[index])) {
             const playable = firstPlayableIndex();
             if (playable >= 0 && playable !== index) {

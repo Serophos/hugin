@@ -6,6 +6,10 @@ $startupSyncKey = 'hugin:slideshow-started:' . (string)($display['slug'] ?? '');
 $startupLocationName = (string)($displayGroup['location_name'] ?? __('locations.unassigned'));
 $startupGroupName = (string)($displayGroup['name'] ?? __('common.none'));
 $startupDisplayName = (string)($display['name'] ?? '');
+$playbackStatus = (string)($playbackStatus ?? (($slides ?? []) ? 'ready' : 'no_playlist'));
+$playbackStatusMessage = $playbackStatus === 'no_slides'
+    ? __('frontend.playback_no_slides')
+    : __('frontend.playback_no_playlist');
 $templateFontAssetIds = [];
 foreach (($slides ?? []) as $slide) {
     foreach ((array)($slide['template_font_asset_ids'] ?? []) as $fontAssetId) {
@@ -107,6 +111,8 @@ if (str_starts_with($display['slug'] ?? '', 'preview-slide-') && preg_match('#^p
      data-service-worker-url="<?= $isPreviewDisplay ? '' : e(asset_url('/display-service-worker.js')) ?>"
      data-state-check-interval="60"
      data-state-signature="<?= e($stateSignature) ?>"
+     data-playback-status="<?= e($playbackStatus) ?>"
+     data-next-selection-at-ms="<?= e((string)($nextSelectionAtMs ?? 0)) ?>"
      data-server-time-ms="<?= e((string)($serverTimeMs ?? 0)) ?>"
      data-sync-reload-to-full-minute="<?= $syncReloadToFullMinute ? '1' : '0' ?>"
      data-display-group-id="<?= e((string)($displayGroup['id'] ?? '')) ?>"
@@ -148,6 +154,11 @@ if (str_starts_with($display['slug'] ?? '', 'preview-slide-') && preg_match('#^p
                 <dd><?= e($startupDisplayName) ?></dd>
             </div>
         </dl>
+    </div>
+    <div class="playback-status<?= $playbackStatus === 'ready' ? '' : ' is-active' ?>" data-playback-status-screen role="status" aria-live="polite">
+        <img src="<?= e(url('/assets/img/hugin-logo.webp')) ?>" alt="">
+        <p><?= e($playbackStatusMessage) ?></p>
+        <small><?= e(__('frontend.playback_waiting')) ?></small>
     </div>
     <?php foreach ($slides as $index => $slide): ?>
         <?php
@@ -248,6 +259,7 @@ if (str_starts_with($display['slug'] ?? '', 'preview-slide-') && preg_match('#^p
     <?php endforeach; ?>
 </div>
 <script src="<?= e(asset_url('/assets/js/hugin-qr.js')) ?>"></script>
+<script src="<?= e(asset_url('/assets/js/playback-scheduler.js')) ?>"></script>
 <script src="<?= e(asset_url('/assets/js/slideshow.js')) ?>"></script>
 <?php foreach (($pluginAssets['js'] ?? []) as $jsAsset): ?>
     <script src="<?= e($jsAsset) ?>"></script>

@@ -1079,6 +1079,9 @@ return [
         'status_never_seen' => 'Noch nie gesehen',
     ],    
     'frontend' => [
+        'playback_no_playlist' => 'Für diese Anzeige ist derzeit keine Playlist eingeplant.',
+        'playback_no_slides' => 'Die eingeplante Playlist enthält keine aktiven Folien.',
+        'playback_waiting' => 'Die Wiedergabe startet automatisch, sobald Inhalte verfügbar sind.',
         'display_not_found' => 'Bildschirm nicht gefunden.',
         'no_active_channel' => 'Keine aktive Playlist konfiguriert.',
         'no_active_slides' => 'Keine aktiven Slides konfiguriert.',

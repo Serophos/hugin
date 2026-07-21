@@ -16,5 +16,8 @@
             "Plugins\\Tl1Menu\\": "plugins/tl1-menu/",
             "Plugins\\Weather\\": "plugins/weather/"
         }
+    },
+    "scripts": {
+        "test:playback": "php tests/playlist_selection_test.php"
     }
 }

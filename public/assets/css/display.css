@@ -1168,3 +1168,35 @@ html, body {
 .template-slide__element--qr.is-qr-fallback .template-slide__qr-fallback {
     display: block;
 }
+.playback-status {
+    position: absolute;
+    inset: 0;
+    z-index: 20;
+    display: none;
+    place-content: center;
+    justify-items: center;
+    gap: 1rem;
+    padding: 8vw;
+    color: #f8fafc;
+    background: #0f172a;
+    text-align: center;
+}
+
+.playback-status.is-active {
+    display: grid;
+}
+
+.playback-status img {
+    width: min(30vw, 16rem);
+    height: auto;
+}
+
+.playback-status p {
+    margin: 0;
+    font-size: clamp(1.4rem, 3vw, 3rem);
+}
+
+.playback-status small {
+    opacity: .72;
+    font-size: clamp(.9rem, 1.4vw, 1.4rem);
+}

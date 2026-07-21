@@ -12,6 +12,7 @@
     "build:icons": "node scripts/build-admin-icons.mjs",
     "build:vnc": "node scripts/build-vnc-assets.mjs",
     "check": "npm run check:icons && npm run check:vnc",
+    "test:playback": "node tests/playback_scheduler_test.mjs",
     "check:icons": "node scripts/build-admin-icons.mjs --check",
     "check:vnc": "node scripts/build-vnc-assets.mjs --check"
   },

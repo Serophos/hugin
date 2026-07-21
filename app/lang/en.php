@@ -1075,6 +1075,9 @@ return [
         'status_never_seen' => 'Never seen',
     ],
     'frontend' => [
+        'playback_no_playlist' => 'No playlist is currently scheduled for this display.',
+        'playback_no_slides' => 'The scheduled playlist has no active slides.',
+        'playback_waiting' => 'Playback will start automatically when content becomes available.',
         'display_not_found' => 'Display not found.',
         'no_active_channel' => 'No active playlist configured.',
         'no_active_slides' => 'No active slides configured.',

@@ -5,8 +5,7 @@ use App\Core\Database;
 use App\Core\PluginManager;
 use App\Core\TemplateSlideService;
 use App\Core\View;
-use DateTime;
-use DateTimeZone;
+use App\Services\PlaylistSelectionService;
 
 class FrontendController
 {
@@ -16,10 +15,12 @@ class FrontendController
     private const SYNC_RELEASE_TTL_SECONDS = 300;
 
     private TemplateSlideService $templateSlides;
+    private PlaylistSelectionService $playlistSelection;
 
     public function __construct(private Database $db, private View $view, private PluginManager $plugins)
     {
         $this->templateSlides = new TemplateSlideService($db);
+        $this->playlistSelection = new PlaylistSelectionService($db);
     }
 
     private function applyDisplayLocale(array $display): string
@@ -49,41 +50,33 @@ class FrontendController
 
         $this->applyDisplayLocale($display);
         $displayGroup = $this->loadDisplayGroup((int)$display['id']);
-        $activeAssignment = $this->resolveActiveAssignment($display);
-        if (!$activeAssignment) {
-            http_response_code(500);
-            echo __('frontend.no_active_channel');
-            return;
-        }
-
-        $slides = $this->loadChannelSlides((int)$activeAssignment['channel_id']);
-        if (!$slides) {
-            http_response_code(500);
-            echo __('frontend.no_active_slides');
-            return;
-        }
-
-        $effect = $activeAssignment['transition_effect'] !== 'inherit'
+        $selection = $this->playlistSelection->resolve($display);
+        $activeAssignment = $selection['assignment'];
+        $slides = $activeAssignment ? $this->loadChannelSlides((int)$activeAssignment['channel_id']) : [];
+        $effect = $activeAssignment && $activeAssignment['transition_effect'] !== 'inherit'
             ? $activeAssignment['transition_effect']
             : $display['transition_effect'];
-
-        $duration = (int)($activeAssignment['slide_duration_seconds'] ?: $display['slide_duration_seconds']);
+        $duration = (int)(($activeAssignment['slide_duration_seconds'] ?? 0) ?: $display['slide_duration_seconds']);
         $heartbeat = $this->db->one('SELECT * FROM display_heartbeats WHERE display_id = ?', [$display['id']]);
-        [$resolvedSlides, $pluginAssets] = $this->resolveSlides($slides, $display, $activeAssignment, $heartbeat, $duration);
-        $state = $this->buildDisplayState($display, $activeAssignment, $resolvedSlides, $effect, $duration, $displayGroup, $pluginAssets);
+        [$resolvedSlides, $pluginAssets] = $activeAssignment
+            ? $this->resolveSlides($slides, $display, $activeAssignment, $heartbeat, $duration)
+            : [[], ['css' => [], 'js' => []]];
+        $state = $this->buildDisplayState($display, $activeAssignment, $resolvedSlides, $effect, $duration, $displayGroup, $pluginAssets, (int)$selection['next_selection_at_ms']);
         $brandingSettings = $this->loadBrandingSettings();
 
         $this->view->render('frontend/display', [
             'display' => $display,
             'channel' => [
-                'id' => $activeAssignment['channel_id'],
-                'name' => $activeAssignment['channel_name'],
-                'description' => $activeAssignment['channel_description'],
+                'id' => $activeAssignment['channel_id'] ?? 0,
+                'name' => $activeAssignment['channel_name'] ?? '',
+                'description' => $activeAssignment['channel_description'] ?? '',
             ],
             'slides' => $resolvedSlides,
             'effect' => $effect,
             'duration' => $duration,
             'stateSignature' => $state['signature'],
+            'playbackStatus' => $state['playback_status'],
+            'nextSelectionAtMs' => $state['next_selection_at_ms'],
             'serverTimeMs' => $state['server_time_ms'],
             'displayGroup' => $displayGroup,
             'orientation' => $display['orientation'] ?? 'landscape',
@@ -272,25 +265,19 @@ class FrontendController
 
         $this->applyDisplayLocale($display);
         $displayGroup = $this->loadDisplayGroup((int)$display['id']);
-        $activeAssignment = $this->resolveActiveAssignment($display);
-        if (!$activeAssignment) {
-            json_response(['ok' => false, 'message' => __('frontend.state_message_no_channel')], 409);
-        }
-
-        $slides = $this->loadChannelSlides((int)$activeAssignment['channel_id']);
-        if (!$slides) {
-            json_response(['ok' => false, 'message' => __('frontend.state_message_no_slides')], 409);
-        }
-
-        $effect = $activeAssignment['transition_effect'] !== 'inherit'
+        $selection = $this->playlistSelection->resolve($display);
+        $activeAssignment = $selection['assignment'];
+        $slides = $activeAssignment ? $this->loadChannelSlides((int)$activeAssignment['channel_id']) : [];
+        $effect = $activeAssignment && $activeAssignment['transition_effect'] !== 'inherit'
             ? $activeAssignment['transition_effect']
             : $display['transition_effect'];
-
-        $duration = (int)($activeAssignment['slide_duration_seconds'] ?: $display['slide_duration_seconds']);
+        $duration = (int)(($activeAssignment['slide_duration_seconds'] ?? 0) ?: $display['slide_duration_seconds']);
         $heartbeat = $this->db->one('SELECT * FROM display_heartbeats WHERE display_id = ?', [$display['id']]);
-        [$resolvedSlides, $pluginAssets] = $this->resolveSlides($slides, $display, $activeAssignment, $heartbeat, $duration);
+        [$resolvedSlides, $pluginAssets] = $activeAssignment
+            ? $this->resolveSlides($slides, $display, $activeAssignment, $heartbeat, $duration)
+            : [[], ['css' => [], 'js' => []]];
 
-        json_response($this->buildDisplayState($display, $activeAssignment, $resolvedSlides, $effect, $duration, $displayGroup, $pluginAssets));
+        json_response($this->buildDisplayState($display, $activeAssignment, $resolvedSlides, $effect, $duration, $displayGroup, $pluginAssets, (int)$selection['next_selection_at_ms']));
     }
 
     public function offlineManifest(string $slug): void
@@ -302,23 +289,18 @@ class FrontendController
 
         $this->applyDisplayLocale($display);
         $displayGroup = $this->loadDisplayGroup((int)$display['id']);
-        $activeAssignment = $this->resolveActiveAssignment($display);
-        if (!$activeAssignment) {
-            json_response(['ok' => false, 'message' => __('frontend.state_message_no_channel')], 409);
-        }
-
-        $slides = $this->loadChannelSlides((int)$activeAssignment['channel_id']);
-        if (!$slides) {
-            json_response(['ok' => false, 'message' => __('frontend.state_message_no_slides')], 409);
-        }
-
-        $effect = $activeAssignment['transition_effect'] !== 'inherit'
+        $selection = $this->playlistSelection->resolve($display);
+        $activeAssignment = $selection['assignment'];
+        $slides = $activeAssignment ? $this->loadChannelSlides((int)$activeAssignment['channel_id']) : [];
+        $effect = $activeAssignment && $activeAssignment['transition_effect'] !== 'inherit'
             ? $activeAssignment['transition_effect']
             : $display['transition_effect'];
-        $duration = (int)($activeAssignment['slide_duration_seconds'] ?: $display['slide_duration_seconds']);
+        $duration = (int)(($activeAssignment['slide_duration_seconds'] ?? 0) ?: $display['slide_duration_seconds']);
         $heartbeat = $this->db->one('SELECT * FROM display_heartbeats WHERE display_id = ?', [$display['id']]);
-        [$resolvedSlides, $pluginAssets] = $this->resolveSlides($slides, $display, $activeAssignment, $heartbeat, $duration);
-        $state = $this->buildDisplayState($display, $activeAssignment, $resolvedSlides, $effect, $duration, $displayGroup, $pluginAssets);
+        [$resolvedSlides, $pluginAssets] = $activeAssignment
+            ? $this->resolveSlides($slides, $display, $activeAssignment, $heartbeat, $duration)
+            : [[], ['css' => [], 'js' => []]];
+        $state = $this->buildDisplayState($display, $activeAssignment, $resolvedSlides, $effect, $duration, $displayGroup, $pluginAssets, (int)$selection['next_selection_at_ms']);
         $brandingSettings = $this->loadBrandingSettings();
 
         json_response($this->buildOfflineManifest($display, $resolvedSlides, $pluginAssets, $state, $brandingSettings));
@@ -497,29 +479,24 @@ class FrontendController
 
     private function currentDisplayStateContext(array $display, ?array $displayGroup): ?array
     {
-        $activeAssignment = $this->resolveActiveAssignment($display);
-        if (!$activeAssignment) {
-            return null;
-        }
-
-        $slides = $this->loadChannelSlides((int)$activeAssignment['channel_id']);
-        if (!$slides) {
-            return null;
-        }
-
-        $effect = $activeAssignment['transition_effect'] !== 'inherit'
+        $selection = $this->playlistSelection->resolve($display);
+        $activeAssignment = $selection['assignment'];
+        $slides = $activeAssignment ? $this->loadChannelSlides((int)$activeAssignment['channel_id']) : [];
+        $effect = $activeAssignment && $activeAssignment['transition_effect'] !== 'inherit'
             ? $activeAssignment['transition_effect']
             : $display['transition_effect'];
 
-        $duration = (int)($activeAssignment['slide_duration_seconds'] ?: $display['slide_duration_seconds']);
+        $duration = (int)(($activeAssignment['slide_duration_seconds'] ?? 0) ?: $display['slide_duration_seconds']);
         $heartbeat = $this->db->one('SELECT * FROM display_heartbeats WHERE display_id = ?', [$display['id']]);
-        [$resolvedSlides, $pluginAssets] = $this->resolveSlides($slides, $display, $activeAssignment, $heartbeat, $duration);
+        [$resolvedSlides, $pluginAssets] = $activeAssignment
+            ? $this->resolveSlides($slides, $display, $activeAssignment, $heartbeat, $duration)
+            : [[], ['css' => [], 'js' => []]];
 
         return [
             'active_assignment' => $activeAssignment,
             'resolved_slides' => $resolvedSlides,
             'plugin_assets' => $pluginAssets,
-            'state' => $this->buildDisplayState($display, $activeAssignment, $resolvedSlides, $effect, $duration, $displayGroup, $pluginAssets),
+            'state' => $this->buildDisplayState($display, $activeAssignment, $resolvedSlides, $effect, $duration, $displayGroup, $pluginAssets, (int)$selection['next_selection_at_ms']),
         ];
     }
 
@@ -988,6 +965,7 @@ class FrontendController
         $this->addManifestAsset($assets, url('/display/' . $display['slug'] . '/offline-manifest'), 'manifest', 'json', null, true);
         $this->addManifestAsset($assets, asset_url('/assets/css/display.css'), 'static', 'style', $this->publicFileSize('/assets/css/display.css'), true);
         $this->addManifestAsset($assets, asset_url('/assets/js/hugin-qr.js'), 'static', 'script', $this->publicFileSize('/assets/js/hugin-qr.js'), true);
+        $this->addManifestAsset($assets, asset_url('/assets/js/playback-scheduler.js'), 'static', 'script', $this->publicFileSize('/assets/js/playback-scheduler.js'), true);
         $this->addManifestAsset($assets, asset_url('/assets/js/slideshow.js'), 'static', 'script', $this->publicFileSize('/assets/js/slideshow.js'), true);
         $this->addManifestAsset($assets, asset_url('/display-service-worker.js'), 'static', 'script', $this->publicFileSize('/display-service-worker.js'), true);
         $this->addManifestAsset($assets, url('/assets/img/hugin-logo.webp'), 'static', 'image', $this->publicFileSize('/assets/img/hugin-logo.webp'), true);
@@ -1248,8 +1226,9 @@ class FrontendController
         return array_replace($defaults, $settings);
     }
 
-    private function buildDisplayState(array $display, array $activeAssignment, array $resolvedSlides, string $effect, int $duration, ?array $displayGroup = null, array $pluginAssets = []): array
+    private function buildDisplayState(array $display, ?array $activeAssignment, array $resolvedSlides, string $effect, int $duration, ?array $displayGroup = null, array $pluginAssets = [], int $nextSelectionAtMs = 0): array
     {
+        $playbackStatus = PlaylistSelectionService::playbackStatus($activeAssignment, $resolvedSlides);
         $payload = [
             'display_id' => (int)$display['id'],
             'display_slug' => (string)$display['slug'],
@@ -1257,10 +1236,12 @@ class FrontendController
             'display_language' => (string)($display['display_language'] ?? self::DISPLAY_LANGUAGE_SYSTEM),
             'display_locale' => current_locale(),
             'display_group' => $displayGroup,
-            'channel_id' => (int)$activeAssignment['channel_id'],
-            'channel_name' => (string)$activeAssignment['channel_name'],
+            'playback_status' => $playbackStatus,
+            'next_selection_at_ms' => $nextSelectionAtMs,
+            'channel_id' => (int)($activeAssignment['channel_id'] ?? 0),
+            'channel_name' => (string)($activeAssignment['channel_name'] ?? ''),
             'channel_updated_at' => (string)($activeAssignment['channel_updated_at'] ?? ''),
-            'assignment_id' => (int)$activeAssignment['id'],
+            'assignment_id' => (int)($activeAssignment['id'] ?? 0),
             'assignment_created_at' => (string)($activeAssignment['assignment_created_at'] ?? ''),
             'assignment_default' => (int)(($activeAssignment['schedule_type'] ?? '') === 'fulltime'),
             'assignment_schedule_id' => (int)($activeAssignment['schedule_id'] ?? 0),
@@ -1271,7 +1252,7 @@ class FrontendController
             'assignment_schedule_rule_weekday' => (int)($activeAssignment['schedule_rule_weekday'] ?? 0),
             'assignment_schedule_rule_start_time' => (string)($activeAssignment['schedule_rule_start_time'] ?? ''),
             'assignment_schedule_rule_end_time' => (string)($activeAssignment['schedule_rule_end_time'] ?? ''),
-            'assignment_sort_order' => (int)$activeAssignment['sort_order'],
+            'assignment_sort_order' => (int)($activeAssignment['sort_order'] ?? 0),
             'effect' => $effect,
             'duration' => $duration,
             'orientation' => (string)($display['orientation'] ?? 'landscape'),
@@ -1330,6 +1311,9 @@ class FrontendController
 
         $signaturePayload = $payload;
         unset($signaturePayload['frontend_assets']);
+        // The deadline tells clients when to re-check, but is not playback
+        // identity: an unrelated rule boundary must not force a page reload.
+        unset($signaturePayload['next_selection_at_ms']);
         foreach ($signaturePayload['slides'] as &$signatureSlide) {
             // Template-rendered HTML can contain time-based or client-animated elements.
             // Keep reload signatures tied to stable saved config/values instead of runtime DOM state.
@@ -1355,6 +1339,7 @@ class FrontendController
 
         $js = [
             asset_url('/assets/js/hugin-qr.js'),
+            asset_url('/assets/js/playback-scheduler.js'),
             asset_url('/assets/js/slideshow.js'),
         ];
         foreach (($pluginAssets['js'] ?? []) as $asset) {
@@ -1499,38 +1484,6 @@ class FrontendController
 
     public function resolveActiveAssignment(array $display): ?array
     {
-        $timezone = new DateTimeZone($display['timezone'] ?: 'UTC');
-        $now = new DateTime('now', $timezone);
-        $weekday = (int)$now->format('N');
-        $currentTime = $now->format('H:i:s');
-
-        return $this->db->one(
-            'SELECT cdsa.id, cdsa.display_id, cdsa.channel_id, cdsa.schedule_id, cdsa.priority AS sort_order,
-                    cdsa.created_at AS assignment_created_at,
-                    s.name AS schedule_name, s.type AS schedule_type, s.updated_at AS schedule_updated_at,
-                    sr.id AS schedule_rule_id, sr.weekday AS schedule_rule_weekday,
-                    sr.start_time AS schedule_rule_start_time, sr.end_time AS schedule_rule_end_time,
-                    c.name AS channel_name, c.description AS channel_description,
-                    c.transition_effect, c.slide_duration_seconds, c.updated_at AS channel_updated_at, c.is_active AS channel_is_active
-             FROM channel_display_schedule_assignments cdsa
-             INNER JOIN channels c ON c.id = cdsa.channel_id
-             INNER JOIN schedules s ON s.id = cdsa.schedule_id
-             LEFT JOIN schedule_rules sr ON sr.schedule_id = s.id
-                AND s.type = \'weekly_time_slot\'
-                AND sr.weekday = ?
-                AND ? >= sr.start_time
-                AND ? < sr.end_time
-             WHERE cdsa.display_id = ?
-               AND cdsa.is_active = 1
-               AND c.is_active = 1
-               AND s.is_active = 1
-               AND (
-                    s.type = \'fulltime\'
-                    OR (s.type = \'weekly_time_slot\' AND sr.id IS NOT NULL)
-               )
-             ORDER BY CASE WHEN s.type = \'fulltime\' THEN 1 ELSE 0 END ASC, cdsa.priority ASC, cdsa.id ASC, sr.id ASC
-             LIMIT 1',
-            [$weekday, $currentTime, $currentTime, $display['id']]
-        );
+        return $this->playlistSelection->resolve($display)['assignment'];
     }
 }

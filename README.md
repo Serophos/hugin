@@ -173,6 +173,14 @@ Notes:
 - Schedule resolution uses the display timezone.
 - Higher-priority scheduled playlists can override full-time playlists.
 
+### Display Playback Flow
+
+The server is the authority for playlist selection. It filters inactive assignments, playlists, and schedules, prefers a matching weekly schedule over Fulltime, then applies the assignment priority (lower numbers win) and assignment ID tie-breaker. Schedule starts are inclusive, ends are exclusive, and all calculations use the display timezone.
+
+Every display state includes the next timetable boundary. The frontend schedules an exact check for that instant and also polls periodically to recover from suspended browsers, clock drift, network interruptions, and configuration edits. A display with no matching playlist, or with a selected playlist that has no active slides, shows a waiting status and resumes automatically when server state changes.
+
+Independent displays reload a changed playlist immediately. Sync-enabled display groups first cache and report readiness for the new state, then activate the generation together on the next full minute. The state signature identifies rendered playback configuration; the next check deadline itself is deliberately not part of that identity.
+
 ### Slides
 
 Built-in slide types:
