@@ -966,6 +966,7 @@ class FrontendController
         $this->addManifestAsset($assets, asset_url('/assets/css/display.css'), 'static', 'style', $this->publicFileSize('/assets/css/display.css'), true);
         $this->addManifestAsset($assets, asset_url('/assets/js/hugin-qr.js'), 'static', 'script', $this->publicFileSize('/assets/js/hugin-qr.js'), true);
         $this->addManifestAsset($assets, asset_url('/assets/js/playback-scheduler.js'), 'static', 'script', $this->publicFileSize('/assets/js/playback-scheduler.js'), true);
+        $this->addManifestAsset($assets, asset_url('/assets/js/display-heartbeat.js'), 'static', 'script', $this->publicFileSize('/assets/js/display-heartbeat.js'), true);
         $this->addManifestAsset($assets, asset_url('/assets/js/slideshow.js'), 'static', 'script', $this->publicFileSize('/assets/js/slideshow.js'), true);
         $this->addManifestAsset($assets, asset_url('/display-service-worker.js'), 'static', 'script', $this->publicFileSize('/display-service-worker.js'), true);
         $this->addManifestAsset($assets, url('/assets/img/hugin-logo.webp'), 'static', 'image', $this->publicFileSize('/assets/img/hugin-logo.webp'), true);
@@ -1340,6 +1341,7 @@ class FrontendController
         $js = [
             asset_url('/assets/js/hugin-qr.js'),
             asset_url('/assets/js/playback-scheduler.js'),
+            asset_url('/assets/js/display-heartbeat.js'),
             asset_url('/assets/js/slideshow.js'),
         ];
         foreach (($pluginAssets['js'] ?? []) as $asset) {

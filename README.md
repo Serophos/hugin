@@ -181,6 +181,8 @@ Every display state includes the next timetable boundary. The frontend schedules
 
 Independent displays reload a changed playlist immediately. Sync-enabled display groups first cache and report readiness for the new state, then activate the generation together on the next full minute. The state signature identifies rendered playback configuration; the next check deadline itself is deliberately not part of that identity.
 
+Display heartbeats run in a separate frontend module from slideshow playback and synchronization. They start as soon as the display shell loads, use the configured monitoring interval, retry failed or timed-out requests with bounded backoff, and recover after connectivity changes, browser sleep, background throttling, and back/forward-cache restoration. Page reloads send a final beacon and the replacement page starts a fresh heartbeat immediately.
+
 ### Slides
 
 Built-in slide types:

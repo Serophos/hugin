@@ -5,7 +5,6 @@
     const slides = Array.from(document.querySelectorAll('.slide'));
     let index = Math.max(0, slides.findIndex(slide => slide.classList.contains('is-active')));
     let timer = null;
-    let heartbeatTimer = null;
     let stateTimer = null;
     let scheduleStateTimer = null;
     let selectionBoundaryTimer = null;
@@ -954,11 +953,6 @@
     };
 
 
-    const heartbeatIntervalMs = () => {
-        const seconds = parseInt(slideshow.dataset.heartbeatInterval || '90', 10);
-        return Math.max(seconds || 90, 30) * 1000;
-    };
-
     const stateCheckIntervalMs = () => {
         const seconds = parseInt(slideshow.dataset.stateCheckInterval || '60', 10);
         return Math.max(seconds || 60, 5) * 1000;
@@ -1696,115 +1690,6 @@
         });
     };
 
-    const ua = navigator.userAgent || '';
-    const parseBrowser = () => {
-        const checks = [
-            { name: 'Edge', regex: /(Edg|Edge)\/([\d.]+)/i },
-            { name: 'Opera', regex: /(OPR)\/([\d.]+)/i },
-            { name: 'Chrome', regex: /(Chrome)\/([\d.]+)/i },
-            { name: 'Firefox', regex: /(Firefox)\/([\d.]+)/i },
-            { name: 'Safari', regex: /Version\/([\d.]+).*Safari/i },
-        ];
-        for (const item of checks) {
-            const match = ua.match(item.regex);
-            if (match) return { browserName: item.name, browserVersion: match[2] || match[1] || '' };
-        }
-        return { browserName: 'Unknown', browserVersion: '' };
-    };
-
-    const parseOs = () => {
-        const platform = navigator.platform || '';
-        const list = [
-            { name: 'Windows', regex: /Windows NT ([\d.]+)/i },
-            { name: 'Android', regex: /Android ([\d.]+)/i },
-            { name: 'iOS', regex: /OS ([\d_]+) like Mac OS X/i, transform: v => v.replace(/_/g, '.') },
-            { name: 'macOS', regex: /Mac OS X ([\d_]+)/i, transform: v => v.replace(/_/g, '.') },
-            { name: 'Linux', regex: /Linux/i },
-            { name: 'CrOS', regex: /CrOS [^ ]+ ([\d.]+)/i },
-        ];
-        for (const item of list) {
-            const match = ua.match(item.regex);
-            if (match) {
-                return {
-                    osName: item.name,
-                    osVersion: match[1] ? (item.transform ? item.transform(match[1]) : match[1]) : '',
-                    platform,
-                };
-            }
-        }
-        return { osName: platform || 'Unknown', osVersion: '', platform };
-    };
-
-    const collectHeartbeatPayload = () => {
-        const browser = parseBrowser();
-        const os = parseOs();
-        const screenOrientation = screen.orientation?.type || (window.innerHeight > window.innerWidth ? 'portrait' : 'landscape');
-        return {
-            seenAt: new Date().toISOString(),
-            browserName: browser.browserName,
-            browserVersion: browser.browserVersion,
-            osName: os.osName,
-            osVersion: os.osVersion,
-            platform: navigator.platform || os.platform || '',
-            language: navigator.language || '',
-            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || '',
-            screenWidth: Number(screen.width || 0),
-            screenHeight: Number(screen.height || 0),
-            availScreenWidth: Number(screen.availWidth || 0),
-            availScreenHeight: Number(screen.availHeight || 0),
-            viewportWidth: Number(window.innerWidth || document.documentElement.clientWidth || 0),
-            viewportHeight: Number(window.innerHeight || document.documentElement.clientHeight || 0),
-            devicePixelRatio: Number(window.devicePixelRatio || 1),
-            colorDepth: Number(screen.colorDepth || 0),
-            maxTouchPoints: Number(navigator.maxTouchPoints || 0),
-            hardwareConcurrency: Number(navigator.hardwareConcurrency || 0),
-            deviceMemory: navigator.deviceMemory ? Number(navigator.deviceMemory) : null,
-            screenOrientation,
-            online: typeof navigator.onLine === 'boolean' ? navigator.onLine : null,
-            cookieEnabled: typeof navigator.cookieEnabled === 'boolean' ? navigator.cookieEnabled : null,
-            userAgent: ua,
-        };
-    };
-
-    const sendHeartbeatBeacon = (url, payload) => {
-        if (!navigator.sendBeacon) return false;
-        const blob = new Blob([payload], { type: 'application/json' });
-        return navigator.sendBeacon(url, blob);
-    };
-
-    const sendHeartbeat = (options = {}) => {
-        const url = resolveEndpointUrl(slideshow.dataset.heartbeatUrl);
-        if (!url) return;
-
-        const payload = JSON.stringify(collectHeartbeatPayload());
-
-        if (options.preferBeacon && sendHeartbeatBeacon(url, payload)) {
-            return;
-        }
-
-        if (!window.fetch) {
-            sendHeartbeatBeacon(url, payload);
-            return;
-        }
-
-        fetch(url, {
-            method: 'POST',
-            headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
-            body: payload,
-            cache: 'no-store',
-            credentials: 'same-origin',
-            keepalive: true,
-        })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(`Heartbeat failed with HTTP ${response.status}`);
-                }
-            })
-            .catch(() => {
-                sendHeartbeatBeacon(url, payload);
-            });
-    };
-
     const reloadIfChanged = (source = 'state-check') => {
         const url = resolveEndpointUrl(slideshow.dataset.stateUrl);
         if (!url || !window.fetch || stateRequestInFlight) {
@@ -1999,16 +1884,6 @@
         });
     };
 
-    const queueHeartbeat = () => {
-        clearInterval(heartbeatTimer);
-        if (!resolveEndpointUrl(slideshow.dataset.heartbeatUrl)) {
-            heartbeatTimer = null;
-            return;
-        }
-        sendHeartbeat();
-        heartbeatTimer = setInterval(sendHeartbeat, heartbeatIntervalMs());
-    };
-
     const queueStateCheck = () => {
         clearInterval(stateTimer);
         if (shouldUseSyncedGroupReload()) {
@@ -2112,7 +1987,6 @@
     };
 
     window.addEventListener('online', () => {
-        sendHeartbeat();
         warmOfflineCache('online');
         if (shouldUseSyncedGroupReload()) {
             logSyncDebug('online event: synced group keeps minute-aligned state check');
@@ -2130,10 +2004,7 @@
             }
         }
     });
-    window.addEventListener('pagehide', () => sendHeartbeat({ preferBeacon: true }));
     window.addEventListener('resize', () => {
-        clearTimeout(window.__huginResizeHeartbeat);
-        window.__huginResizeHeartbeat = setTimeout(sendHeartbeat, 600);
         clearTimeout(window.__huginQrResize);
         window.__huginQrResize = setTimeout(renderTextSlideQrCodes, 250);
     });
@@ -2158,15 +2029,10 @@
             activate(nextIndex(index));
         }
     });
-    if (screen.orientation?.addEventListener) {
-        screen.orientation.addEventListener('change', sendHeartbeat);
-    }
-
     renderTextSlideQrCodes();
     initializeTemplateDynamicTextElements();
     if (updateTemplateTimedElements()) {
         window.setInterval(updateTemplateTimedElements, 1000);
     }
-    queueHeartbeat();
     prepareStartup().then(startSlideshow, startSlideshow);
 })();
