@@ -530,6 +530,7 @@ class AdminController
 
         $displays = $this->db->all(
             'SELECT d.*,
+                    CASE WHEN NULLIF(TRIM(d.vnc_username), \'\') IS NOT NULL AND OCTET_LENGTH(d.vnc_password) > 0 THEN 1 ELSE 0 END AS vnc_configured,
                     g.name AS group_name,
                     l.name AS location_name,
                     (SELECT COUNT(DISTINCT cdsa.channel_id) FROM channel_display_schedule_assignments cdsa WHERE cdsa.display_id = d.id) AS channel_count
@@ -546,6 +547,7 @@ class AdminController
             'displayIcons' => $displayIcons,
             'defaultDisplayIcon' => $this->defaultDisplayIcon($displayIcons),
             'flash' => flash('success'),
+            'error' => flash('error'),
         ]);
     }
 
@@ -734,6 +736,10 @@ class AdminController
         );
         if (!$display) {
             flash('error', __('display.not_found'));
+            redirect('/admin/displays');
+        }
+        if (trim((string)($display['vnc_username'] ?? '')) === '' || (string)($display['vnc_password'] ?? '') === '') {
+            flash('error', __('display.vnc_missing_credentials'));
             redirect('/admin/displays');
         }
 
@@ -1281,6 +1287,7 @@ class AdminController
         $defaultScheduleId = $this->defaultChannelScheduleId();
         $rows = $this->db->all(
             'SELECT d.id AS display_id, d.name AS display_name, d.slug AS display_slug, d.icon_file AS display_icon_file,
+                    CASE WHEN NULLIF(TRIM(d.vnc_username), \'\') IS NOT NULL AND OCTET_LENGTH(d.vnc_password) > 0 THEN 1 ELSE 0 END AS display_vnc_configured,
                     g.name AS group_name, g.sync_enabled AS group_sync_enabled, l.name AS location_name,
                     c.id AS channel_id, c.name AS channel_name, c.transition_effect, c.is_active,
                     cdsa.id AS assignment_id, cdsa.priority, cdsa.is_active AS assignment_is_active,
@@ -1320,6 +1327,7 @@ class AdminController
                     'location_name' => $row['location_name'] ?: __('locations.unassigned'),
                     'group_name' => $row['group_name'] ?: __('locations.unassigned'),
                     'group_sync_enabled' => (int)($row['group_sync_enabled'] ?? 0),
+                    'vnc_configured' => (int)($row['display_vnc_configured'] ?? 0),
                     'is_unused' => false,
                 ];
             }
@@ -3505,6 +3513,7 @@ class AdminController
     private function getDisplayOrganizationRows(string $where = '', array $params = []): array
     {
         $sql = 'SELECT d.id, d.name, d.slug, d.description, d.orientation, d.icon_file, d.is_active, d.sort_order,
+                       CASE WHEN NULLIF(TRIM(d.vnc_username), \'\') IS NOT NULL AND OCTET_LENGTH(d.vnc_password) > 0 THEN 1 ELSE 0 END AS vnc_configured,
                        dgm.group_id, dgm.layout_x, dgm.layout_y, dgm.layout_width, dgm.layout_height,
                        dgm.layout_rotation_degrees, dgm.bezel_top, dgm.bezel_right, dgm.bezel_bottom,
                        dgm.bezel_left, dgm.sort_order AS group_sort_order,

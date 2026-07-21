@@ -112,9 +112,11 @@ require __DIR__ . '/../layouts/admin_header.php';
                                     <small><?= e(enum_label('orientations', $display['orientation'], $display['orientation'])) ?> &middot; <?= e($display['monitoring_label']) ?></small>
                                 </span>
                             </a>
-                            <span class="display-list-actions">
-                                <a class="button button--normal button--small" href="<?= e(url('/admin/displays/' . $display['id'] . '/vnc')) ?>" target="_blank" rel="noopener noreferrer" aria-label="<?= e(__('display.vnc_connect_to', ['display' => $display['name']])) ?>"><?= admin_icon('open') ?><span><?= e(__('display.vnc')) ?></span></a>
-                            </span>
+                            <?php if (!empty($display['vnc_configured'])): ?>
+                                <span class="display-list-actions">
+                                    <a class="button button--normal button--small" href="<?= e(url('/admin/displays/' . $display['id'] . '/vnc')) ?>" target="_blank" rel="noopener noreferrer" aria-label="<?= e(__('display.vnc_connect_to', ['display' => $display['name']])) ?>"><?= admin_icon('open') ?><span><?= e(__('display.vnc')) ?></span></a>
+                                </span>
+                            <?php endif; ?>
                         </div>
                     <?php endforeach; ?>
                 </div>

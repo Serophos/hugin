@@ -19,6 +19,7 @@ require __DIR__ . '/../layouts/admin_header.php';
     ><?= admin_icon('add') ?><span><?= e(__('display.new')) ?></span></a>
 </div>
 <?php if ($flash): ?><div class="alert success"><?= e($flash) ?></div><?php endif; ?>
+<?php if ($error ?? null): ?><div class="alert error"><?= e($error) ?></div><?php endif; ?>
 <div class="card">
     <div class="table-scroll">
     <table class="admin-table admin-table--displays" data-admin-table>
@@ -67,7 +68,9 @@ require __DIR__ . '/../layouts/admin_header.php';
                 <td data-admin-cell="status" data-sort-value="<?= e($statusLabel) ?>" data-filter-value="<?= e($statusValue) ?>"><?= e($statusLabel) ?></td>
                 <td class="actions">
                     <a class="button button--normal button--small" href="<?= e(url($displayPreviewUrl)) ?>" target="_blank" rel="noopener noreferrer"><?= admin_icon('preview') ?><span><?= e(__('common.preview')) ?></span></a>
-                    <a class="button button--normal button--small" href="<?= e(url('/admin/displays/' . $display['id'] . '/vnc')) ?>" target="_blank" rel="noopener noreferrer" aria-label="<?= e(__('display.vnc_connect_to', ['display' => $display['name']])) ?>"><?= admin_icon('open') ?><span><?= e(__('display.vnc')) ?></span></a>
+                    <?php if (!empty($display['vnc_configured'])): ?>
+                        <a class="button button--normal button--small" href="<?= e(url('/admin/displays/' . $display['id'] . '/vnc')) ?>" target="_blank" rel="noopener noreferrer" aria-label="<?= e(__('display.vnc_connect_to', ['display' => $display['name']])) ?>"><?= admin_icon('open') ?><span><?= e(__('display.vnc')) ?></span></a>
+                    <?php endif; ?>
                     <a class="button button--normal button--small" href="<?= e(url('/admin/displays/' . $display['id'] . '/edit')) ?>"><?= admin_icon('edit') ?><span><?= e(__('common.edit')) ?></span></a>
                     <form method="post" action="<?= e(url('/admin/displays/' . $display['id'] . '/reload')) ?>" class="inline-form">
                         <?= csrf_field() ?>

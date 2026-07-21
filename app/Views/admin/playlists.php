@@ -89,7 +89,7 @@ if (!$isUnused) {
         <?php if (!$isUnused): ?>
             <span class="playlist-display-group__actions">
                 <a class="button button--normal button--small" href="<?= e(url($previewPath)) ?>" target="_blank" rel="noopener noreferrer"><?= admin_icon('preview') ?><span><?= e(__('common.preview')) ?></span></a>
-                <?php if (is_admin()): ?>
+                <?php if (is_admin() && !empty($display['vnc_configured'])): ?>
                     <a class="button button--normal button--small" href="<?= e(url('/admin/displays/' . $display['id'] . '/vnc')) ?>" target="_blank" rel="noopener noreferrer" aria-label="<?= e(__('display.vnc_connect_to', ['display' => $display['name']])) ?>"><?= admin_icon('open') ?><span><?= e(__('display.vnc')) ?></span></a>
                 <?php endif; ?>
                 <button type="button" class="button button--normal button--small" data-playlist-add-open data-display-id="<?= e((string)$display['id']) ?>" aria-label="<?= e(__('channel.add_existing_playlist')) ?>"><?= admin_icon('add') ?><span><?= e(__('channel.add_existing_playlist_short')) ?></span></button>
