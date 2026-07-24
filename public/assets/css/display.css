@@ -104,21 +104,21 @@ html, body {
 .startup-loading__bar {
     position: relative;
     width: min(360px, 72vw);
-    height: 4px;
+    height: 8px;
     overflow: hidden;
     border-radius: 999px;
     background: rgba(200, 211, 255, 0.16);
+    box-shadow: inset 0 0 0 1px rgba(200, 211, 255, 0.08);
 }
 
-.startup-loading__bar::after {
-    content: "";
+.startup-loading__bar-fill {
     position: absolute;
-    inset-block: 0;
-    left: -45%;
-    width: 45%;
+    inset: 0;
+    width: 0%;
     border-radius: inherit;
     background: linear-gradient(90deg, #2060f0, #8030f0, #ffb000, #ff4000);
-    animation: startup-loading-bar 1.7s ease-in-out infinite;
+    box-shadow: 0 0 18px rgba(128, 48, 240, 0.38);
+    transition: width 240ms linear;
 }
 
 .startup-loading__legal {
@@ -177,12 +177,6 @@ html, body {
 
 .hugin-startup-loading-seen .slideshow.is-startup-sync-pending .slide {
     visibility: visible;
-}
-
-@keyframes startup-loading-bar {
-    0% { transform: translateX(0); }
-    52% { transform: translateX(225%); }
-    100% { transform: translateX(225%); }
 }
 
 @media (max-width: 700px) {

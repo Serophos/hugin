@@ -12,6 +12,7 @@ class FrontendController
     private const DISPLAY_LANGUAGE_SYSTEM = 'system';
     private const DISPLAY_LANGUAGE_OPTIONS = ['en', 'de'];
     private const SYNC_JOIN_STABILIZATION_SECONDS = 8;
+    private const SYNC_READINESS_MAX_WAIT_SECONDS = 30;
     private const SYNC_RELEASE_TTL_SECONDS = 300;
 
     private TemplateSlideService $templateSlides;
@@ -630,7 +631,12 @@ class FrontendController
         if (!$release) {
             $progress = $this->storeSyncGenerationProgress($groupId, $generationHash, $participantCount, $readyCount);
             $generationStable = $this->syncGenerationIsStable($progress, $activeGroupDisplayCount);
-            if ($readyCount >= $participantCount && $generationStable) {
+            $generationAgeSeconds = max(0, (int)($progress['age_seconds'] ?? 0));
+            $readinessTimedOut = $generationAgeSeconds >= self::SYNC_READINESS_MAX_WAIT_SECONDS;
+            // A browser that remains heartbeat-online but never reports cache
+            // readiness must not strand every healthy display on the loader.
+            // After a bounded join window, release the ready cohort together.
+            if ($generationStable && $readyCount > 0 && ($readyCount >= $participantCount || $readinessTimedOut)) {
                 $release = $this->releaseSyncGeneration($groupId, $generationHash, $participantCount, $readyCount);
             }
         }

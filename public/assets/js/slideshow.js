@@ -22,11 +22,16 @@
     const SYNC_RELOAD_MIN_LEAD_MS = 3000;
     const SYNC_RELOAD_PAGE_LOAD_LEAD_MS = 5000;
     const CACHE_READINESS_POLL_MS = 2000;
+    const CACHE_READINESS_MAX_WAIT_MS = 45000;
+    const CACHE_READINESS_REQUEST_TIMEOUT_MS = 10000;
+    const STARTUP_MAX_WAIT_MS = 45000;
     const SCHEDULED_SYNC_RELOAD_KEY = 'huginScheduledSyncReload';
     const SCHEDULED_SYNC_RELOAD_MAX_AGE_MS = 120000;
     let serverClockOffsetMs = 0;
     const startupStatus = slideshow.querySelector('.startup-loading__status');
     const startupProgress = slideshow.querySelector('[data-startup-cache-progress]');
+    const startupProgressBar = slideshow.querySelector('[data-startup-progress-bar]');
+    const startupProgressTrack = startupProgressBar?.closest('[role="progressbar"]') || null;
     const requestFrame = window.requestAnimationFrame
         ? window.requestAnimationFrame.bind(window)
         : (callback => window.setTimeout(callback, 16));
@@ -42,19 +47,32 @@
     };
 
     const progressTemplate = slideshow.dataset.loadingProgressTemplate || ':completed of :total items prepared';
+    const groupProgressTemplate = slideshow.dataset.loadingGroupProgressTemplate || ':completed of :total displays ready';
+    const minuteProgressTemplate = slideshow.dataset.loadingMinuteProgressTemplate || 'Starting in :seconds seconds';
 
     const setStartupStage = (stage, progress = null) => {
         if (startupStatus && loadingStages[stage]) {
             startupStatus.textContent = loadingStages[stage];
         }
 
-        if (!startupProgress) return;
-
         const total = Math.max(0, Number(progress?.total || 0));
         const completed = Math.max(0, Math.min(total, Number(progress?.completed || 0)));
-        startupProgress.textContent = total > 0
-            ? progressTemplate.replace(':completed', String(completed)).replace(':total', String(total))
-            : '';
+        const percent = total > 0 ? Math.max(0, Math.min(100, (completed / total) * 100)) : 0;
+        if (startupProgressBar) {
+            startupProgressBar.style.width = `${percent}%`;
+        }
+        if (startupProgressTrack) {
+            startupProgressTrack.setAttribute('aria-valuenow', String(Math.round(percent)));
+            startupProgressTrack.setAttribute('aria-label', loadingStages[stage] || stage);
+        }
+        if (!startupProgress) return;
+
+        const template = stage === 'waitingGroup' ? groupProgressTemplate : progressTemplate;
+        startupProgress.textContent = typeof progress?.text === 'string'
+            ? progress.text
+            : (total > 0
+                ? template.replace(':completed', String(completed)).replace(':total', String(total))
+                : '');
     };
 
     const updateServerClock = value => {
@@ -97,6 +115,27 @@
     const sleep = ms => new Promise(resolve => {
         window.setTimeout(resolve, Math.max(0, Math.ceil(Number(ms) || 0)));
     });
+
+    const fetchWithTimeout = (url, options = {}, timeoutMs = CACHE_READINESS_REQUEST_TIMEOUT_MS) => {
+        if (!window.fetch) {
+            return Promise.reject(new Error('Fetch is unavailable.'));
+        }
+
+        const controller = typeof AbortController === 'function' ? new AbortController() : null;
+        const timeout = window.setTimeout(() => controller?.abort(), Math.max(1000, timeoutMs));
+        const request = controller
+            ? Object.assign({}, options, { signal: controller.signal })
+            : options;
+
+        // Promise.race is still required for older embedded browsers without
+        // AbortController. A stalled readiness request must never own startup.
+        return Promise.race([
+            window.fetch(url, request),
+            sleep(timeoutMs).then(() => {
+                throw new Error('Display request timed out.');
+            }),
+        ]).finally(() => window.clearTimeout(timeout));
+    };
 
     const padDateTimePart = value => String(Math.max(0, Number(value) || 0)).padStart(2, '0');
 
@@ -553,20 +592,21 @@
             return Promise.resolve(false);
         }
 
-        return navigator.serviceWorker.register(serviceWorkerUrl, { scope: '/display/' })
-            .then(() => navigator.serviceWorker.ready)
-            .then(() => true)
-            .catch(() => false);
+        const registration = navigator.serviceWorker.register(serviceWorkerUrl, { scope: '/display/' })
+            .then(result => result.active ? result : navigator.serviceWorker.ready)
+            .catch(() => null);
+        const timeout = sleep(10000).then(() => null);
+        return Promise.race([registration, timeout]);
     };
 
     const serviceWorkerReady = registerDisplayServiceWorker();
 
-    const postServiceWorkerMessage = (type, payload = {}, options = {}) => serviceWorkerReady.then(ready => {
-        if (!ready || !navigator.serviceWorker) {
+    const postServiceWorkerMessage = (type, payload = {}, options = {}) => serviceWorkerReady.then(registration => {
+        if (!registration || !navigator.serviceWorker) {
             throw new Error('Display service worker is unavailable.');
         }
 
-        return navigator.serviceWorker.ready.then(registration => new Promise((resolve, reject) => {
+        return new Promise((resolve, reject) => {
             const worker = registration.active || navigator.serviceWorker.controller;
             if (!worker) {
                 reject(new Error('Display service worker is not active.'));
@@ -606,7 +646,7 @@
                 succeed(data);
             };
             worker.postMessage(Object.assign({ type }, payload), [channel.port2]);
-        }));
+        });
     });
 
     const resolveOfflineCacheBudget = () => {
@@ -675,6 +715,7 @@
         offlineCacheWarmPromise = fetchOfflineManifest()
             .then(manifest => {
                 if (!manifest) {
+                    setStartupStage('degraded', { completed: 1, total: 1 });
                     return {
                         manifest: null,
                         offlinePlayableCount: 0,
@@ -707,7 +748,7 @@
                         lastWarmSignature = manifest.signature || lastWarmSignature;
                         const skippedAssets = Number(result.skippedAssets || 0);
                         const cacheStatus = skippedAssets > 0 ? 'degraded' : 'ready';
-                        setStartupStage(cacheStatus === 'ready' ? 'ready' : 'degraded');
+                        setStartupStage(cacheStatus === 'ready' ? 'ready' : 'degraded', { completed: 1, total: 1 });
                         return {
                             manifest,
                             offlinePlayableCount: offlinePlayableCount(manifest, result.cachedUrls || []),
@@ -721,7 +762,7 @@
                         };
                     })
                     .catch(error => {
-                        setStartupStage('degraded');
+                        setStartupStage('degraded', { completed: 1, total: 1 });
                         return {
                             manifest,
                             offlinePlayableCount: offlinePlayableCount(manifest, Array.from(cachedAssetUrls)),
@@ -742,7 +783,7 @@
             })
             .catch(error => {
                 offlineCacheWarmPromise = null;
-                setStartupStage('degraded');
+                setStartupStage('degraded', { completed: 1, total: 1 });
                 return {
                     manifest: null,
                     offlinePlayableCount: 0,
@@ -816,7 +857,7 @@
             return Promise.resolve(normalizeReadinessStatus({ ok: true, released: true }));
         }
 
-        return fetch(url, {
+        return fetchWithTimeout(url, {
             method: 'POST',
             headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
             body: JSON.stringify(cacheReadinessPayload(reason, cacheResult)),
@@ -833,7 +874,7 @@
             return Promise.resolve(normalizeReadinessStatus({ ok: true, released: true }));
         }
 
-        return fetch(url, {
+        return fetchWithTimeout(url, {
             method: 'GET',
             headers: { 'Accept': 'application/json' },
             cache: 'no-store',
@@ -852,7 +893,41 @@
         });
     };
 
+    const showStartupMinuteProgress = startAtMs => {
+        const target = Number(startAtMs || 0);
+        const remainingMs = Math.max(0, target - serverNowMs());
+        // Releases are aligned to a minute. Using the preceding minute as the
+        // progress origin makes the final synchronization phase comparable on
+        // every display, even when a client learns about the release late.
+        const totalMs = MINUTE_MS;
+        const completedMs = Math.max(0, totalMs - Math.min(totalMs, remainingMs));
+        setStartupStage('waitingMinute', {
+            completed: completedMs,
+            total: totalMs,
+            text: minuteProgressTemplate.replace(':seconds', String(Math.ceil(remainingMs / 1000))),
+        });
+    };
+
+    const waitForStartupMinute = startAtMs => new Promise(resolve => {
+        const target = Number(startAtMs || 0);
+        const update = () => showStartupMinuteProgress(target);
+        update();
+        const progressTimer = window.setInterval(update, 250);
+        window.setTimeout(() => {
+            window.clearInterval(progressTimer);
+            showStartupMinuteProgress(target);
+            resolve();
+        }, delayUntilServerTime(target));
+    });
+
+    const readinessTimeoutFallback = status => Object.assign({}, status || {}, {
+        ok: false,
+        released: true,
+        startAtMs: computeNextFullMinuteActivation(),
+    });
+
     const waitForCacheReadinessReleaseStatus = initialStatus => {
+        const waitStartedAt = Date.now();
         const poll = currentStatus => {
             if (!shouldUseSyncedGroupReload() || !currentStatus?.syncEnabled || currentStatus.ok === false) {
                 return currentStatus;
@@ -860,6 +935,14 @@
 
             if (currentStatus.released && (currentStatus.startAtMs > 0 || currentStatus.participantCount <= 0)) {
                 return currentStatus;
+            }
+
+            if (Date.now() - waitStartedAt >= CACHE_READINESS_MAX_WAIT_MS) {
+                logSyncDebug('cache readiness wait timed out; using full-minute fallback', {
+                    participantCount: currentStatus?.participantCount || 0,
+                    readyCount: currentStatus?.readyCount || 0,
+                });
+                return readinessTimeoutFallback(currentStatus);
             }
 
             showReadinessGroupStage(currentStatus);
@@ -910,18 +993,21 @@
 
     const waitForReadinessStart = (status, options = {}) => {
         const firstStatus = readinessStatusWithFallbackStart(status, options?.fallbackStartAtMs || 0);
+        const waitStartedAt = Date.now();
 
         const poll = currentStatus => {
             if (!shouldUseSyncedGroupReload() || !currentStatus?.syncEnabled || currentStatus.ok === false) {
                 const startAtMs = Number(currentStatus?.startAtMs || 0);
                 if (startAtMs > serverNowMs()) {
-                    setStartupStage('waitingMinute');
-                    return sleep(delayUntilServerTime(startAtMs));
+                    return waitForStartupMinute(startAtMs);
                 }
                 return Promise.resolve(currentStatus);
             }
 
             if (!currentStatus.released || Number(currentStatus.startAtMs || 0) <= 0) {
+                if (Date.now() - waitStartedAt >= CACHE_READINESS_MAX_WAIT_MS) {
+                    return poll(readinessTimeoutFallback(currentStatus));
+                }
                 showReadinessGroupStage(currentStatus);
                 return sleep(CACHE_READINESS_POLL_MS)
                     .then(fetchCacheReadinessStatus)
@@ -934,7 +1020,7 @@
                 return Promise.resolve(currentStatus);
             }
 
-            setStartupStage('waitingMinute');
+            showStartupMinuteProgress(startAtMs);
             return sleep(Math.min(delayUntilServerTime(startAtMs), CACHE_READINESS_POLL_MS))
                 .then(fetchCacheReadinessStatus)
                 .then(nextStatus => {
@@ -1461,9 +1547,9 @@
                     startAt: new Date(targetMs).toISOString(),
                     msUntilStart: delayUntilServerTime(targetMs),
                 });
-                return new Promise(resolve => {
-                    window.setTimeout(resolve, delayUntilServerTime(targetMs));
-                });
+                return shouldUseSyncedGroupReload()
+                    ? waitForStartupMinute(targetMs)
+                    : sleep(delayUntilServerTime(targetMs));
             }
 
             if (!shouldWaitForLegacyStartupSync()) {
@@ -1986,6 +2072,26 @@
             });
     };
 
+    const prepareStartupWithDeadline = () => {
+        const preparation = prepareStartup();
+        const deadline = sleep(STARTUP_MAX_WAIT_MS).then(() => {
+            logSyncDebug('startup deadline reached; playback is being released fail-open', {
+                maxWaitMs: STARTUP_MAX_WAIT_MS,
+            });
+
+            if (!shouldUseSyncedGroupReload()) {
+                return null;
+            }
+
+            // If coordination itself is unavailable, use the same predictable
+            // minute edge on every group member instead of leaving the loader up.
+            const fallbackStartAtMs = computeNextFullMinuteActivation();
+            return waitForStartupMinute(fallbackStartAtMs);
+        });
+
+        return Promise.race([preparation, deadline]);
+    };
+
     window.addEventListener('online', () => {
         warmOfflineCache('online');
         if (shouldUseSyncedGroupReload()) {
@@ -2034,5 +2140,5 @@
     if (updateTemplateTimedElements()) {
         window.setInterval(updateTemplateTimedElements, 1000);
     }
-    prepareStartup().then(startSlideshow, startSlideshow);
+    prepareStartupWithDeadline().then(startSlideshow, startSlideshow);
 })();

@@ -130,6 +130,8 @@ if (str_starts_with($display['slug'] ?? '', 'preview-slide-') && preg_match('#^p
      data-loading-stage-waiting-minute="<?= e(__('frontend.loading_stage_waiting_minute')) ?>"
      data-loading-stage-starting="<?= e(__('frontend.loading_stage_starting')) ?>"
      data-loading-progress-template="<?= e(__('frontend.loading_progress_template')) ?>"
+     data-loading-group-progress-template="<?= e(__('frontend.loading_group_progress_template')) ?>"
+     data-loading-minute-progress-template="<?= e(__('frontend.loading_minute_progress_template')) ?>"
      data-startup-sync-key="<?= e($startupSyncKey) ?>">
     <div class="startup-loading" role="status" aria-live="polite">
         <div class="startup-loading__content">
@@ -139,7 +141,14 @@ if (str_starts_with($display['slug'] ?? '', 'preview-slide-') && preg_match('#^p
                 <p class="startup-loading__status"><?= e(__('frontend.loading_status')) ?></p>
                 <p class="startup-loading__progress" data-startup-cache-progress></p>
             </div>
-            <div class="startup-loading__bar" aria-hidden="true"></div>
+            <div class="startup-loading__bar"
+                 role="progressbar"
+                 aria-valuemin="0"
+                 aria-valuemax="100"
+                 aria-valuenow="0"
+                 aria-label="<?= e(__('frontend.loading_status')) ?>">
+                <span class="startup-loading__bar-fill" data-startup-progress-bar></span>
+            </div>
             <p class="startup-loading__legal"><?= e(__('frontend.loading_legal')) ?></p>
         </div>
         <dl class="startup-loading__identity" aria-label="<?= e(__('display.singular')) ?>">

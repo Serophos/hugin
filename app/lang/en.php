@@ -1099,6 +1099,8 @@ return [
         'loading_stage_waiting_minute' => 'Aligning display playback...',
         'loading_stage_starting' => 'Starting slideshow...',
         'loading_progress_template' => ':completed of :total items prepared',
+        'loading_group_progress_template' => ':completed of :total displays ready',
+        'loading_minute_progress_template' => 'Starting in :seconds seconds',
         'loading_legal' => 'Copyright 2026 Thees Winkler. Licensed under GNU AGPL 3.0.',
         'state_message_display_not_found' => 'Display not found.',
         'state_message_no_channel' => 'No active playlist configured.',

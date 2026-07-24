@@ -1103,6 +1103,8 @@ return [
         'loading_stage_waiting_minute' => 'Bildschirmwiedergabe wird abgestimmt...',
         'loading_stage_starting' => 'Slideshow wird gestartet...',
         'loading_progress_template' => ':completed von :total Elementen vorbereitet',
+        'loading_group_progress_template' => ':completed von :total Bildschirmen bereit',
+        'loading_minute_progress_template' => 'Start in :seconds Sekunden',
         'loading_legal' => 'Copyright 2026 Thees Winkler. Lizenziert unter GNU AGPL 3.0.',
         'state_message_display_not_found' => 'Bildschirm nicht gefunden.',
         'state_message_no_channel' => 'Keine aktive Playlist konfiguriert.',
