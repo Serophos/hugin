@@ -4364,7 +4364,7 @@ class AdminController
 
             $priority = null;
             if ($priorityRaw !== '') {
-                if (!ctype_digit($priorityRaw) || (int)$priorityRaw < 1) {
+                if (!ctype_digit($priorityRaw)) {
                     $fieldErrors['assignment_priority.' . $i] = __('channel.assignment_invalid_priority');
                     $rowHasError = true;
                 } else {

@@ -39,14 +39,12 @@ $defaultHeadingFontCss = \App\Core\TemplateSlideService::fontFamilyCssForToken((
     <title><?= e($display['name']) ?> · <?= e(__('app.name', [], 'Hugin')) ?></title>
     <script>
         (() => {
-            const startupKey = <?= json_encode($startupSyncKey, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
             const scheduledReloadKey = 'huginScheduledSyncReload';
             const maxScheduledReloadAgeMs = 120000;
 
             try {
                 const navEntry = window.performance?.getEntriesByType?.('navigation')?.[0];
                 const isReload = navEntry?.type === 'reload' || window.performance?.navigation?.type === 1;
-                const hasStartedBefore = Boolean(startupKey && window.sessionStorage.getItem(startupKey));
                 const rawScheduledReload = window.sessionStorage.getItem(scheduledReloadKey);
                 const scheduledReload = rawScheduledReload ? JSON.parse(rawScheduledReload) : null;
                 const scheduledReloadAgeMs = Date.now() - Number(scheduledReload?.at || 0);
@@ -54,7 +52,11 @@ $defaultHeadingFontCss = \App\Core\TemplateSlideService::fontFamilyCssForToken((
                     && scheduledReloadAgeMs >= 0
                     && scheduledReloadAgeMs <= maxScheduledReloadAgeMs;
 
-                if (!hasFreshScheduledReload && (isReload || hasStartedBefore)) {
+                // A session marker survives fresh navigations in the same tab and
+                // must not hide the first-load screen. Suppress it only for a real
+                // playback/config reload; preview pages never receive the pending
+                // class in the first place.
+                if (!hasFreshScheduledReload && isReload) {
                     document.documentElement.classList.add('hugin-startup-loading-seen');
                 }
             } catch (error) {}

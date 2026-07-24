@@ -175,11 +175,11 @@ Notes:
 
 ### Display Playback Flow
 
-The server is the authority for playlist selection. It filters inactive assignments, playlists, and schedules, prefers a matching weekly schedule over Fulltime, then applies the assignment priority (lower numbers win) and assignment ID tie-breaker. Schedule starts are inclusive, ends are exclusive, and all calculations use the display timezone.
+The server is the authority for playlist selection. It filters inactive assignments, playlists, and schedules, then ranks active candidates by timetable specificity: a weekly time slot wins over Fulltime, and a narrower weekly window wins over a broader overlapping window. Only equally specific candidates use assignment priority (higher numbers win), followed by the assignment ID tie-breaker. Schedule starts are inclusive, ends are exclusive, and all calculations use the display timezone.
 
 Every display state includes the next timetable boundary. The frontend schedules an exact check for that instant and also polls periodically to recover from suspended browsers, clock drift, network interruptions, and configuration edits. A display with no matching playlist, or with a selected playlist that has no active slides, shows a waiting status and resumes automatically when server state changes.
 
-Independent displays reload a changed playlist immediately. Sync-enabled display groups first cache and report readiness for the new state, then activate the generation together on the next full minute. The state signature identifies rendered playback configuration; the next check deadline itself is deliberately not part of that identity.
+Independent displays reload a changed playlist immediately. Sync-enabled groups share the earliest timetable boundary and a generation covering every active member. A change for one member therefore makes every member cache and report readiness before the group activates together on the next full minute. The state signature identifies rendered playback configuration; the next check deadline itself is deliberately not part of that identity.
 
 Display heartbeats run in a separate frontend module from slideshow playback and synchronization. They start as soon as the display shell loads, use the configured monitoring interval, retry failed or timed-out requests with bounded backoff, and recover after connectivity changes, browser sleep, background throttling, and back/forward-cache restoration. Page reloads send a final beacon and the replacement page starts a fresh heartbeat immediately.
 

@@ -94,7 +94,7 @@ require __DIR__ . '/../layouts/admin_header.php';
                                     <span id="assignment-priority-help-<?= e((string)$index) ?>" class="field-help-popover" hidden data-help-popover><?= e(__('channel.priority_help')) ?></span>
                                 </span>
                             </span>
-                            <input type="number" min="1" name="assignment_priority[]" value="<?= e((string)($assignment['priority'] ?? '')) ?>" placeholder="<?= e(__('channel.priority_placeholder')) ?>" title="<?= e(__('channel.priority_help')) ?>"<?= field_attrs('assignment_priority.' . $index, $formId, 'assignment-priority-help-' . $index) ?>>
+                            <input type="number" min="0" name="assignment_priority[]" value="<?= e((string)($assignment['priority'] ?? '')) ?>" placeholder="<?= e(__('channel.priority_placeholder')) ?>" title="<?= e(__('channel.priority_help')) ?>"<?= field_attrs('assignment_priority.' . $index, $formId, 'assignment-priority-help-' . $index) ?>>
                             <?= field_error_html('assignment_priority.' . $index, $formId) ?>
                         </label>
                         <button type="button" class="button button--normal assignment-remove"><?= admin_icon('remove') ?><span><?= e(__('common.remove')) ?></span></button>
@@ -383,7 +383,7 @@ $slideTypeReturnTo = '/admin/playlists/' . $channel['id'] . '/edit';
 
         const priorityInput = document.createElement('input');
         priorityInput.type = 'number';
-        priorityInput.min = '1';
+        priorityInput.min = '0';
         priorityInput.name = 'assignment_priority[]';
         priorityInput.value = values.priority || '';
         priorityInput.placeholder = labels.priorityPlaceholder;

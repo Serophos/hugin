@@ -9,8 +9,10 @@ use DateTimeZone;
 /**
  * The single authority for deciding which playlist belongs on a display.
  *
- * Weekly assignments outrank Fulltime assignments. Within either class the
- * lower priority wins, with the assignment id providing a stable tie-breaker.
+ * Weekly assignments outrank Fulltime assignments. A shorter matching weekly
+ * window is more specific and wins over a broader one. Only equally specific
+ * candidates use the configured priority (higher numbers win), followed by the
+ * assignment id as a stable tie-breaker.
  * The returned boundary is the next instant at which any active weekly rule
  * can change the result; clients use it to re-query rather than guessing.
  */
@@ -83,8 +85,16 @@ final class PlaylistSelectionService
 
             foreach ($candidate['rules'] as $rule) {
                 [$start, $end] = self::ruleWindow($now, $rule, 0);
-                if ($now >= $start && $now < $end && $matchingRule === null) {
-                    $matchingRule = $rule;
+                if ($now >= $start && $now < $end) {
+                    // Specificity is the configured wall-clock width, not the
+                    // elapsed UTC width, so DST transition days do not reorder
+                    // otherwise identical timetable categories.
+                    $rule['specificity_seconds'] = max(0, self::timeSeconds($rule['end']) - self::timeSeconds($rule['start']));
+                    if ($matchingRule === null
+                        || $rule['specificity_seconds'] < $matchingRule['specificity_seconds']
+                        || ($rule['specificity_seconds'] === $matchingRule['specificity_seconds'] && $rule['id'] < $matchingRule['id'])) {
+                        $matchingRule = $rule;
+                    }
                 }
 
                 // Inspect a full week plus today so both later-today and next-week
@@ -105,6 +115,9 @@ final class PlaylistSelectionService
                     $assignment['schedule_rule_weekday'] = $matchingRule['weekday'];
                     $assignment['schedule_rule_start_time'] = $matchingRule['start'];
                     $assignment['schedule_rule_end_time'] = $matchingRule['end'];
+                    $assignment['schedule_specificity_seconds'] = $matchingRule['specificity_seconds'];
+                } else {
+                    $assignment['schedule_specificity_seconds'] = PHP_INT_MAX;
                 }
                 $eligible[] = $assignment;
             }
@@ -113,8 +126,8 @@ final class PlaylistSelectionService
         usort($eligible, static function (array $left, array $right): int {
             $leftClass = ($left['schedule_type'] ?? '') === 'fulltime' ? 1 : 0;
             $rightClass = ($right['schedule_type'] ?? '') === 'fulltime' ? 1 : 0;
-            return [$leftClass, (int)$left['sort_order'], (int)$left['id']]
-                <=> [$rightClass, (int)$right['sort_order'], (int)$right['id']];
+            return [$leftClass, (int)$left['schedule_specificity_seconds'], -(int)$left['sort_order'], (int)$left['id']]
+                <=> [$rightClass, (int)$right['schedule_specificity_seconds'], -(int)$right['sort_order'], (int)$right['id']];
         });
 
         return [
@@ -142,6 +155,12 @@ final class PlaylistSelectionService
     {
         [$hour, $minute, $second] = array_pad(array_map('intval', explode(':', $time)), 3, 0);
         return $date->setTime($hour, $minute, $second);
+    }
+
+    private static function timeSeconds(string $time): int
+    {
+        [$hour, $minute, $second] = array_pad(array_map('intval', explode(':', $time)), 3, 0);
+        return ($hour * 3600) + ($minute * 60) + $second;
     }
 
     private function timezone(string $name): DateTimeZone

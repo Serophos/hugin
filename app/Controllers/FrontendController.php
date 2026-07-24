@@ -61,7 +61,10 @@ class FrontendController
         [$resolvedSlides, $pluginAssets] = $activeAssignment
             ? $this->resolveSlides($slides, $display, $activeAssignment, $heartbeat, $duration)
             : [[], ['css' => [], 'js' => []]];
-        $state = $this->buildDisplayState($display, $activeAssignment, $resolvedSlides, $effect, $duration, $displayGroup, $pluginAssets, (int)$selection['next_selection_at_ms']);
+        $state = $this->coordinateDisplayState(
+            $this->buildDisplayState($display, $activeAssignment, $resolvedSlides, $effect, $duration, $displayGroup, $pluginAssets, (int)$selection['next_selection_at_ms']),
+            $displayGroup
+        );
         $brandingSettings = $this->loadBrandingSettings();
 
         $this->view->render('frontend/display', [
@@ -277,7 +280,10 @@ class FrontendController
             ? $this->resolveSlides($slides, $display, $activeAssignment, $heartbeat, $duration)
             : [[], ['css' => [], 'js' => []]];
 
-        json_response($this->buildDisplayState($display, $activeAssignment, $resolvedSlides, $effect, $duration, $displayGroup, $pluginAssets, (int)$selection['next_selection_at_ms']));
+        json_response($this->coordinateDisplayState(
+            $this->buildDisplayState($display, $activeAssignment, $resolvedSlides, $effect, $duration, $displayGroup, $pluginAssets, (int)$selection['next_selection_at_ms']),
+            $displayGroup
+        ));
     }
 
     public function offlineManifest(string $slug): void
@@ -300,7 +306,10 @@ class FrontendController
         [$resolvedSlides, $pluginAssets] = $activeAssignment
             ? $this->resolveSlides($slides, $display, $activeAssignment, $heartbeat, $duration)
             : [[], ['css' => [], 'js' => []]];
-        $state = $this->buildDisplayState($display, $activeAssignment, $resolvedSlides, $effect, $duration, $displayGroup, $pluginAssets, (int)$selection['next_selection_at_ms']);
+        $state = $this->coordinateDisplayState(
+            $this->buildDisplayState($display, $activeAssignment, $resolvedSlides, $effect, $duration, $displayGroup, $pluginAssets, (int)$selection['next_selection_at_ms']),
+            $displayGroup
+        );
         $brandingSettings = $this->loadBrandingSettings();
 
         json_response($this->buildOfflineManifest($display, $resolvedSlides, $pluginAssets, $state, $brandingSettings));
@@ -496,7 +505,10 @@ class FrontendController
             'active_assignment' => $activeAssignment,
             'resolved_slides' => $resolvedSlides,
             'plugin_assets' => $pluginAssets,
-            'state' => $this->buildDisplayState($display, $activeAssignment, $resolvedSlides, $effect, $duration, $displayGroup, $pluginAssets, (int)$selection['next_selection_at_ms']),
+            'state' => $this->coordinateDisplayState(
+                $this->buildDisplayState($display, $activeAssignment, $resolvedSlides, $effect, $duration, $displayGroup, $pluginAssets, (int)$selection['next_selection_at_ms']),
+                $displayGroup
+            ),
         ];
     }
 
@@ -656,16 +668,24 @@ class FrontendController
         );
 
         $participants = [];
-        foreach ($rows as $row) {
-            $participantDisplayGroup = $this->displayGroupForDisplay($displayGroup, (int)$row['id']);
-            $context = $this->currentDisplayStateContext($row, $participantDisplayGroup);
-            if (!$context) {
-                continue;
+        $coordination = $this->groupPlaybackCoordination($groupId);
+        $originalLocale = current_locale();
+        try {
+            foreach ($rows as $row) {
+                $this->applyDisplayLocale($row);
+                $participantDisplayGroup = $this->displayGroupForDisplay($displayGroup, (int)$row['id']);
+                $context = $this->currentDisplayStateContext($row, null);
+                if (!$context) {
+                    continue;
+                }
+                $participantState = $this->coordinateDisplayState($context['state'], $participantDisplayGroup, $coordination);
+                $participants[] = [
+                    'display_id' => (int)$row['id'],
+                    'state_signature' => (string)$participantState['signature'],
+                ];
             }
-            $participants[] = [
-                'display_id' => (int)$row['id'],
-                'state_signature' => (string)$context['state']['signature'],
-            ];
+        } finally {
+            app_switch_locale($originalLocale);
         }
 
         return $participants;
@@ -1310,7 +1330,13 @@ class FrontendController
             }, $resolvedSlides),
         ];
 
+        return $this->signDisplayState($payload);
+    }
+
+    private function signDisplayState(array $payload): array
+    {
         $signaturePayload = $payload;
+        unset($signaturePayload['signature'], $signaturePayload['ok'], $signaturePayload['server_time_ms']);
         unset($signaturePayload['frontend_assets']);
         // The deadline tells clients when to re-check, but is not playback
         // identity: an unrelated rule boundary must not force a page reload.
@@ -1326,6 +1352,71 @@ class FrontendController
         $payload['ok'] = true;
         $payload['server_time_ms'] = (int)floor(microtime(true) * 1000);
         return $payload;
+    }
+
+    /**
+     * Sync groups share a playback generation and the earliest member boundary.
+     * Consequently every member prepares the next generation when any member's
+     * timetable changes, even when its own selected playlist stays unchanged.
+     */
+    private function coordinateDisplayState(array $state, ?array $displayGroup, ?array $coordination = null): array
+    {
+        if (!$displayGroup || empty($displayGroup['sync_reload_to_full_minute'])) {
+            return $state;
+        }
+
+        $coordination ??= $this->groupPlaybackCoordination((int)$displayGroup['id']);
+        $state['group_playback_generation'] = $coordination['generation'];
+        if ($coordination['next_selection_at_ms'] > 0) {
+            $state['next_selection_at_ms'] = $coordination['next_selection_at_ms'];
+        }
+
+        return $this->signDisplayState($state);
+    }
+
+    private function groupPlaybackCoordination(int $groupId): array
+    {
+        $displays = $this->db->all(
+            'SELECT d.*
+             FROM display_group_memberships dgm
+             INNER JOIN displays d ON d.id = dgm.display_id
+             WHERE dgm.group_id = ? AND d.is_active = 1
+             ORDER BY d.id ASC',
+            [$groupId]
+        );
+        $generation = [];
+        $nextSelectionAtMs = 0;
+        $originalLocale = current_locale();
+
+        try {
+            foreach ($displays as $display) {
+                // Resolve each member in its own locale so every requester
+                // calculates the same group generation.
+                $this->applyDisplayLocale($display);
+                // A null group deliberately produces the member's raw state and
+                // prevents recursive group coordination.
+                $context = $this->currentDisplayStateContext($display, null);
+                if (!$context) {
+                    continue;
+                }
+                $memberState = $context['state'];
+                $generation[] = [
+                    'display_id' => (int)$display['id'],
+                    'signature' => (string)$memberState['signature'],
+                ];
+                $memberBoundary = (int)($memberState['next_selection_at_ms'] ?? 0);
+                if ($memberBoundary > 0 && ($nextSelectionAtMs === 0 || $memberBoundary < $nextSelectionAtMs)) {
+                    $nextSelectionAtMs = $memberBoundary;
+                }
+            }
+        } finally {
+            app_switch_locale($originalLocale);
+        }
+
+        return [
+            'generation' => sha1(json_encode($generation, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: ''),
+            'next_selection_at_ms' => $nextSelectionAtMs,
+        ];
     }
 
     private function frontendAssetUrls(array $pluginAssets): array

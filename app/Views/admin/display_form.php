@@ -139,6 +139,17 @@ require __DIR__ . '/../layouts/admin_header.php';
                 <?php endif; ?>
             </div>
         <?php endif; ?>
+        <?php if ($display): ?>
+            <section class="display-player-setup" aria-labelledby="display-player-setup-title">
+                <h2 id="display-player-setup-title"><?= e(__('display.player_setup_title')) ?></h2>
+                <p class="muted"><?= e(__('display.player_setup_help')) ?></p>
+                <div class="display-player-url-row">
+                    <input type="url" readonly value="<?= e(url('/display/' . $display['slug'])) ?>" data-display-player-url aria-label="<?= e(__('display.player_url')) ?>">
+                    <button type="button" class="button button--normal" data-copy-display-url><span><?= e(__('display.copy_player_url')) ?></span></button>
+                </div>
+                <small class="field-note" data-copy-display-url-status aria-live="polite"></small>
+            </section>
+        <?php endif; ?>
         <h2><?= e(__('display.heartbeat_title')) ?></h2>
         <?php if ($display): ?>
             <form method="post" action="<?= e(url('/admin/displays/' . $display['id'] . '/reload')) ?>" class="form-actions">
@@ -213,6 +224,50 @@ require __DIR__ . '/../layouts/admin_header.php';
     if (!slugTouched && nameInput.value.trim() !== '') {
         slugInput.value = slugify(nameInput.value);
     }
+
+    const playerUrlInput = document.querySelector('[data-display-player-url]');
+    const copyPlayerUrlButton = document.querySelector('[data-copy-display-url]');
+    const copyPlayerUrlStatus = document.querySelector('[data-copy-display-url-status]');
+    if (playerUrlInput) {
+        try {
+            playerUrlInput.value = new URL(playerUrlInput.value, window.location.href).toString();
+        } catch (error) {}
+    }
+
+    const fallbackCopy = value => {
+        const textarea = document.createElement('textarea');
+        textarea.value = value;
+        textarea.setAttribute('readonly', '');
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        const copied = document.execCommand('copy');
+        textarea.remove();
+        return copied;
+    };
+
+    copyPlayerUrlButton?.addEventListener('click', async () => {
+        const value = playerUrlInput?.value || '';
+        let copied = false;
+        try {
+            if (navigator.clipboard?.writeText) {
+                await navigator.clipboard.writeText(value);
+                copied = true;
+            } else {
+                copied = fallbackCopy(value);
+            }
+        } catch (error) {
+            try {
+                copied = fallbackCopy(value);
+            } catch (fallbackError) {}
+        }
+        if (copyPlayerUrlStatus) {
+            copyPlayerUrlStatus.textContent = copied
+                ? <?= json_encode(__('display.player_url_copied'), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>
+                : <?= json_encode(__('display.player_url_copy_failed'), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
+        }
+    });
 
     const iconPreviewImg = document.querySelector('[data-display-icon-preview-img]');
     const iconPreviewLabel = document.querySelector('[data-display-icon-preview-label]');

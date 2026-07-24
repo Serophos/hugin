@@ -5782,3 +5782,28 @@ input[type="color"] {
         min-height: 0;
     }
 }
+.display-player-setup {
+    margin-bottom: 1.5rem;
+}
+
+.display-player-url-row {
+    display: flex;
+    align-items: stretch;
+    gap: .5rem;
+}
+
+.display-player-url-row input {
+    min-width: 0;
+    flex: 1 1 auto;
+}
+
+.display-player-url-row .button {
+    flex: 0 0 auto;
+}
+
+@media (max-width: 640px) {
+    .display-player-url-row {
+        align-items: stretch;
+        flex-direction: column;
+    }
+}

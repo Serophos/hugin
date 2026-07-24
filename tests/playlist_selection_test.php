@@ -45,7 +45,7 @@ $test('weekly beats fulltime regardless of numeric priority', function () use ($
 
 $test('priority and id are deterministic tie breakers', function () use ($row, $at, $same): void {
     $rows = [$row(8, 'fulltime', 2), $row(7, 'fulltime', 2), $row(9, 'fulltime', 3)];
-    $same(7, (int)PlaylistSelectionService::resolveRows($rows, $at('2026-07-20 10:00:00'))['assignment']['id']);
+    $same(9, (int)PlaylistSelectionService::resolveRows($rows, $at('2026-07-20 10:00:00'))['assignment']['id']);
 });
 
 $test('inactive records are ignored', function () use ($row, $at, $same): void {
@@ -65,6 +65,34 @@ $test('overlapping rules and playlists still obey priority', function () use ($r
         $row(1, 'weekly_time_slot', 1, ['id' => 11, 'weekday' => 1, 'start' => '09:00:00', 'end' => '11:00:00']),
     ];
     $same(1, (int)PlaylistSelectionService::resolveRows($rows, $at('2026-07-20 10:00:00'))['assignment']['id']);
+});
+
+$test('narrower active timetable wins before assignment priority', function () use ($row, $at, $same): void {
+    $rows = [
+        $row(1, 'weekly_time_slot', 99, ['id' => 11, 'weekday' => 1, 'start' => '01:00:00', 'end' => '05:00:00']),
+        $row(2, 'weekly_time_slot', 0, ['id' => 21, 'weekday' => 1, 'start' => '02:00:00', 'end' => '03:00:00']),
+        $row(3, 'fulltime', 999),
+    ];
+    $same(2, (int)PlaylistSelectionService::resolveRows($rows, $at('2026-07-20 02:30:00'))['assignment']['id']);
+});
+
+$test('higher priority wins only between equally specific timetables', function () use ($row, $at, $same): void {
+    $rows = [
+        $row(1, 'weekly_time_slot', 0, ['id' => 11, 'weekday' => 1, 'start' => '02:00:00', 'end' => '03:00:00']),
+        $row(2, 'weekly_time_slot', 1, ['id' => 21, 'weekday' => 1, 'start' => '02:00:00', 'end' => '03:00:00']),
+    ];
+    $same(2, (int)PlaylistSelectionService::resolveRows($rows, $at('2026-07-20 02:30:00'))['assignment']['id']);
+});
+
+$test('finished narrow timetable falls back to broader timetable then fulltime', function () use ($row, $at, $same): void {
+    $rows = [
+        $row(1, 'weekly_time_slot', 0, ['id' => 11, 'weekday' => 1, 'start' => '01:00:00', 'end' => '05:00:00']),
+        $row(2, 'weekly_time_slot', 0, ['id' => 21, 'weekday' => 1, 'start' => '02:00:00', 'end' => '03:00:00']),
+        $row(3, 'fulltime', 0),
+    ];
+    $same(2, (int)PlaylistSelectionService::resolveRows($rows, $at('2026-07-20 02:59:59'))['assignment']['id']);
+    $same(1, (int)PlaylistSelectionService::resolveRows($rows, $at('2026-07-20 03:00:00'))['assignment']['id']);
+    $same(3, (int)PlaylistSelectionService::resolveRows($rows, $at('2026-07-20 05:00:00'))['assignment']['id']);
 });
 
 $test('next boundary crosses midnight and week rollover', function () use ($row, $at, $same): void {
