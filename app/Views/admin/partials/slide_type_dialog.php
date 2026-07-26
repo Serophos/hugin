@@ -21,7 +21,7 @@ $firstSlideTypeCreateUrl = $slideTypeCreateUrl
         <div class="section-head">
             <div>
                 <h2 id="slide-type-dialog-title"><?= e(__('slide.choose_type_title')) ?></h2>
-                <p id="slide-type-dialog-description" class="muted"><?= e(__('slide.choose_type_hint')) ?></p>
+                <p id="slide-type-dialog-description" class="text-body-secondary muted"><?= e(__('slide.choose_type_hint')) ?></p>
             </div>
         </div>
         <div class="slide-type-dialog__layout">
@@ -57,13 +57,13 @@ $firstSlideTypeCreateUrl = $slideTypeCreateUrl
                 <img class="slide-type-detail__icon" src="<?= e((string)$firstSlideType['icon_url']) ?>" data-slide-type-detail-icon data-fallback-icon="<?= e((string)$firstSlideType['icon_fallback_url']) ?>" alt="">
                 <div>
                     <h3 data-slide-type-detail-title><?= e((string)$firstSlideType['label']) ?></h3>
-                    <p class="muted" data-slide-type-detail-description><?= e((string)(($firstSlideType['description'] ?? '') ?: __('slide.type_description_unavailable'))) ?></p>
+                    <p class="text-body-secondary muted" data-slide-type-detail-description><?= e((string)(($firstSlideType['description'] ?? '') ?: __('slide.type_description_unavailable'))) ?></p>
                 </div>
             </aside>
         </div>
         <div class="form-actions">
-            <button type="button" class="button button--normal" data-slide-type-close><?= admin_icon('cancel') ?><span><?= e(__('common.cancel')) ?></span></button>
-            <a class="button button--default" href="<?= e($firstSlideTypeCreateUrl) ?>" data-slide-type-continue><?= admin_icon('add') ?><span><?= e(__('slide.create_selected_type')) ?></span></a>
+            <button type="button" class="btn btn-secondary button button--normal" data-slide-type-close><?= admin_icon('cancel') ?><span><?= e(__('common.cancel')) ?></span></button>
+            <a class="btn btn-primary button button--default" href="<?= e($firstSlideTypeCreateUrl) ?>" data-slide-type-continue><?= admin_icon('add') ?><span><?= e(__('slide.create_selected_type')) ?></span></a>
         </div>
     </form>
 </dialog>

@@ -1,7 +1,10 @@
-</main>
 <?php if (!empty($adminShellActive)): ?>
-    </div>
+       </div>
+      </div>
+    </main>
 </div>
+<?php else: ?>
+</main>
 <?php endif; ?>
 <?php
 $dialogConfig = [
@@ -64,7 +67,13 @@ $dialogConfig = [
 <script src="<?= e(asset_url('/assets/js/sortable.js')) ?>"></script>
 <script src="<?= e(asset_url('/assets/js/display-groups.js')) ?>"></script>
 <script src="<?= e(asset_url('/assets/js/admin-dialog.js')) ?>"></script>
+<?php if (!empty($adminShellActive)): ?>
+<script src="<?= e(asset_url('/assets/vendor/adminlte/tabulator/dist/js/tabulator.min.js')) ?>"></script>
+<?php endif; ?>
 <script src="<?= e(asset_url('/assets/js/admin-table.js')) ?>"></script>
 <script src="<?= e(asset_url('/assets/js/admin-layout.js')) ?>"></script>
+<?php if (!empty($adminShellActive)): ?>
+<script src="<?= e(asset_url('/assets/vendor/adminlte/dist/js/adminlte.min.js')) ?>"></script>
+<?php endif; ?>
 </body>
 </html>

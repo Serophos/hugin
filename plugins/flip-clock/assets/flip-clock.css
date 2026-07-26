@@ -11,7 +11,6 @@
     background: var(--flip-clock-background, #111827);
     color: #f8fafc;
 }
-
 .flip-clock-slide__background {
     position: absolute;
     inset: 0;
@@ -236,24 +235,4 @@
     .flip-clock__digit.is-flipping .flip-clock__fold--bottom {
         animation: none;
     }
-}
-
-.flip-clock-admin-preview {
-    display: grid;
-    gap: 0.45rem;
-}
-
-.flip-clock-admin-preview__label {
-    color: var(--muted);
-    font-size: 0.85rem;
-    font-weight: 600;
-}
-
-.flip-clock-admin-preview__image {
-    width: min(100%, 360px);
-    max-height: 160px;
-    object-fit: cover;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-control);
-    background: #fff;
 }

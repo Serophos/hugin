@@ -48,6 +48,10 @@ foreach ($pluginDefinitions as $p) {
         continue;
     }
     $pluginCss[] = plugin_asset_url($pluginName, 'assets/' . $pluginName . '.css');
+    $pluginAdminCssPath = dirname(__DIR__, 3) . '/plugins/' . $pluginName . '/assets/' . $pluginName . '-admin.css';
+    if (is_file($pluginAdminCssPath)) {
+        $pluginCss[] = plugin_asset_url($pluginName, 'assets/' . $pluginName . '-admin.css');
+    }
 }
 $pluginCss = array_values(array_unique($pluginCss));
 $slideTypeDefinitions = array_values($slideTypeDefinitions ?? []);
@@ -137,7 +141,7 @@ $selectedSlideTypeIcon = $slideTypeIconMap[$selectedSlideType] ?? [
 ];
 require __DIR__ . '/../layouts/admin_header.php';
 ?>
-<?php if ($error): ?><div class="alert error"><?= e($error) ?></div><?php endif; ?>
+<?php if ($error): ?><div class="alert alert-danger error"><?= e($error) ?></div><?php endif; ?>
 <?php if ($uploadedFonts): ?>
     <style data-template-preview-fonts>
         <?php foreach ($uploadedFonts as $font): ?>
@@ -145,17 +149,17 @@ require __DIR__ . '/../layouts/admin_header.php';
         <?php endforeach; ?>
     </style>
 <?php endif; ?>
-<div class="card">
+<div class="card shadow-sm">
     <form method="post" enctype="multipart/form-data" action="<?= e(($slide && isset($slide['id'])) ? url('/admin/slides/' . $slide['id'] . '/edit') : url('/admin/slides/create')) ?>" class="form-grid" id="slide-form">
         <?= csrf_field() ?>
         <input type="hidden" name="return_to" value="<?= e($returnToPath) ?>">
         <div class="slide-common-fields full-width">
             <label class="slide-common-field"><?= e(__('slide.title', [], __('common.name'))) ?>
-                <input type="text" name="name" value="<?= e((string)old('name', $slide['name'] ?? '', $formId)) ?>" placeholder="<?= e(__('slide.name_placeholder')) ?>" required<?= field_attrs('name', $formId) ?>>
+                <input class="form-control" type="text" name="name" value="<?= e((string)old('name', $slide['name'] ?? '', $formId)) ?>" placeholder="<?= e(__('slide.name_placeholder')) ?>" required<?= field_attrs('name', $formId) ?>>
                 <?= field_error_html('name', $formId) ?>
             </label>
             <label class="slide-common-field"><?= e(__('slide.slide_type')) ?>
-                <select name="slide_type" id="slide_type" required<?= field_attrs('slide_type', $formId) ?>>
+                <select class="form-select" name="slide_type" id="slide_type" required<?= field_attrs('slide_type', $formId) ?>>
                     <option value="image" <?= selected($selectedSlideType, 'image') ?>><?= e(enum_label('slide_types', 'image')) ?></option>
                     <option value="video" <?= selected($selectedSlideType, 'video') ?>><?= e(enum_label('slide_types', 'video')) ?></option>
                     <option value="website" <?= selected($selectedSlideType, 'website') ?>><?= e(enum_label('slide_types', 'website')) ?></option>
@@ -171,7 +175,7 @@ require __DIR__ . '/../layouts/admin_header.php';
                 <img src="<?= e((string)$selectedSlideTypeIcon['icon_url']) ?>" data-slide-type-icon data-fallback-icon="<?= e((string)$selectedSlideTypeIcon['icon_fallback_url']) ?>" alt="">
             </div>
             <label class="slide-common-field"><?= e(__('slide.title_position')) ?>
-                <select name="title_position"<?= field_attrs('title_position', $formId) ?>>
+                <select class="form-select" name="title_position"<?= field_attrs('title_position', $formId) ?>>
                     <?php foreach (['hide','top-left','top-right','bottom-left','bottom-right','center'] as $position): ?>
                         <option value="<?= e($position) ?>" <?= old_selected('title_position', $position, $slide['title_position'] ?? 'hide', $formId) ?>><?= e(enum_label('title_positions', $position, $position)) ?></option>
                     <?php endforeach; ?>
@@ -179,7 +183,7 @@ require __DIR__ . '/../layouts/admin_header.php';
                 <?= field_error_html('title_position', $formId) ?>
             </label>
             <label class="slide-common-field"><?= e(__('slide.duration_optional')) ?>
-                <input type="number" min="1" name="duration_seconds" value="<?= e((string)old('duration_seconds', $slide['duration_seconds'] ?? '', $formId)) ?>" placeholder="<?= e(__('slide.duration_placeholder')) ?>"<?= field_attrs('duration_seconds', $formId) ?>>
+                <input class="form-control" type="number" min="1" name="duration_seconds" value="<?= e((string)old('duration_seconds', $slide['duration_seconds'] ?? '', $formId)) ?>" placeholder="<?= e(__('slide.duration_placeholder')) ?>"<?= field_attrs('duration_seconds', $formId) ?>>
                 <?= field_error_html('duration_seconds', $formId) ?>
             </label>
         </div>
@@ -205,7 +209,7 @@ require __DIR__ . '/../layouts/admin_header.php';
         <div id="core-source-fields" class="full-width plugin-settings-card">
             <div class="grid-2 compact-grid">
                 <label id="source_mode_wrap"><?= e(__('slide.source_mode')) ?>
-                    <select name="source_mode" id="source_mode"<?= field_attrs('source_mode', $formId) ?>>
+                    <select class="form-select" name="source_mode" id="source_mode"<?= field_attrs('source_mode', $formId) ?>>
                         <option value="external" <?= old_selected('source_mode', 'external', $slide['source_mode'] ?? 'external', $formId) ?>><?= e(enum_label('source_modes', 'external')) ?></option>
                         <option value="media" <?= old_selected('source_mode', 'media', $slide['source_mode'] ?? '', $formId) ?>><?= e(enum_label('source_modes', 'media')) ?></option>
                     </select>
@@ -213,11 +217,11 @@ require __DIR__ . '/../layouts/admin_header.php';
                 </label>
             </div>
             <label id="source_url_wrap" class="full-width"><?= e(__('slide.source_url')) ?>
-                <input type="text" name="source_url" value="<?= e((string)old('source_url', $slide['source_url'] ?? '', $formId)) ?>" placeholder="<?= e(__('slide.source_url_placeholder')) ?>"<?= field_attrs('source_url', $formId) ?>>
+                <input class="form-control" type="text" name="source_url" value="<?= e((string)old('source_url', $slide['source_url'] ?? '', $formId)) ?>" placeholder="<?= e(__('slide.source_url_placeholder')) ?>"<?= field_attrs('source_url', $formId) ?>>
                 <?= field_error_html('source_url', $formId) ?>
             </label>
             <label id="media_asset_wrap" class="full-width"><?= e(__('slide.uploaded_media')) ?>
-                <select name="media_asset_id"<?= field_attrs('media_asset_id', $formId) ?>>
+                <select class="form-select" name="media_asset_id"<?= field_attrs('media_asset_id', $formId) ?>>
                     <option value=""><?= e(__('slide.choose_uploaded_file')) ?></option>
                     <?php foreach ($mediaAssets as $asset): ?>
                         <option value="<?= e((string)$asset['id']) ?>" data-media-kind="<?= e($asset['media_kind'] ?? '') ?>" <?= old_selected('media_asset_id', $asset['id'], $slide['media_asset_id'] ?? '', $formId) ?>><?= e($asset['name']) ?> · <?= e($asset['original_name']) ?> (<?= e(enum_label('slide_types', $asset['media_kind'], $asset['media_kind'])) ?>)</option>
@@ -237,7 +241,7 @@ require __DIR__ . '/../layouts/admin_header.php';
                 <legend><?= e(__('slide.text_slide_content')) ?></legend>
                 <div class="text-slide-group__grid">
                     <label class="full-width"><?= e(__('slide.text_markup')) ?>
-                        <textarea name="text_markup" rows="12" placeholder="<?= e(__('slide.text_markup_placeholder')) ?>"<?= field_attrs('text_markup', $formId) ?>><?= e((string)old('text_markup', $slide['text_markup'] ?? '', $formId)) ?></textarea>
+                        <textarea class="form-control" name="text_markup" rows="12" placeholder="<?= e(__('slide.text_markup_placeholder')) ?>"<?= field_attrs('text_markup', $formId) ?>><?= e((string)old('text_markup', $slide['text_markup'] ?? '', $formId)) ?></textarea>
                         <?= field_error_html('text_markup', $formId) ?>
                         <small class="field-note"><?= e(__('slide.text_markup_help')) ?></small>
                     </label>
@@ -255,7 +259,7 @@ require __DIR__ . '/../layouts/admin_header.php';
                         <?= field_error_html('background_color', $formId) ?>
                     </label>
                     <label><?= e(__('slide.background_media')) ?>
-                        <select name="background_media_asset_id" data-background-media-select<?= field_attrs('background_media_asset_id', $formId) ?>>
+                        <select class="form-select" name="background_media_asset_id" data-background-media-select<?= field_attrs('background_media_asset_id', $formId) ?>>
                             <option value=""><?= e(__('common.none')) ?></option>
                             <?php foreach (($backgroundMediaAssets ?? $imageMediaAssets ?? []) as $asset): ?>
                                 <option value="<?= e((string)$asset['id']) ?>" data-media-kind="<?= e((string)($asset['media_kind'] ?? '')) ?>" data-media-url="<?= e(($asset['file_path'] ?? '') !== '' ? url((string)$asset['file_path']) : '') ?>" data-media-name="<?= e($asset['name']) ?>" <?= old_selected('background_media_asset_id', $asset['id'], $slide['background_media_asset_id'] ?? '', $formId) ?>><?= e($asset['name']) ?> · <?= e($asset['original_name']) ?> (<?= e(enum_label('slide_types', (string)$asset['media_kind'], (string)$asset['media_kind'])) ?>)</option>
@@ -296,7 +300,7 @@ require __DIR__ . '/../layouts/admin_header.php';
                         <?= field_error_html('text_box_background_color', $formId) ?>
                     </label>
                     <label><?= e(__('slide.text_box_layout')) ?>
-                        <select name="text_box_layout"<?= field_attrs('text_box_layout', $formId) ?>>
+                        <select class="form-select" name="text_box_layout"<?= field_attrs('text_box_layout', $formId) ?>>
                             <?php foreach ($textSlideLayouts as $layout): ?>
                                 <option value="<?= e($layout) ?>" <?= old_selected('text_box_layout', $layout, $slide['text_box_layout'] ?? 'center', $formId) ?>><?= e(enum_label('text_slide_layouts', $layout, $layout)) ?></option>
                             <?php endforeach; ?>
@@ -317,27 +321,27 @@ require __DIR__ . '/../layouts/admin_header.php';
                     </label>
                     <div class="radius-control full-width" data-radius-control>
                         <label><?= e(__('slide.text_box_radius')) ?>
-                            <select name="text_box_radius_mode" data-radius-mode<?= field_attrs('text_box_radius_mode', $formId) ?>>
+                            <select class="form-select" name="text_box_radius_mode" data-radius-mode<?= field_attrs('text_box_radius_mode', $formId) ?>>
                                 <option value="default" <?= selected($textBoxRadiusMode, 'default') ?>><?= e(enum_label('radius_modes', 'default')) ?></option>
                                 <option value="all" <?= selected($textBoxRadiusMode, 'all') ?>><?= e(enum_label('radius_modes', 'all')) ?></option>
                                 <option value="custom" <?= selected($textBoxRadiusMode, 'custom') ?>><?= e(enum_label('radius_modes', 'custom')) ?></option>
                             </select>
                         </label>
                         <label data-radius-panel="all"><?= e(__('slide.radius_all_rem')) ?>
-                            <input type="number" name="text_box_radius_all_rem" min="0" max="10" step="0.1" value="<?= e($textBoxRadiusAllValue) ?>"<?= field_attrs('text_box_radius_all_rem', $formId) ?>>
+                            <input class="form-control" type="number" name="text_box_radius_all_rem" min="0" max="10" step="0.1" value="<?= e($textBoxRadiusAllValue) ?>"<?= field_attrs('text_box_radius_all_rem', $formId) ?>>
                         </label>
                         <div class="radius-control__corners" data-radius-panel="custom">
                             <label><?= e(__('slide.radius_top_left_rem')) ?>
-                                <input type="number" name="text_box_radius_top_left_rem" min="0" max="10" step="0.1" value="<?= e($textBoxRadiusValues['top_left']) ?>"<?= field_attrs('text_box_radius_top_left_rem', $formId) ?>>
+                                <input class="form-control" type="number" name="text_box_radius_top_left_rem" min="0" max="10" step="0.1" value="<?= e($textBoxRadiusValues['top_left']) ?>"<?= field_attrs('text_box_radius_top_left_rem', $formId) ?>>
                             </label>
                             <label><?= e(__('slide.radius_top_right_rem')) ?>
-                                <input type="number" name="text_box_radius_top_right_rem" min="0" max="10" step="0.1" value="<?= e($textBoxRadiusValues['top_right']) ?>"<?= field_attrs('text_box_radius_top_right_rem', $formId) ?>>
+                                <input class="form-control" type="number" name="text_box_radius_top_right_rem" min="0" max="10" step="0.1" value="<?= e($textBoxRadiusValues['top_right']) ?>"<?= field_attrs('text_box_radius_top_right_rem', $formId) ?>>
                             </label>
                             <label><?= e(__('slide.radius_bottom_right_rem')) ?>
-                                <input type="number" name="text_box_radius_bottom_right_rem" min="0" max="10" step="0.1" value="<?= e($textBoxRadiusValues['bottom_right']) ?>"<?= field_attrs('text_box_radius_bottom_right_rem', $formId) ?>>
+                                <input class="form-control" type="number" name="text_box_radius_bottom_right_rem" min="0" max="10" step="0.1" value="<?= e($textBoxRadiusValues['bottom_right']) ?>"<?= field_attrs('text_box_radius_bottom_right_rem', $formId) ?>>
                             </label>
                             <label><?= e(__('slide.radius_bottom_left_rem')) ?>
-                                <input type="number" name="text_box_radius_bottom_left_rem" min="0" max="10" step="0.1" value="<?= e($textBoxRadiusValues['bottom_left']) ?>"<?= field_attrs('text_box_radius_bottom_left_rem', $formId) ?>>
+                                <input class="form-control" type="number" name="text_box_radius_bottom_left_rem" min="0" max="10" step="0.1" value="<?= e($textBoxRadiusValues['bottom_left']) ?>"<?= field_attrs('text_box_radius_bottom_left_rem', $formId) ?>>
                             </label>
                         </div>
                     </div>
@@ -348,7 +352,7 @@ require __DIR__ . '/../layouts/admin_header.php';
                 <legend><?= e(__('slide.text_slide_animation')) ?></legend>
                 <div class="text-slide-group__grid text-slide-group__grid--compact">
                     <label><?= e(__('slide.text_box_animation')) ?>
-                        <select name="text_box_animation"<?= field_attrs('text_box_animation', $formId) ?>>
+                        <select class="form-select" name="text_box_animation"<?= field_attrs('text_box_animation', $formId) ?>>
                             <?php foreach ($textSlideAnimations as $animation): ?>
                                 <option value="<?= e($animation) ?>" <?= old_selected('text_box_animation', $animation, $slide['text_box_animation'] ?? 'none', $formId) ?>><?= e(enum_label('text_slide_animations', $animation, $animation)) ?></option>
                             <?php endforeach; ?>
@@ -356,11 +360,11 @@ require __DIR__ . '/../layouts/admin_header.php';
                         <?= field_error_html('text_box_animation', $formId) ?>
                     </label>
                     <label><?= e(__('slide.text_box_animation_duration_ms')) ?>
-                        <input type="number" name="text_box_animation_duration_ms" min="300" max="1500" step="50" value="<?= e((string)old('text_box_animation_duration_ms', $slide['text_box_animation_duration_ms'] ?? '600', $formId)) ?>"<?= field_attrs('text_box_animation_duration_ms', $formId) ?>>
+                        <input class="form-control" type="number" name="text_box_animation_duration_ms" min="300" max="1500" step="50" value="<?= e((string)old('text_box_animation_duration_ms', $slide['text_box_animation_duration_ms'] ?? '600', $formId)) ?>"<?= field_attrs('text_box_animation_duration_ms', $formId) ?>>
                         <?= field_error_html('text_box_animation_duration_ms', $formId) ?>
                     </label>
                     <label><?= e(__('slide.text_box_animation_delay_ms')) ?>
-                        <input type="number" name="text_box_animation_delay_ms" min="0" max="5000" step="50" value="<?= e((string)old('text_box_animation_delay_ms', $slide['text_box_animation_delay_ms'] ?? '0', $formId)) ?>"<?= field_attrs('text_box_animation_delay_ms', $formId) ?>>
+                        <input class="form-control" type="number" name="text_box_animation_delay_ms" min="0" max="5000" step="50" value="<?= e((string)old('text_box_animation_delay_ms', $slide['text_box_animation_delay_ms'] ?? '0', $formId)) ?>"<?= field_attrs('text_box_animation_delay_ms', $formId) ?>>
                         <?= field_error_html('text_box_animation_delay_ms', $formId) ?>
                     </label>
                     <label class="checkbox-row text-slide-checkbox">
@@ -374,7 +378,7 @@ require __DIR__ . '/../layouts/admin_header.php';
                 <legend><?= e(__('slide.text_slide_qr')) ?></legend>
                 <div class="text-slide-group__grid text-slide-group__grid--compact">
                     <label class="full-width"><?= e(__('slide.qr_url')) ?>
-                        <input type="url" name="qr_url" maxlength="270" value="<?= e((string)old('qr_url', $slide['source_url'] ?? '', $formId)) ?>" placeholder="<?= e(__('slide.qr_url_placeholder')) ?>"<?= field_attrs('qr_url', $formId) ?>>
+                        <input class="form-control" type="url" name="qr_url" maxlength="270" value="<?= e((string)old('qr_url', $slide['source_url'] ?? '', $formId)) ?>" placeholder="<?= e(__('slide.qr_url_placeholder')) ?>"<?= field_attrs('qr_url', $formId) ?>>
                         <?= field_error_html('qr_url', $formId) ?>
                         <small class="field-note"><?= e(__('slide.qr_url_help')) ?></small>
                     </label>
@@ -388,7 +392,7 @@ require __DIR__ . '/../layouts/admin_header.php';
                         <small class="field-note"><?= e(__('slide.qr_size_percent_help')) ?></small>
                     </label>
                     <label><?= e(__('slide.qr_position')) ?>
-                        <select name="qr_position"<?= field_attrs('qr_position', $formId) ?>>
+                        <select class="form-select" name="qr_position"<?= field_attrs('qr_position', $formId) ?>>
                             <?php foreach ($textSlideQrPositions as $position): ?>
                                 <option value="<?= e($position) ?>" <?= old_selected('qr_position', $position, $slide['qr_position'] ?? 'bottom-right', $formId) ?>><?= e(enum_label('text_slide_layouts', $position, $position)) ?></option>
                             <?php endforeach; ?>
@@ -397,27 +401,27 @@ require __DIR__ . '/../layouts/admin_header.php';
                     </label>
                     <div class="radius-control full-width" data-radius-control>
                         <label><?= e(__('slide.qr_radius')) ?>
-                            <select name="qr_radius_mode" data-radius-mode<?= field_attrs('qr_radius_mode', $formId) ?>>
+                            <select class="form-select" name="qr_radius_mode" data-radius-mode<?= field_attrs('qr_radius_mode', $formId) ?>>
                                 <option value="default" <?= selected($qrRadiusMode, 'default') ?>><?= e(enum_label('radius_modes', 'default')) ?></option>
                                 <option value="all" <?= selected($qrRadiusMode, 'all') ?>><?= e(enum_label('radius_modes', 'all')) ?></option>
                                 <option value="custom" <?= selected($qrRadiusMode, 'custom') ?>><?= e(enum_label('radius_modes', 'custom')) ?></option>
                             </select>
                         </label>
                         <label data-radius-panel="all"><?= e(__('slide.radius_all_rem')) ?>
-                            <input type="number" name="qr_radius_all_rem" min="0" max="10" step="0.1" value="<?= e($qrRadiusAllValue) ?>"<?= field_attrs('qr_radius_all_rem', $formId) ?>>
+                            <input class="form-control" type="number" name="qr_radius_all_rem" min="0" max="10" step="0.1" value="<?= e($qrRadiusAllValue) ?>"<?= field_attrs('qr_radius_all_rem', $formId) ?>>
                         </label>
                         <div class="radius-control__corners" data-radius-panel="custom">
                             <label><?= e(__('slide.radius_top_left_rem')) ?>
-                                <input type="number" name="qr_radius_top_left_rem" min="0" max="10" step="0.1" value="<?= e($qrRadiusValues['top_left']) ?>"<?= field_attrs('qr_radius_top_left_rem', $formId) ?>>
+                                <input class="form-control" type="number" name="qr_radius_top_left_rem" min="0" max="10" step="0.1" value="<?= e($qrRadiusValues['top_left']) ?>"<?= field_attrs('qr_radius_top_left_rem', $formId) ?>>
                             </label>
                             <label><?= e(__('slide.radius_top_right_rem')) ?>
-                                <input type="number" name="qr_radius_top_right_rem" min="0" max="10" step="0.1" value="<?= e($qrRadiusValues['top_right']) ?>"<?= field_attrs('qr_radius_top_right_rem', $formId) ?>>
+                                <input class="form-control" type="number" name="qr_radius_top_right_rem" min="0" max="10" step="0.1" value="<?= e($qrRadiusValues['top_right']) ?>"<?= field_attrs('qr_radius_top_right_rem', $formId) ?>>
                             </label>
                             <label><?= e(__('slide.radius_bottom_right_rem')) ?>
-                                <input type="number" name="qr_radius_bottom_right_rem" min="0" max="10" step="0.1" value="<?= e($qrRadiusValues['bottom_right']) ?>"<?= field_attrs('qr_radius_bottom_right_rem', $formId) ?>>
+                                <input class="form-control" type="number" name="qr_radius_bottom_right_rem" min="0" max="10" step="0.1" value="<?= e($qrRadiusValues['bottom_right']) ?>"<?= field_attrs('qr_radius_bottom_right_rem', $formId) ?>>
                             </label>
                             <label><?= e(__('slide.radius_bottom_left_rem')) ?>
-                                <input type="number" name="qr_radius_bottom_left_rem" min="0" max="10" step="0.1" value="<?= e($qrRadiusValues['bottom_left']) ?>"<?= field_attrs('qr_radius_bottom_left_rem', $formId) ?>>
+                                <input class="form-control" type="number" name="qr_radius_bottom_left_rem" min="0" max="10" step="0.1" value="<?= e($qrRadiusValues['bottom_left']) ?>"<?= field_attrs('qr_radius_bottom_left_rem', $formId) ?>>
                             </label>
                         </div>
                     </div>
@@ -443,7 +447,7 @@ require __DIR__ . '/../layouts/admin_header.php';
             <fieldset class="text-slide-group full-width">
                 <legend><?= e(__('templates.singular')) ?></legend>
                 <label class="full-width"><?= e(__('templates.choose_template')) ?>
-                    <select name="template_id" data-template-select<?= field_attrs('template_id', $formId) ?>>
+                    <select class="form-select" name="template_id" data-template-select<?= field_attrs('template_id', $formId) ?>>
                         <option value=""><?= e(__('templates.choose_template')) ?></option>
                         <?php foreach ($slideTemplates as $template): ?>
                             <option value="<?= e((string)$template['id']) ?>" <?= selected($selectedTemplateId, (string)$template['id']) ?>><?= e((string)$template['name']) ?><?= (int)($template['is_active'] ?? 1) !== 1 ? ' (' . e(__('common.inactive')) . ')' : '' ?></option>
@@ -459,7 +463,7 @@ require __DIR__ . '/../layouts/admin_header.php';
                         <h2><?= e(__('templates.preview')) ?></h2>
                     </div>
                     <div class="template-slide-preview__grid" data-template-preview-grid></div>
-                    <p class="muted" data-template-preview-empty hidden><?= e(__('templates.preview_unavailable')) ?></p>
+                    <p class="text-body-secondary muted" data-template-preview-empty hidden><?= e(__('templates.preview_unavailable')) ?></p>
                 </section>
             </fieldset>
         </div>
@@ -475,12 +479,12 @@ require __DIR__ . '/../layouts/admin_header.php';
 
         <label class="checkbox-row"><input type="checkbox" name="is_active" value="1" <?= old_checked('is_active', $slide['is_active'] ?? 1, $formId) ?>> <?= e(__('common.active')) ?></label>
         <div class="form-actions">
-            <button type="submit" name="save_action" value="save_and_close" class="button button--default"><?= admin_icon('save') ?><span><?= e(__('slide.save_and_close')) ?></span></button>
-            <button type="submit" name="save_action" value="save" class="button button--normal"><?= admin_icon('save') ?><span><?= e(__('common.save')) ?></span></button>
+            <button type="submit" name="save_action" value="save_and_close" class="btn btn-primary button button--default"><?= admin_icon('save') ?><span><?= e(__('slide.save_and_close')) ?></span></button>
+            <button type="submit" name="save_action" value="save" class="btn btn-secondary button button--normal"><?= admin_icon('save') ?><span><?= e(__('common.save')) ?></span></button>
             <?php if ($slide && isset($slide['id'])): ?>
-                <a class="button button--normal" target="_blank" rel="noopener noreferrer" href="<?= e(url('/preview-slide/' . $slide['id'])) ?>"><?= admin_icon('preview') ?><span><?= e(__('common.preview')) ?></span></a>
+                <a class="btn btn-secondary button button--normal" target="_blank" rel="noopener noreferrer" href="<?= e(url('/preview-slide/' . $slide['id'])) ?>"><?= admin_icon('preview') ?><span><?= e(__('common.preview')) ?></span></a>
             <?php endif; ?>
-            <a class="button button--normal" href="<?= e(url($returnToPath)) ?>"><?= admin_icon('cancel') ?><span><?= e(__('common.cancel')) ?></span></a>
+            <a class="btn btn-secondary button button--normal" href="<?= e(url($returnToPath)) ?>"><?= admin_icon('cancel') ?><span><?= e(__('common.cancel')) ?></span></a>
         </div>
     </form>
 </div>

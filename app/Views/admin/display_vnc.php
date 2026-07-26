@@ -21,8 +21,8 @@ $vncConfig = [
 require __DIR__ . '/../layouts/admin_header.php';
 ?>
 <div class="page-actions">
-    <a class="button button--normal" href="<?= e(url('/admin/displays/' . $display['id'] . '/edit')) ?>"><?= admin_icon('back') ?><span><?= e(__('common.previous')) ?></span></a>
-    <a class="button button--normal" href="<?= e(url('/display/' . $display['slug'] . '?preview=1')) ?>" target="_blank" rel="noopener noreferrer"><?= admin_icon('preview') ?><span><?= e(__('common.preview')) ?></span></a>
+    <a class="btn btn-secondary button button--normal" href="<?= e(url('/admin/displays/' . $display['id'] . '/edit')) ?>"><?= admin_icon('back') ?><span><?= e(__('common.previous')) ?></span></a>
+    <a class="btn btn-secondary button button--normal" href="<?= e(url('/display/' . $display['slug'] . '?preview=1')) ?>" target="_blank" rel="noopener noreferrer"><?= admin_icon('preview') ?><span><?= e(__('common.preview')) ?></span></a>
 </div>
 
 <section class="vnc-viewer-shell" data-vnc-viewer data-vnc-config="<?= e(json_encode($vncConfig, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)) ?>">
@@ -33,8 +33,8 @@ require __DIR__ . '/../layouts/admin_header.php';
         </div>
         <div class="vnc-viewer-toolbar__actions">
             <span class="status-chip" data-vnc-status><?= e($vncUrl !== '' ? __('display.vnc_connecting') : __('display.vnc_missing_endpoint')) ?></span>
-            <button type="button" class="button button--normal button--small" data-vnc-reconnect><?= admin_icon('reload') ?><span><?= e(__('display.vnc_reconnect')) ?></span></button>
-            <button type="button" class="button button--normal button--small" data-vnc-disconnect><?= admin_icon('cancel') ?><span><?= e(__('display.vnc_disconnect')) ?></span></button>
+            <button type="button" class="btn btn-secondary button button--normal button--small" data-vnc-reconnect><?= admin_icon('reload') ?><span><?= e(__('display.vnc_reconnect')) ?></span></button>
+            <button type="button" class="btn btn-secondary button button--normal button--small" data-vnc-disconnect><?= admin_icon('cancel') ?><span><?= e(__('display.vnc_disconnect')) ?></span></button>
         </div>
     </div>
     <div class="vnc-viewer-screen" data-vnc-screen>

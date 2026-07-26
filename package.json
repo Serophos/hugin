@@ -5,22 +5,27 @@
   "description": "Frontend asset build tools for Hugin.",
   "type": "module",
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   },
   "scripts": {
-    "build": "npm run build:icons && npm run build:vnc",
+    "build": "npm run build:icons && npm run build:adminlte && npm run build:vnc",
+    "build:adminlte": "node scripts/build-adminlte-assets.mjs",
     "build:icons": "node scripts/build-admin-icons.mjs",
     "build:vnc": "node scripts/build-vnc-assets.mjs",
-    "check": "npm run check:icons && npm run check:vnc",
+    "check": "npm run check:icons && npm run check:adminlte && npm run check:vnc",
     "test:playback": "node tests/playback_scheduler_test.mjs",
     "test:heartbeat": "node tests/display_heartbeat_test.mjs",
+    "test:admin-assets": "node tests/admin_asset_boundary_test.mjs",
     "check:icons": "node scripts/build-admin-icons.mjs --check",
+    "check:adminlte": "node scripts/build-adminlte-assets.mjs --check",
     "check:vnc": "node scripts/build-vnc-assets.mjs --check"
   },
   "devDependencies": {
     "@novnc/novnc": "^1.7.0",
     "@rsuite/icon-font": "4.1.0",
+    "admin-lte": "4.1.0",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "tabulator-tables": "6.3.1"
   }
 }

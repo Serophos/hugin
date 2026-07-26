@@ -1,7 +1,127 @@
 (() => {
-    document.querySelectorAll('[data-admin-table]').forEach((table) => {
-        const tbody = table.tBodies[0];
-        if (!tbody) return;
+    const Tabulator = window.Tabulator;
+
+    if (!Tabulator) {
+        return;
+    }
+
+    const sortableTableSelector = '[data-admin-table]';
+    const normalize = (value) => String(value || '').trim().toLocaleLowerCase();
+
+    function buildColumns(table) {
+        const headerRow = table.tHead?.rows[0];
+        const filterRow = table.querySelector('.slide-library-filter-row');
+        if (!headerRow) return [];
+
+        const filterCells = filterRow ? Array.from(filterRow.cells) : [];
+
+        return Array.from(headerRow.cells).map((headerCell, index) => {
+            const sortButton = headerCell.querySelector('[data-admin-sort]');
+            const filterControl = filterCells[index]?.querySelector('[data-admin-filter]');
+            const isActionColumn = Array.from(table.tBodies).some(body =>
+                Array.from(body.rows).some(row => row.cells[index]?.classList.contains('actions'))
+            );
+            const field = sortButton?.dataset.adminSort || `__column_${index}`;
+            const title = (sortButton || headerCell).textContent.trim();
+            const isSortable = Boolean(sortButton);
+            const sortType = sortButton?.dataset.sortType || 'text';
+            const isSelectFilter = filterControl?.tagName === 'SELECT';
+            const definition = {
+                title,
+                field,
+                formatter: 'html',
+                headerSort: isSortable,
+                sorter: isSortable ? (a, b, aRow, bRow) => {
+                    const aValue = aRow.getData()[`_sort_${field}`] ?? a;
+                    const bValue = bRow.getData()[`_sort_${field}`] ?? b;
+                    const aEmpty = String(aValue).trim() === '';
+                    const bEmpty = String(bValue).trim() === '';
+                    if (aEmpty && bEmpty) return 0;
+                    if (aEmpty) return 1;
+                    if (bEmpty) return -1;
+
+                    if (sortType === 'number') {
+                        const result = Number.parseFloat(String(aValue).replace(',', '.')) - Number.parseFloat(String(bValue).replace(',', '.'));
+                        return Number.isNaN(result) ? 0 : result;
+                    }
+
+                    return String(aValue).localeCompare(String(bValue), undefined, { sensitivity: 'base', numeric: true });
+                } : undefined,
+            };
+
+            if (filterControl) {
+                definition.headerFilter = isSelectFilter ? 'list' : 'input';
+                definition.headerFilterPlaceholder = filterControl.getAttribute('placeholder') || '';
+                definition.headerFilterFunc = (headerValue, rowValue, rowData) => {
+                    const query = normalize(headerValue);
+                    if (!query) return true;
+
+                    const filterValue = normalize(rowData[`_filter_${field}`] ?? rowValue);
+                    return isSelectFilter ? filterValue === query : filterValue.includes(query);
+                };
+
+                if (isSelectFilter) {
+                    const values = {};
+                    Array.from(filterControl.options).forEach((option) => {
+                        values[option.value] = option.textContent.trim();
+                    });
+                    definition.headerFilterParams = { values };
+                }
+            }
+
+            const columnClasses = [
+                headerCell.className,
+                isActionColumn ? 'admin-actions-column' : '',
+            ].filter(Boolean).join(' ');
+            if (columnClasses) {
+                definition.cssClass = columnClasses;
+                definition.headerCssClass = columnClasses;
+            }
+
+            return definition;
+        });
+    }
+
+    function buildData(table) {
+        const headerRow = table.tHead?.rows[0];
+        const fields = headerRow ? Array.from(headerRow.cells).map((headerCell, index) => {
+            const sortButton = headerCell.querySelector('[data-admin-sort]');
+            return sortButton?.dataset.adminSort || `__column_${index}`;
+        }) : [];
+
+        return Array.from(table.tBodies[0]?.querySelectorAll('tr[data-admin-row]') || []).map((row, rowIndex) => {
+            const record = { id: row.dataset.id || `row-${rowIndex}`, _originalIndex: rowIndex };
+            record._rowDataset = { ...row.dataset };
+
+            Array.from(row.cells).forEach((cell, index) => {
+                const field = fields[index] || `__column_${index}`;
+                record[field] = cell.innerHTML;
+                record[`_sort_${field}`] = cell.dataset.sortValue ?? cell.textContent ?? '';
+                record[`_filter_${field}`] = cell.dataset.filterValue ?? cell.textContent ?? '';
+            });
+
+            return record;
+        });
+    }
+
+    function dispatchUpdate(table, tabulator) {
+        const visible = tabulator.getData('active').length;
+        const total = tabulator.getData().length;
+        table.dispatchEvent(new CustomEvent('admin-table-updated', {
+            bubbles: true,
+            detail: { visible, total },
+        }));
+    }
+
+    document.querySelectorAll(sortableTableSelector).forEach((table) => {
+        if (table.querySelector('tbody.sortable-list')) {
+            return;
+        }
+
+        const columns = buildColumns(table);
+        const data = buildData(table);
+        if (!columns.length) return;
+
         if (!table.caption) {
             const caption = document.createElement('caption');
             caption.className = 'visually-hidden';
@@ -9,108 +129,42 @@
             table.prepend(caption);
         }
 
-        const rows = Array.from(tbody.querySelectorAll('tr[data-admin-row]'));
-        const sortButtons = Array.from(table.querySelectorAll('[data-admin-sort]'));
-        const filterControls = Array.from(table.querySelectorAll('[data-admin-filter]'));
-        const sortState = { key: '', direction: 'asc' };
-        const normalize = (value) => String(value || '').trim().toLocaleLowerCase();
+        const holder = document.createElement('div');
+        holder.className = 'admin-data-table';
+        holder.dataset.adminDataTable = '';
+        if (table.hasAttribute('data-slide-library-table')) {
+            holder.dataset.slideLibraryTable = '';
+        }
+        table.before(holder);
 
-        rows.forEach((row, index) => {
-            row.dataset.originalIndex = String(index);
+        const tabulator = new Tabulator(holder, {
+            data,
+            columns,
+            layout: 'fitColumns',
+            index: 'id',
+            reactiveData: false,
+            placeholder: table.dataset.emptyLabel || '',
+            initialSort: [{ column: columns.find((column) => column.headerSort)?.field || columns[0].field, dir: 'asc' }],
+            rowFormatter: (row) => {
+                const rowDataset = row.getData()._rowDataset || {};
+                Object.entries(rowDataset).forEach(([key, value]) => {
+                    row.getElement().dataset[key] = value;
+                });
+            },
         });
 
-        function cellFor(row, key) {
-            return row.querySelector(`[data-admin-cell="${key}"]`);
-        }
+        table.remove();
 
-        function valueFor(row, key, valueType) {
-            const cell = cellFor(row, key);
-            if (!cell) return '';
-            return cell.dataset[valueType] || cell.textContent || '';
-        }
-
-        function compareRows(a, b) {
-            if (!sortState.key) {
-                return Number(a.dataset.originalIndex || 0) - Number(b.dataset.originalIndex || 0);
+        holder.addEventListener('admin-table-reset', () => {
+            tabulator.clearHeaderFilter();
+            tabulator.clearFilter(true);
+            const firstFilter = holder.querySelector('.tabulator-header-filter input, .tabulator-header-filter select');
+            if (firstFilter instanceof HTMLElement) {
+                firstFilter.focus();
             }
-
-            const sortButton = sortButtons.find((button) => button.dataset.adminSort === sortState.key);
-            const sortType = sortButton?.dataset.sortType || 'text';
-            const direction = sortState.direction === 'desc' ? -1 : 1;
-            const aValue = valueFor(a, sortState.key, 'sortValue');
-            const bValue = valueFor(b, sortState.key, 'sortValue');
-            const aEmpty = String(aValue).trim() === '';
-            const bEmpty = String(bValue).trim() === '';
-            if (aEmpty && bEmpty) return Number(a.dataset.originalIndex || 0) - Number(b.dataset.originalIndex || 0);
-            if (aEmpty) return 1;
-            if (bEmpty) return -1;
-
-            let result;
-            if (sortType === 'number') {
-                result = Number.parseFloat(String(aValue).replace(',', '.')) - Number.parseFloat(String(bValue).replace(',', '.'));
-            } else {
-                result = String(aValue).localeCompare(String(bValue), undefined, { sensitivity: 'base', numeric: true });
-            }
-
-            if (Number.isNaN(result) || result === 0) {
-                return Number(a.dataset.originalIndex || 0) - Number(b.dataset.originalIndex || 0);
-            }
-            return result * direction;
-        }
-
-        function rowMatchesFilters(row) {
-            return filterControls.every((control) => {
-                const query = normalize(control.value);
-                if (!query) return true;
-                const cellValue = normalize(valueFor(row, control.dataset.adminFilter || '', 'filterValue'));
-                if (control.tagName === 'SELECT') {
-                    return cellValue === query;
-                }
-                return cellValue.includes(query);
-            });
-        }
-
-        function updateSortHeaders() {
-            sortButtons.forEach((button) => {
-                const isActive = button.dataset.adminSort === sortState.key;
-                const th = button.closest('th');
-                if (th) {
-                    th.setAttribute('aria-sort', isActive ? (sortState.direction === 'asc' ? 'ascending' : 'descending') : 'none');
-                }
-                button.dataset.sortDirection = isActive ? sortState.direction : '';
-            });
-        }
-
-        function updateTable() {
-            rows.slice().sort(compareRows).forEach((row) => tbody.appendChild(row));
-            rows.forEach((row) => {
-                row.hidden = !rowMatchesFilters(row);
-            });
-            updateSortHeaders();
-            table.dispatchEvent(new CustomEvent('admin-table-updated', {
-                bubbles: true,
-                detail: { visible: rows.filter((row) => !row.hidden).length, total: rows.length },
-            }));
-        }
-
-        sortButtons.forEach((button) => {
-            button.addEventListener('click', () => {
-                const nextKey = button.dataset.adminSort || '';
-                if (sortState.key === nextKey) {
-                    sortState.direction = sortState.direction === 'asc' ? 'desc' : 'asc';
-                } else {
-                    sortState.key = nextKey;
-                    sortState.direction = 'asc';
-                }
-                updateTable();
-            });
         });
-
-        filterControls.forEach((control) => {
-            control.addEventListener('input', updateTable);
-            control.addEventListener('change', updateTable);
-        });
-
-        updateTable();
+        tabulator.on('tableBuilt', () => dispatchUpdate(holder, tabulator));
+        tabulator.on('dataFiltered', () => dispatchUpdate(holder, tabulator));
+        tabulator.on('dataSorted', () => dispatchUpdate(holder, tabulator));
     });
 })();

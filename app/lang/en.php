@@ -59,6 +59,8 @@ return [
         'reload' => 'Reload',
         'previous' => 'Previous',
         'next' => 'Next',
+        'expand' => 'Expand',
+        'collapse' => 'Collapse',
     ],
     'dialog' => [
         'buttons' => [
@@ -202,6 +204,7 @@ return [
         'section_entrance_animation' => 'Entrance',
         'section_continuous_animation' => 'Continuous',
         'snap_to_grid' => 'Snap to grid',
+        'element_toolbar' => 'Add template element',
         'canvas_label' => 'Template canvas',
         'canvas_instructions' => 'Select an element with Enter or Space. Move selected non-background elements with the arrow keys. Hold Shift with an arrow key for a larger move.',
         'element_accessible_label' => ':label, :type, :position',
@@ -411,6 +414,7 @@ return [
     ],
     'auth' => [
         'login_title' => 'Hugin Login',
+        'login_prompt' => 'Log in to Hugin to manage your displays.',
         'username' => 'Username',
         'password' => 'Password',
         'forbidden' => 'Forbidden',
@@ -452,6 +456,7 @@ return [
         'never_seen_displays' => 'Never seen',
         'inactive_displays' => 'Inactive',
         'online_displays' => 'Online displays',
+        'percent_of_displays' => ':percent% of displays',
         'offline_displays' => 'Offline displays',
         'no_online_displays' => 'No displays are online right now.',
         'no_offline_displays' => 'No displays need attention.',

@@ -27,15 +27,16 @@ $fieldPrefix = 'plugin_settings.' . $plugin->getName() . '.';
 $formId = 'slide';
 ?>
 <link rel="stylesheet" href="<?= e(plugin_asset_url($plugin->getName(), 'assets/tl1menu.css')) ?>">
+<link rel="stylesheet" href="<?= e(plugin_asset_url($plugin->getName(), 'assets/tl1menu-admin.css')) ?>">
 <div class="plugin-settings-card tl1menu-slide-settings" data-tl1menu-settings>
     <h3><?= e(__('plugins.tl1-menu.config.title')) ?></h3>
-    <p class="muted"><?= e(__('plugins.tl1-menu.config.intro')) ?></p>
+    <p class="text-body-secondary muted"><?= e(__('plugins.tl1-menu.config.intro')) ?></p>
 
     <fieldset class="full-width">
         <legend><?= e(__('plugins.tl1-menu.config.title')) ?></legend>
         <div class="tl1menu-admin-grid">
             <label><?= e(__('plugins.tl1-menu.config.mensa')) ?>
-                <select name="plugin_settings[<?= e($plugin->getName()) ?>][mensa]"<?= field_attrs($fieldPrefix . 'mensa', $formId) ?>>
+                <select class="form-select" name="plugin_settings[<?= e($plugin->getName()) ?>][mensa]"<?= field_attrs($fieldPrefix . 'mensa', $formId) ?>>
                     <option value=""><?= e(__('common.none')) ?></option>
                     <?php if ($selectedMensa !== '' && !in_array($selectedMensa, $availableMensen, true)): ?>
                         <option value="<?= e($selectedMensa) ?>" selected><?= e($selectedMensa) ?></option>
@@ -47,7 +48,7 @@ $formId = 'slide';
                 <?= field_error_html($fieldPrefix . 'mensa', $formId) ?>
             </label>
             <label><?= e(__('plugins.tl1-menu.config.language')) ?>
-                <select name="plugin_settings[<?= e($plugin->getName()) ?>][language]"<?= field_attrs($fieldPrefix . 'language', $formId) ?>>
+                <select class="form-select" name="plugin_settings[<?= e($plugin->getName()) ?>][language]"<?= field_attrs($fieldPrefix . 'language', $formId) ?>>
                     <option value="de" <?= selected($language, 'de') ?>><?= e(__('plugins.tl1-menu.languages.de')) ?></option>
                     <option value="en" <?= selected($language, 'en') ?>><?= e(__('plugins.tl1-menu.languages.en')) ?></option>
                 </select>
@@ -98,7 +99,7 @@ $formId = 'slide';
         <legend><?= e(__('plugins.tl1-menu.config.environment_title')) ?></legend>
         <div class="tl1menu-admin-grid">
             <label><?= e(__('plugins.tl1-menu.config.environment_display_style')) ?>
-                <select name="plugin_settings[<?= e($plugin->getName()) ?>][environment_display_style]" data-tl1menu-env-preview-control<?= field_attrs($fieldPrefix . 'environment_display_style', $formId) ?>>
+                <select class="form-select" name="plugin_settings[<?= e($plugin->getName()) ?>][environment_display_style]" data-tl1menu-env-preview-control<?= field_attrs($fieldPrefix . 'environment_display_style', $formId) ?>>
                     <?php foreach (['global', 'symbols', 'values'] as $style): ?>
                         <option value="<?= e($style) ?>" <?= selected($environmentDisplayStyle, $style) ?>><?= e(__('plugins.tl1-menu.config.environment_display_styles.' . $style)) ?></option>
                     <?php endforeach; ?>
@@ -124,7 +125,7 @@ $formId = 'slide';
 
     <fieldset class="full-width">
         <legend><?= e(__('plugins.tl1-menu.config.exclude_types')) ?></legend>
-        <p class="muted"><?= e(__('plugins.tl1-menu.config.exclude_types_help')) ?></p>
+        <p class="text-body-secondary muted"><?= e(__('plugins.tl1-menu.config.exclude_types_help')) ?></p>
         <div class="tl1menu-admin-checklist">
             <?php foreach ($foodTypes as $typeId => $typeKey): ?>
                 <label class="checkbox-row">
@@ -135,15 +136,23 @@ $formId = 'slide';
         </div>
     </fieldset>
 
-    <details class="tl1menu-admin-advanced full-width">
-        <summary><?= e(__('plugins.tl1-menu.config.advanced_options')) ?></summary>
-        <div class="tl1menu-admin-advanced__content">
+    <section class="card card-success collapsed-card tl1menu-admin-advanced full-width">
+        <div class="card-header">
+            <h3 class="card-title"><?= e(__('plugins.tl1-menu.config.advanced_options')) ?></h3>
+            <div class="card-tools">
+                <button type="button" class="btn btn-tool" data-lte-toggle="card-collapse" data-label-expand="<?= e(__('common.expand')) ?>" data-label-collapse="<?= e(__('common.collapse')) ?>" aria-label="<?= e(__('common.expand')) ?>">
+                    <span data-lte-icon="expand"><?= admin_icon('add') ?></span>
+                    <span data-lte-icon="collapse"><?= admin_icon('remove') ?></span>
+                </button>
+            </div>
+        </div>
+        <div class="card-body tl1menu-admin-advanced__content">
             <fieldset class="full-width">
                 <legend><?= e(__('plugins.tl1-menu.config.background_title')) ?></legend>
-                <p class="muted"><?= e(__('plugins.tl1-menu.config.background_help')) ?></p>
+                <p class="text-body-secondary muted"><?= e(__('plugins.tl1-menu.config.background_help')) ?></p>
                 <div class="tl1menu-admin-grid">
                     <label><?= e(__('plugins.tl1-menu.config.background_color_mode')) ?>
-                        <select name="plugin_settings[<?= e($plugin->getName()) ?>][background_color_mode]" data-tl1menu-toggle="background-color"<?= field_attrs($fieldPrefix . 'background_color_mode', $formId) ?>>
+                        <select class="form-select" name="plugin_settings[<?= e($plugin->getName()) ?>][background_color_mode]" data-tl1menu-toggle="background-color"<?= field_attrs($fieldPrefix . 'background_color_mode', $formId) ?>>
                             <?php foreach (['global', 'custom'] as $mode): ?>
                                 <option value="<?= e($mode) ?>" <?= selected($backgroundColorMode, $mode) ?>><?= e(__('plugins.tl1-menu.config.background_color_modes.' . $mode)) ?></option>
                             <?php endforeach; ?>
@@ -158,7 +167,7 @@ $formId = 'slide';
                         <?= field_error_html($fieldPrefix . 'background_color', $formId) ?>
                     </label>
                     <label><?= e(__('plugins.tl1-menu.config.background_image_mode')) ?>
-                        <select name="plugin_settings[<?= e($plugin->getName()) ?>][background_image_mode]" data-tl1menu-toggle="background-image"<?= field_attrs($fieldPrefix . 'background_image_mode', $formId) ?>>
+                        <select class="form-select" name="plugin_settings[<?= e($plugin->getName()) ?>][background_image_mode]" data-tl1menu-toggle="background-image"<?= field_attrs($fieldPrefix . 'background_image_mode', $formId) ?>>
                             <?php foreach (['global', 'none', 'custom'] as $mode): ?>
                                 <option value="<?= e($mode) ?>" <?= selected($backgroundImageMode, $mode) ?>><?= e(__('plugins.tl1-menu.config.background_image_modes.' . $mode)) ?></option>
                             <?php endforeach; ?>
@@ -166,7 +175,7 @@ $formId = 'slide';
                         <?= field_error_html($fieldPrefix . 'background_image_mode', $formId) ?>
                     </label>
                     <label data-tl1menu-toggle-target="background-image" data-tl1menu-show-when="custom"><?= e(__('plugins.tl1-menu.config.background_media_asset')) ?>
-                        <select name="plugin_settings[<?= e($plugin->getName()) ?>][background_media_asset_id]"<?= field_attrs($fieldPrefix . 'background_media_asset_id', $formId) ?>>
+                        <select class="form-select" name="plugin_settings[<?= e($plugin->getName()) ?>][background_media_asset_id]"<?= field_attrs($fieldPrefix . 'background_media_asset_id', $formId) ?>>
                             <option value=""><?= e(__('common.none')) ?></option>
                             <?php foreach ($imageMediaAssets as $asset): ?>
                                 <option value="<?= e((string)$asset['id']) ?>" <?= selected($selectedAssetId, (string)$asset['id']) ?>><?= e($asset['name']) ?> · <?= e($asset['original_name']) ?></option>
@@ -188,6 +197,6 @@ $formId = 'slide';
                 </div>
             </fieldset>
         </div>
-    </details>
+    </section>
 </div>
 <?php require __DIR__ . '/partials/admin_settings_script.php'; ?>

@@ -8,10 +8,10 @@ $breadcrumbs = [
 ];
 require __DIR__ . '/../layouts/admin_header.php';
 ?>
-<?php if ($flash): ?><div class="alert success"><?= e($flash) ?></div><?php endif; ?>
-<?php if ($error): ?><div class="alert error"><?= e($error) ?></div><?php endif; ?>
+<?php if ($flash): ?><div class="alert alert-success success"><?= e($flash) ?></div><?php endif; ?>
+<?php if ($error): ?><div class="alert alert-danger error"><?= e($error) ?></div><?php endif; ?>
 
-<div class="card">
+<div class="card shadow-sm">
     <form method="post" action="<?= e(url('/admin/locations/create')) ?>" class="form-grid compact-grid">
         <?= csrf_field() ?>
         <input type="hidden" name="return_to" value="<?= e($returnTo) ?>">
@@ -24,16 +24,16 @@ require __DIR__ . '/../layouts/admin_header.php';
             <?= field_error_html('address', $formId) ?>
         </label>
         <label><?= e(__('common.sort_order')) ?>
-            <input type="number" name="sort_order" value="<?= e((string)old('sort_order', '0', $formId)) ?>" min="0" placeholder="<?= e(__('locations.sort_order_placeholder')) ?>"<?= field_attrs('sort_order', $formId) ?>>
+            <input class="form-control" type="number" name="sort_order" value="<?= e((string)old('sort_order', '0', $formId)) ?>" min="0" placeholder="<?= e(__('locations.sort_order_placeholder')) ?>"<?= field_attrs('sort_order', $formId) ?>>
             <?= field_error_html('sort_order', $formId) ?>
         </label>
         <label class="full-width"><?= e(__('common.description')) ?>
-            <textarea name="description" rows="3" placeholder="<?= e(__('locations.description_placeholder')) ?>"<?= field_attrs('description', $formId) ?>><?= e((string)old('description', '', $formId)) ?></textarea>
+            <textarea class="form-control" name="description" rows="3" placeholder="<?= e(__('locations.description_placeholder')) ?>"<?= field_attrs('description', $formId) ?>><?= e((string)old('description', '', $formId)) ?></textarea>
             <?= field_error_html('description', $formId) ?>
         </label>
         <div class="form-actions full-width">
-            <button type="submit" class="button button--default"><?= admin_icon('add') ?><span><?= e(__('common.create')) ?></span></button>
-            <a class="button button--normal" href="<?= e(url($returnTo)) ?>"><?= admin_icon('cancel') ?><span><?= e(__('common.cancel')) ?></span></a>
+            <button type="submit" class="btn btn-primary button button--default"><?= admin_icon('add') ?><span><?= e(__('common.create')) ?></span></button>
+            <a class="btn btn-secondary button button--normal" href="<?= e(url($returnTo)) ?>"><?= admin_icon('cancel') ?><span><?= e(__('common.cancel')) ?></span></a>
         </div>
     </form>
 </div>

@@ -7,9 +7,9 @@ $defaultDisplayModel = $displayIcons[$defaultDisplayIcon] ?? ($displayIcons === 
 require __DIR__ . '/../layouts/admin_header.php';
 ?>
 <div class="page-actions">
-    <a class="button button--normal" href="<?= e(url('/admin/locations')) ?>"><?= admin_icon('manage') ?><span><?= e(__('locations.manage')) ?></span></a>
+    <a class="btn btn-secondary button button--normal" href="<?= e(url('/admin/locations')) ?>"><?= admin_icon('manage') ?><span><?= e(__('locations.manage')) ?></span></a>
     <a
-        class="button button--default"
+        class="btn btn-primary button button--default"
         href="<?= e(url('/admin/displays/create')) ?>"
         <?php if ($displayIcons !== []): ?>
             data-open-display-model-dialog
@@ -18,11 +18,11 @@ require __DIR__ . '/../layouts/admin_header.php';
         <?php endif; ?>
     ><?= admin_icon('add') ?><span><?= e(__('display.new')) ?></span></a>
 </div>
-<?php if ($flash): ?><div class="alert success"><?= e($flash) ?></div><?php endif; ?>
-<?php if ($error ?? null): ?><div class="alert error"><?= e($error) ?></div><?php endif; ?>
-<div class="card">
+<?php if ($flash): ?><div class="alert alert-success success"><?= e($flash) ?></div><?php endif; ?>
+<?php if ($error ?? null): ?><div class="alert alert-danger error"><?= e($error) ?></div><?php endif; ?>
+<div class="card shadow-sm">
     <div class="table-scroll">
-    <table class="admin-table admin-table--displays" data-admin-table>
+    <table class="table table-hover align-middle admin-table admin-table--displays" data-admin-table>
         <thead>
         <tr>
             <th aria-sort="none"><button type="button" class="slide-library-sort" data-admin-sort="name" data-sort-type="text" aria-label="<?= e(__('slide.sort_by_column', ['column' => __('common.name')])) ?>"><?= e(__('common.name')) ?></button></th>
@@ -34,13 +34,13 @@ require __DIR__ . '/../layouts/admin_header.php';
             <th><?= e(__('common.actions')) ?></th>
         </tr>
         <tr class="slide-library-filter-row">
-            <th><input type="search" data-admin-filter="name" aria-label="<?= e(__('slide.filter_column', ['column' => __('common.name')])) ?>" placeholder="<?= e(__('common.name')) ?>"></th>
-            <th><input type="search" data-admin-filter="url" aria-label="<?= e(__('slide.filter_column', ['column' => __('display.url_label')])) ?>" placeholder="<?= e(__('display.url_label')) ?>"></th>
-            <th><input type="search" data-admin-filter="location" aria-label="<?= e(__('slide.filter_column', ['column' => __('locations.singular')])) ?>" placeholder="<?= e(__('locations.singular')) ?>"></th>
-            <th><input type="search" data-admin-filter="group" aria-label="<?= e(__('slide.filter_column', ['column' => __('display_groups.singular')])) ?>" placeholder="<?= e(__('display_groups.singular')) ?>"></th>
-            <th><input type="search" data-admin-filter="channels" aria-label="<?= e(__('slide.filter_column', ['column' => __('display.channels_count')])) ?>" placeholder="<?= e(__('display.channels_count')) ?>"></th>
+            <th><input class="form-control" type="search" data-admin-filter="name" aria-label="<?= e(__('slide.filter_column', ['column' => __('common.name')])) ?>" placeholder="<?= e(__('common.name')) ?>"></th>
+            <th><input class="form-control" type="search" data-admin-filter="url" aria-label="<?= e(__('slide.filter_column', ['column' => __('display.url_label')])) ?>" placeholder="<?= e(__('display.url_label')) ?>"></th>
+            <th><input class="form-control" type="search" data-admin-filter="location" aria-label="<?= e(__('slide.filter_column', ['column' => __('locations.singular')])) ?>" placeholder="<?= e(__('locations.singular')) ?>"></th>
+            <th><input class="form-control" type="search" data-admin-filter="group" aria-label="<?= e(__('slide.filter_column', ['column' => __('display_groups.singular')])) ?>" placeholder="<?= e(__('display_groups.singular')) ?>"></th>
+            <th><input class="form-control" type="search" data-admin-filter="channels" aria-label="<?= e(__('slide.filter_column', ['column' => __('display.channels_count')])) ?>" placeholder="<?= e(__('display.channels_count')) ?>"></th>
             <th>
-                <select data-admin-filter="status" aria-label="<?= e(__('slide.filter_column', ['column' => __('common.status')])) ?>">
+                <select class="form-select" data-admin-filter="status" aria-label="<?= e(__('slide.filter_column', ['column' => __('common.status')])) ?>">
                     <option value=""><?= e(__('slide.filter_all_statuses')) ?></option>
                     <option value="active"><?= e(__('common.active')) ?></option>
                     <option value="inactive"><?= e(__('common.inactive')) ?></option>
@@ -67,20 +67,22 @@ require __DIR__ . '/../layouts/admin_header.php';
                 <td data-admin-cell="channels" data-sort-value="<?= e((string)$display['channel_count']) ?>" data-filter-value="<?= e((string)$display['channel_count']) ?>"><?= e((string)$display['channel_count']) ?></td>
                 <td data-admin-cell="status" data-sort-value="<?= e($statusLabel) ?>" data-filter-value="<?= e($statusValue) ?>"><?= e($statusLabel) ?></td>
                 <td class="actions">
-                    <a class="button button--normal button--small" href="<?= e(url($displayPreviewUrl)) ?>" target="_blank" rel="noopener noreferrer"><?= admin_icon('preview') ?><span><?= e(__('common.preview')) ?></span></a>
+                    <div class="btn-group btn-group-sm admin-action-group" role="group" aria-label="<?= e(__('common.actions') . ' ' . $display['name']) ?>">
+                    <a class="btn btn-secondary" href="<?= e(url($displayPreviewUrl)) ?>" target="_blank" rel="noopener noreferrer" aria-label="<?= e(__('common.preview') . ' ' . $display['name']) ?>" title="<?= e(__('common.preview')) ?>"><?= admin_icon('preview') ?></a>
                     <?php if (!empty($display['vnc_configured'])): ?>
-                        <a class="button button--normal button--small" href="<?= e(url('/admin/displays/' . $display['id'] . '/vnc')) ?>" target="_blank" rel="noopener noreferrer" aria-label="<?= e(__('display.vnc_connect_to', ['display' => $display['name']])) ?>"><?= admin_icon('open') ?><span><?= e(__('display.vnc')) ?></span></a>
+                        <a class="btn btn-secondary" href="<?= e(url('/admin/displays/' . $display['id'] . '/vnc')) ?>" target="_blank" rel="noopener noreferrer" aria-label="<?= e(__('display.vnc_connect_to', ['display' => $display['name']])) ?>" title="<?= e(__('display.vnc')) ?>"><?= admin_icon('open') ?></a>
                     <?php endif; ?>
-                    <a class="button button--normal button--small" href="<?= e(url('/admin/displays/' . $display['id'] . '/edit')) ?>"><?= admin_icon('edit') ?><span><?= e(__('common.edit')) ?></span></a>
+                    <a class="btn btn-primary" href="<?= e(url('/admin/displays/' . $display['id'] . '/edit')) ?>" aria-label="<?= e(__('common.edit') . ' ' . $display['name']) ?>" title="<?= e(__('common.edit')) ?>"><?= admin_icon('edit') ?></a>
                     <form method="post" action="<?= e(url('/admin/displays/' . $display['id'] . '/reload')) ?>" class="inline-form">
                         <?= csrf_field() ?>
                         <input type="hidden" name="return_to" value="/admin/displays">
-                        <button type="submit" class="button button--normal button--small" aria-label="<?= e(__('display.reload_slideshow')) ?>"><?= admin_icon('reload') ?><span><?= e(__('common.reload')) ?></span></button>
+                        <button type="submit" class="btn btn-success" aria-label="<?= e(__('display.reload_slideshow') . ' ' . $display['name']) ?>" title="<?= e(__('common.reload')) ?>"><?= admin_icon('reload') ?></button>
                     </form>
                     <form method="post" action="<?= e(url('/admin/displays/' . $display['id'] . '/delete')) ?>" class="inline-form" data-dialog-submit data-dialog-title="<?= e(__('common.delete')) ?>" data-dialog-message="<?= e(__('display.delete_confirm', [], 'Delete display?')) ?>" data-dialog-icon="trash" data-dialog-buttons="cancel,delete" data-dialog-accept="<?= e(__('common.delete')) ?>">
                         <?= csrf_field() ?>
-                        <button type="submit" class="button button--danger button--small"><?= admin_icon('delete') ?><span><?= e(__('common.delete')) ?></span></button>
+                        <button type="submit" class="btn btn-danger" aria-label="<?= e(__('common.delete') . ' ' . $display['name']) ?>" title="<?= e(__('common.delete')) ?>"><?= admin_icon('delete') ?></button>
                     </form>
+                    </div>
                 </td>
             </tr>
         <?php endforeach; ?>
@@ -98,7 +100,7 @@ require __DIR__ . '/../layouts/admin_header.php';
             <div class="section-head display-model-dialog__head">
                 <div>
                     <h2 id="display-model-dialog-title"><?= e(__('display.model_picker_title')) ?></h2>
-                    <p id="display-model-dialog-description" class="muted"><?= e(__('display.model_picker_hint')) ?></p>
+                    <p id="display-model-dialog-description" class="text-body-secondary muted"><?= e(__('display.model_picker_hint')) ?></p>
                 </div>
             </div>
             <div class="display-model-dialog__scroll">
@@ -128,8 +130,8 @@ require __DIR__ . '/../layouts/admin_header.php';
             </div>
             <p class="display-model-empty muted" data-display-model-empty hidden><?= e(__('display.model_picker_empty')) ?></p>
             <div class="form-actions display-model-dialog__actions">
-                <button type="button" class="button button--normal" data-display-model-close><?= admin_icon('cancel') ?><span><?= e(__('common.cancel')) ?></span></button>
-                <a class="button button--default" href="<?= e($firstDisplayModelUrl) ?>" data-display-model-continue><?= admin_icon('add') ?><span><?= e(__('display.model_picker_continue')) ?></span></a>
+                <button type="button" class="btn btn-secondary button button--normal" data-display-model-close><?= admin_icon('cancel') ?><span><?= e(__('common.cancel')) ?></span></button>
+                <a class="btn btn-primary button button--default" href="<?= e($firstDisplayModelUrl) ?>" data-display-model-continue><?= admin_icon('add') ?><span><?= e(__('display.model_picker_continue')) ?></span></a>
             </div>
         </form>
     </dialog>

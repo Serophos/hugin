@@ -25,13 +25,13 @@ $selectedAssetId = (string)($settings['background_media_asset_id'] ?? '');
 ?>
 <div class="plugin-settings-card">
     <h3><?= e(__('plugins.flip-clock.config.title')) ?></h3>
-    <p class="muted"><?= e(__('plugins.flip-clock.config.intro')) ?></p>
+    <p class="text-body-secondary muted"><?= e(__('plugins.flip-clock.config.intro')) ?></p>
     <label><?= e(__('plugins.flip-clock.config.background_color')) ?>
         <input type="color" name="plugin_settings[<?= e($plugin->getName()) ?>][background_color]" value="<?= e($settings['background_color']) ?>"<?= field_attrs($fieldPrefix . 'background_color', $formId) ?>>
         <?= field_error_html($fieldPrefix . 'background_color', $formId) ?>
     </label>
     <label class="full-width"><?= e(__('plugins.flip-clock.config.background_media_asset')) ?>
-        <select name="plugin_settings[<?= e($plugin->getName()) ?>][background_media_asset_id]"<?= field_attrs($fieldPrefix . 'background_media_asset_id', $formId) ?>>
+        <select class="form-select" name="plugin_settings[<?= e($plugin->getName()) ?>][background_media_asset_id]"<?= field_attrs($fieldPrefix . 'background_media_asset_id', $formId) ?>>
             <option value=""><?= e(__('common.none')) ?></option>
             <?php foreach (($imageMediaAssets ?? []) as $asset): ?>
                 <option value="<?= e((string)$asset['id']) ?>" <?= selected($selectedAssetId, $asset['id']) ?>>

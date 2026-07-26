@@ -1,39 +1,39 @@
 (function () {
-    const toggle = document.querySelector('[data-admin-sidebar-toggle]');
-    const closeTargets = document.querySelectorAll('[data-admin-sidebar-close]');
-
-    document.querySelectorAll('.alert.success, .alert.warning').forEach((alert) => {
+    document.querySelectorAll('.alert.success, .alert.warning, .alert-success, .alert-warning').forEach((alert) => {
         if (!alert.hasAttribute('role')) alert.setAttribute('role', 'status');
         if (!alert.hasAttribute('aria-live')) alert.setAttribute('aria-live', 'polite');
     });
-    document.querySelectorAll('.alert.error, .field-error').forEach((alert) => {
+    document.querySelectorAll('.alert.error, .alert-danger, .field-error, .invalid-feedback').forEach((alert) => {
         if (!alert.hasAttribute('role')) alert.setAttribute('role', 'alert');
     });
 
-    if (!toggle) return;
-
-    const setOpen = (open) => {
-        document.body.classList.toggle('admin-nav-open', open);
-        toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    const syncCardToggleLabel = (card) => {
+        const toggle = card?.querySelector(':scope > .card-header [data-lte-toggle="card-collapse"]');
+        if (!toggle) return;
+        const collapsed = card.classList.contains('collapsed-card');
+        toggle.setAttribute('aria-label', collapsed ? toggle.dataset.labelExpand : toggle.dataset.labelCollapse);
+        toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
     };
-
-    toggle.addEventListener('click', () => {
-        setOpen(!document.body.classList.contains('admin-nav-open'));
+    document.querySelectorAll('.card [data-lte-toggle="card-collapse"]').forEach((toggle) => {
+        syncCardToggleLabel(toggle.closest('.card'));
     });
+    document.addEventListener('collapsed.lte.card-widget', event => syncCardToggleLabel(event.target));
+    document.addEventListener('expanded.lte.card-widget', event => syncCardToggleLabel(event.target));
 
-    closeTargets.forEach((target) => {
-        target.addEventListener('click', () => setOpen(false));
-    });
-
-    document.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape') {
-            setOpen(false);
-        }
-    });
-
-    window.addEventListener('resize', () => {
-        if (window.matchMedia('(min-width: 901px)').matches) {
-            setOpen(false);
-        }
-    });
+    const userMenu = document.querySelector('.admin-user-menu');
+    const userMenuToggle = userMenu?.querySelector(':scope > summary');
+    if (userMenu && userMenuToggle) {
+        const syncUserMenu = () => userMenuToggle.setAttribute('aria-expanded', userMenu.open ? 'true' : 'false');
+        syncUserMenu();
+        userMenu.addEventListener('toggle', syncUserMenu);
+        document.addEventListener('click', event => {
+            if (userMenu.open && !userMenu.contains(event.target)) userMenu.removeAttribute('open');
+        });
+        document.addEventListener('keydown', event => {
+            if (event.key === 'Escape' && userMenu.open) {
+                userMenu.removeAttribute('open');
+                userMenuToggle.focus();
+            }
+        });
+    }
 })();

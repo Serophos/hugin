@@ -79,6 +79,8 @@ return [
         'reload' => 'Neu laden',
         'previous' => 'Zurück',
         'next' => 'Weiter',
+        'expand' => 'Ausklappen',
+        'collapse' => 'Einklappen',
     ],
     'dialog' => [
         'buttons' => [
@@ -222,6 +224,7 @@ return [
         'section_entrance_animation' => 'Erscheinen',
         'section_continuous_animation' => 'Fortlaufend',
         'snap_to_grid' => 'An Raster ausrichten',
+        'element_toolbar' => 'Vorlagenelement hinzufügen',
         'canvas_label' => 'Vorlagen-Arbeitsfläche',
         'canvas_instructions' => 'Wählen Sie ein Element mit Enter oder Leertaste aus. Verschieben Sie ausgewählte Elemente außer dem Hintergrund mit den Pfeiltasten. Halten Sie Umschalt mit einer Pfeiltaste für größere Schritte.',
         'element_accessible_label' => ':label, :type, :position',
@@ -431,6 +434,7 @@ return [
     ],
     'auth' => [
         'login_title' => 'Hugin Anmeldung',
+        'login_prompt' => 'Melden Sie sich bei Hugin an, um Ihre Displays zu verwalten.',
         'username' => 'Benutzername',
         'password' => 'Passwort',
         'forbidden' => 'Zugriff verweigert',
@@ -472,6 +476,7 @@ return [
         'never_seen_displays' => 'Noch nie gesehen',
         'inactive_displays' => 'Inaktiv',
         'online_displays' => 'Online-Bildschirme',
+        'percent_of_displays' => ':percent% der Bildschirme',
         'offline_displays' => 'Offline-Bildschirme',
         'no_online_displays' => 'Aktuell sind keine Bildschirme online.',
         'no_offline_displays' => 'Keine Bildschirme benötigen Aufmerksamkeit.',

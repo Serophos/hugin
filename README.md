@@ -93,14 +93,14 @@ Change initial passwords immediately on a real installation. Hugin shows a warni
 
 ### Frontend Asset Builds
 
-Hugin keeps app-owned generated admin assets committed so a normal production deployment can remain PHP/Composer-only after checkout. npm-generated vendor assets are not committed; they are generated below `public/assets/vendor/` during the build. Use npm when changing generated admin assets, using the VNC viewer from a clean checkout, or preparing a release artifact:
+Hugin keeps app-owned generated admin assets committed. npm-generated vendor assets are not committed; they are generated below `public/assets/vendor/` during the build. Run the frontend build when changing generated assets, using the admin backend or VNC viewer from a clean checkout, and whenever preparing a deployable release artifact:
 
 ```bash
 npm ci
 npm run build
 ```
 
-`npm run build` regenerates the committed admin icon SVGs in `public/assets/icons/admin` from `@rsuite/icon-font` and copies noVNC browser modules into the ignored `public/assets/vendor/novnc` directory. Use `npm run check` in CI or before committing to verify committed admin assets are current and npm vendor assets are not tracked.
+`npm run build` regenerates the committed admin icon SVGs in `public/assets/icons/admin`, copies AdminLTE into the ignored `public/assets/vendor/adminlte` directory, and copies noVNC browser modules into the ignored `public/assets/vendor/novnc` directory. Use `npm run check` in CI or before committing to verify generated assets are current and npm vendor assets are not tracked.
 
 ### `config.php`
 

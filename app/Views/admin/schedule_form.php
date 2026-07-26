@@ -23,12 +23,12 @@ if (form_has_old($formId)) {
 }
 require __DIR__ . '/../layouts/admin_header.php';
 ?>
-<?php if ($error): ?><div class="alert error"><?= e($error) ?></div><?php endif; ?>
-<div class="card">
+<?php if ($error): ?><div class="alert alert-danger error"><?= e($error) ?></div><?php endif; ?>
+<div class="card shadow-sm">
     <form method="post" action="<?= e($schedule ? url('/admin/schedules/' . $schedule['id'] . '/edit') : url('/admin/schedules/create')) ?>" class="form-grid">
         <?= csrf_field() ?>
         <label><?= e(__('common.name')) ?>
-            <input type="text" name="name" value="<?= e((string)old('name', $schedule['name'] ?? '', $formId)) ?>" placeholder="<?= e(__('schedule.name_placeholder')) ?>" required<?= field_attrs('name', $formId) ?>>
+            <input class="form-control" type="text" name="name" value="<?= e((string)old('name', $schedule['name'] ?? '', $formId)) ?>" placeholder="<?= e(__('schedule.name_placeholder')) ?>" required<?= field_attrs('name', $formId) ?>>
             <?= field_error_html('name', $formId) ?>
         </label>
         <label class="checkbox-row"><input type="checkbox" name="is_active" value="1" <?= old_checked('is_active', $schedule['is_active'] ?? 1, $formId) ?>> <?= e(__('common.active')) ?></label>
@@ -39,7 +39,7 @@ require __DIR__ . '/../layouts/admin_header.php';
                 <?php foreach ($ruleRows as $index => $rule): ?>
                     <div class="rule-row">
                         <label><?= e(__('schedule.weekday')) ?>
-                            <select name="rule_weekday[]"<?= field_attrs('rule_weekday.' . $index, $formId) ?>>
+                            <select class="form-select" name="rule_weekday[]"<?= field_attrs('rule_weekday.' . $index, $formId) ?>>
                                 <option value=""><?= e(__('schedule.weekday_placeholder')) ?></option>
                                 <?php foreach (range(1, 7) as $day): ?>
                                     <option value="<?= e((string)$day) ?>" <?= selected($rule['weekday'] ?? '', $day) ?>><?= e(__('days.' . $day)) ?></option>
@@ -48,21 +48,21 @@ require __DIR__ . '/../layouts/admin_header.php';
                             <?= field_error_html('rule_weekday.' . $index, $formId) ?>
                         </label>
                         <label><?= e(__('schedule.start_time')) ?>
-                            <input type="time" name="rule_start_time[]" value="<?= e(substr((string)($rule['start_time'] ?? ''), 0, 5)) ?>" title="<?= e(__('schedule.time_help')) ?>"<?= field_attrs('rule_start_time.' . $index, $formId) ?>>
+                            <input class="form-control" type="time" name="rule_start_time[]" value="<?= e(substr((string)($rule['start_time'] ?? ''), 0, 5)) ?>" title="<?= e(__('schedule.time_help')) ?>"<?= field_attrs('rule_start_time.' . $index, $formId) ?>>
                             <?= field_error_html('rule_start_time.' . $index, $formId) ?>
                         </label>
                         <label><?= e(__('schedule.end_time')) ?>
-                            <input type="time" name="rule_end_time[]" value="<?= e(substr((string)($rule['end_time'] ?? ''), 0, 5)) ?>" title="<?= e(__('schedule.time_help')) ?>"<?= field_attrs('rule_end_time.' . $index, $formId) ?>>
+                            <input class="form-control" type="time" name="rule_end_time[]" value="<?= e(substr((string)($rule['end_time'] ?? ''), 0, 5)) ?>" title="<?= e(__('schedule.time_help')) ?>"<?= field_attrs('rule_end_time.' . $index, $formId) ?>>
                             <?= field_error_html('rule_end_time.' . $index, $formId) ?>
                         </label>
-                        <button type="button" class="button button--normal rule-remove"><?= admin_icon('remove') ?><span><?= e(__('common.remove')) ?></span></button>
+                        <button type="button" class="btn btn-secondary button button--normal rule-remove"><?= admin_icon('remove') ?><span><?= e(__('common.remove')) ?></span></button>
                     </div>
                 <?php endforeach; ?>
             </div>
-            <button type="button" class="button button--normal" id="add-rule"><?= admin_icon('add') ?><span><?= e(__('schedule.add_rule')) ?></span></button>
+            <button type="button" class="btn btn-secondary button button--normal" id="add-rule"><?= admin_icon('add') ?><span><?= e(__('schedule.add_rule')) ?></span></button>
         </div>
 
-        <div class="form-actions"><button type="submit" class="button button--default"><?= admin_icon('save') ?><span><?= e(__('common.save')) ?></span></button><a class="button button--normal" href="<?= e(url('/admin/schedules')) ?>"><?= admin_icon('cancel') ?><span><?= e(__('common.cancel')) ?></span></a></div>
+        <div class="form-actions"><button type="submit" class="btn btn-primary button button--default"><?= admin_icon('save') ?><span><?= e(__('common.save')) ?></span></button><a class="btn btn-secondary button button--normal" href="<?= e(url('/admin/schedules')) ?>"><?= admin_icon('cancel') ?><span><?= e(__('common.cancel')) ?></span></a></div>
     </form>
 </div>
 <script>

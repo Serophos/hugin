@@ -254,7 +254,7 @@ $editorIconsJson = json_encode([
 ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 require __DIR__ . '/../layouts/admin_header.php';
 ?>
-<?php if ($error): ?><div class="alert error"><?= e($error) ?></div><?php endif; ?>
+<?php if ($error): ?><div class="alert alert-danger error"><?= e($error) ?></div><?php endif; ?>
 <?php if ($uploadedFonts): ?>
     <style data-template-editor-fonts>
         <?php foreach ($uploadedFonts as $font): ?>
@@ -264,15 +264,20 @@ require __DIR__ . '/../layouts/admin_header.php';
 <?php endif; ?>
 <form method="post" action="<?= e(!empty($template['id']) ? url('/admin/slide-templates/' . $template['id'] . '/edit') : url('/admin/slide-templates/create')) ?>" class="form-grid template-editor-form" data-template-editor-form>
     <?= csrf_field() ?>
-    <div class="card full-width form-grid">
+    <div class="card shadow-sm full-width">
+      <div class="card-body form-grid">
         <label><?= e(__('common.name')) ?>
-            <input type="text" name="name" value="<?= e((string)old('name', $template['name'] ?? '', $formId)) ?>" required<?= field_attrs('name', $formId) ?>>
+            <input class="form-control" type="text" name="name" value="<?= e((string)old('name', $template['name'] ?? '', $formId)) ?>" required<?= field_attrs('name', $formId) ?>>
             <?= field_error_html('name', $formId) ?>
         </label>
         <label><?= e(__('common.description')) ?>
-            <textarea name="description" rows="2"<?= field_attrs('description', $formId) ?>><?= e((string)old('description', $template['description'] ?? '', $formId)) ?></textarea>
+            <textarea class="form-control" name="description" rows="2"<?= field_attrs('description', $formId) ?>><?= e((string)old('description', $template['description'] ?? '', $formId)) ?></textarea>
         </label>
-        <label class="checkbox-row"><input type="checkbox" name="is_active" value="1" <?= old_checked('is_active', $template['is_active'] ?? 1, $formId) ?>> <?= e(__('common.active')) ?></label>
+        <div class="form-check">
+            <input class="form-check-input" id="template-is-active" type="checkbox" name="is_active" value="1" <?= old_checked('is_active', $template['is_active'] ?? 1, $formId) ?>>
+            <label class="form-check-label" for="template-is-active"><?= e(__('common.active')) ?></label>
+        </div>
+      </div>
     </div>
 
     <input type="hidden" name="landscape_spec_json" data-template-spec="landscape" value="<?= e((string)old('landscape_spec_json', $template['landscape_spec_json'] ?? '', $formId)) ?>">
@@ -281,46 +286,46 @@ require __DIR__ . '/../layouts/admin_header.php';
     <input type="hidden" name="template_editor_inspector_tab" data-template-editor-inspector-tab value="<?= e($activeEditorInspectorTab) ?>">
     <?= field_error_html('landscape_spec_json', $formId) ?>
 
-    <section class="template-editor full-width" data-template-editor>
-        <div class="template-editor__topbar">
-            <label class="template-editor__snap-toggle">
-                <input type="checkbox" data-snap-to-grid checked>
-                <span><?= e(__('templates.snap_to_grid')) ?></span>
-            </label>
-            <div class="template-editor__tools">
-                <button type="button" class="template-tool-button template-tool-button--text" data-add-element="text" aria-label="<?= e(__('templates.add_element_accessible_label', ['type' => __('templates.element_text')])) ?>" title="<?= e(__('templates.add_element_shortcut_tooltip', ['type' => __('templates.element_text'), 'shortcut' => __('templates.shortcut_add_text')])) ?>">
+    <section class="card shadow-sm template-editor full-width" data-template-editor>
+        <div class="card-header template-editor__topbar">
+            <div class="form-check form-switch mb-0 template-editor__snap-toggle">
+                <input class="form-check-input" id="template-editor-snap-to-grid" type="checkbox" data-snap-to-grid checked>
+                <label class="form-check-label" for="template-editor-snap-to-grid"><?= e(__('templates.snap_to_grid')) ?></label>
+            </div>
+            <div class="btn-toolbar template-editor__tools" role="toolbar" aria-label="<?= e(__('templates.element_toolbar')) ?>">
+                <button type="button" class="btn btn-outline-secondary template-tool-button template-tool-button--text" data-add-element="text" aria-label="<?= e(__('templates.add_element_accessible_label', ['type' => __('templates.element_text')])) ?>" title="<?= e(__('templates.add_element_shortcut_tooltip', ['type' => __('templates.element_text'), 'shortcut' => __('templates.shortcut_add_text')])) ?>">
                     <span class="template-tool-button__icon" aria-hidden="true"><img src="<?= e(asset_url('/assets/icons/admin/template-tool-text.png')) ?>" alt=""></span>
                     <span class="template-tool-button__label"><?= e(__('templates.element_text')) ?></span>
                 </button>
-                <button type="button" class="template-tool-button template-tool-button--dynamic-text" data-add-element="dynamic_text" aria-label="<?= e(__('templates.add_element_accessible_label', ['type' => __('templates.element_dynamic_text')])) ?>" title="<?= e(__('templates.add_element_shortcut_tooltip', ['type' => __('templates.element_dynamic_text'), 'shortcut' => __('templates.shortcut_add_dynamic_text')])) ?>">
+                <button type="button" class="btn btn-outline-secondary template-tool-button template-tool-button--dynamic-text" data-add-element="dynamic_text" aria-label="<?= e(__('templates.add_element_accessible_label', ['type' => __('templates.element_dynamic_text')])) ?>" title="<?= e(__('templates.add_element_shortcut_tooltip', ['type' => __('templates.element_dynamic_text'), 'shortcut' => __('templates.shortcut_add_dynamic_text')])) ?>">
                     <span class="template-tool-button__icon" aria-hidden="true"><img src="<?= e(asset_url('/assets/icons/admin/template-tool-dynamic-text.png')) ?>" alt=""></span>
                     <span class="template-tool-button__label"><?= e(__('templates.element_dynamic_text')) ?></span>
                 </button>
-                <button type="button" class="template-tool-button template-tool-button--media" data-add-element="media" aria-label="<?= e(__('templates.add_element_accessible_label', ['type' => __('templates.element_media')])) ?>" title="<?= e(__('templates.add_element_shortcut_tooltip', ['type' => __('templates.element_media'), 'shortcut' => __('templates.shortcut_add_media')])) ?>">
+                <button type="button" class="btn btn-outline-secondary template-tool-button template-tool-button--media" data-add-element="media" aria-label="<?= e(__('templates.add_element_accessible_label', ['type' => __('templates.element_media')])) ?>" title="<?= e(__('templates.add_element_shortcut_tooltip', ['type' => __('templates.element_media'), 'shortcut' => __('templates.shortcut_add_media')])) ?>">
                     <span class="template-tool-button__icon" aria-hidden="true"><img src="<?= e(asset_url('/assets/icons/admin/template-tool-media.png')) ?>" alt=""></span>
                     <span class="template-tool-button__label"><?= e(__('templates.element_media')) ?></span>
                 </button>
-                <button type="button" class="template-tool-button template-tool-button--qr" data-add-element="qr" aria-label="<?= e(__('templates.add_element_accessible_label', ['type' => __('templates.element_qr')])) ?>" title="<?= e(__('templates.add_element_shortcut_tooltip', ['type' => __('templates.element_qr'), 'shortcut' => __('templates.shortcut_add_qr')])) ?>">
+                <button type="button" class="btn btn-outline-secondary template-tool-button template-tool-button--qr" data-add-element="qr" aria-label="<?= e(__('templates.add_element_accessible_label', ['type' => __('templates.element_qr')])) ?>" title="<?= e(__('templates.add_element_shortcut_tooltip', ['type' => __('templates.element_qr'), 'shortcut' => __('templates.shortcut_add_qr')])) ?>">
                     <span class="template-tool-button__icon" aria-hidden="true"><img src="<?= e(asset_url('/assets/icons/admin/template-tool-qr.png')) ?>" alt=""></span>
                     <span class="template-tool-button__label"><?= e(__('templates.element_qr')) ?></span>
                 </button>
-                <button type="button" class="template-tool-button template-tool-button--datetime" data-add-element="datetime" aria-label="<?= e(__('templates.add_element_accessible_label', ['type' => __('templates.element_datetime')])) ?>" title="<?= e(__('templates.add_element_shortcut_tooltip', ['type' => __('templates.element_datetime'), 'shortcut' => __('templates.shortcut_add_datetime')])) ?>">
+                <button type="button" class="btn btn-outline-secondary template-tool-button template-tool-button--datetime" data-add-element="datetime" aria-label="<?= e(__('templates.add_element_accessible_label', ['type' => __('templates.element_datetime')])) ?>" title="<?= e(__('templates.add_element_shortcut_tooltip', ['type' => __('templates.element_datetime'), 'shortcut' => __('templates.shortcut_add_datetime')])) ?>">
                     <span class="template-tool-button__icon" aria-hidden="true"><?= admin_icon('schedules') ?></span>
                     <span class="template-tool-button__label"><?= e(__('templates.element_datetime')) ?></span>
                 </button>
-                <button type="button" class="template-tool-button template-tool-button--countdown" data-add-element="countdown" aria-label="<?= e(__('templates.add_element_accessible_label', ['type' => __('templates.element_countdown')])) ?>" title="<?= e(__('templates.add_element_shortcut_tooltip', ['type' => __('templates.element_countdown'), 'shortcut' => __('templates.shortcut_add_countdown')])) ?>">
+                <button type="button" class="btn btn-outline-secondary template-tool-button template-tool-button--countdown" data-add-element="countdown" aria-label="<?= e(__('templates.add_element_accessible_label', ['type' => __('templates.element_countdown')])) ?>" title="<?= e(__('templates.add_element_shortcut_tooltip', ['type' => __('templates.element_countdown'), 'shortcut' => __('templates.shortcut_add_countdown')])) ?>">
                     <span class="template-tool-button__icon" aria-hidden="true"><?= admin_icon('reload') ?></span>
                     <span class="template-tool-button__label"><?= e(__('templates.element_countdown')) ?></span>
                 </button>
-                <div class="template-tool-split template-tool-split--shape" data-shape-dropdown>
-                    <button type="button" class="template-tool-button template-tool-button--shape" data-add-element="shape" data-shape-type="square" aria-label="<?= e(__('templates.add_element_accessible_label', ['type' => __('templates.element_shape')])) ?>" title="<?= e(__('templates.add_element_shortcut_tooltip', ['type' => __('templates.element_shape'), 'shortcut' => __('templates.shortcut_add_shape')])) ?>">
+                <div class="btn-group template-tool-split template-tool-split--shape" data-shape-dropdown>
+                    <button type="button" class="btn btn-outline-secondary template-tool-button template-tool-button--shape" data-add-element="shape" data-shape-type="square" aria-label="<?= e(__('templates.add_element_accessible_label', ['type' => __('templates.element_shape')])) ?>" title="<?= e(__('templates.add_element_shortcut_tooltip', ['type' => __('templates.element_shape'), 'shortcut' => __('templates.shortcut_add_shape')])) ?>">
                         <span class="template-tool-button__icon" aria-hidden="true"><img src="<?= e(asset_url('/assets/icons/admin/template-tool-shape.png')) ?>" alt=""></span>
                         <span class="template-tool-button__label"><?= e(__('templates.element_shape')) ?></span>
                     </button>
-                    <button type="button" class="template-tool-dropdown-toggle" data-shape-dropdown-toggle aria-haspopup="true" aria-expanded="false" aria-label="<?= e(__('templates.shape_dropdown_label')) ?>" title="<?= e(__('templates.shape_dropdown_label')) ?>"><span aria-hidden="true"></span></button>
-                    <div class="template-tool-menu" data-shape-dropdown-menu role="menu" hidden>
+                    <button type="button" class="btn btn-outline-secondary dropdown-toggle dropdown-toggle-split template-tool-dropdown-toggle" data-shape-dropdown-toggle aria-haspopup="true" aria-expanded="false" aria-label="<?= e(__('templates.shape_dropdown_label')) ?>" title="<?= e(__('templates.shape_dropdown_label')) ?>"></button>
+                    <div class="dropdown-menu template-tool-menu" data-shape-dropdown-menu role="menu" hidden>
                         <?php foreach ($shapeToolOptions as $shapeOption): ?>
-                            <button type="button" class="template-tool-menu__item" data-add-shape="<?= e($shapeOption['key']) ?>" role="menuitem">
+                            <button type="button" class="dropdown-item template-tool-menu__item" data-add-shape="<?= e($shapeOption['key']) ?>" role="menuitem">
                                 <span class="template-tool-menu__shape" aria-hidden="true"><svg viewBox="0 0 100 100" preserveAspectRatio="none" focusable="false"><?= $shapeOption['svg'] ?></svg></span>
                                 <span><?= e($shapeOption['label']) ?></span>
                             </button>
@@ -329,11 +334,11 @@ require __DIR__ . '/../layouts/admin_header.php';
                 </div>
             </div>
         </div>
-        <div class="template-editor__layout">
+        <div class="card-body template-editor__layout">
             <div class="template-editor__canvas-shell">
-                <div class="template-editor__canvas-tabs" role="tablist" aria-label="<?= e(__('common.orientation')) ?>">
-                    <button type="button" class="<?= $activeEditorOrientation === 'landscape' ? 'is-active' : '' ?>" data-orientation-tab="landscape" role="tab" aria-selected="<?= $activeEditorOrientation === 'landscape' ? 'true' : 'false' ?>"<?= $activeEditorOrientation === 'landscape' ? '' : ' tabindex="-1"' ?>><?= e(__('orientations.landscape')) ?></button>
-                    <button type="button" class="<?= $activeEditorOrientation === 'portrait' ? 'is-active' : '' ?>" data-orientation-tab="portrait" role="tab" aria-selected="<?= $activeEditorOrientation === 'portrait' ? 'true' : 'false' ?>"<?= $activeEditorOrientation === 'portrait' ? '' : ' tabindex="-1"' ?>><?= e(__('orientations.vertical')) ?></button>
+                <div class="nav nav-tabs template-editor__canvas-tabs" role="tablist" aria-label="<?= e(__('common.orientation')) ?>">
+                    <button type="button" class="nav-link<?= $activeEditorOrientation === 'landscape' ? ' active is-active' : '' ?>" data-orientation-tab="landscape" role="tab" aria-selected="<?= $activeEditorOrientation === 'landscape' ? 'true' : 'false' ?>"<?= $activeEditorOrientation === 'landscape' ? '' : ' tabindex="-1"' ?>><?= e(__('orientations.landscape')) ?></button>
+                    <button type="button" class="nav-link<?= $activeEditorOrientation === 'portrait' ? ' active is-active' : '' ?>" data-orientation-tab="portrait" role="tab" aria-selected="<?= $activeEditorOrientation === 'portrait' ? 'true' : 'false' ?>"<?= $activeEditorOrientation === 'portrait' ? '' : ' tabindex="-1"' ?>><?= e(__('orientations.vertical')) ?></button>
                 </div>
                 <div class="template-editor__canvas-frame">
                     <p id="template-editor-canvas-instructions" class="sr-only"><?= e(__('templates.canvas_instructions')) ?></p>
@@ -341,18 +346,18 @@ require __DIR__ . '/../layouts/admin_header.php';
                     <div class="template-editor__canvas" data-editor-canvas role="group" aria-label="<?= e(__('templates.canvas_label')) ?>" aria-describedby="template-editor-canvas-instructions"></div>
                 </div>
             </div>
-            <aside class="template-editor__inspector" data-editor-inspector>
-                <div class="template-editor__inspector-tabbar">
-                    <button type="button" class="template-editor__tab-scroll" data-tab-scroll="left" aria-label="<?= e(__('common.previous')) ?>">&#8249;</button>
-                    <div class="template-editor__inspector-tabs" role="tablist" aria-label="<?= e(__('templates.properties')) ?>" data-inspector-tabs-scroll>
-                        <button type="button" class="is-active" data-inspector-tab="element" title="<?= e(__('templates.inspector_element')) ?>" aria-label="<?= e(__('templates.inspector_element')) ?>"><?= admin_icon('settings') ?><span><?= e(__('templates.inspector_element')) ?></span></button>
-                        <button type="button" data-inspector-tab="fields" title="<?= e(__('templates.inspector_fields')) ?>" aria-label="<?= e(__('templates.inspector_fields')) ?>"><?= admin_icon('add') ?><span><?= e(__('templates.inspector_fields')) ?></span></button>
-                        <button type="button" data-inspector-tab="layers" title="<?= e(__('templates.inspector_layers')) ?>" aria-label="<?= e(__('templates.inspector_layers')) ?>"><?= admin_icon('move') ?><span><?= e(__('templates.inspector_layers')) ?></span></button>
-                        <button type="button" data-inspector-tab="animations" title="<?= e(__('templates.inspector_animations')) ?>" aria-label="<?= e(__('templates.inspector_animations')) ?>"><?= admin_icon('reload') ?><span><?= e(__('templates.inspector_animations')) ?></span></button>
+            <aside class="card template-editor__inspector" data-editor-inspector>
+                <div class="card-header p-0 template-editor__inspector-tabbar">
+                    <button type="button" class="btn btn-light template-editor__tab-scroll" data-tab-scroll="left" aria-label="<?= e(__('common.previous')) ?>">&#8249;</button>
+                    <div class="nav nav-tabs template-editor__inspector-tabs" role="tablist" aria-label="<?= e(__('templates.properties')) ?>" data-inspector-tabs-scroll>
+                        <button type="button" class="nav-link active is-active" data-inspector-tab="element" title="<?= e(__('templates.inspector_element')) ?>" aria-label="<?= e(__('templates.inspector_element')) ?>"><?= admin_icon('settings') ?><span><?= e(__('templates.inspector_element')) ?></span></button>
+                        <button type="button" class="nav-link" data-inspector-tab="fields" title="<?= e(__('templates.inspector_fields')) ?>" aria-label="<?= e(__('templates.inspector_fields')) ?>"><?= admin_icon('add') ?><span><?= e(__('templates.inspector_fields')) ?></span></button>
+                        <button type="button" class="nav-link" data-inspector-tab="layers" title="<?= e(__('templates.inspector_layers')) ?>" aria-label="<?= e(__('templates.inspector_layers')) ?>"><?= admin_icon('move') ?><span><?= e(__('templates.inspector_layers')) ?></span></button>
+                        <button type="button" class="nav-link" data-inspector-tab="animations" title="<?= e(__('templates.inspector_animations')) ?>" aria-label="<?= e(__('templates.inspector_animations')) ?>"><?= admin_icon('reload') ?><span><?= e(__('templates.inspector_animations')) ?></span></button>
                     </div>
-                    <button type="button" class="template-editor__tab-scroll" data-tab-scroll="right" aria-label="<?= e(__('common.next')) ?>">&#8250;</button>
+                    <button type="button" class="btn btn-light template-editor__tab-scroll" data-tab-scroll="right" aria-label="<?= e(__('common.next')) ?>">&#8250;</button>
                 </div>
-                <div class="template-editor__inspector-body">
+                <div class="card-body template-editor__inspector-body">
                     <section class="template-editor__inspector-panel" data-inspector-panel="element"></section>
                     <section class="template-editor__inspector-panel" data-inspector-panel="fields" hidden></section>
                     <section class="template-editor__inspector-panel" data-inspector-panel="layers" hidden></section>
@@ -362,38 +367,50 @@ require __DIR__ . '/../layouts/admin_header.php';
         </div>
     </section>
 
-    <details class="card full-width template-json-panel">
-        <summary><?= e(__('templates.advanced_json')) ?></summary>
-        <div class="template-json-panel__grid">
-            <section class="template-json-panel__item">
+    <section class="card card-warning collapsed-card shadow-sm full-width template-json-panel">
+        <div class="card-header">
+            <h2 class="card-title"><?= e(__('templates.advanced_json')) ?></h2>
+            <div class="card-tools">
+                <button type="button" class="btn btn-tool" data-lte-toggle="card-collapse" data-label-expand="<?= e(__('common.expand')) ?>" data-label-collapse="<?= e(__('common.collapse')) ?>" aria-label="<?= e(__('common.expand')) ?>">
+                    <span data-lte-icon="expand"><?= admin_icon('add') ?></span>
+                    <span data-lte-icon="collapse"><?= admin_icon('remove') ?></span>
+                </button>
+            </div>
+        </div>
+        <div class="card-body template-json-panel__grid">
+            <section class="card template-json-panel__item">
+              <div class="card-body">
                 <div class="template-json-panel__head">
                     <h2><?= e(__('orientations.landscape')) ?></h2>
                     <div class="template-json-panel__actions">
-                        <button type="button" class="button button--normal button--small" data-json-export="landscape"><?= admin_icon('open') ?><span><?= e(__('templates.export_json')) ?></span></button>
-                        <button type="button" class="button button--normal button--small" data-json-import-trigger="landscape"><?= admin_icon('upload') ?><span><?= e(__('templates.import_json')) ?></span></button>
+                        <button type="button" class="btn btn-secondary button button--normal button--small" data-json-export="landscape"><?= admin_icon('open') ?><span><?= e(__('templates.export_json')) ?></span></button>
+                        <button type="button" class="btn btn-secondary button button--normal button--small" data-json-import-trigger="landscape"><?= admin_icon('upload') ?><span><?= e(__('templates.import_json')) ?></span></button>
                         <input type="file" accept="application/json,.json" data-json-import="landscape" hidden>
                     </div>
                 </div>
-                <textarea rows="8" data-json-debug="landscape" spellcheck="false" readonly></textarea>
+                <textarea class="form-control" rows="8" data-json-debug="landscape" spellcheck="false" readonly></textarea>
+              </div>
             </section>
-            <section class="template-json-panel__item">
+            <section class="card template-json-panel__item">
+              <div class="card-body">
                 <div class="template-json-panel__head">
                     <h2><?= e(__('orientations.vertical')) ?></h2>
                     <div class="template-json-panel__actions">
-                        <button type="button" class="button button--normal button--small" data-json-export="portrait"><?= admin_icon('open') ?><span><?= e(__('templates.export_json')) ?></span></button>
-                        <button type="button" class="button button--normal button--small" data-json-import-trigger="portrait"><?= admin_icon('upload') ?><span><?= e(__('templates.import_json')) ?></span></button>
+                        <button type="button" class="btn btn-secondary button button--normal button--small" data-json-export="portrait"><?= admin_icon('open') ?><span><?= e(__('templates.export_json')) ?></span></button>
+                        <button type="button" class="btn btn-secondary button button--normal button--small" data-json-import-trigger="portrait"><?= admin_icon('upload') ?><span><?= e(__('templates.import_json')) ?></span></button>
                         <input type="file" accept="application/json,.json" data-json-import="portrait" hidden>
                     </div>
                 </div>
-                <textarea rows="8" data-json-debug="portrait" spellcheck="false" readonly></textarea>
+                <textarea class="form-control" rows="8" data-json-debug="portrait" spellcheck="false" readonly></textarea>
+              </div>
             </section>
         </div>
-    </details>
+    </section>
 
     <div class="form-actions">
-        <button type="submit" name="save_action" value="save" class="button button--default"><?= admin_icon('save') ?><span><?= e(__('common.save')) ?></span></button>
-        <button type="submit" name="save_action" value="save_and_close" class="button button--normal"><?= admin_icon('save') ?><span><?= e(__('templates.save_and_close')) ?></span></button>
-        <a class="button button--normal" href="<?= e(url('/admin/slide-templates')) ?>"><?= admin_icon('cancel') ?><span><?= e(__('common.cancel')) ?></span></a>
+        <button type="submit" name="save_action" value="save" class="btn btn-primary button button--default"><?= admin_icon('save') ?><span><?= e(__('common.save')) ?></span></button>
+        <button type="submit" name="save_action" value="save_and_close" class="btn btn-secondary button button--normal"><?= admin_icon('save') ?><span><?= e(__('templates.save_and_close')) ?></span></button>
+        <a class="btn btn-secondary button button--normal" href="<?= e(url('/admin/slide-templates')) ?>"><?= admin_icon('cancel') ?><span><?= e(__('common.cancel')) ?></span></a>
     </div>
 </form>
 <script src="<?= e(asset_url('/assets/js/hugin-qr.js')) ?>"></script>
@@ -804,6 +821,7 @@ require __DIR__ . '/../layouts/admin_header.php';
         editor.querySelectorAll('[data-orientation-tab]').forEach(tab => {
             const active = tab.dataset.orientationTab === orientation;
             tab.classList.toggle('is-active', active);
+            tab.classList.toggle('active', active);
             tab.setAttribute('aria-selected', active ? 'true' : 'false');
             tab.tabIndex = active ? 0 : -1;
         });
@@ -1188,6 +1206,7 @@ require __DIR__ . '/../layouts/admin_header.php';
             tab.id = tabId;
             tab.setAttribute('role', 'tab');
             tab.classList.toggle('is-active', active);
+            tab.classList.toggle('active', active);
             tab.setAttribute('aria-selected', active ? 'true' : 'false');
             tab.setAttribute('aria-controls', panelId);
             tab.tabIndex = active ? 0 : -1;
@@ -1276,11 +1295,11 @@ require __DIR__ . '/../layouts/admin_header.php';
     }
 
     function panelTitle(label, action = '') {
-        return `<div class="template-editor__panel-title"><h2>${escapeHtml(label)}</h2>${action}</div>`;
+        return `<div class="template-editor__panel-title"><h2 class="card-title">${escapeHtml(label)}</h2>${action}</div>`;
     }
 
     function iconButton(dataName, label, iconName, extraClass = '') {
-        return `<button type="button" class="template-editor__icon-button ${extraClass}" data-${dataName} aria-label="${attr(label)}" title="${attr(label)}">${icons[iconName] || ''}</button>`;
+        return `<button type="button" class="btn btn-sm btn-outline-secondary template-editor__icon-button ${extraClass}" data-${dataName} aria-label="${attr(label)}" title="${attr(label)}">${icons[iconName] || ''}</button>`;
     }
 
     function propertySection(title, body) {
@@ -1294,11 +1313,11 @@ require __DIR__ . '/../layouts/admin_header.php';
     }
 
     function numberInput(dataKind, key, value, attrs = '') {
-        return `<input type="number" ${attrs} data-${dataKind}="${attr(key)}" value="${attr(value)}">`;
+        return `<input class="form-control" type="number" ${attrs} data-${dataKind}="${attr(key)}" value="${attr(value)}">`;
     }
 
     function dateTimeLocalInput(dataKind, key, value) {
-        return `<input type="datetime-local" data-${dataKind}="${attr(key)}" value="${attr(value)}">`;
+        return `<input class="form-control" type="datetime-local" data-${dataKind}="${attr(key)}" value="${attr(value)}">`;
     }
 
     function percentageInputValue(value, min = 0, max = 1) {
@@ -1328,11 +1347,11 @@ require __DIR__ . '/../layouts/admin_header.php';
 
     function colorInput(key, value, allowAlpha = false) {
         const color = window.HuginColorPicker?.parseColor(value, '#000000', 1) || parsedColor(value);
-        return `<div class="template-editor__color-input admin-color-picker ${allowAlpha ? 'template-editor__color-input--rgba' : ''}" data-admin-color-picker data-color-format="${allowAlpha ? 'rgba' : 'hex'}" data-color-alpha="${allowAlpha ? 'true' : 'false'}" data-color-preserve-empty="true" data-default-color="${attr(color.hex)}" data-default-alpha="${attr(color.alpha)}" style="--template-color-preview: ${attr(cssColor(value || color.hex))}; --admin-color-preview: ${attr(cssColor(value || color.hex))}"><span class="template-editor__color-swatch" title="${attr(i18n.open_color_picker)}"><span aria-hidden="true"></span><input type="color" data-color-picker-swatch value="${attr(color.hex)}" aria-label="${attr(i18n.open_color_picker)}"></span><input type="text" data-style="${attr(key)}" data-color-value value="${attr(value)}"></div>`;
+        return `<div class="template-editor__color-input admin-color-picker ${allowAlpha ? 'template-editor__color-input--rgba' : ''}" data-admin-color-picker data-color-format="${allowAlpha ? 'rgba' : 'hex'}" data-color-alpha="${allowAlpha ? 'true' : 'false'}" data-color-preserve-empty="true" data-default-color="${attr(color.hex)}" data-default-alpha="${attr(color.alpha)}" style="--template-color-preview: ${attr(cssColor(value || color.hex))}; --admin-color-preview: ${attr(cssColor(value || color.hex))}"><span class="template-editor__color-swatch" title="${attr(i18n.open_color_picker)}"><span aria-hidden="true"></span><input type="color" data-color-picker-swatch value="${attr(color.hex)}" aria-label="${attr(i18n.open_color_picker)}"></span><input class="form-control" type="text" data-style="${attr(key)}" data-color-value value="${attr(value)}"></div>`;
     }
 
     function selectInput(dataKind, key, value, options) {
-        return `<select data-${dataKind}="${attr(key)}">${options}</select>`;
+        return `<select class="form-select" data-${dataKind}="${attr(key)}">${options}</select>`;
     }
 
     function optionLabel(prefix, value) {
@@ -1369,7 +1388,7 @@ require __DIR__ . '/../layouts/admin_header.php';
 
     function renderElementInspector(element) {
         if (!element) {
-            elementPanel.innerHTML = `${panelTitle(i18n.inspector_element)}<div class="template-editor__empty-state">${escapeHtml(i18n.no_selection)}</div>`;
+            elementPanel.innerHTML = `${panelTitle(i18n.inspector_element)}<div class="alert alert-light template-editor__empty-state">${escapeHtml(i18n.no_selection)}</div>`;
             return;
         }
 
@@ -1392,7 +1411,7 @@ require __DIR__ . '/../layouts/admin_header.php';
         } else if (element.type === 'background') {
             content = propertySection(i18n.section_content, propertyRow(i18n.background_media, selectInput('style', 'backgroundMediaAssetId', element.style?.backgroundMediaAssetId || 0, mediaOptionHtml)) + propertyRow(i18n.fit, selectInput('style', 'fit', element.style?.fit || 'cover', fitOptions)));
         } else if (element.type === 'text') {
-            content = propertySection(i18n.section_content, propertyRow(i18n.static_text, `<textarea rows="4" maxlength="4000" data-static-text>${escapeHtml(element.staticText || '')}</textarea>`));
+            content = propertySection(i18n.section_content, propertyRow(i18n.static_text, `<textarea class="form-control" rows="4" maxlength="4000" data-static-text>${escapeHtml(element.staticText || '')}</textarea>`));
         } else if (element.type === 'dynamic_text') {
             const settings = dynamicTextSettings(element);
             const modeControls = propertyRow(i18n.dynamic_text_mode, selectInput('dynamic-text', 'mode', settings.mode, dynamicTextModeOptions(settings.mode)));
@@ -1416,7 +1435,7 @@ require __DIR__ . '/../layouts/admin_header.php';
             // TODO: Ask maintainers which Dynamic Text mode should be next: ticker separators,
             // random rotation, RSS/feed-backed text, date/time placeholders, loop pauses, or rolling credits.
             content = propertySection(i18n.section_content,
-                propertyRow(i18n.dynamic_text_lines, `<textarea rows="5" maxlength="4000" data-dynamic-text="lines">${escapeHtml(settings.lines.join('\n'))}</textarea>`) +
+                propertyRow(i18n.dynamic_text_lines, `<textarea class="form-control" rows="5" maxlength="4000" data-dynamic-text="lines">${escapeHtml(settings.lines.join('\n'))}</textarea>`) +
                 modeControls +
                 carouselControls +
                 pushControls +
@@ -1595,11 +1614,11 @@ require __DIR__ . '/../layouts/admin_header.php';
         const element = selectedElement();
         fieldsPanel.innerHTML = panelTitle(i18n.inspector_fields);
         if (!element) {
-            fieldsPanel.innerHTML += `<div class="template-editor__empty-state">${escapeHtml(i18n.no_field_selection)}</div>`;
+            fieldsPanel.innerHTML += `<div class="alert alert-light template-editor__empty-state">${escapeHtml(i18n.no_field_selection)}</div>`;
             return;
         }
         if (!fieldCapableElement(element)) {
-            fieldsPanel.innerHTML += `<div class="template-editor__empty-state">${escapeHtml(i18n.element_cannot_use_fields)}</div>`;
+            fieldsPanel.innerHTML += `<div class="alert alert-light template-editor__empty-state">${escapeHtml(i18n.element_cannot_use_fields)}</div>`;
             return;
         }
         const bindExistingFieldSelect = () => {
@@ -1623,27 +1642,27 @@ require __DIR__ . '/../layouts/admin_header.php';
             bindingSelect.addEventListener('blur', updateBinding);
         };
         if (allTemplateFields().length > 0) {
-            fieldsPanel.innerHTML += propertySection(i18n.section_binding, propertyRow(i18n.field, `<select data-bind-existing-field>${fieldOptions(element.field || '')}</select>`));
+            fieldsPanel.innerHTML += propertySection(i18n.section_binding, propertyRow(i18n.field, `<select class="form-select" data-bind-existing-field>${fieldOptions(element.field || '')}</select>`));
         }
         const field = fieldForElement(element);
         if (!field) {
-            fieldsPanel.innerHTML += `<div class="template-editor__empty-state">${escapeHtml(i18n.element_has_no_field)}</div><button type="button" class="button button--normal button--small" data-create-bind-field>${icons.add || ''}<span>${escapeHtml(i18n.create_and_bind_field)}</span></button>`;
+            fieldsPanel.innerHTML += `<div class="alert alert-light template-editor__empty-state">${escapeHtml(i18n.element_has_no_field)}</div><button type="button" class="btn btn-secondary button button--normal button--small" data-create-bind-field>${icons.add || ''}<span>${escapeHtml(i18n.create_and_bind_field)}</span></button>`;
             bindExistingFieldSelect();
             fieldsPanel.querySelector('[data-create-bind-field]').addEventListener('click', () => { createAndBindField(element); });
             return;
         }
         const index = Math.max(0, allTemplateFields().indexOf(field));
         const row = document.createElement('div');
-        row.className = 'template-editor__field-row';
+        row.className = 'card template-editor__field-row';
         row.innerHTML = `
             <div class="template-editor__field-row-head">
                 <strong>${escapeHtml(field.label || field.key || i18n.field_1.replace('1', String(index + 1)))}</strong>
                 ${iconButton('remove-bound-field', i18n.remove_field_tooltip, 'delete', 'template-editor__icon-button--danger')}
             </div>
             <div class="template-editor__field-grid">
-                <label>${escapeHtml(i18n.field_key)}<input type="text" value="${attr(field.key)}" autocomplete="off" autocapitalize="none" spellcheck="false" data-field-key></label>
-                <label>${escapeHtml(i18n.field_label)}<input type="text" value="${attr(field.label)}" data-field-label></label>
-                <label>${escapeHtml(i18n.field)}<select data-field-type><option value="text">${escapeHtml(i18n.text)}</option><option value="multiline">${escapeHtml(i18n.multiline)}</option><option value="url">${escapeHtml(i18n.url)}</option><option value="media_image">${escapeHtml(i18n.media_image)}</option><option value="media_video">${escapeHtml(i18n.media_video)}</option><option value="qr_url">${escapeHtml(i18n.qr_url)}</option><option value="color">${escapeHtml(i18n.color)}</option><option value="datetime">${escapeHtml(i18n.datetime)}</option></select></label>
+                <label>${escapeHtml(i18n.field_key)}<input class="form-control" type="text" value="${attr(field.key)}" autocomplete="off" autocapitalize="none" spellcheck="false" data-field-key></label>
+                <label>${escapeHtml(i18n.field_label)}<input class="form-control" type="text" value="${attr(field.label)}" data-field-label></label>
+                <label>${escapeHtml(i18n.field)}<select class="form-select" data-field-type><option value="text">${escapeHtml(i18n.text)}</option><option value="multiline">${escapeHtml(i18n.multiline)}</option><option value="url">${escapeHtml(i18n.url)}</option><option value="media_image">${escapeHtml(i18n.media_image)}</option><option value="media_video">${escapeHtml(i18n.media_video)}</option><option value="qr_url">${escapeHtml(i18n.qr_url)}</option><option value="color">${escapeHtml(i18n.color)}</option><option value="datetime">${escapeHtml(i18n.datetime)}</option></select></label>
                 <label class="checkbox-row"><input type="checkbox" data-field-required ${field.required ? 'checked' : ''}> ${escapeHtml(i18n.field_required)}</label>
                 ${fieldDefaultControl(field)}
             </div>`;
@@ -1734,11 +1753,11 @@ require __DIR__ . '/../layouts/admin_header.php';
         const element = selectedElement();
         animationsPanel.innerHTML = panelTitle(i18n.inspector_animations);
         if (!element) {
-            animationsPanel.innerHTML += `<div class="template-editor__empty-state">${escapeHtml(i18n.no_animation_selection)}</div>`;
+            animationsPanel.innerHTML += `<div class="alert alert-light template-editor__empty-state">${escapeHtml(i18n.no_animation_selection)}</div>`;
             return;
         }
         if (isBackground(element)) {
-            animationsPanel.innerHTML += `<div class="template-editor__empty-state">${escapeHtml(i18n.background_cannot_animate)}</div>`;
+            animationsPanel.innerHTML += `<div class="alert alert-light template-editor__empty-state">${escapeHtml(i18n.background_cannot_animate)}</div>`;
             delete element.animation;
             syncHidden();
             return;
@@ -1882,14 +1901,14 @@ require __DIR__ . '/../layouts/admin_header.php';
         const type = field.type || 'text';
         const value = String(field.default ?? '');
         if (type === 'multiline') {
-            return `<label class="template-editor__field-default">${escapeHtml(i18n.field_default)}<textarea rows="3" data-field-default>${escapeHtml(value)}</textarea></label>`;
+            return `<label class="template-editor__field-default">${escapeHtml(i18n.field_default)}<textarea class="form-control" rows="3" data-field-default>${escapeHtml(value)}</textarea></label>`;
         }
         if (type === 'media_image' || type === 'media_video') {
             const expected = type === 'media_image' ? 'image' : 'video';
             const options = [`<option value="">${escapeHtml(i18n.none)}</option>`].concat(mediaAssets
                 .filter(asset => asset.kind === expected)
                 .map(asset => `<option value="${attr(asset.id)}" ${String(asset.id) === value ? 'selected' : ''}>${escapeHtml(asset.name)} (${escapeHtml(asset.kind)})</option>`));
-            return `<label class="template-editor__field-default">${escapeHtml(i18n.field_default)}<select data-field-default>${options.join('')}</select></label>`;
+            return `<label class="template-editor__field-default">${escapeHtml(i18n.field_default)}<select class="form-select" data-field-default>${options.join('')}</select></label>`;
         }
         const inputType = type === 'datetime' ? 'datetime-local' : (type === 'url' || type === 'qr_url' ? 'url' : 'text');
         return `<label class="template-editor__field-default">${escapeHtml(i18n.field_default)}<input type="${inputType}" value="${attr(value)}" data-field-default></label>`;
@@ -2039,7 +2058,7 @@ require __DIR__ . '/../layouts/admin_header.php';
     function layerRow(element, group) {
         const button = document.createElement('button');
         button.type = 'button';
-        button.className = 'template-editor__layer';
+        button.className = 'list-group-item list-group-item-action template-editor__layer';
         button.dataset.layerElementId = element.id;
         if (!group.locked) {
             button.draggable = true;
@@ -2126,7 +2145,7 @@ require __DIR__ . '/../layouts/admin_header.php';
             section.dataset.layerGroup = group.key;
             section.innerHTML = `<h3>${escapeHtml(layerGroupLabel(group.key))}</h3>`;
             const list = document.createElement('div');
-            list.className = 'template-editor__layer-list';
+            list.className = 'list-group template-editor__layer-list';
             list.dataset.layerGroupList = group.key;
             bindLayerGroupDrop(list, group);
             (groups[group.key] || []).forEach(element => {

@@ -4,27 +4,27 @@ $breadcrumbs = [['label' => $title]];
 require __DIR__ . '/../layouts/admin_header.php';
 ?>
 <div class="page-actions">
-    <a class="button button--default" href="<?= e(url('/admin/locations/create?return_to=' . rawurlencode('/admin/locations'))) ?>"><?= admin_icon('add') ?><span><?= e(__('locations.add_new')) ?></span></a>
+    <a class="btn btn-primary button button--default" href="<?= e(url('/admin/locations/create?return_to=' . rawurlencode('/admin/locations'))) ?>"><?= admin_icon('add') ?><span><?= e(__('locations.add_new')) ?></span></a>
 </div>
 
-<?php if ($flash): ?><div class="alert success"><?= e($flash) ?></div><?php endif; ?>
-<?php if ($error): ?><div class="alert error"><?= e($error) ?></div><?php endif; ?>
+<?php if ($flash): ?><div class="alert alert-success success"><?= e($flash) ?></div><?php endif; ?>
+<?php if ($error): ?><div class="alert alert-danger error"><?= e($error) ?></div><?php endif; ?>
 
 <div class="organization-layout">
     <section class="organization-main">
-        <div class="card">
+        <div class="card shadow-sm">
             <div class="section-head">
                 <div>
                     <h2><?= e(__('locations.configured')) ?></h2>
-                    <p class="muted"><?= e(__('locations.configured_hint')) ?></p>
+                    <p class="text-body-secondary muted"><?= e(__('locations.configured_hint')) ?></p>
                 </div>
             </div>
 
             <?php if ($locations === []): ?>
-                <p class="muted"><?= e(__('locations.none')) ?></p>
+                <p class="text-body-secondary muted"><?= e(__('locations.none')) ?></p>
             <?php else: ?>
                 <div class="table-scroll">
-                    <table class="admin-table admin-table--locations" data-admin-table>
+                    <table class="table table-hover align-middle admin-table admin-table--locations" data-admin-table>
                         <thead>
                         <tr>
                             <th aria-sort="none"><button type="button" class="slide-library-sort" data-admin-sort="name" data-sort-type="text" aria-label="<?= e(__('slide.sort_by_column', ['column' => __('common.name')])) ?>"><?= e(__('common.name')) ?></button></th>
@@ -33,9 +33,9 @@ require __DIR__ . '/../layouts/admin_header.php';
                             <th><?= e(__('common.actions')) ?></th>
                         </tr>
                         <tr class="slide-library-filter-row">
-                            <th><input type="search" data-admin-filter="name" aria-label="<?= e(__('slide.filter_column', ['column' => __('common.name')])) ?>" placeholder="<?= e(__('common.name')) ?>"></th>
-                            <th><input type="search" data-admin-filter="groups" aria-label="<?= e(__('slide.filter_column', ['column' => __('display_groups.plural')])) ?>" placeholder="<?= e(__('display_groups.plural')) ?>"></th>
-                            <th><input type="search" data-admin-filter="displays" aria-label="<?= e(__('slide.filter_column', ['column' => __('display.plural')])) ?>" placeholder="<?= e(__('display.plural')) ?>"></th>
+                            <th><input class="form-control" type="search" data-admin-filter="name" aria-label="<?= e(__('slide.filter_column', ['column' => __('common.name')])) ?>" placeholder="<?= e(__('common.name')) ?>"></th>
+                            <th><input class="form-control" type="search" data-admin-filter="groups" aria-label="<?= e(__('slide.filter_column', ['column' => __('display_groups.plural')])) ?>" placeholder="<?= e(__('display_groups.plural')) ?>"></th>
+                            <th><input class="form-control" type="search" data-admin-filter="displays" aria-label="<?= e(__('slide.filter_column', ['column' => __('display.plural')])) ?>" placeholder="<?= e(__('display.plural')) ?>"></th>
                             <th></th>
                         </tr>
                         </thead>
@@ -46,11 +46,13 @@ require __DIR__ . '/../layouts/admin_header.php';
                                 <td data-admin-cell="groups" data-sort-value="<?= e((string)$location['group_count']) ?>" data-filter-value="<?= e((string)$location['group_count']) ?>"><?= e((string)$location['group_count']) ?></td>
                                 <td data-admin-cell="displays" data-sort-value="<?= e((string)$location['display_count']) ?>" data-filter-value="<?= e((string)$location['display_count']) ?>"><?= e((string)$location['display_count']) ?></td>
                                 <td class="actions">
-                                    <a class="button button--normal button--small" href="<?= e(url('/admin/locations/' . $location['id'] . '/edit')) ?>"><?= admin_icon('edit') ?><span><?= e(__('common.edit')) ?></span></a>
+                                    <div class="btn-group btn-group-sm admin-action-group" role="group" aria-label="<?= e(__('common.actions') . ' ' . $location['name']) ?>">
+                                    <a class="btn btn-primary" href="<?= e(url('/admin/locations/' . $location['id'] . '/edit')) ?>" aria-label="<?= e(__('common.edit') . ' ' . $location['name']) ?>" title="<?= e(__('common.edit')) ?>"><?= admin_icon('edit') ?></a>
                                     <form method="post" action="<?= e(url('/admin/locations/' . $location['id'] . '/delete')) ?>" class="inline-form" data-dialog-submit data-dialog-title="<?= e(__('common.delete')) ?>" data-dialog-message="<?= e(__('locations.delete_confirm')) ?>" data-dialog-icon="trash" data-dialog-buttons="cancel,delete" data-dialog-accept="<?= e(__('common.delete')) ?>">
                                         <?= csrf_field() ?>
-                                        <button type="submit" class="button button--danger button--small"><?= admin_icon('delete') ?><span><?= e(__('common.delete')) ?></span></button>
+                                        <button type="submit" class="btn btn-danger" aria-label="<?= e(__('common.delete') . ' ' . $location['name']) ?>" title="<?= e(__('common.delete')) ?>"><?= admin_icon('delete') ?></button>
                                     </form>
+                                    </div>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
@@ -62,11 +64,11 @@ require __DIR__ . '/../layouts/admin_header.php';
     </section>
 
     <aside class="organization-side">
-        <div class="card">
+        <div class="card shadow-sm">
             <h2><?= e(__('locations.unassigned')) ?></h2>
-            <p class="muted"><?= e(__('locations.unassigned_hint')) ?></p>
+            <p class="text-body-secondary muted"><?= e(__('locations.unassigned_hint')) ?></p>
             <?php if ($unassignedDisplays === []): ?>
-                <p class="muted"><?= e(__('locations.unassigned_empty')) ?></p>
+                <p class="text-body-secondary muted"><?= e(__('locations.unassigned_empty')) ?></p>
             <?php else: ?>
                 <div class="unassigned-list">
                     <?php foreach ($unassignedDisplays as $display): ?>
@@ -80,7 +82,7 @@ require __DIR__ . '/../layouts/admin_header.php';
                             </a>
                             <?php if (!empty($display['vnc_configured'])): ?>
                                 <span class="display-list-actions">
-                                    <a class="button button--normal button--small" href="<?= e(url('/admin/displays/' . $display['id'] . '/vnc')) ?>" target="_blank" rel="noopener noreferrer" aria-label="<?= e(__('display.vnc_connect_to', ['display' => $display['name']])) ?>"><?= admin_icon('open') ?><span><?= e(__('display.vnc')) ?></span></a>
+                                    <a class="btn btn-primary button button--default button--small" href="<?= e(url('/admin/displays/' . $display['id'] . '/vnc')) ?>" target="_blank" rel="noopener noreferrer" aria-label="<?= e(__('display.vnc_connect_to', ['display' => $display['name']])) ?>"><?= admin_icon('open') ?><span><?= e(__('display.vnc')) ?></span></a>
                                 </span>
                             <?php endif; ?>
                         </div>

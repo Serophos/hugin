@@ -22,9 +22,9 @@
 ?>
 <div class="plugin-settings-card">
     <h3><?= e(__('plugins.screen-meta.config.title')) ?></h3>
-    <p class="muted"><?= e(__('plugins.screen-meta.config.intro')) ?></p>
+    <p class="text-body-secondary muted"><?= e(__('plugins.screen-meta.config.intro')) ?></p>
     <label class="full-width"><?= e(__('plugins.screen-meta.config.heading')) ?>
-        <input type="text" name="plugin_settings[<?= e($plugin->getName()) ?>][heading]" value="<?= e($settings['heading']) ?>">
+        <input class="form-control" type="text" name="plugin_settings[<?= e($plugin->getName()) ?>][heading]" value="<?= e($settings['heading']) ?>">
     </label>
     <div class="checkbox-grid compact">
         <label class="checkbox-row"><input type="checkbox" name="plugin_settings[<?= e($plugin->getName()) ?>][show_browser]" value="1" <?= checked($settings['show_browser']) ?>> <?= e(__('plugins.screen-meta.config.show_browser')) ?></label>
@@ -35,6 +35,6 @@
         <label class="checkbox-row"><input type="checkbox" name="plugin_settings[<?= e($plugin->getName()) ?>][show_timezone]" value="1" <?= checked($settings['show_timezone']) ?>> <?= e(__('plugins.screen-meta.config.show_timezone')) ?></label>
     </div>
     <label class="full-width"><?= e(__('plugins.screen-meta.config.note')) ?>
-        <textarea name="plugin_settings[<?= e($plugin->getName()) ?>][note]" rows="3"><?= e($settings['note']) ?></textarea>
+        <textarea class="form-control" name="plugin_settings[<?= e($plugin->getName()) ?>][note]" rows="3"><?= e($settings['note']) ?></textarea>
     </label>
 </div>
