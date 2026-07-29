@@ -1601,6 +1601,43 @@
         });
     };
 
+    const waitForSlideImages = (slide, timeoutMs = 5000) => {
+        if (!slide) return Promise.resolve();
+
+        const images = Array.from(slide.querySelectorAll('img[data-src]'));
+        if (images.length === 0) return Promise.resolve();
+
+        ensureMediaLoaded(slide);
+        const pending = new Set(images.filter(image => !image.complete));
+        if (pending.size === 0) return Promise.resolve();
+
+        return new Promise(resolve => {
+            let settled = false;
+            const listeners = new Map();
+            const finish = () => {
+                if (settled) return;
+                settled = true;
+                window.clearTimeout(timeout);
+                listeners.forEach((listener, image) => {
+                    image.removeEventListener('load', listener);
+                    image.removeEventListener('error', listener);
+                });
+                resolve();
+            };
+            const timeout = window.setTimeout(finish, Math.max(0, timeoutMs));
+            pending.forEach(image => {
+                const complete = () => {
+                    pending.delete(image);
+                    if (pending.size === 0) finish();
+                };
+                listeners.set(image, complete);
+                image.addEventListener('load', complete, { once: true });
+                image.addEventListener('error', complete, { once: true });
+                if (image.complete) complete();
+            });
+        });
+    };
+
     const unloadHeavyMedia = slide => {
         if (!slide) return;
 
@@ -2069,6 +2106,7 @@
             })
             .then(() => {
                 setStartupStage('starting');
+                return waitForSlideImages(slides[index]);
             });
     };
 
@@ -2140,5 +2178,8 @@
     if (updateTemplateTimedElements()) {
         window.setInterval(updateTemplateTimedElements, 1000);
     }
+    // Prime the current and next slide while the startup overlay is visible.
+    // Field-selected template images are often not in the browser cache yet.
+    prepareMediaAround(index);
     prepareStartupWithDeadline().then(startSlideshow, startSlideshow);
 })();
