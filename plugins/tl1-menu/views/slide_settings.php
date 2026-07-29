@@ -55,7 +55,7 @@ $formId = 'slide';
                 <?= field_error_html($fieldPrefix . 'language', $formId) ?>
             </label>
             <label class="checkbox-row tl1menu-admin-inline-check">
-                <input type="checkbox" name="plugin_settings[<?= e($plugin->getName()) ?>][show_header]" value="1" <?= checked(!empty($settings['show_header'])) ?>>
+                <input class="form-check-input" type="checkbox" name="plugin_settings[<?= e($plugin->getName()) ?>][show_header]" value="1" <?= checked(!empty($settings['show_header'])) ?>>
                 <span><?= e(__('plugins.tl1-menu.config.show_header')) ?></span>
             </label>
         </div>
@@ -88,7 +88,7 @@ $formId = 'slide';
                 <?php $priceKey = (string)($priceGroup['key'] ?? ''); ?>
                 <?php if ($priceKey === '') continue; ?>
                 <label class="checkbox-row">
-                    <input type="checkbox" name="plugin_settings[<?= e($plugin->getName()) ?>][display_price_groups][<?= e($priceKey) ?>]" value="1" <?= checked(!empty($displayPriceGroups[$priceKey])) ?>>
+                    <input class="form-check-input" type="checkbox" name="plugin_settings[<?= e($plugin->getName()) ?>][display_price_groups][<?= e($priceKey) ?>]" value="1" <?= checked(!empty($displayPriceGroups[$priceKey])) ?>>
                     <span><?= e($menuService->getPriceGroupLabel($priceKey, $language)) ?></span>
                 </label>
             <?php endforeach; ?>
@@ -109,7 +109,7 @@ $formId = 'slide';
             <div class="tl1menu-admin-checklist full-width">
                 <?php foreach (['display_co2', 'display_water', 'display_animal_welfare', 'display_rainforest'] as $key): ?>
                     <label class="checkbox-row">
-                        <input type="checkbox" name="plugin_settings[<?= e($plugin->getName()) ?>][<?= e($key) ?>]" value="1" <?= checked(!empty($settings[$key])) ?>>
+                        <input class="form-check-input" type="checkbox" name="plugin_settings[<?= e($plugin->getName()) ?>][<?= e($key) ?>]" value="1" <?= checked(!empty($settings[$key])) ?>>
                         <span><?= e(__('plugins.tl1-menu.config.' . $key)) ?></span>
                     </label>
                 <?php endforeach; ?>
@@ -129,7 +129,7 @@ $formId = 'slide';
         <div class="tl1menu-admin-checklist">
             <?php foreach ($foodTypes as $typeId => $typeKey): ?>
                 <label class="checkbox-row">
-                    <input type="checkbox" name="plugin_settings[<?= e($plugin->getName()) ?>][exclude_types][]" value="<?= e((string)$typeId) ?>" <?= checked(in_array((int)$typeId, $excludedTypes, true)) ?>>
+                    <input class="form-check-input" type="checkbox" name="plugin_settings[<?= e($plugin->getName()) ?>][exclude_types][]" value="<?= e((string)$typeId) ?>" <?= checked(in_array((int)$typeId, $excludedTypes, true)) ?>>
                     <span><?= e($menuService->getFoodTypeLabel((int)$typeId, (string)$typeKey, $language)) ?> (<?= e((string)$typeId) ?>)</span>
                 </label>
             <?php endforeach; ?>
