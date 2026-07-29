@@ -7,6 +7,7 @@ import { promisify } from 'node:util';
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const sourceRoot = path.join(rootDir, 'node_modules', 'admin-lte');
 const tabulatorRoot = path.join(rootDir, 'node_modules', 'tabulator-tables');
+const bootstrapRoot = path.join(rootDir, 'node_modules', 'bootstrap');
 const targetRoot = path.join(rootDir, 'public', 'assets', 'vendor', 'adminlte');
 const files = [
   'dist/css/adminlte.min.css',
@@ -16,6 +17,10 @@ const files = [
 const tabulatorFiles = [
   ['dist/css/tabulator_bootstrap5.min.css', 'dist/css/tabulator_bootstrap5.min.css'],
   ['dist/js/tabulator.min.js', 'dist/js/tabulator.min.js'],
+  ['LICENSE', 'LICENSE'],
+];
+const bootstrapFiles = [
+  ['dist/js/bootstrap.bundle.min.js', 'dist/js/bootstrap.bundle.min.js'],
   ['LICENSE', 'LICENSE'],
 ];
 const checkOnly = process.argv.includes('--check');
@@ -46,11 +51,12 @@ async function listFiles(directory) {
 }
 
 async function assertDependency() {
-  if (!(await exists(sourceRoot))) {
-    throw new Error('Missing admin-lte. Run npm ci before building frontend assets.');
-  }
-  if (!(await exists(tabulatorRoot))) {
-    throw new Error('Missing tabulator-tables. Run npm ci before building frontend assets.');
+  for (const [directory, name] of [
+    [sourceRoot, 'admin-lte'],
+    [tabulatorRoot, 'tabulator-tables'],
+    [bootstrapRoot, 'bootstrap'],
+  ]) {
+    if (!(await exists(directory))) throw new Error(`Missing ${name}. Run npm ci before building frontend assets.`);
   }
 }
 
@@ -65,39 +71,37 @@ async function assertUntracked() {
   }
 }
 
+async function copyFiles(root, prefix, mappings) {
+  for (const [sourceFile, targetFile] of mappings) {
+    const target = path.join(targetRoot, prefix, targetFile);
+    await fs.mkdir(path.dirname(target), { recursive: true });
+    await fs.copyFile(path.join(root, sourceFile), target);
+  }
+}
+
 async function build() {
   await fs.rm(targetRoot, { recursive: true, force: true });
-  for (const file of files) {
-    const target = path.join(targetRoot, file);
-    await fs.mkdir(path.dirname(target), { recursive: true });
-    await fs.copyFile(path.join(sourceRoot, file), target);
-  }
-  for (const [sourceFile, targetFile] of tabulatorFiles) {
-    const target = path.join(targetRoot, 'tabulator', targetFile);
-    await fs.mkdir(path.dirname(target), { recursive: true });
-    await fs.copyFile(path.join(tabulatorRoot, sourceFile), target);
-  }
+  await copyFiles(sourceRoot, '', files.map(file => [file, file]));
+  await copyFiles(tabulatorRoot, 'tabulator', tabulatorFiles);
+  await copyFiles(bootstrapRoot, 'bootstrap', bootstrapFiles);
 }
 
 async function check() {
   await assertUntracked();
+  const expectedSources = new Map([
+    ...files.map(file => [file, path.join(sourceRoot, file)]),
+    ...tabulatorFiles.map(([source, target]) => [`tabulator/${target}`, path.join(tabulatorRoot, source)]),
+    ...bootstrapFiles.map(([source, target]) => [`bootstrap/${target}`, path.join(bootstrapRoot, source)]),
+  ]);
   const actual = await listFiles(targetRoot);
-  const expected = [...files, ...tabulatorFiles.map(([, targetFile]) => `tabulator/${targetFile}`)].sort();
   const problems = [];
-  for (const file of expected) {
-    const tabulatorPrefix = 'tabulator/';
-    const source = file.startsWith(tabulatorPrefix)
-      ? path.join(tabulatorRoot, file.slice(tabulatorPrefix.length))
-      : path.join(sourceRoot, file);
+  for (const [file, source] of expectedSources) {
     const target = path.join(targetRoot, file);
-    if (!(await exists(target))) {
-      problems.push(`missing: ${file}`);
-    } else if (!(await fs.readFile(source)).equals(await fs.readFile(target))) {
-      problems.push(`stale: ${file}`);
-    }
+    if (!(await exists(target))) problems.push(`missing: ${file}`);
+    else if (!(await fs.readFile(source)).equals(await fs.readFile(target))) problems.push(`stale: ${file}`);
   }
   for (const file of actual) {
-    if (!expected.includes(file)) problems.push(`extra: ${file}`);
+    if (!expectedSources.has(file)) problems.push(`extra: ${file}`);
   }
   if (problems.length) throw new Error(`AdminLTE assets are out of date:\n${problems.map(item => `  ${item}`).join('\n')}`);
 }

@@ -81,6 +81,10 @@ return [
         'next' => 'Weiter',
         'expand' => 'Ausklappen',
         'collapse' => 'Einklappen',
+        'theme' => 'Farbschema',
+        'theme_light' => 'Hell',
+        'theme_dark' => 'Dunkel',
+        'theme_auto' => 'System',
     ],
     'dialog' => [
         'buttons' => [

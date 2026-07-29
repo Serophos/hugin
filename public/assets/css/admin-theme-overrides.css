@@ -1,0 +1,132 @@
+/*
+ * Bootstrap/AdminLTE color-mode bridge.
+ *
+ * The legacy admin stylesheet still contains layout rules required by dynamic
+ * editors and dashboards. This file changes only theme tokens and surfaces;
+ * it must remain loaded after core and plugin admin styles.
+ */
+
+[data-bs-theme="light"] body,
+[data-bs-theme="dark"] body {
+    --bg: var(--bs-body-bg);
+    --panel: var(--bs-body-bg);
+    --panel-alt: var(--bs-tertiary-bg);
+    --panel-tint: var(--bs-secondary-bg);
+    --text: var(--bs-body-color);
+    --muted: var(--bs-secondary-color);
+    --accent: var(--bs-primary);
+    --accent-dark: var(--bs-link-hover-color);
+    --accent-soft: var(--bs-primary-bg-subtle);
+    --border: var(--bs-border-color);
+    --border-strong: var(--bs-secondary-border-subtle);
+    --success-bg: var(--bs-success-bg-subtle);
+    --success-text: var(--bs-success-text-emphasis);
+    --error-bg: var(--bs-danger-bg-subtle);
+    --error-text: var(--bs-danger-text-emphasis);
+    --warning-bg: var(--bs-warning-bg-subtle);
+    --warning-text: var(--bs-warning-text-emphasis);
+    --danger: var(--bs-danger);
+    --shadow: var(--bs-box-shadow-sm);
+    --shadow-raised: var(--bs-box-shadow-lg);
+    color: var(--bs-body-color);
+    background: var(--bs-body-bg);
+}
+
+[data-bs-theme="dark"] .app-main,
+[data-bs-theme="dark"] .app-content,
+[data-bs-theme="dark"] .card,
+[data-bs-theme="dark"] fieldset,
+[data-bs-theme="dark"] .stat,
+[data-bs-theme="dark"] .status-item,
+[data-bs-theme="dark"] .dashboard-display-row,
+[data-bs-theme="dark"] .dashboard-recent-panel,
+[data-bs-theme="dark"] .assignment-row,
+[data-bs-theme="dark"] .rule-row,
+[data-bs-theme="dark"] .plugin-settings-card,
+[data-bs-theme="dark"] .plugin-settings-section,
+[data-bs-theme="dark"] .text-slide-group,
+[data-bs-theme="dark"] .template-editor__inspector,
+[data-bs-theme="dark"] .template-editor__field-row,
+[data-bs-theme="dark"] .template-editor__layer,
+[data-bs-theme="dark"] .display-tile,
+[data-bs-theme="dark"] .display-list-item,
+[data-bs-theme="dark"] .playlist-add-item,
+[data-bs-theme="dark"] .slide-type-card,
+[data-bs-theme="dark"] .media-preview-details,
+[data-bs-theme="dark"] .admin-dialog__panel,
+[data-bs-theme="dark"] .hugin-dialog__panel,
+[data-bs-theme="dark"] .admin-color-dialog__panel {
+    background-color: var(--bs-body-bg);
+    color: var(--bs-body-color);
+    border-color: var(--bs-border-color);
+}
+
+[data-bs-theme="dark"] .panel,
+[data-bs-theme="dark"] .panel-alt,
+[data-bs-theme="dark"] th,
+[data-bs-theme="dark"] .slide-library-filter-row,
+[data-bs-theme="dark"] .media-preview-stage,
+[data-bs-theme="dark"] .template-editor__canvas-shell,
+[data-bs-theme="dark"] .template-editor__inspector-tabbar,
+[data-bs-theme="dark"] .template-editor__empty-state,
+[data-bs-theme="dark"] .field-help-popover,
+[data-bs-theme="dark"] .tl1menu-admin-advanced {
+    background-color: var(--bs-tertiary-bg);
+    color: var(--bs-body-color);
+    border-color: var(--bs-border-color);
+}
+
+[data-bs-theme="dark"] tbody tr,
+[data-bs-theme="dark"] input:not([type="color"]):not([type="range"]),
+[data-bs-theme="dark"] select,
+[data-bs-theme="dark"] textarea,
+[data-bs-theme="dark"] .form-control,
+[data-bs-theme="dark"] .form-select,
+[data-bs-theme="dark"] .input-group-text {
+    background-color: var(--bs-body-bg);
+    color: var(--bs-body-color);
+    border-color: var(--bs-border-color);
+}
+
+[data-bs-theme="dark"] tbody tr:hover,
+[data-bs-theme="dark"] .playlist-add-item:hover,
+[data-bs-theme="dark"] .weather-result-item:hover {
+    background-color: var(--bs-tertiary-bg);
+}
+
+[data-bs-theme="dark"] .muted,
+[data-bs-theme="dark"] .field-note,
+[data-bs-theme="dark"] .dashboard-display-row__cell span,
+[data-bs-theme="dark"] .dashboard-display-row__identity span,
+[data-bs-theme="dark"] .tl1menu-admin-env-preview__mode-label {
+    color: var(--bs-secondary-color);
+}
+
+[data-bs-theme="dark"] .tabulator,
+[data-bs-theme="dark"] .tabulator .tabulator-header,
+[data-bs-theme="dark"] .tabulator .tabulator-header .tabulator-col,
+[data-bs-theme="dark"] .tabulator .tabulator-row,
+[data-bs-theme="dark"] .tabulator .tabulator-row .tabulator-cell,
+[data-bs-theme="dark"] .tabulator .tabulator-footer {
+    background-color: var(--bs-body-bg);
+    color: var(--bs-body-color);
+    border-color: var(--bs-border-color);
+}
+
+[data-bs-theme="dark"] .tabulator .tabulator-row.tabulator-row-even,
+[data-bs-theme="dark"] .tabulator .tabulator-header-filter input,
+[data-bs-theme="dark"] .tabulator .tabulator-header-filter select {
+    background-color: var(--bs-tertiary-bg);
+    color: var(--bs-body-color);
+    border-color: var(--bs-border-color);
+}
+
+[data-bs-theme] .admin-user-menu:not([open]) > .dropdown-menu.show { display: block; }
+
+[data-bs-theme="dark"] .dropdown-menu {
+    --bs-dropdown-bg: var(--bs-body-bg);
+    --bs-dropdown-color: var(--bs-body-color);
+    --bs-dropdown-border-color: var(--bs-border-color);
+    --bs-dropdown-link-color: var(--bs-body-color);
+    --bs-dropdown-link-hover-bg: var(--bs-tertiary-bg);
+}

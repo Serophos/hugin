@@ -20,20 +20,4 @@
     document.addEventListener('collapsed.lte.card-widget', event => syncCardToggleLabel(event.target));
     document.addEventListener('expanded.lte.card-widget', event => syncCardToggleLabel(event.target));
 
-    const userMenu = document.querySelector('.admin-user-menu');
-    const userMenuToggle = userMenu?.querySelector(':scope > summary');
-    if (userMenu && userMenuToggle) {
-        const syncUserMenu = () => userMenuToggle.setAttribute('aria-expanded', userMenu.open ? 'true' : 'false');
-        syncUserMenu();
-        userMenu.addEventListener('toggle', syncUserMenu);
-        document.addEventListener('click', event => {
-            if (userMenu.open && !userMenu.contains(event.target)) userMenu.removeAttribute('open');
-        });
-        document.addEventListener('keydown', event => {
-            if (event.key === 'Escape' && userMenu.open) {
-                userMenu.removeAttribute('open');
-                userMenuToggle.focus();
-            }
-        });
-    }
 })();

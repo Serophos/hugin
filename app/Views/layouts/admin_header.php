@@ -4,6 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?= e($title ?? __('app.admin')) ?></title>
+    <script src="<?= e(asset_url('/assets/js/admin-theme.js')) ?>"></script>
     <link rel="icon" type="image/webp" href="<?= e(url('/assets/img/hugin-logo-mini.webp')) ?>">
     <script>
         (() => {
@@ -41,6 +42,7 @@
     <?php foreach ($pluginCssLinks as $cssHref): ?>
         <link rel="stylesheet" href="<?= e($cssHref) ?>">
     <?php endforeach; ?>
+    <link rel="stylesheet" href="<?= e(asset_url('/assets/css/admin-theme-overrides.css')) ?>">
     <script src="<?= e(asset_url('/assets/js/admin-color-picker.js')) ?>"></script>
 </head>
 <?php
@@ -134,12 +136,20 @@ $bodyClasses = trim(($adminShellActive ? 'layout-fixed sidebar-expand-lg bg-body
                     </ol>
                 </nav>
             </div>
-            <details class="nav-item dropdown admin-user-menu">
-                <summary class="nav-link user-pill" aria-label="<?= e(current_user_name()) ?>">
+            <div class="nav-item dropdown admin-theme-menu me-2">
+                <button type="button" class="nav-link dropdown-toggle d-flex align-items-center gap-2" data-bs-toggle="dropdown" aria-expanded="false" aria-label="<?= e(__('common.theme', [], 'Color theme')) ?>"><span aria-hidden="true">◐</span><span class="d-none d-sm-inline" data-admin-theme-current><?= e(__('common.theme_auto', [], 'System')) ?></span></button>
+                <div class="dropdown-menu dropdown-menu-end admin-theme-menu__menu">
+                    <button class="dropdown-item" type="button" data-admin-theme-value="light" data-bs-theme-value="light" aria-pressed="false"><?= e(__('common.theme_light', [], 'Light')) ?></button>
+                    <button class="dropdown-item" type="button" data-admin-theme-value="dark" data-bs-theme-value="dark" aria-pressed="false"><?= e(__('common.theme_dark', [], 'Dark')) ?></button>
+                    <button class="dropdown-item" type="button" data-admin-theme-value="auto" data-bs-theme-value="auto" aria-pressed="false"><?= e(__('common.theme_auto', [], 'System')) ?></button>
+                </div>
+            </div>
+            <div class="nav-item dropdown admin-user-menu">
+                <button type="button" class="nav-link dropdown-toggle d-flex align-items-center gap-2" data-bs-toggle="dropdown" aria-expanded="false" aria-label="<?= e(current_user_name()) ?>">
                     <span class="admin-user-menu__avatar" aria-hidden="true"><?= e(strtoupper(substr(current_user_name(), 0, 1))) ?></span>
                     <span><?= e(current_user_name()) ?></span>
-                </summary>
-                <div class="dropdown-menu dropdown-menu-end show admin-user-menu__menu">
+                </button>
+                <div class="dropdown-menu dropdown-menu-end admin-user-menu__menu">
                     <div class="dropdown-header">
                         <strong><?= e(current_user_name()) ?></strong>
                         <small><?= e(current_user_role_label()) ?></small>
@@ -158,10 +168,10 @@ $bodyClasses = trim(($adminShellActive ? 'layout-fixed sidebar-expand-lg bg-body
                         </button>
                     </form>
                 </div>
-            </details>
+            </div>
         </div>
     </nav>
-    <aside class="app-sidebar bg-dark shadow admin-sidebar" id="admin-sidebar" data-bs-theme="dark">
+    <aside class="app-sidebar bg-body shadow admin-sidebar" id="admin-sidebar">
         <a class="sidebar-brand admin-brand" href="<?= e(url('/admin')) ?>">
             <img class="brand-image opacity-75 shadow" src="<?= e(url('/assets/img/hugin-logo-mini.webp')) ?>" alt="">
             <strong class="brand-text fw-light"><?= e(__('app.name', [], 'Hugin')) ?></strong>

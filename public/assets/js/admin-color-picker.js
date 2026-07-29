@@ -216,8 +216,8 @@
                     <input type="text" class="admin-color-dialog__value" data-color-dialog-value readonly tabindex="-1">
                 </div>
                 <div class="form-actions admin-color-dialog__actions">
-                    <button type="button" class="button button--normal" data-color-dialog-cancel>${DIALOG_LABELS.cancel}</button>
-                    <button type="button" class="button" data-color-dialog-apply>${DIALOG_LABELS.apply}</button>
+                    <button type="button" class="btn btn-secondary" data-color-dialog-cancel>${DIALOG_LABELS.cancel}</button>
+                    <button type="button" class="btn btn-primary" data-color-dialog-apply>${DIALOG_LABELS.apply}</button>
                 </div>
             </form>`;
         document.body.appendChild(dialog);

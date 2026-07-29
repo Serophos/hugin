@@ -61,6 +61,10 @@ return [
         'next' => 'Next',
         'expand' => 'Expand',
         'collapse' => 'Collapse',
+        'theme' => 'Color theme',
+        'theme_light' => 'Light',
+        'theme_dark' => 'Dark',
+        'theme_auto' => 'System',
     ],
     'dialog' => [
         'buttons' => [

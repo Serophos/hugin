@@ -8,11 +8,21 @@ const read = file => fs.readFileSync(path.join(root, file), 'utf8');
 
 const packageJson = JSON.parse(read('package.json'));
 assert.equal(packageJson.devDependencies['admin-lte'], '4.1.0', 'AdminLTE must remain exactly pinned');
+assert.equal(packageJson.devDependencies.bootstrap, '5.3.8', 'Bootstrap must remain exactly pinned');
 assert.equal(packageJson.devDependencies['tabulator-tables'], '6.3.1', 'AdminLTE data tables must use the pinned Tabulator package');
 
 const adminHeader = read('app/Views/layouts/admin_header.php');
 assert.match(adminHeader, /assets\/vendor\/adminlte\/dist\/css\/adminlte\.min\.css/);
 assert.match(adminHeader, /assets\/vendor\/adminlte\/tabulator\/dist\/css\/tabulator_bootstrap5\.min\.css/);
+assert.match(adminHeader, /assets\/js\/admin-theme\.js/);
+assert.ok(adminHeader.indexOf('admin-theme.js') < adminHeader.indexOf('adminlte.min.css'), 'theme must be applied before CSS to prevent a color-mode flash');
+assert.match(adminHeader, /data-admin-theme-value="light"/);
+assert.match(adminHeader, /data-admin-theme-value="dark"/);
+assert.match(adminHeader, /data-admin-theme-value="auto"/);
+assert.match(adminHeader, /data-bs-theme-value="light"/);
+assert.match(adminHeader, /data-bs-theme-value="dark"/);
+assert.match(adminHeader, /data-bs-theme-value="auto"/);
+assert.doesNotMatch(adminHeader, /<aside[^>]*(?:bg-dark|data-bs-theme="dark")/, 'admin navigation must inherit the active color mode');
 assert.doesNotMatch(adminHeader, /https?:\/\/[^'"]*admin-?lte/i, 'Admin pages must use local AdminLTE assets');
 assert.match(adminHeader, /class="nav-item dropdown admin-user-menu"/);
 assert.match(adminHeader, /admin-user-menu__menu[\s\S]*?href="<\?= e\(url\('\/admin\/account\/password'\)\)/);
@@ -22,6 +32,7 @@ assert.doesNotMatch(adminHeader, /admin-nav-form|admin-sidebar-user/, 'user iden
 
 const adminFooter = read('app/Views/layouts/admin_footer.php');
 assert.match(adminFooter, /assets\/vendor\/adminlte\/dist\/js\/adminlte\.min\.js/);
+assert.match(adminFooter, /assets\/vendor\/adminlte\/bootstrap\/dist\/js\/bootstrap\.bundle\.min\.js/);
 assert.match(adminFooter, /assets\/vendor\/adminlte\/tabulator\/dist\/js\/tabulator\.min\.js/);
 
 const templateEditor = read('app/Views/admin/slide_template_form.php');
@@ -87,6 +98,9 @@ assert.match(
 );
 
 const adminCss = read('public/assets/css/admin.css');
+const themeCss = read('public/assets/css/admin-theme-overrides.css');
+assert.match(themeCss, /\[data-bs-theme="dark"\]/, 'dark mode must have a scoped compatibility layer');
+assert.match(themeCss, /--panel:\s*var\(--bs-body-bg\)/, 'legacy layout tokens must resolve through Bootstrap theme variables');
 assert.match(
   adminCss,
   /td\.actions\s*>\s*\.admin-action-group\s*\{[\s\S]*?justify-content:\s*flex-end;[\s\S]*?margin:\s*0\.15rem 0 0\.15rem auto;/,

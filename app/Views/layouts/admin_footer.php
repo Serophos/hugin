@@ -68,6 +68,7 @@ $dialogConfig = [
 <script src="<?= e(asset_url('/assets/js/display-groups.js')) ?>"></script>
 <script src="<?= e(asset_url('/assets/js/admin-dialog.js')) ?>"></script>
 <?php if (!empty($adminShellActive)): ?>
+<script src="<?= e(asset_url('/assets/vendor/adminlte/bootstrap/dist/js/bootstrap.bundle.min.js')) ?>"></script>
 <script src="<?= e(asset_url('/assets/vendor/adminlte/tabulator/dist/js/tabulator.min.js')) ?>"></script>
 <?php endif; ?>
 <script src="<?= e(asset_url('/assets/js/admin-table.js')) ?>"></script>
