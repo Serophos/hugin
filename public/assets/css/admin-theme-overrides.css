@@ -88,6 +88,29 @@
     border-color: var(--bs-border-color);
 }
 
+[data-bs-theme="dark"] .checkbox-grid .checkbox-row,
+[data-bs-theme="dark"] .form-grid label.checkbox-row,
+[data-bs-theme="dark"] .channel-assignment-option {
+    background-color: var(--bs-body-bg);
+    color: var(--bs-body-color);
+    border-color: var(--bs-border-color);
+}
+
+[data-bs-theme="dark"] .checkbox-grid .checkbox-row:hover,
+[data-bs-theme="dark"] .form-grid label.checkbox-row:hover,
+[data-bs-theme="dark"] .channel-assignment-option:hover {
+    background-color: var(--bs-tertiary-bg);
+    border-color: var(--bs-secondary-border-subtle);
+}
+
+[data-bs-theme="dark"] .checkbox-grid .checkbox-row:has(input:checked),
+[data-bs-theme="dark"] .form-grid label.checkbox-row:has(input:checked),
+[data-bs-theme="dark"] .channel-assignment-option:has(input:checked) {
+    background-color: var(--bs-primary-bg-subtle);
+    color: var(--bs-primary-text-emphasis);
+    border-color: var(--bs-primary-border-subtle);
+}
+
 [data-bs-theme="dark"] tbody tr:hover,
 [data-bs-theme="dark"] .playlist-add-item:hover,
 [data-bs-theme="dark"] .weather-result-item:hover {

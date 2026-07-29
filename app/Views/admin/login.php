@@ -10,7 +10,7 @@ require __DIR__ . '/../layouts/admin_header.php';
     <div class="card-body login-card-body">
         <p class="login-box-msg"><?= e(__('auth.login_prompt', [], 'Log in to Hugin to manage your displays.')) ?></p>
         <?php if ($error): ?><div class="alert alert-danger error" role="alert"><?= e($error) ?></div><?php endif; ?>
-        <form method="post" action="<?= e(url('/admin/login')) ?>">
+        <form method="post" action="<?= e(url('/admin/login/local')) ?>">
             <?= csrf_field() ?>
             <label class="visually-hidden" for="login-username"><?= e(__('auth.username')) ?></label>
             <div class="input-group mb-3">
@@ -31,6 +31,7 @@ require __DIR__ . '/../layouts/admin_header.php';
             <div class="d-grid">
                 <button type="submit" class="btn btn-primary"><?= e(__('common.login')) ?></button>
             </div>
+            <?php if (!empty($openidAvailable)): ?><a class="btn btn-outline-secondary mt-3" href="<?= e(url('/admin/oidc/start')) ?>"><?= e(__('openid.sign_in')) ?></a><?php endif; ?>
         </form>
     </div>
 </div>

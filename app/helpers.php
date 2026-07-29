@@ -386,7 +386,6 @@ function field_error_html(string $key, string $form = 'default'): string
 
     return '<small id="' . e(field_error_id($key, $form)) . '" class="field-error" role="alert">' . e($message) . '</small>';
 }
-
 function app_core_settings_defaults(string $namespace): array
 {
     $defaults = [
@@ -409,6 +408,23 @@ function app_core_settings_defaults(string $namespace): array
         ],
         'system' => [
             'locale' => (string)app_config('app.locale', 'en'),
+        ],
+        'openid' => [
+            'enabled' => false,
+            'issuer_url' => '',
+            'client_id' => '',
+            'client_secret' => '',
+            'scopes' => 'openid profile',
+            'username_claim' => 'preferred_username',
+            'name_claim' => 'name',
+            'first_name_claim' => 'given_name',
+            'last_name_claim' => 'family_name',
+            'department_claim' => 'department',
+            'title_claim' => 'title',
+            'picture_claim' => 'picture',
+            'groups_claim' => 'groups',
+            'admin_group' => '',
+            'editor_group' => '',
         ],
     ];
 
@@ -461,6 +477,15 @@ function app_normalize_core_settings(string $namespace, array $settings): array
         $settings['visual_mode'] = in_array($settings['visual_mode'] ?? '', ['default', 'high_contrast', 'system'], true) ? $settings['visual_mode'] : 'default';
         $settings['focus_style'] = in_array($settings['focus_style'] ?? '', ['standard', 'strong'], true) ? $settings['focus_style'] : 'standard';
         $settings['motion'] = in_array($settings['motion'] ?? '', ['system', 'reduced'], true) ? $settings['motion'] : 'system';
+    }
+
+    if ($namespace === 'openid') {
+        $settings['enabled'] = filter_var($settings['enabled'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        foreach (array_keys(app_core_settings_defaults('openid')) as $key) {
+            if ($key !== 'enabled') {
+                $settings[$key] = trim((string)($settings[$key] ?? ''));
+            }
+        }
     }
 
     if ($namespace === 'system') {
@@ -548,6 +573,40 @@ function app_system_settings(): array
 {
     return app_core_settings('system');
 }
+
+function app_openid_claim_path_is_valid(string $path): bool
+{
+    return $path !== '' && preg_match('/^[A-Za-z0-9_.:-]+$/D', $path) === 1;
+}
+
+function app_secret_encryption_configured(): bool
+{
+    return strlen((string)app_config('app.encryption_key', '')) >= 32 && extension_loaded('openssl');
+}
+
+
+function app_secret_cipher(): App\Core\SecretCipher
+{
+    return new App\Core\SecretCipher((string)app_config('app.encryption_key', ''));
+}
+
+function app_openid_settings(): array
+{
+    $settings = app_core_settings('openid');
+    $storedSecret = (string)($settings['client_secret'] ?? '');
+    $settings['client_secret'] = '';
+    if ($storedSecret === '') {
+        return $settings;
+    }
+    try {
+        $settings['client_secret'] = app_secret_cipher()->decrypt($storedSecret);
+    } catch (Throwable $e) {
+        error_log('Hugin could not decrypt the OpenID Connect client secret: ' . $e->getMessage());
+        $settings['enabled'] = false;
+    }
+    return $settings;
+}
+
 
 function app_core_setting(string $key, mixed $default = null): mixed
 {
@@ -658,6 +717,13 @@ function current_user_name(): string
     return (string)($user['display_name'] ?: $user['username']);
 }
 
+function current_user_picture_url(): string
+{
+    $url = trim((string)(current_user()['picture_url'] ?? ''));
+    $scheme = strtolower((string)parse_url($url, PHP_URL_SCHEME));
+    return filter_var($url, FILTER_VALIDATE_URL) && in_array($scheme, ['http', 'https'], true) ? $url : '';
+}
+
 function current_user_role(): string
 {
     return (string)(current_user()['role'] ?? '');
@@ -676,6 +742,9 @@ function is_admin(): bool
 
 function current_user_needs_password_change(): bool
 {
+    if ((current_user()['auth_provider'] ?? 'local') !== 'local') {
+        return false;
+    }
     $userId = (int)(current_user()['id'] ?? 0);
     if ($userId <= 0) {
         return false;

@@ -332,6 +332,13 @@ body.a11y-motion-reduced *::after {
     font-weight: 700;
 }
 
+.admin-user-menu__avatar img {
+    width: 100%;
+    height: 100%;
+    border-radius: inherit;
+    object-fit: cover;
+}
+
 .admin-user-menu .dropdown-header strong,
 .admin-user-menu .dropdown-header small {
     display: block;

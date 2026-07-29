@@ -12,22 +12,24 @@ assert.equal(packageJson.devDependencies.bootstrap, '5.3.8', 'Bootstrap must rem
 assert.equal(packageJson.devDependencies['tabulator-tables'], '6.3.1', 'AdminLTE data tables must use the pinned Tabulator package');
 
 const adminHeader = read('app/Views/layouts/admin_header.php');
+const adminUserMenu = read('app/Views/admin/partials/user_menu.php');
 assert.match(adminHeader, /assets\/vendor\/adminlte\/dist\/css\/adminlte\.min\.css/);
 assert.match(adminHeader, /assets\/vendor\/adminlte\/tabulator\/dist\/css\/tabulator_bootstrap5\.min\.css/);
 assert.match(adminHeader, /assets\/js\/admin-theme\.js/);
 assert.ok(adminHeader.indexOf('admin-theme.js') < adminHeader.indexOf('adminlte.min.css'), 'theme must be applied before CSS to prevent a color-mode flash');
-assert.match(adminHeader, /data-admin-theme-value="light"/);
-assert.match(adminHeader, /data-admin-theme-value="dark"/);
-assert.match(adminHeader, /data-admin-theme-value="auto"/);
-assert.match(adminHeader, /data-bs-theme-value="light"/);
-assert.match(adminHeader, /data-bs-theme-value="dark"/);
-assert.match(adminHeader, /data-bs-theme-value="auto"/);
+assert.match(adminUserMenu, /data-admin-theme-value="light"/);
+assert.match(adminUserMenu, /data-admin-theme-value="dark"/);
+assert.match(adminUserMenu, /data-admin-theme-value="auto"/);
+assert.match(adminUserMenu, /data-bs-theme-value="light"/);
+assert.match(adminUserMenu, /data-bs-theme-value="dark"/);
+assert.match(adminUserMenu, /data-bs-theme-value="auto"/);
 assert.doesNotMatch(adminHeader, /<aside[^>]*(?:bg-dark|data-bs-theme="dark")/, 'admin navigation must inherit the active color mode');
 assert.doesNotMatch(adminHeader, /https?:\/\/[^'"]*admin-?lte/i, 'Admin pages must use local AdminLTE assets');
-assert.match(adminHeader, /class="nav-item dropdown admin-user-menu"/);
-assert.match(adminHeader, /admin-user-menu__menu[\s\S]*?href="<\?= e\(url\('\/admin\/account\/password'\)\)/);
-assert.match(adminHeader, /admin-user-menu__menu[\s\S]*?auth\.change_password_title/);
-assert.match(adminHeader, /admin-user-menu__menu[\s\S]*?action="<\?= e\(url\('\/admin\/logout'\)\)/);
+assert.match(adminUserMenu, /class="nav-item dropdown admin-user-menu"/);
+assert.ok(adminUserMenu.includes("url('/admin/account')"));
+assert.ok(adminUserMenu.indexOf('admin-user-menu__profile') < adminUserMenu.indexOf('admin-user-menu__preferences') && adminUserMenu.indexOf('admin-user-menu__preferences') < adminUserMenu.indexOf('admin-user-menu__actions'));
+assert.ok(adminUserMenu.includes("url('/admin/account/locale')"));
+assert.match(adminUserMenu, /admin-user-menu__menu[\s\S]*?action="<\?= e\(url\('\/admin\/logout'\)\)/);
 assert.doesNotMatch(adminHeader, /admin-nav-form|admin-sidebar-user/, 'user identity and logout must not remain in the sidebar');
 
 const adminFooter = read('app/Views/layouts/admin_footer.php');

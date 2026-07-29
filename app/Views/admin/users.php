@@ -14,6 +14,7 @@ require __DIR__ . '/../layouts/admin_header.php';
         <tr>
             <th aria-sort="none"><button type="button" class="slide-library-sort" data-admin-sort="username" data-sort-type="text" aria-label="<?= e(__('slide.sort_by_column', ['column' => __('auth.username')])) ?>"><?= e(__('auth.username')) ?></button></th>
             <th aria-sort="none"><button type="button" class="slide-library-sort" data-admin-sort="display_name" data-sort-type="text" aria-label="<?= e(__('slide.sort_by_column', ['column' => __('users.display_name')])) ?>"><?= e(__('users.display_name')) ?></button></th>
+            <th><?= e(__('openid.provider')) ?></th>
             <th aria-sort="none"><button type="button" class="slide-library-sort" data-admin-sort="role" data-sort-type="text" aria-label="<?= e(__('slide.sort_by_column', ['column' => __('users.role')])) ?>"><?= e(__('users.role')) ?></button></th>
             <th aria-sort="none"><button type="button" class="slide-library-sort" data-admin-sort="status" data-sort-type="text" aria-label="<?= e(__('slide.sort_by_column', ['column' => __('common.status')])) ?>"><?= e(__('common.status')) ?></button></th>
             <th aria-sort="none"><button type="button" class="slide-library-sort" data-admin-sort="created_at" data-sort-type="text" aria-label="<?= e(__('slide.sort_by_column', ['column' => __('users.created_at')])) ?>"><?= e(__('users.created_at')) ?></button></th>
@@ -22,6 +23,7 @@ require __DIR__ . '/../layouts/admin_header.php';
         <tr class="slide-library-filter-row">
             <th><input class="form-control" type="search" data-admin-filter="username" aria-label="<?= e(__('slide.filter_column', ['column' => __('auth.username')])) ?>" placeholder="<?= e(__('auth.username')) ?>"></th>
             <th><input class="form-control" type="search" data-admin-filter="display_name" aria-label="<?= e(__('slide.filter_column', ['column' => __('users.display_name')])) ?>" placeholder="<?= e(__('users.display_name')) ?>"></th>
+            <th></th>
             <th><input class="form-control" type="search" data-admin-filter="role" aria-label="<?= e(__('slide.filter_column', ['column' => __('users.role')])) ?>" placeholder="<?= e(__('users.role')) ?>"></th>
             <th>
                 <select class="form-select" data-admin-filter="status" aria-label="<?= e(__('slide.filter_column', ['column' => __('common.status')])) ?>">
@@ -44,6 +46,7 @@ require __DIR__ . '/../layouts/admin_header.php';
             <tr data-admin-row>
                 <td data-admin-cell="username" data-sort-value="<?= e((string)$user['username']) ?>" data-filter-value="<?= e((string)$user['username']) ?>"><?= e($user['username']) ?></td>
                 <td data-admin-cell="display_name" data-sort-value="<?= e((string)$user['display_name']) ?>" data-filter-value="<?= e((string)$user['display_name']) ?>"><?= e($user['display_name']) ?></td>
+                <td><?= e(($user['auth_provider'] ?? 'local') === 'openid' ? 'OpenID Connect' : __('openid.local')) ?></td>
                 <td data-admin-cell="role" data-sort-value="<?= e($roleLabel) ?>" data-filter-value="<?= e($roleLabel) ?>"><?= e($roleLabel) ?></td>
                 <td data-admin-cell="status" data-sort-value="<?= e($statusLabel) ?>" data-filter-value="<?= e($statusValue) ?>"><?= e($statusLabel) ?></td>
                 <td data-admin-cell="created_at" data-sort-value="<?= e((string)$user['created_at']) ?>" data-filter-value="<?= e((string)$user['created_at']) ?>"><?= e((string)$user['created_at']) ?></td>

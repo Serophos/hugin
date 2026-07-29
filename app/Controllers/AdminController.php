@@ -20,6 +20,7 @@ class AdminController
     private const MONITORING_SETTINGS_NAMESPACE = 'monitoring';
     private const ACCESSIBILITY_SETTINGS_NAMESPACE = 'accessibility';
     private const SYSTEM_SETTINGS_NAMESPACE = 'system';
+    private const OPENID_SETTINGS_NAMESPACE = 'openid';
     private const DEFAULT_DISPLAY_ICON = 'display_16_9.png';
     private const DISPLAY_LANGUAGE_OPTIONS = ['system', 'en', 'de'];
     private const DISPLAY_LAYOUT_CANVAS_WIDTH = 780;
@@ -62,7 +63,7 @@ class AdminController
             redirect('/admin');
         }
 
-        $this->redirectWithForm('/admin/login', __('errors.invalid_username_password'), [
+        $this->redirectWithForm('/admin/login/local', __('errors.invalid_username_password'), [
             'username' => $username,
         ], [
             'username' => __('errors.invalid_username_password'),
@@ -118,6 +119,7 @@ class AdminController
     public function passwordForm(): void
     {
         $this->auth->requireLogin();
+        if (($this->auth->user()['auth_provider'] ?? 'local') !== 'local') { flash('error', __('openid.password_unavailable')); redirect('/admin'); }
 
         $this->view->render('admin/password_form', [
             'error' => flash('error'),
@@ -128,6 +130,7 @@ class AdminController
     public function savePassword(): void
     {
         $this->auth->requireLogin();
+        if (($this->auth->user()['auth_provider'] ?? 'local') !== 'local') { flash('error', __('openid.password_unavailable')); redirect('/admin'); }
 
         $currentPassword = (string)$this->request->input('current_password');
         $password = (string)$this->request->input('password');
@@ -150,7 +153,6 @@ class AdminController
         if (!$user || ($currentPassword !== '' && !password_verify($currentPassword, (string)$user['password_hash']))) {
             $errors['current_password'] = __('auth.current_password_invalid');
         }
-
         if ($errors !== []) {
             $this->redirectWithForm(
                 '/admin/account/password',
@@ -342,6 +344,11 @@ class AdminController
         foreach ($accessibilitySettings as $key => $value) {
             $settings['accessibility_' . $key] = $value;
         }
+        $openidSettings = app_openid_settings();
+        foreach ($openidSettings as $key => $value) {
+            $settings['openid_' . $key] = $key === 'client_secret' ? '' : $value;
+        }
+        $settings['openid_has_client_secret'] = $openidSettings['client_secret'] !== '' ? '1' : '0';
         if (form_has_old('settings')) {
             $settings = array_replace($settings, old_input('settings'));
         }
@@ -351,6 +358,7 @@ class AdminController
             'availableLocales' => app_available_locales(),
             'fonts' => list_uploaded_fonts(),
             'error' => flash('error'),
+            'flash' => flash('success'),
         ]);
     }
 
@@ -379,6 +387,24 @@ class AdminController
         $visualMode = (string)($input['accessibility_visual_mode'] ?? 'default');
         $focusStyle = (string)($input['accessibility_focus_style'] ?? 'standard');
         $motion = (string)($input['accessibility_motion'] ?? 'system');
+        $existingOpenid = app_openid_settings();
+        $openidEnabled = !empty($input['openid_enabled']);
+        $openidIssuerUrl = rtrim(trim((string)($input['openid_issuer_url'] ?? '')), '/');
+        $openidClientId = trim((string)($input['openid_client_id'] ?? ''));
+        $openidClientSecretInput = trim((string)($input['openid_client_secret'] ?? ''));
+        $openidClientSecret = !empty($input['openid_clear_client_secret']) ? '' : ($openidClientSecretInput !== '' ? $openidClientSecretInput : (string)$existingOpenid['client_secret']);
+        $openidScopes = trim((string)($input['openid_scopes'] ?? 'openid profile'));
+        $openidUsernameClaim = trim((string)($input['openid_username_claim'] ?? 'preferred_username'));
+        $openidNameClaim = trim((string)($input['openid_name_claim'] ?? 'name'));
+        $openidFirstNameClaim = trim((string)($input['openid_first_name_claim'] ?? 'given_name'));
+        $openidLastNameClaim = trim((string)($input['openid_last_name_claim'] ?? 'family_name'));
+        $openidDepartmentClaim = trim((string)($input['openid_department_claim'] ?? 'department'));
+        $openidTitleClaim = trim((string)($input['openid_title_claim'] ?? 'title'));
+        $openidPictureClaim = trim((string)($input['openid_picture_claim'] ?? 'picture'));
+        $openidGroupsClaim = trim((string)($input['openid_groups_claim'] ?? 'groups'));
+        $openidAdminGroup = trim((string)($input['openid_admin_group'] ?? ''));
+        $openidEditorGroup = trim((string)($input['openid_editor_group'] ?? ''));
+        $input['openid_enabled'] = $openidEnabled ? '1' : '0';
 
         $input['monitoring_enabled'] = $monitoringEnabled ? '1' : '0';
 
@@ -419,6 +445,20 @@ class AdminController
             $errors['accessibility_motion'] = __('settings.invalid_accessibility_option', [], 'Please choose a supported accessibility option.');
         }
 
+        if ($openidIssuerUrl !== '' && (!filter_var($openidIssuerUrl, FILTER_VALIDATE_URL) || strtolower((string)parse_url($openidIssuerUrl, PHP_URL_SCHEME)) !== 'https')) {
+            $errors['openid_issuer_url'] = __('openid.invalid_issuer');
+        }
+        if ($openidEnabled && ($openidIssuerUrl === '' || $openidClientId === '' || $openidClientSecret === '' || $openidAdminGroup === '' || $openidEditorGroup === '')) {
+            $errors['openid_enabled'] = __('openid.incomplete');
+        }
+        foreach (['openid_username_claim' => $openidUsernameClaim, 'openid_name_claim' => $openidNameClaim, 'openid_first_name_claim' => $openidFirstNameClaim, 'openid_last_name_claim' => $openidLastNameClaim, 'openid_department_claim' => $openidDepartmentClaim, 'openid_title_claim' => $openidTitleClaim, 'openid_picture_claim' => $openidPictureClaim, 'openid_groups_claim' => $openidGroupsClaim] as $key => $value) {
+            if (!app_openid_claim_path_is_valid($value)) {
+                $errors[$key] = __('openid.invalid_claim');
+            }
+        }
+        if ($openidClientSecret !== '' && !app_secret_encryption_configured()) {
+            $errors['openid_client_secret'] = __('openid.encryption_key_missing');
+        }
         if ($errors !== []) {
             $this->redirectWithForm(
                 '/admin/settings',
@@ -455,6 +495,11 @@ class AdminController
                 'visual_mode' => $visualMode,
                 'focus_style' => $focusStyle,
                 'motion' => $motion,
+            ],
+            self::OPENID_SETTINGS_NAMESPACE => [
+                'enabled' => $openidEnabled ? '1' : '0', 'issuer_url' => $openidIssuerUrl, 'client_id' => $openidClientId, 'client_secret' => $openidClientSecret === '' ? '' : app_secret_cipher()->encrypt($openidClientSecret),
+                'scopes' => $openidScopes, 'username_claim' => $openidUsernameClaim, 'name_claim' => $openidNameClaim, 'first_name_claim' => $openidFirstNameClaim,
+                'last_name_claim' => $openidLastNameClaim, 'department_claim' => $openidDepartmentClaim, 'title_claim' => $openidTitleClaim, 'picture_claim' => $openidPictureClaim, 'groups_claim' => $openidGroupsClaim, 'admin_group' => $openidAdminGroup, 'editor_group' => $openidEditorGroup,
             ],
         ]);
         $this->requestReloadForDisplays($this->allDisplayIds());
@@ -1855,7 +1900,6 @@ class AdminController
             $landscapeJson = $landscapeRaw;
             $portraitJson = trim($portraitRaw) !== '' ? $portraitRaw : null;
         }
-
         if ($errors !== []) {
             $this->redirectWithForm(
                 ($id ? '/admin/slide-templates/' . $id . '/edit' : '/admin/slide-templates/create') . '?orientation=' . rawurlencode($editorOrientation) . '&inspector_tab=' . rawurlencode($editorInspectorTab),
@@ -2668,14 +2712,14 @@ class AdminController
     public function users(): void
     {
         $this->auth->requireRole('admin');
-        $users = $this->db->all('SELECT id, username, display_name, role, is_active, created_at FROM users ORDER BY username ASC');
+        $users = $this->db->all('SELECT id, username, display_name, first_name, last_name, department, title, picture_url, role, auth_provider, is_active, created_at FROM users ORDER BY username ASC');
         $this->view->render('admin/users', ['users' => $users, 'flash' => flash('success')]);
     }
 
     public function userForm(?int $id = null): void
     {
         $this->auth->requireRole('admin');
-        $user = $id ? $this->db->one('SELECT id, username, display_name, role, is_active FROM users WHERE id = ?', [$id]) : null;
+        $user = $id ? $this->db->one('SELECT id, username, display_name, first_name, last_name, department, title, picture_url, role, auth_provider, oidc_issuer, oidc_subject, is_active FROM users WHERE id = ?', [$id]) : null;
         if ($id && !$user) {
             flash('error', __('users.not_found'));
             redirect('/admin/users');
@@ -2690,6 +2734,14 @@ class AdminController
         if ($id && !$this->db->one('SELECT id FROM users WHERE id = ?', [$id])) {
             flash('error', __('users.not_found'));
             redirect('/admin/users');
+        }
+        if ($id) {
+            $managedUser = $this->db->one('SELECT auth_provider FROM users WHERE id = ?', [$id]);
+            if (($managedUser['auth_provider'] ?? 'local') === 'openid') {
+                $this->db->execute('UPDATE users SET is_active = ? WHERE id = ?', [$this->request->input('is_active') ? 1 : 0, $id]);
+                flash('success', __('users.updated'));
+                redirect('/admin/users');
+            }
         }
 
         $usernameRaw = (string)$this->request->input('username');

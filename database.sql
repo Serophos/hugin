@@ -28,12 +28,21 @@ CREATE TABLE users (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     username VARCHAR(100) NOT NULL UNIQUE,
     display_name VARCHAR(150) NULL,
+    first_name VARCHAR(150) NULL,
+    last_name VARCHAR(150) NULL,
+    department VARCHAR(150) NULL,
+    title VARCHAR(150) NULL,
+    picture_url VARCHAR(2048) NULL,
     role ENUM('admin', 'editor') NOT NULL DEFAULT 'editor',
-    password_hash VARCHAR(255) NOT NULL,
+    password_hash VARCHAR(255) NULL,
     password_changed_at TIMESTAMP NULL DEFAULT NULL,
+    auth_provider ENUM('local', 'openid') NOT NULL DEFAULT 'local',
+    oidc_issuer VARCHAR(255) NULL,
+    oidc_subject VARCHAR(255) NULL,
     is_active TINYINT(1) NOT NULL DEFAULT 1,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uniq_users_oidc_identity (oidc_issuer, oidc_subject)
 );
 
 CREATE TABLE displays (

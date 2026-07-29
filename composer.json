@@ -5,7 +5,9 @@
     "require": {
         "php": ">=8.1",
         "erusev/parsedown": "^1.8",
-        "dompdf/php-font-lib": "^1.0"
+        "dompdf/php-font-lib": "^1.0",
+        "league/oauth2-client": "^2.9",
+        "firebase/php-jwt": "^7.1"
     },
     "autoload": {
         "psr-4": {
@@ -18,6 +20,7 @@
         }
     },
     "scripts": {
-        "test:playback": "php tests/playlist_selection_test.php"
+        "test:playback": "php tests/playlist_selection_test.php",
+        "test:openid": "php tests/secret_cipher_test.php && php tests/openid_settings_validation_test.php && php tests/openid_connect_test.php && php tests/openid_claim_validation_test.php"
     }
 }

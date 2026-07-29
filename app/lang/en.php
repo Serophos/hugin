@@ -65,6 +65,8 @@ return [
         'theme_light' => 'Light',
         'theme_dark' => 'Dark',
         'theme_auto' => 'System',
+        'appearance' => 'Appearance',
+        'my_account' => 'My account',
     ],
     'dialog' => [
         'buttons' => [
@@ -1130,5 +1132,15 @@ return [
         'unsupported_file_type' => 'Unsupported file type. Allowed: JPG, PNG, GIF, WEBP, MP4, WEBM, OGG.',
         'upload_directory_create_failed' => 'Upload directory could not be created.',
         'uploaded_file_save_failed' => 'Uploaded file could not be saved.',
+    ],
+    'openid' => [
+        'heading' => 'OpenID Connect', 'intro' => 'Configure automatic Keycloak sign-in and group-based access.',
+        'enabled' => 'Enable automatic OpenID Connect sign-in', 'issuer_url' => 'Issuer URL', 'client_id' => 'Client ID', 'client_secret' => 'Client secret',
+        'secret_saved' => 'A secret is saved; leave blank to keep it', 'clear_secret' => 'Clear saved client secret', 'secret_warning' => 'The client secret is encrypted in the Hugin database with the deployment key from config.php. Keep that key secure and backed up separately.',
+        'callback_url' => 'Callback URL', 'scopes' => 'Scopes', 'username_claim' => 'Username claim', 'name_claim' => 'Full-name claim', 'first_name_claim' => 'First-name claim', 'last_name_claim' => 'Last-name claim', 'department_claim' => 'Department claim', 'title_claim' => 'Title claim', 'picture_claim' => 'Picture URL claim', 'groups_claim' => 'Groups claim',
+        'admin_group' => 'Administrator group name', 'editor_group' => 'Editor group name', 'group_help' => 'Group paths are matched case-sensitively by their final segment.', 'test' => 'Test discovery',
+        'test_success' => 'OpenID Connect discovery succeeded for :issuer.', 'test_failed' => 'OpenID Connect discovery failed. Check the server log for details.', 'not_configured' => 'OpenID Connect is not completely configured.', 'login_failed' => 'OpenID Connect login failed or access was denied. You may use a local account below.', 'sign_in' => 'Sign in with OpenID Connect',
+        'encryption_key_missing' => 'Configure app.encryption_key in config.php with at least 32 characters before saving a client secret.', 'invalid_issuer' => 'Enter a valid HTTPS issuer URL.', 'incomplete' => 'Issuer, client credentials, and both access groups are required when OpenID Connect is enabled.', 'invalid_claim' => 'Enter a valid claim path.',
+        'synced_user_notice' => 'Profile and role values are synchronized from OpenID Connect at login.', 'provider' => 'Authentication provider', 'local' => 'Local database', 'first_name' => 'First name', 'last_name' => 'Last name', 'department' => 'Department', 'job_title' => 'Title', 'picture' => 'Picture URL', 'subject' => 'Subject', 'password_unavailable' => 'Password management is unavailable for OpenID Connect accounts.',
     ],
 ];

@@ -85,6 +85,8 @@ return [
         'theme_light' => 'Hell',
         'theme_dark' => 'Dunkel',
         'theme_auto' => 'System',
+        'appearance' => 'Darstellung',
+        'my_account' => 'Mein Konto',
     ],
     'dialog' => [
         'buttons' => [
@@ -1134,5 +1136,15 @@ return [
         'unsupported_file_type' => 'Nicht unterstützter Dateityp. Erlaubt sind: JPG, PNG, GIF, WEBP, MP4, WEBM, OGG.',
         'upload_directory_create_failed' => 'Das Upload-Verzeichnis konnte nicht erstellt werden.',
         'uploaded_file_save_failed' => 'Die hochgeladene Datei konnte nicht gespeichert werden.',
+    ],
+    'openid' => [
+        'heading' => 'OpenID Connect', 'intro' => 'Automatische Keycloak-Anmeldung und gruppenbasierten Zugriff konfigurieren.',
+        'enabled' => 'Automatische OpenID-Connect-Anmeldung aktivieren', 'issuer_url' => 'Issuer-URL', 'client_id' => 'Client-ID', 'client_secret' => 'Client-Secret',
+        'secret_saved' => 'Ein Secret ist gespeichert; leer lassen, um es beizubehalten', 'clear_secret' => 'Gespeichertes Client-Secret löschen', 'secret_warning' => 'Das Client-Secret wird in der Hugin-Datenbank mit dem Deployment-Schlüssel aus config.php verschlüsselt. Den Schlüssel sicher und getrennt sichern.',
+        'callback_url' => 'Callback-URL', 'scopes' => 'Scopes', 'username_claim' => 'Benutzername-Claim', 'name_claim' => 'Vollständiger-Name-Claim', 'first_name_claim' => 'Vorname-Claim', 'last_name_claim' => 'Nachname-Claim', 'department_claim' => 'Abteilungs-Claim', 'title_claim' => 'Titel-Claim', 'picture_claim' => 'Bild-URL-Claim', 'groups_claim' => 'Gruppen-Claim',
+        'admin_group' => 'Administrator-Gruppenname', 'editor_group' => 'Redakteur-Gruppenname', 'group_help' => 'Gruppenpfade werden anhand ihres letzten Segments mit Beachtung der Groß-/Kleinschreibung verglichen.', 'test' => 'Discovery testen',
+        'test_success' => 'OpenID-Connect-Discovery für :issuer war erfolgreich.', 'test_failed' => 'OpenID-Connect-Discovery ist fehlgeschlagen. Details stehen im Serverprotokoll.', 'not_configured' => 'OpenID Connect ist nicht vollständig konfiguriert.', 'login_failed' => 'OpenID-Connect-Anmeldung fehlgeschlagen oder Zugriff verweigert. Unten kann ein lokales Konto verwendet werden.', 'sign_in' => 'Mit OpenID Connect anmelden',
+        'encryption_key_missing' => 'Vor dem Speichern eines Client-Secrets app.encryption_key in config.php mit mindestens 32 Zeichen konfigurieren.', 'invalid_issuer' => 'Eine gültige HTTPS-Issuer-URL eingeben.', 'incomplete' => 'Issuer, Client-Zugangsdaten und beide Zugriffsgruppen sind bei aktiviertem OpenID Connect erforderlich.', 'invalid_claim' => 'Einen gültigen Claim-Pfad eingeben.',
+        'synced_user_notice' => 'Profil und Rolle werden bei der Anmeldung aus OpenID Connect synchronisiert.', 'provider' => 'Authentifizierungsanbieter', 'local' => 'Lokale Datenbank', 'first_name' => 'Vorname', 'last_name' => 'Nachname', 'department' => 'Abteilung', 'job_title' => 'Titel', 'picture' => 'Bild-URL', 'subject' => 'Subject', 'password_unavailable' => 'Passwortverwaltung ist für OpenID-Connect-Konten nicht verfügbar.',
     ],
 ];

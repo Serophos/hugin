@@ -4,6 +4,7 @@ $breadcrumbs = [['label' => $title]];
 require __DIR__ . '/../layouts/admin_header.php';
 ?>
 <?php if ($error): ?><div class="alert alert-danger error"><?= e($error) ?></div><?php endif; ?>
+<?php if ($flash): ?><div class="alert alert-success success" role="status"><?= e($flash) ?></div><?php endif; ?>
 <form method="post" action="<?= e(url('/admin/settings')) ?>" class="form-grid settings-form">
     <?= csrf_field() ?>
     <fieldset class="card settings-card">
@@ -135,6 +136,7 @@ require __DIR__ . '/../layouts/admin_header.php';
             </label>
         </div>
     </fieldset>
+    <?php require __DIR__ . '/partials/openid_settings.php'; ?>
     <div class="form-actions">
         <button type="submit" class="btn btn-primary button button--default"><?= admin_icon('save') ?><span><?= e(__('common.save')) ?></span></button>
         <a class="btn btn-secondary button button--normal" href="<?= e(url('/admin')) ?>"><?= admin_icon('cancel') ?><span><?= e(__('common.cancel')) ?></span></a>

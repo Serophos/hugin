@@ -4,6 +4,7 @@ return [
         'name' => 'Hugin | Open Source Digital Signage',
         'base_url' => '', // Example: http://localhost/hugin/public
         'session_name' => 'hugin_session',
+        'encryption_key' => '', // Required for encrypted database secrets; use a unique random value of at least 32 characters.
         'debug' => false,
         'locale' => 'en',
         'fallback_locale' => 'en',

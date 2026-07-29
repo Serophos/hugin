@@ -38,6 +38,7 @@ require_once __DIR__ . '/Core/Database.php';
 require_once __DIR__ . '/Core/View.php';
 require_once __DIR__ . '/Core/Request.php';
 require_once __DIR__ . '/Core/Auth.php';
+require_once __DIR__ . '/Core/SecretCipher.php';
 require_once __DIR__ . '/Core/FontMetadataExtractor.php';
 require_once __DIR__ . '/Core/UploadManager.php';
 require_once __DIR__ . '/Core/SlidePluginInterface.php';
@@ -46,15 +47,21 @@ require_once __DIR__ . '/Core/GlobalSettingsApi.php';
 require_once __DIR__ . '/Core/PluginApi.php';
 require_once __DIR__ . '/Core/PluginManager.php';
 require_once __DIR__ . '/Services/DisplayStatusService.php';
+require_once __DIR__ . '/Services/OpenIdConnectService.php';
 require_once __DIR__ . '/Controllers/AdminController.php';
 require_once __DIR__ . '/Controllers/FrontendController.php';
 require_once __DIR__ . '/Controllers/MonitoringController.php';
+require_once __DIR__ . '/Controllers/OpenIdConnectController.php';
+require_once __DIR__ . '/Controllers/AccountController.php';
 
 $db = new App\Core\Database($config['db']);
 $GLOBALS['app_db'] = $db;
 app_import_legacy_config_settings($config);
 
 $locale = (string)app_core_setting('system.locale', $config['app']['locale'] ?? 'en');
+if (isset($_SESSION['_locale']) && array_key_exists((string)$_SESSION['_locale'], app_available_locales())) {
+    $locale = (string)$_SESSION['_locale'];
+}
 $fallbackLocale = (string)($config['app']['fallback_locale'] ?? $locale);
 $i18n = app_build_i18n($locale, $fallbackLocale);
 

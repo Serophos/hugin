@@ -27,6 +27,7 @@
     <link rel="stylesheet" href="<?= e(asset_url('/assets/vendor/adminlte/dist/css/adminlte.min.css')) ?>">
     <link rel="stylesheet" href="<?= e(asset_url('/assets/vendor/adminlte/tabulator/dist/css/tabulator_bootstrap5.min.css')) ?>">
     <link rel="stylesheet" href="<?= e(asset_url('/assets/css/admin.css')) ?>">
+    <link rel="stylesheet" href="<?= e(asset_url('/assets/css/admin-user-menu.css')) ?>">
     <?php
     $pluginCssLinks = [];
     if (!empty($pluginCss)) {
@@ -136,39 +137,7 @@ $bodyClasses = trim(($adminShellActive ? 'layout-fixed sidebar-expand-lg bg-body
                     </ol>
                 </nav>
             </div>
-            <div class="nav-item dropdown admin-theme-menu me-2">
-                <button type="button" class="nav-link dropdown-toggle d-flex align-items-center gap-2" data-bs-toggle="dropdown" aria-expanded="false" aria-label="<?= e(__('common.theme', [], 'Color theme')) ?>"><span aria-hidden="true">◐</span><span class="d-none d-sm-inline" data-admin-theme-current><?= e(__('common.theme_auto', [], 'System')) ?></span></button>
-                <div class="dropdown-menu dropdown-menu-end admin-theme-menu__menu">
-                    <button class="dropdown-item" type="button" data-admin-theme-value="light" data-bs-theme-value="light" aria-pressed="false"><?= e(__('common.theme_light', [], 'Light')) ?></button>
-                    <button class="dropdown-item" type="button" data-admin-theme-value="dark" data-bs-theme-value="dark" aria-pressed="false"><?= e(__('common.theme_dark', [], 'Dark')) ?></button>
-                    <button class="dropdown-item" type="button" data-admin-theme-value="auto" data-bs-theme-value="auto" aria-pressed="false"><?= e(__('common.theme_auto', [], 'System')) ?></button>
-                </div>
-            </div>
-            <div class="nav-item dropdown admin-user-menu">
-                <button type="button" class="nav-link dropdown-toggle d-flex align-items-center gap-2" data-bs-toggle="dropdown" aria-expanded="false" aria-label="<?= e(current_user_name()) ?>">
-                    <span class="admin-user-menu__avatar" aria-hidden="true"><?= e(strtoupper(substr(current_user_name(), 0, 1))) ?></span>
-                    <span><?= e(current_user_name()) ?></span>
-                </button>
-                <div class="dropdown-menu dropdown-menu-end admin-user-menu__menu">
-                    <div class="dropdown-header">
-                        <strong><?= e(current_user_name()) ?></strong>
-                        <small><?= e(current_user_role_label()) ?></small>
-                    </div>
-                    <div class="dropdown-divider"></div>
-                    <a class="dropdown-item" href="<?= e(url('/admin/account/password')) ?>">
-                        <?= admin_icon('settings') ?>
-                        <span><?= e(__('auth.change_password_title')) ?></span>
-                    </a>
-                    <div class="dropdown-divider"></div>
-                    <form method="post" action="<?= e(url('/admin/logout')) ?>">
-                        <?= csrf_field() ?>
-                        <button type="submit" class="dropdown-item text-danger">
-                            <?= admin_icon('logout') ?>
-                            <span><?= e(__('common.logout')) ?></span>
-                        </button>
-                    </form>
-                </div>
-            </div>
+            <?php require __DIR__ . '/../admin/partials/user_menu.php'; ?>
         </div>
     </nav>
     <aside class="app-sidebar bg-body shadow admin-sidebar" id="admin-sidebar">

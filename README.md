@@ -105,6 +105,7 @@ npm run build
 ### `config.php`
 
 Hugin requires `config/config.php` at runtime. Copy `config/config.example.php` to `config/config.php` during setup and configure the boot, web server, and database values for your installation. Runtime settings such as uploads, monitoring, branding, and accessibility are managed in `/admin/settings`.
+OpenID Connect and Keycloak deployment are documented in [docs/openid-connect.md](docs/openid-connect.md).
 
 ```php
 <?php
