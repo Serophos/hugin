@@ -98,6 +98,11 @@ assert.match(
   /class="btn btn-secondary"[^>]*href="<\?= e\(url\('\/preview-slide\//,
   'slide preview must be a secondary action',
 );
+assert.match(
+  read('app/Views/admin/slides.php'),
+  /class="admin-action-groups">[\s\S]*?admin-action-group[\s\S]*?preview-slide[\s\S]*?\/edit[\s\S]*?<\/div>\s*<div class="btn-group btn-group-sm admin-action-group"[\s\S]*?\/delete/,
+  'slide deletion must be the final action in a separate button group',
+);
 
 const adminCss = read('public/assets/css/admin.css');
 const themeCss = read('public/assets/css/admin-theme-overrides.css');
@@ -145,5 +150,13 @@ const pluginManifests = [
 for (const [file, asset] of pluginManifests) {
   assert.ok(read(file).includes(asset), `${file} must retain render asset ${asset}`);
 }
+
+const tl1FrontendCss = read('plugins/tl1-menu/assets/tl1menu.css');
+const tl1AdminCss = read('plugins/tl1-menu/assets/tl1menu-admin.css');
+for (const selector of ['.tl1menu-list__stage', '.tl1menu-list__item', '.tl1menu-list__prices']) {
+  assert.ok(tl1FrontendCss.includes(selector), 'TL1 frontend CSS must retain list-view selector ' + selector);
+  assert.ok(!tl1AdminCss.includes(selector), 'TL1 list-view selector ' + selector + ' must not live only in the admin CSS');
+}
+assert.doesNotMatch(tl1FrontendCss, /--bs-[\w-]+/, 'TL1 frontend CSS must not depend on Bootstrap variables');
 
 console.log('PASS AdminLTE dependency and frontend asset boundaries');
