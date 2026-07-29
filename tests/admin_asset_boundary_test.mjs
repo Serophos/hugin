@@ -138,6 +138,7 @@ assert.match(vncView, /class="card-header vnc-viewer-toolbar"/, 'VNC toolbar mus
 assert.match(vncView, /class="alert alert-secondary mb-0 vnc-viewer-message"/, 'VNC failures must use a color-mode-aware Bootstrap alert');
 assert.match(vncView, /class="badge text-bg-secondary status-chip"/, 'VNC connection status must use a native Bootstrap badge');
 assert.doesNotMatch(vncView, /button--normal/, 'VNC controls must not use the legacy light-only button style');
+assert.ok(read("app/Controllers/AdminController.php").includes("return $scheme . '://' . $host . ':6080';"), "VNC viewer must use the conventional websockify port 6080");
 
 const adminCss = read('public/assets/css/admin.css');
 const breadcrumbCss = adminCss.match(/\.admin-breadcrumb \{[\s\S]*?(?=\n\.topbar \{)/)?.[0] || "";

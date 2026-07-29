@@ -3623,7 +3623,7 @@ class AdminController
             || $forwardedProto === 'https';
         $scheme = $isHttps ? 'wss' : 'ws';
 
-        return $scheme . '://' . $host . ':5900';
+        return $scheme . '://' . $host . ':6080';
     }
 
     private function displayVncCredentials(array $display): array

@@ -551,7 +551,7 @@ return [
         'vnc_password_placeholder' => 'VNC-Passwort',
         'vnc_password_keep_hint' => '(leer lassen, um das aktuelle Passwort zu behalten)',
         'vnc_clear_password' => 'Gespeichertes VNC-Passwort löschen',
-        'vnc_help' => 'Der Admin-VNC-Viewer verwendet die Client-IP aus dem letzten Heartbeat und verbindet sich mit einem WebSocket-VNC-Endpunkt auf Port 5900.',
+        'vnc_help' => 'Der Admin-VNC-Viewer verwendet die Client-IP aus dem letzten Heartbeat und verbindet sich mit einem WebSocket-VNC-Endpunkt auf Port 6080.',
         'vnc_username_too_long' => 'Der VNC-Benutzername ist zu lang.',
         'vnc_password_too_long' => 'Das VNC-Passwort ist zu lang.',
         'vnc_title' => 'VNC: :display',
