@@ -4,7 +4,7 @@ $breadcrumbs = [['label' => $title]];
 require __DIR__ . '/../layouts/admin_header.php';
 ?>
 <div class="page-actions">
-    <a class="btn btn-primary button button--default" href="<?= e(url('/admin/users/create')) ?>"><?= admin_icon('add') ?><span><?= e(__('users.new')) ?></span></a>
+    <a class="btn btn-primary" href="<?= e(url('/admin/users/create')) ?>"><?= admin_icon('add') ?><span><?= e(__('users.new')) ?></span></a>
 </div>
 <?php if ($flash): ?><div class="alert alert-success success"><?= e($flash) ?></div><?php endif; ?>
 <div class="card shadow-sm">
@@ -51,12 +51,16 @@ require __DIR__ . '/../layouts/admin_header.php';
                 <td data-admin-cell="status" data-sort-value="<?= e($statusLabel) ?>" data-filter-value="<?= e($statusValue) ?>"><?= e($statusLabel) ?></td>
                 <td data-admin-cell="created_at" data-sort-value="<?= e((string)$user['created_at']) ?>" data-filter-value="<?= e((string)$user['created_at']) ?>"><?= e((string)$user['created_at']) ?></td>
                 <td class="actions">
-                    <div class="btn-group btn-group-sm admin-action-group" role="group" aria-label="<?= e(__('common.actions') . ' ' . $user['username']) ?>">
+                    <div class="admin-action-groups">
+                        <div class="btn-group btn-group-sm admin-action-group" role="group" aria-label="<?= e(__('common.actions') . ' ' . $user['username']) ?>">
                     <a class="btn btn-primary" href="<?= e(url('/admin/users/' . $user['id'] . '/edit')) ?>" aria-label="<?= e(__('common.edit') . ' ' . $user['username']) ?>" title="<?= e(__('common.edit')) ?>"><?= admin_icon('edit') ?></a>
-                    <form method="post" action="<?= e(url('/admin/users/' . $user['id'] . '/delete')) ?>" class="inline-form" data-dialog-submit data-dialog-title="<?= e(__('common.delete')) ?>" data-dialog-message="<?= e(__('users.delete_confirm')) ?>" data-dialog-icon="trash" data-dialog-buttons="cancel,delete" data-dialog-accept="<?= e(__('common.delete')) ?>">
+                    </div>
+                    <div class="btn-group btn-group-sm admin-action-group" role="group" aria-label="<?= e(__('common.delete')) ?>">
+                        <form method="post" action="<?= e(url('/admin/users/' . $user['id'] . '/delete')) ?>" class="inline-form" data-dialog-submit data-dialog-title="<?= e(__('common.delete')) ?>" data-dialog-message="<?= e(__('users.delete_confirm')) ?>" data-dialog-icon="trash" data-dialog-buttons="cancel,delete" data-dialog-accept="<?= e(__('common.delete')) ?>">
                         <?= csrf_field() ?>
                         <button type="submit" class="btn btn-danger" aria-label="<?= e(__('common.delete') . ' ' . $user['username']) ?>" title="<?= e(__('common.delete')) ?>"><?= admin_icon('delete') ?></button>
                     </form>
+                    </div>
                     </div>
                 </td>
             </tr>

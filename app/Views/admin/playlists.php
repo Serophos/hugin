@@ -44,7 +44,7 @@ foreach ($groups as $group) {
 require __DIR__ . '/../layouts/admin_header.php';
 ?>
 <div class="page-actions">
-    <a class="btn btn-primary button button--default" href="<?= e(url('/admin/playlists/create')) ?>"><?= admin_icon('add') ?><span><?= e(__('channel.new')) ?></span></a>
+    <a class="btn btn-primary" href="<?= e(url('/admin/playlists/create')) ?>"><?= admin_icon('add') ?><span><?= e(__('channel.new')) ?></span></a>
 </div>
 <?php if ($flash): ?><div class="alert alert-success success"><?= e($flash) ?></div><?php endif; ?>
 <?php foreach ($groups as $group): ?>
@@ -61,9 +61,9 @@ if (!$isUnused) {
     ]);
 }
 ?>
-<section class="card card-primary collapsed-card playlist-display-group">
+<section class="card card-outline card-secondary collapsed-card playlist-display-group">
     <div class="card-header">
-        <span class="playlist-display-group__summary">
+        <span class="card-title playlist-display-group__summary">
             <span class="playlist-display-group__icon" aria-hidden="true">
                 <?php if (!$isUnused && !empty($display['icon_url'])): ?>
                     <img src="<?= e($display['icon_url']) ?>" alt="" loading="lazy">
@@ -87,12 +87,12 @@ if (!$isUnused) {
         </span>
         <?php if (!$isUnused): ?>
             <span class="playlist-display-group__actions">
-                <a class="btn btn-primary button button--default button--small" href="<?= e(url($previewPath)) ?>" target="_blank" rel="noopener noreferrer"><?= admin_icon('preview') ?><span><?= e(__('common.preview')) ?></span></a>
+                <a class="btn btn-primary btn-sm" href="<?= e(url($previewPath)) ?>" target="_blank" rel="noopener noreferrer"><?= admin_icon('preview') ?><span><?= e(__('common.preview')) ?></span></a>
                 <?php if (is_admin() && !empty($display['vnc_configured'])): ?>
-                    <a class="btn btn-primary button button--default button--small" href="<?= e(url('/admin/displays/' . $display['id'] . '/vnc')) ?>" target="_blank" rel="noopener noreferrer" aria-label="<?= e(__('display.vnc_connect_to', ['display' => $display['name']])) ?>"><?= admin_icon('open') ?><span><?= e(__('display.vnc')) ?></span></a>
+                    <a class="btn btn-primary btn-sm" href="<?= e(url('/admin/displays/' . $display['id'] . '/vnc')) ?>" target="_blank" rel="noopener noreferrer" aria-label="<?= e(__('display.vnc_connect_to', ['display' => $display['name']])) ?>"><?= admin_icon('open') ?><span><?= e(__('display.vnc')) ?></span></a>
                 <?php endif; ?>
-                <button type="button" class="btn btn-secondary button button--normal button--small" data-playlist-add-open data-display-id="<?= e((string)$display['id']) ?>" aria-label="<?= e(__('channel.add_existing_playlist')) ?>"><?= admin_icon('add') ?><span><?= e(__('channel.add_existing_playlist_short')) ?></span></button>
-                <a class="btn btn-primary button button--default button--small" href="<?= e(url($createPlaylistPath)) ?>" aria-label="<?= e(__('channel.add_new_playlist')) ?>"><?= admin_icon('add') ?><span><?= e(__('channel.add_new_playlist_short')) ?></span></a>
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-playlist-add-open data-display-id="<?= e((string)$display['id']) ?>" aria-label="<?= e(__('channel.add_existing_playlist')) ?>"><?= admin_icon('add') ?><span><?= e(__('channel.add_existing_playlist_short')) ?></span></button>
+                <a class="btn btn-primary btn-sm" href="<?= e(url($createPlaylistPath)) ?>" aria-label="<?= e(__('channel.add_new_playlist')) ?>"><?= admin_icon('add') ?><span><?= e(__('channel.add_new_playlist_short')) ?></span></a>
             </span>
         <?php endif; ?>
         <span class="card-tools">
@@ -149,12 +149,16 @@ if (!$isUnused) {
                 <td data-admin-cell="slides" data-sort-value="<?= e((string)$channel['slide_count']) ?>" data-filter-value="<?= e((string)$channel['slide_count']) ?>"><?= e((string)$channel['slide_count']) ?></td>
                 <td data-admin-cell="status" data-sort-value="<?= e($statusLabel) ?>" data-filter-value="<?= e($statusValue) ?>"><?= e($statusLabel) ?></td>
                 <td class="actions">
-                    <div class="btn-group btn-group-sm admin-action-group" role="group" aria-label="<?= e(__('common.actions') . ' ' . $channel['channel_name']) ?>">
+                    <div class="admin-action-groups">
+                        <div class="btn-group btn-group-sm admin-action-group" role="group" aria-label="<?= e(__('common.actions') . ' ' . $channel['channel_name']) ?>">
                     <a class="btn btn-primary" href="<?= e(url('/admin/playlists/' . $channel['channel_id'] . '/edit')) ?>" aria-label="<?= e(__('common.edit') . ' ' . $channel['channel_name']) ?>" title="<?= e(__('common.edit')) ?>"><?= admin_icon('edit') ?></a>
-                    <form method="post" action="<?= e(url('/admin/playlists/' . $channel['channel_id'] . '/delete')) ?>" class="inline-form" data-dialog-submit data-dialog-title="<?= e(__('common.delete')) ?>" data-dialog-message="<?= e(__('channel.delete_confirm')) ?>" data-dialog-icon="trash" data-dialog-buttons="cancel,delete" data-dialog-accept="<?= e(__('common.delete')) ?>">
+                    </div>
+                    <div class="btn-group btn-group-sm admin-action-group" role="group" aria-label="<?= e(__('common.delete')) ?>">
+                        <form method="post" action="<?= e(url('/admin/playlists/' . $channel['channel_id'] . '/delete')) ?>" class="inline-form" data-dialog-submit data-dialog-title="<?= e(__('common.delete')) ?>" data-dialog-message="<?= e(__('channel.delete_confirm')) ?>" data-dialog-icon="trash" data-dialog-buttons="cancel,delete" data-dialog-accept="<?= e(__('common.delete')) ?>">
                         <?= csrf_field() ?>
                         <button type="submit" class="btn btn-danger" aria-label="<?= e(__('common.delete') . ' ' . $channel['channel_name']) ?>" title="<?= e(__('common.delete')) ?>"><?= admin_icon('delete') ?></button>
                     </form>
+                    </div>
                     </div>
                 </td>
             </tr>
@@ -166,6 +170,31 @@ if (!$isUnused) {
 </section>
 <?php endforeach; ?>
 
+<script>
+(() => {
+    const setPlaylistCardVariant = (card, isExpanded) => {
+        card.classList.toggle("card-primary", isExpanded);
+        card.classList.toggle("card-secondary", !isExpanded);
+    };
+
+    document.querySelectorAll(".playlist-display-group").forEach((card) => {
+        setPlaylistCardVariant(card, !card.classList.contains("collapsed-card"));
+    });
+
+    document.addEventListener("expand.lte.card-widget", (event) => {
+        if (event.target instanceof Element && event.target.matches(".playlist-display-group")) {
+            setPlaylistCardVariant(event.target, true);
+        }
+    });
+
+    document.addEventListener("collapse.lte.card-widget", (event) => {
+        if (event.target instanceof Element && event.target.matches(".playlist-display-group")) {
+            setPlaylistCardVariant(event.target, false);
+        }
+    });
+})();
+</script>
+
 <?php if ($playlistAddTargets !== []): ?>
 <dialog class="admin-dialog playlist-add-dialog" data-playlist-add-dialog aria-labelledby="playlist-add-title" aria-describedby="playlist-add-description">
     <form method="dialog" class="admin-dialog__panel playlist-add-dialog__panel">
@@ -174,7 +203,7 @@ if (!$isUnused) {
                 <h2 id="playlist-add-title" data-playlist-add-title><?= e(__('channel.add_existing_playlist_title')) ?></h2>
                 <p id="playlist-add-description" class="text-body-secondary muted" data-playlist-add-display></p>
             </div>
-            <button type="button" class="btn btn-secondary button button--normal button--small" data-playlist-add-close><?= admin_icon('cancel') ?><span><?= e(__('common.cancel')) ?></span></button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" data-playlist-add-close><?= admin_icon('cancel') ?><span><?= e(__('common.cancel')) ?></span></button>
         </div>
         <label class="full-width"><?= e(__('channel.add_existing_playlist_filter')) ?>
             <input class="form-control" type="search" data-playlist-add-search placeholder="<?= e(__('channel.add_existing_playlist_filter_placeholder')) ?>">
@@ -182,8 +211,8 @@ if (!$isUnused) {
         <div class="playlist-add-list" data-playlist-add-list></div>
         <p class="muted playlist-add-empty" data-playlist-add-empty hidden></p>
         <div class="form-actions">
-            <button type="button" class="btn btn-secondary button button--normal" data-playlist-add-close><?= admin_icon('cancel') ?><span><?= e(__('common.cancel')) ?></span></button>
-            <a class="btn btn-primary button button--default" href="<?= e(url('/admin/playlists/create')) ?>" data-playlist-add-new><?= admin_icon('add') ?><span><?= e(__('channel.add_new_playlist')) ?></span></a>
+            <button type="button" class="btn btn-outline-secondary" data-playlist-add-close><?= admin_icon('cancel') ?><span><?= e(__('common.cancel')) ?></span></button>
+            <a class="btn btn-primary" href="<?= e(url('/admin/playlists/create')) ?>" data-playlist-add-new><?= admin_icon('add') ?><span><?= e(__('channel.add_new_playlist')) ?></span></a>
         </div>
     </form>
 </dialog>

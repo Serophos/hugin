@@ -25,8 +25,8 @@ require __DIR__ . '/../layouts/admin_header.php';
             <?= field_error_html('password_confirmation', $formId) ?>
         </label>
         <div class="form-actions">
-            <button type="submit" class="btn btn-primary button button--default"><?= admin_icon('save') ?><span><?= e(__('common.save')) ?></span></button>
-            <a class="btn btn-secondary button button--normal" href="<?= e(url('/admin')) ?>"><?= admin_icon('cancel') ?><span><?= e(__('common.cancel')) ?></span></a>
+            <button type="submit" class="btn btn-primary"><?= admin_icon('save') ?><span><?= e(__('common.save')) ?></span></button>
+            <a class="btn btn-outline-secondary" href="<?= e(url('/admin')) ?>"><?= admin_icon('cancel') ?><span><?= e(__('common.cancel')) ?></span></a>
         </div>
     </form>
 </div>

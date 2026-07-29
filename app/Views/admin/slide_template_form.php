@@ -383,8 +383,8 @@ require __DIR__ . '/../layouts/admin_header.php';
                 <div class="template-json-panel__head">
                     <h2><?= e(__('orientations.landscape')) ?></h2>
                     <div class="template-json-panel__actions">
-                        <button type="button" class="btn btn-secondary button button--normal button--small" data-json-export="landscape"><?= admin_icon('open') ?><span><?= e(__('templates.export_json')) ?></span></button>
-                        <button type="button" class="btn btn-secondary button button--normal button--small" data-json-import-trigger="landscape"><?= admin_icon('upload') ?><span><?= e(__('templates.import_json')) ?></span></button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" data-json-export="landscape"><?= admin_icon('open') ?><span><?= e(__('templates.export_json')) ?></span></button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" data-json-import-trigger="landscape"><?= admin_icon('upload') ?><span><?= e(__('templates.import_json')) ?></span></button>
                         <input type="file" accept="application/json,.json" data-json-import="landscape" hidden>
                     </div>
                 </div>
@@ -396,8 +396,8 @@ require __DIR__ . '/../layouts/admin_header.php';
                 <div class="template-json-panel__head">
                     <h2><?= e(__('orientations.vertical')) ?></h2>
                     <div class="template-json-panel__actions">
-                        <button type="button" class="btn btn-secondary button button--normal button--small" data-json-export="portrait"><?= admin_icon('open') ?><span><?= e(__('templates.export_json')) ?></span></button>
-                        <button type="button" class="btn btn-secondary button button--normal button--small" data-json-import-trigger="portrait"><?= admin_icon('upload') ?><span><?= e(__('templates.import_json')) ?></span></button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" data-json-export="portrait"><?= admin_icon('open') ?><span><?= e(__('templates.export_json')) ?></span></button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" data-json-import-trigger="portrait"><?= admin_icon('upload') ?><span><?= e(__('templates.import_json')) ?></span></button>
                         <input type="file" accept="application/json,.json" data-json-import="portrait" hidden>
                     </div>
                 </div>
@@ -408,9 +408,9 @@ require __DIR__ . '/../layouts/admin_header.php';
     </section>
 
     <div class="form-actions">
-        <button type="submit" name="save_action" value="save" class="btn btn-primary button button--default"><?= admin_icon('save') ?><span><?= e(__('common.save')) ?></span></button>
-        <button type="submit" name="save_action" value="save_and_close" class="btn btn-secondary button button--normal"><?= admin_icon('save') ?><span><?= e(__('templates.save_and_close')) ?></span></button>
-        <a class="btn btn-secondary button button--normal" href="<?= e(url('/admin/slide-templates')) ?>"><?= admin_icon('cancel') ?><span><?= e(__('common.cancel')) ?></span></a>
+        <button type="submit" name="save_action" value="save" class="btn btn-primary"><?= admin_icon('save') ?><span><?= e(__('common.save')) ?></span></button>
+        <button type="submit" name="save_action" value="save_and_close" class="btn btn-outline-secondary"><?= admin_icon('save') ?><span><?= e(__('templates.save_and_close')) ?></span></button>
+        <a class="btn btn-outline-secondary" href="<?= e(url('/admin/slide-templates')) ?>"><?= admin_icon('cancel') ?><span><?= e(__('common.cancel')) ?></span></a>
     </div>
 </form>
 <script src="<?= e(asset_url('/assets/js/hugin-qr.js')) ?>"></script>
@@ -1646,7 +1646,7 @@ require __DIR__ . '/../layouts/admin_header.php';
         }
         const field = fieldForElement(element);
         if (!field) {
-            fieldsPanel.innerHTML += `<div class="alert alert-light template-editor__empty-state">${escapeHtml(i18n.element_has_no_field)}</div><button type="button" class="btn btn-secondary button button--normal button--small" data-create-bind-field>${icons.add || ''}<span>${escapeHtml(i18n.create_and_bind_field)}</span></button>`;
+            fieldsPanel.innerHTML += `<div class="alert alert-light template-editor__empty-state">${escapeHtml(i18n.element_has_no_field)}</div><button type="button" class="btn btn-outline-secondary btn-sm" data-create-bind-field>${icons.add || ''}<span>${escapeHtml(i18n.create_and_bind_field)}</span></button>`;
             bindExistingFieldSelect();
             fieldsPanel.querySelector('[data-create-bind-field]').addEventListener('click', () => { createAndBindField(element); });
             return;

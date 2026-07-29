@@ -7,9 +7,9 @@ $defaultDisplayModel = $displayIcons[$defaultDisplayIcon] ?? ($displayIcons === 
 require __DIR__ . '/../layouts/admin_header.php';
 ?>
 <div class="page-actions">
-    <a class="btn btn-secondary button button--normal" href="<?= e(url('/admin/locations')) ?>"><?= admin_icon('manage') ?><span><?= e(__('locations.manage')) ?></span></a>
+    <a class="btn btn-outline-secondary" href="<?= e(url('/admin/locations')) ?>"><?= admin_icon('manage') ?><span><?= e(__('locations.manage')) ?></span></a>
     <a
-        class="btn btn-primary button button--default"
+        class="btn btn-primary"
         href="<?= e(url('/admin/displays/create')) ?>"
         <?php if ($displayIcons !== []): ?>
             data-open-display-model-dialog
@@ -67,7 +67,8 @@ require __DIR__ . '/../layouts/admin_header.php';
                 <td data-admin-cell="channels" data-sort-value="<?= e((string)$display['channel_count']) ?>" data-filter-value="<?= e((string)$display['channel_count']) ?>"><?= e((string)$display['channel_count']) ?></td>
                 <td data-admin-cell="status" data-sort-value="<?= e($statusLabel) ?>" data-filter-value="<?= e($statusValue) ?>"><?= e($statusLabel) ?></td>
                 <td class="actions">
-                    <div class="btn-group btn-group-sm admin-action-group" role="group" aria-label="<?= e(__('common.actions') . ' ' . $display['name']) ?>">
+                    <div class="admin-action-groups">
+                        <div class="btn-group btn-group-sm admin-action-group" role="group" aria-label="<?= e(__('common.actions') . ' ' . $display['name']) ?>">
                     <a class="btn btn-secondary" href="<?= e(url($displayPreviewUrl)) ?>" target="_blank" rel="noopener noreferrer" aria-label="<?= e(__('common.preview') . ' ' . $display['name']) ?>" title="<?= e(__('common.preview')) ?>"><?= admin_icon('preview') ?></a>
                     <?php if (!empty($display['vnc_configured'])): ?>
                         <a class="btn btn-secondary" href="<?= e(url('/admin/displays/' . $display['id'] . '/vnc')) ?>" target="_blank" rel="noopener noreferrer" aria-label="<?= e(__('display.vnc_connect_to', ['display' => $display['name']])) ?>" title="<?= e(__('display.vnc')) ?>"><?= admin_icon('open') ?></a>
@@ -78,10 +79,13 @@ require __DIR__ . '/../layouts/admin_header.php';
                         <input type="hidden" name="return_to" value="/admin/displays">
                         <button type="submit" class="btn btn-success" aria-label="<?= e(__('display.reload_slideshow') . ' ' . $display['name']) ?>" title="<?= e(__('common.reload')) ?>"><?= admin_icon('reload') ?></button>
                     </form>
-                    <form method="post" action="<?= e(url('/admin/displays/' . $display['id'] . '/delete')) ?>" class="inline-form" data-dialog-submit data-dialog-title="<?= e(__('common.delete')) ?>" data-dialog-message="<?= e(__('display.delete_confirm', [], 'Delete display?')) ?>" data-dialog-icon="trash" data-dialog-buttons="cancel,delete" data-dialog-accept="<?= e(__('common.delete')) ?>">
+                    </div>
+                    <div class="btn-group btn-group-sm admin-action-group" role="group" aria-label="<?= e(__('common.delete')) ?>">
+                        <form method="post" action="<?= e(url('/admin/displays/' . $display['id'] . '/delete')) ?>" class="inline-form" data-dialog-submit data-dialog-title="<?= e(__('common.delete')) ?>" data-dialog-message="<?= e(__('display.delete_confirm', [], 'Delete display?')) ?>" data-dialog-icon="trash" data-dialog-buttons="cancel,delete" data-dialog-accept="<?= e(__('common.delete')) ?>">
                         <?= csrf_field() ?>
                         <button type="submit" class="btn btn-danger" aria-label="<?= e(__('common.delete') . ' ' . $display['name']) ?>" title="<?= e(__('common.delete')) ?>"><?= admin_icon('delete') ?></button>
                     </form>
+                    </div>
                     </div>
                 </td>
             </tr>
@@ -130,8 +134,8 @@ require __DIR__ . '/../layouts/admin_header.php';
             </div>
             <p class="display-model-empty muted" data-display-model-empty hidden><?= e(__('display.model_picker_empty')) ?></p>
             <div class="form-actions display-model-dialog__actions">
-                <button type="button" class="btn btn-secondary button button--normal" data-display-model-close><?= admin_icon('cancel') ?><span><?= e(__('common.cancel')) ?></span></button>
-                <a class="btn btn-primary button button--default" href="<?= e($firstDisplayModelUrl) ?>" data-display-model-continue><?= admin_icon('add') ?><span><?= e(__('display.model_picker_continue')) ?></span></a>
+                <button type="button" class="btn btn-outline-secondary" data-display-model-close><?= admin_icon('cancel') ?><span><?= e(__('common.cancel')) ?></span></button>
+                <a class="btn btn-primary" href="<?= e($firstDisplayModelUrl) ?>" data-display-model-continue><?= admin_icon('add') ?><span><?= e(__('display.model_picker_continue')) ?></span></a>
             </div>
         </form>
     </dialog>

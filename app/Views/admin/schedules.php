@@ -16,7 +16,7 @@ $ruleSummary = static function (array $rules) use ($formatTime): string {
 require __DIR__ . '/../layouts/admin_header.php';
 ?>
 <div class="page-actions">
-    <a class="btn btn-primary button button--default" href="<?= e(url('/admin/schedules/create')) ?>"><?= admin_icon('add') ?><span><?= e(__('schedule.new')) ?></span></a>
+    <a class="btn btn-primary" href="<?= e(url('/admin/schedules/create')) ?>"><?= admin_icon('add') ?><span><?= e(__('schedule.new')) ?></span></a>
 </div>
 <?php if ($flash): ?><div class="alert alert-success success"><?= e($flash) ?></div><?php endif; ?>
 <?php if ($error): ?><div class="alert alert-danger error"><?= e($error) ?></div><?php endif; ?>
@@ -64,12 +64,16 @@ require __DIR__ . '/../layouts/admin_header.php';
                 <td data-admin-cell="status" data-sort-value="<?= e($statusLabel) ?>" data-filter-value="<?= e($statusValue) ?>"><?= e($statusLabel) ?></td>
                 <td class="actions">
                     <?php if (empty($schedule['is_system'])): ?>
-                        <div class="btn-group btn-group-sm admin-action-group" role="group" aria-label="<?= e(__('common.actions') . ' ' . $schedule['name']) ?>">
+                        <div class="admin-action-groups">
+                            <div class="btn-group btn-group-sm admin-action-group" role="group" aria-label="<?= e(__('common.actions') . ' ' . $schedule['name']) ?>">
                         <a class="btn btn-primary" href="<?= e(url('/admin/schedules/' . $schedule['id'] . '/edit')) ?>" aria-label="<?= e(__('common.edit') . ' ' . $schedule['name']) ?>" title="<?= e(__('common.edit')) ?>"><?= admin_icon('edit') ?></a>
-                        <form method="post" action="<?= e(url('/admin/schedules/' . $schedule['id'] . '/delete')) ?>" class="inline-form" data-dialog-submit data-dialog-title="<?= e(__('common.delete')) ?>" data-dialog-message="<?= e(__('schedule.delete_confirm')) ?>" data-dialog-icon="trash" data-dialog-buttons="cancel,delete" data-dialog-accept="<?= e(__('common.delete')) ?>">
+                        </div>
+                        <div class="btn-group btn-group-sm admin-action-group" role="group" aria-label="<?= e(__('common.delete')) ?>">
+                            <form method="post" action="<?= e(url('/admin/schedules/' . $schedule['id'] . '/delete')) ?>" class="inline-form" data-dialog-submit data-dialog-title="<?= e(__('common.delete')) ?>" data-dialog-message="<?= e(__('schedule.delete_confirm')) ?>" data-dialog-icon="trash" data-dialog-buttons="cancel,delete" data-dialog-accept="<?= e(__('common.delete')) ?>">
                             <?= csrf_field() ?>
                             <button type="submit" class="btn btn-danger" aria-label="<?= e(__('common.delete') . ' ' . $schedule['name']) ?>" title="<?= e(__('common.delete')) ?>"><?= admin_icon('delete') ?></button>
                         </form>
+                        </div>
                         </div>
                     <?php else: ?>
                         <span class="text-body-secondary small muted"><?= e(__('schedule.protected_label')) ?></span>

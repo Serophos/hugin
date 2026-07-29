@@ -14,7 +14,7 @@ natcasesort($slideTypeOptions);
 require __DIR__ . '/../layouts/admin_header.php';
 ?>
 <div class="page-actions">
-    <a class="btn btn-primary button button--default" href="<?= e(url('/admin/slides/create?return_to=' . rawurlencode('/admin/slides'))) ?>" data-open-slide-type-dialog data-create-url="<?= e(url('/admin/slides/create')) ?>" data-return-to="/admin/slides" aria-haspopup="dialog"><?= admin_icon('add') ?><span><?= e(__('slide.new')) ?></span></a>
+    <a class="btn btn-primary" href="<?= e(url('/admin/slides/create?return_to=' . rawurlencode('/admin/slides'))) ?>" data-open-slide-type-dialog data-create-url="<?= e(url('/admin/slides/create')) ?>" data-return-to="/admin/slides" aria-haspopup="dialog"><?= admin_icon('add') ?><span><?= e(__('slide.new')) ?></span></a>
 </div>
 <?php if ($flash): ?><div class="alert alert-success success"><?= e($flash) ?></div><?php endif; ?>
 
@@ -22,10 +22,7 @@ require __DIR__ . '/../layouts/admin_header.php';
     <section class="card card-info slide-group">
         <div class="card-header">
             <span class="slide-group__title">
-                <span>
-                    <h2 class="card-title"><?= e(__('slide.all_slides')) ?></h2>
-                    <small><?= e(__('slide.unique_slide_count', ['count' => count($allSlides)])) ?></small>
-                </span>
+                <h2 class="card-title"><?= e(__('slide.all_slides')) ?></h2>
             </span>
             <span class="slide-group__hint"><?= e(__('slide.all_slides_hint')) ?></span>
             <span class="card-tools">
@@ -41,7 +38,7 @@ require __DIR__ . '/../layouts/admin_header.php';
             <?php else: ?>
                 <div class="slide-library-toolbar">
                     <span class="slide-library-toolbar__meta" data-slide-library-count data-template="<?= e(__('slide.library_filter_count', ['visible' => '__VISIBLE__', 'total' => '__TOTAL__'])) ?>" aria-live="polite"></span>
-                    <button type="button" class="btn btn-secondary button button--normal button--small" data-slide-library-reset hidden><?= e(__('slide.clear_filters')) ?></button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" data-slide-library-reset hidden><?= e(__('slide.clear_filters')) ?></button>
                 </div>
                 <div class="table-scroll">
                     <table class="table table-hover align-middle admin-table slide-library-table" data-admin-table data-slide-library-table>
@@ -93,23 +90,27 @@ require __DIR__ . '/../layouts/admin_header.php';
                                 <td data-admin-cell="duration" data-sort-value="<?= e((string)$durationSort) ?>" data-filter-value="<?= e($durationLabel) ?>"><?= e($durationLabel) ?></td>
                                 <td data-admin-cell="status" data-sort-value="<?= e($statusLabel) ?>" data-filter-value="<?= e($statusValue) ?>"><?= e($statusLabel) ?></td>
                                 <td class="actions">
-                                    <div class="btn-group btn-group-sm admin-action-group" role="group" aria-label="<?= e(__('common.actions') . ' ' . $slide['name']) ?>">
-                                    <a class="btn btn-primary" href="<?= e(url('/admin/slides/' . $slide['id'] . '/edit')) ?>" aria-label="<?= e(__('common.edit') . ' ' . $slide['name']) ?>" title="<?= e(__('common.edit')) ?>"><?= admin_icon('edit') ?></a>
-                                    <form
-                                        method="post"
-                                        action="<?= e(url('/admin/slides/' . $slide['id'] . '/delete')) ?>"
-                                        class="inline-form"
-                                        data-dialog-submit
-                                        data-dialog-title="<?= e(__('common.delete')) ?>"
-                                        data-dialog-message="<?= e(__('slide.delete_everywhere_confirm', ['slide' => $slide['name'], 'count' => (int)($slide['channel_count'] ?? 0)])) ?>"
-                                        data-dialog-icon="trash"
-                                        data-dialog-buttons="cancel,delete"
-                                        data-dialog-accept="<?= e(__('common.delete')) ?>"
-                                    >
-                                        <?= csrf_field() ?>
-                                        <button type="submit" class="btn btn-danger" aria-label="<?= e(__('common.delete') . ' ' . $slide['name']) ?>" title="<?= e(__('common.delete')) ?>"><?= admin_icon('delete') ?></button>
-                                    </form>
-                                    <a class="btn btn-secondary" target="_blank" rel="noopener noreferrer" href="<?= e(url('/preview-slide/' . $slide['id'])) ?>" aria-label="<?= e(__('common.preview') . ' ' . $slide['name']) ?>" title="<?= e(__('common.preview')) ?>"><?= admin_icon('preview') ?></a>
+                                    <div class="admin-action-groups">
+                                        <div class="btn-group btn-group-sm admin-action-group" role="group" aria-label="<?= e(__('common.actions') . ' ' . $slide['name']) ?>">
+                                            <a class="btn btn-secondary" target="_blank" rel="noopener noreferrer" href="<?= e(url('/preview-slide/' . $slide['id'])) ?>" aria-label="<?= e(__('common.preview') . ' ' . $slide['name']) ?>" title="<?= e(__('common.preview')) ?>"><?= admin_icon('preview') ?></a>
+                                            <a class="btn btn-primary" href="<?= e(url('/admin/slides/' . $slide['id'] . '/edit')) ?>" aria-label="<?= e(__('common.edit') . ' ' . $slide['name']) ?>" title="<?= e(__('common.edit')) ?>"><?= admin_icon('edit') ?></a>
+                                        </div>
+                                        <div class="btn-group btn-group-sm admin-action-group" role="group" aria-label="<?= e(__('common.delete') . ' ' . $slide['name']) ?>">
+                                            <form
+                                                method="post"
+                                                action="<?= e(url('/admin/slides/' . $slide['id'] . '/delete')) ?>"
+                                                class="inline-form"
+                                                data-dialog-submit
+                                                data-dialog-title="<?= e(__('common.delete')) ?>"
+                                                data-dialog-message="<?= e(__('slide.delete_everywhere_confirm', ['slide' => $slide['name'], 'count' => (int)($slide['channel_count'] ?? 0)])) ?>"
+                                                data-dialog-icon="trash"
+                                                data-dialog-buttons="cancel,delete"
+                                                data-dialog-accept="<?= e(__('common.delete')) ?>"
+                                            >
+                                                <?= csrf_field() ?>
+                                                <button type="submit" class="btn btn-danger" aria-label="<?= e(__('common.delete') . ' ' . $slide['name']) ?>" title="<?= e(__('common.delete')) ?>"><?= admin_icon('delete') ?></button>
+                                            </form>
+                                        </div>
                                     </div>
                                 </td>
                             </tr>

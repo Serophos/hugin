@@ -32,8 +32,8 @@ require __DIR__ . '/../layouts/admin_header.php';
             <?= field_error_html('description', $formId) ?>
         </label>
         <div class="form-actions full-width">
-            <button type="submit" class="btn btn-primary button button--default"><?= admin_icon('add') ?><span><?= e(__('common.create')) ?></span></button>
-            <a class="btn btn-secondary button button--normal" href="<?= e(url($returnTo)) ?>"><?= admin_icon('cancel') ?><span><?= e(__('common.cancel')) ?></span></a>
+            <button type="submit" class="btn btn-primary"><?= admin_icon('add') ?><span><?= e(__('common.create')) ?></span></button>
+            <a class="btn btn-outline-secondary" href="<?= e(url($returnTo)) ?>"><?= admin_icon('cancel') ?><span><?= e(__('common.cancel')) ?></span></a>
         </div>
     </form>
 </div>

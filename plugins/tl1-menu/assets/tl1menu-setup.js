@@ -186,10 +186,10 @@
                 <div class="admin-dialog tl1menu-confirm-fallback__dialog" role="dialog" aria-modal="true" aria-labelledby="${escapeAttr(id)}-title">
                     <div class="admin-dialog__panel tl1menu-confirm-dialog__panel" role="document">
                         <h2 id="${escapeAttr(id)}-title">${escapeHtml(config.title)}</h2>
-                        <label class="tl1menu-value-dialog__field"><span>${escapeHtml(config.label)}</span><input class="tl1menu-value-dialog__input" type="text" inputmode="${escapeAttr(config.inputMode || 'text')}" value="${escapeAttr(config.value || '')}" data-fallback-value></label>
+                        <label class="tl1menu-value-dialog__field"><span>${escapeHtml(config.label)}</span><input class="form-control tl1menu-value-dialog__input" type="text" inputmode="${escapeAttr(config.inputMode || 'text')}" value="${escapeAttr(config.value || '')}" data-fallback-value></label>
                         <div class="form-actions">
-                            <button type="button" class="button button--normal" data-fallback-cancel>${escapeHtml(t('dialog.cancel'))}</button>
-                            <button type="button" class="button button--default" data-fallback-accept>${escapeHtml(config.acceptLabel)}</button>
+                            <button type="button" class="btn btn-outline-secondary" data-fallback-cancel>${escapeHtml(t('dialog.cancel'))}</button>
+                            <button type="button" class="btn btn-primary" data-fallback-accept>${escapeHtml(config.acceptLabel)}</button>
                         </div>
                     </div>
                 </div>`;
@@ -434,11 +434,11 @@
     }
 
     function removeButton(type, key) {
-        return `<button type="button" class="button button--normal button--small tl1menu-setup__row-action" data-remove-row="${escapeAttr(type)}" data-row-key="${escapeAttr(key)}">${escapeHtml(t('actions.remove'))}</button>`;
+        return `<button type="button" class="btn btn-outline-secondary btn-sm tl1menu-setup__row-action" data-remove-row="${escapeAttr(type)}" data-row-key="${escapeAttr(key)}">${escapeHtml(t('actions.remove'))}</button>`;
     }
 
     function sectionTools(type) {
-        return `<div class="tl1menu-setup__section-tools"><button type="button" class="button button--normal button--small" data-add-row="${escapeAttr(type)}">${escapeHtml(t(`actions.add_${type}`))}</button></div>`;
+        return `<div class="tl1menu-setup__section-tools"><button type="button" class="btn btn-outline-secondary btn-sm" data-add-row="${escapeAttr(type)}">${escapeHtml(t(`actions.add_${type}`))}</button></div>`;
     }
 
     function emptyRow(colspan) {

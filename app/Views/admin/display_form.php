@@ -120,7 +120,7 @@ require __DIR__ . '/../layouts/admin_header.php';
                 </fieldset>
             <?php endif; ?>
             <label class="checkbox-row"><input type="checkbox" name="is_active" value="1" <?= old_checked('is_active', $display['is_active'] ?? 1, $formId) ?>> <?= e(__('common.active')) ?></label>
-            <div class="form-actions"><button type="submit" class="btn btn-primary button button--default"><?= admin_icon('save') ?><span><?= e(__('common.save')) ?></span></button><a class="btn btn-secondary button button--normal" href="<?= e(url('/admin/displays')) ?>"><?= admin_icon('cancel') ?><span><?= e(__('common.cancel')) ?></span></a></div>
+            <div class="form-actions"><button type="submit" class="btn btn-primary"><?= admin_icon('save') ?><span><?= e(__('common.save')) ?></span></button><a class="btn btn-outline-secondary" href="<?= e(url('/admin/displays')) ?>"><?= admin_icon('cancel') ?><span><?= e(__('common.cancel')) ?></span></a></div>
         </form>
     </div>
 
@@ -145,7 +145,7 @@ require __DIR__ . '/../layouts/admin_header.php';
                 <p class="text-body-secondary muted"><?= e(__('display.player_setup_help')) ?></p>
                 <div class="display-player-url-row">
                     <input class="form-control" type="url" readonly value="<?= e(url('/display/' . $display['slug'])) ?>" data-display-player-url aria-label="<?= e(__('display.player_url')) ?>">
-                    <button type="button" class="btn btn-secondary button button--normal" data-copy-display-url><span><?= e(__('display.copy_player_url')) ?></span></button>
+                    <button type="button" class="btn btn-outline-secondary" data-copy-display-url><span><?= e(__('display.copy_player_url')) ?></span></button>
                 </div>
                 <small class="field-note" data-copy-display-url-status aria-live="polite"></small>
             </section>
@@ -155,7 +155,7 @@ require __DIR__ . '/../layouts/admin_header.php';
             <form method="post" action="<?= e(url('/admin/displays/' . $display['id'] . '/reload')) ?>" class="form-actions">
                 <?= csrf_field() ?>
                 <input type="hidden" name="return_to" value="<?= e('/admin/displays/' . $display['id'] . '/edit') ?>">
-                <button type="submit" class="btn btn-secondary button button--normal"><?= admin_icon('reload') ?><span><?= e(__('display.reload_slideshow')) ?></span></button>
+                <button type="submit" class="btn btn-outline-secondary"><?= admin_icon('reload') ?><span><?= e(__('display.reload_slideshow')) ?></span></button>
             </form>
             <p class="text-body-secondary muted"><?= e(__('display.reload_hint')) ?></p>
         <?php endif; ?>

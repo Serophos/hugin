@@ -52,7 +52,7 @@ require __DIR__ . '/../layouts/admin_header.php';
         </ul>
 
         <h2><?= e(__('nav.accessibility', [], 'Accessibility')) ?></h2>
-        <p><a class="btn btn-secondary button button--normal" href="<?= e(url('/admin/accessibility')) ?>"><?= admin_icon('about') ?><span><?= e(__('accessibility.title', [], 'Accessibility statement')) ?></span></a></p>
+        <p><a class="btn btn-outline-secondary" href="<?= e(url('/admin/accessibility')) ?>"><?= admin_icon('about') ?><span><?= e(__('accessibility.title', [], 'Accessibility statement')) ?></span></a></p>
 
         <h2><?= e(__('about.licensing')) ?></h2>
         <div class="license-box">

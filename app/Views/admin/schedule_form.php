@@ -55,14 +55,14 @@ require __DIR__ . '/../layouts/admin_header.php';
                             <input class="form-control" type="time" name="rule_end_time[]" value="<?= e(substr((string)($rule['end_time'] ?? ''), 0, 5)) ?>" title="<?= e(__('schedule.time_help')) ?>"<?= field_attrs('rule_end_time.' . $index, $formId) ?>>
                             <?= field_error_html('rule_end_time.' . $index, $formId) ?>
                         </label>
-                        <button type="button" class="btn btn-secondary button button--normal rule-remove"><?= admin_icon('remove') ?><span><?= e(__('common.remove')) ?></span></button>
+                        <button type="button" class="btn btn-outline-secondary rule-remove"><?= admin_icon('remove') ?><span><?= e(__('common.remove')) ?></span></button>
                     </div>
                 <?php endforeach; ?>
             </div>
-            <button type="button" class="btn btn-secondary button button--normal" id="add-rule"><?= admin_icon('add') ?><span><?= e(__('schedule.add_rule')) ?></span></button>
+            <button type="button" class="btn btn-outline-secondary" id="add-rule"><?= admin_icon('add') ?><span><?= e(__('schedule.add_rule')) ?></span></button>
         </div>
 
-        <div class="form-actions"><button type="submit" class="btn btn-primary button button--default"><?= admin_icon('save') ?><span><?= e(__('common.save')) ?></span></button><a class="btn btn-secondary button button--normal" href="<?= e(url('/admin/schedules')) ?>"><?= admin_icon('cancel') ?><span><?= e(__('common.cancel')) ?></span></a></div>
+        <div class="form-actions"><button type="submit" class="btn btn-primary"><?= admin_icon('save') ?><span><?= e(__('common.save')) ?></span></button><a class="btn btn-outline-secondary" href="<?= e(url('/admin/schedules')) ?>"><?= admin_icon('cancel') ?><span><?= e(__('common.cancel')) ?></span></a></div>
     </form>
 </div>
 <script>
@@ -121,7 +121,7 @@ require __DIR__ . '/../layouts/admin_header.php';
 
         const removeButton = document.createElement('button');
         removeButton.type = 'button';
-        removeButton.className = 'button button--normal rule-remove';
+        removeButton.className = 'btn btn-outline-secondary rule-remove';
         removeButton.textContent = labels.remove;
         row.appendChild(removeButton);
         list.appendChild(row);

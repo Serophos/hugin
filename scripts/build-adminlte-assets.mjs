@@ -6,18 +6,12 @@ import { promisify } from 'node:util';
 
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const sourceRoot = path.join(rootDir, 'node_modules', 'admin-lte');
-const tabulatorRoot = path.join(rootDir, 'node_modules', 'tabulator-tables');
 const bootstrapRoot = path.join(rootDir, 'node_modules', 'bootstrap');
 const targetRoot = path.join(rootDir, 'public', 'assets', 'vendor', 'adminlte');
 const files = [
   'dist/css/adminlte.min.css',
   'dist/js/adminlte.min.js',
   'LICENSE',
-];
-const tabulatorFiles = [
-  ['dist/css/tabulator_bootstrap5.min.css', 'dist/css/tabulator_bootstrap5.min.css'],
-  ['dist/js/tabulator.min.js', 'dist/js/tabulator.min.js'],
-  ['LICENSE', 'LICENSE'],
 ];
 const bootstrapFiles = [
   ['dist/js/bootstrap.bundle.min.js', 'dist/js/bootstrap.bundle.min.js'],
@@ -53,7 +47,6 @@ async function listFiles(directory) {
 async function assertDependency() {
   for (const [directory, name] of [
     [sourceRoot, 'admin-lte'],
-    [tabulatorRoot, 'tabulator-tables'],
     [bootstrapRoot, 'bootstrap'],
   ]) {
     if (!(await exists(directory))) throw new Error(`Missing ${name}. Run npm ci before building frontend assets.`);
@@ -82,7 +75,6 @@ async function copyFiles(root, prefix, mappings) {
 async function build() {
   await fs.rm(targetRoot, { recursive: true, force: true });
   await copyFiles(sourceRoot, '', files.map(file => [file, file]));
-  await copyFiles(tabulatorRoot, 'tabulator', tabulatorFiles);
   await copyFiles(bootstrapRoot, 'bootstrap', bootstrapFiles);
 }
 
@@ -90,7 +82,6 @@ async function check() {
   await assertUntracked();
   const expectedSources = new Map([
     ...files.map(file => [file, path.join(sourceRoot, file)]),
-    ...tabulatorFiles.map(([source, target]) => [`tabulator/${target}`, path.join(tabulatorRoot, source)]),
     ...bootstrapFiles.map(([source, target]) => [`bootstrap/${target}`, path.join(bootstrapRoot, source)]),
   ]);
   const actual = await listFiles(targetRoot);

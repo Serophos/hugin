@@ -34,7 +34,7 @@
 
 [data-bs-theme="dark"] .app-main,
 [data-bs-theme="dark"] .app-content,
-[data-bs-theme="dark"] .card,
+[data-bs-theme="dark"] .card:not(.card-outline),
 [data-bs-theme="dark"] fieldset,
 [data-bs-theme="dark"] .stat,
 [data-bs-theme="dark"] .status-item,
@@ -63,7 +63,6 @@
 
 [data-bs-theme="dark"] .panel,
 [data-bs-theme="dark"] .panel-alt,
-[data-bs-theme="dark"] th,
 [data-bs-theme="dark"] .slide-library-filter-row,
 [data-bs-theme="dark"] .media-preview-stage,
 [data-bs-theme="dark"] .template-editor__canvas-shell,
@@ -76,7 +75,6 @@
     border-color: var(--bs-border-color);
 }
 
-[data-bs-theme="dark"] tbody tr,
 [data-bs-theme="dark"] input:not([type="color"]):not([type="range"]),
 [data-bs-theme="dark"] select,
 [data-bs-theme="dark"] textarea,
@@ -111,7 +109,6 @@
     border-color: var(--bs-primary-border-subtle);
 }
 
-[data-bs-theme="dark"] tbody tr:hover,
 [data-bs-theme="dark"] .playlist-add-item:hover,
 [data-bs-theme="dark"] .weather-result-item:hover {
     background-color: var(--bs-tertiary-bg);
@@ -125,24 +122,6 @@
     color: var(--bs-secondary-color);
 }
 
-[data-bs-theme="dark"] .tabulator,
-[data-bs-theme="dark"] .tabulator .tabulator-header,
-[data-bs-theme="dark"] .tabulator .tabulator-header .tabulator-col,
-[data-bs-theme="dark"] .tabulator .tabulator-row,
-[data-bs-theme="dark"] .tabulator .tabulator-row .tabulator-cell,
-[data-bs-theme="dark"] .tabulator .tabulator-footer {
-    background-color: var(--bs-body-bg);
-    color: var(--bs-body-color);
-    border-color: var(--bs-border-color);
-}
-
-[data-bs-theme="dark"] .tabulator .tabulator-row.tabulator-row-even,
-[data-bs-theme="dark"] .tabulator .tabulator-header-filter input,
-[data-bs-theme="dark"] .tabulator .tabulator-header-filter select {
-    background-color: var(--bs-tertiary-bg);
-    color: var(--bs-body-color);
-    border-color: var(--bs-border-color);
-}
 
 [data-bs-theme] .admin-user-menu:not([open]) > .dropdown-menu.show { display: block; }
 

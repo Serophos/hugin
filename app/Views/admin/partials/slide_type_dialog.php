@@ -62,8 +62,8 @@ $firstSlideTypeCreateUrl = $slideTypeCreateUrl
             </aside>
         </div>
         <div class="form-actions">
-            <button type="button" class="btn btn-secondary button button--normal" data-slide-type-close><?= admin_icon('cancel') ?><span><?= e(__('common.cancel')) ?></span></button>
-            <a class="btn btn-primary button button--default" href="<?= e($firstSlideTypeCreateUrl) ?>" data-slide-type-continue><?= admin_icon('add') ?><span><?= e(__('slide.create_selected_type')) ?></span></a>
+            <button type="button" class="btn btn-outline-secondary" data-slide-type-close><?= admin_icon('cancel') ?><span><?= e(__('common.cancel')) ?></span></button>
+            <a class="btn btn-primary" href="<?= e($firstSlideTypeCreateUrl) ?>" data-slide-type-continue><?= admin_icon('add') ?><span><?= e(__('slide.create_selected_type')) ?></span></a>
         </div>
     </form>
 </dialog>

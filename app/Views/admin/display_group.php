@@ -15,7 +15,7 @@ require __DIR__ . '/../layouts/admin_header.php';
     <form method="post" action="<?= e(url('/admin/display-groups/' . $group['id'] . '/delete')) ?>" class="inline-form" data-dialog-submit data-dialog-title="<?= e(__('common.delete')) ?>" data-dialog-message="<?= e(__('display_groups.delete_confirm')) ?>" data-dialog-icon="trash" data-dialog-buttons="cancel,delete" data-dialog-accept="<?= e(__('common.delete')) ?>">
         <?= csrf_field() ?>
         <input type="hidden" name="return_to" value="<?= e('/admin/locations/' . $group['location_id'] . '/edit') ?>">
-        <button type="submit" class="btn btn-danger button button--danger button--small"><?= admin_icon('delete') ?><span><?= e(__('common.delete')) ?></span></button>
+        <button type="submit" class="btn btn-danger btn-sm"><?= admin_icon('delete') ?><span><?= e(__('common.delete')) ?></span></button>
     </form>
 </div>
 
@@ -43,7 +43,7 @@ require __DIR__ . '/../layouts/admin_header.php';
                 <span class="layout-save-state muted" data-layout-message aria-live="polite"></span>
                 <button
                     type="button"
-                    class="btn btn-secondary button button--normal button--small button--icon-only display-layout-toolbar__button"
+                    class="btn btn-outline-secondary btn-sm admin-icon-button display-layout-toolbar__button"
                     data-open-unassigned-display-dialog
                     data-toolbar-tooltip="<?= e(__('display_groups.add_display')) ?>"
                     aria-haspopup="dialog"
@@ -52,7 +52,7 @@ require __DIR__ . '/../layouts/admin_header.php';
                 ><?= admin_icon('add') ?><span class="sr-only"><?= e(__('display_groups.add_display')) ?></span></button>
                 <button
                     type="button"
-                    class="btn btn-secondary button button--normal button--small button--icon-only display-layout-toolbar__button"
+                    class="btn btn-outline-secondary btn-sm admin-icon-button display-layout-toolbar__button"
                     data-remove-selected-display
                     data-toolbar-tooltip="<?= e(__('display_groups.remove_selected_display')) ?>"
                     aria-label="<?= e(__('display_groups.remove_selected_display')) ?>"
@@ -60,7 +60,7 @@ require __DIR__ . '/../layouts/admin_header.php';
                 ><?= admin_icon('remove') ?><span class="sr-only"><?= e(__('display_groups.remove_selected_display')) ?></span></button>
                 <button
                     type="button"
-                    class="btn btn-secondary button button--normal button--small button--icon-only display-layout-toolbar__button display-layout-toolbar__button--primary"
+                    class="btn btn-outline-secondary btn-sm admin-icon-button display-layout-toolbar__button display-layout-toolbar__button--primary"
                     data-toggle-primary-display
                     data-toolbar-tooltip="<?= e(__('display_groups.primary_display')) ?>"
                     data-primary-label="<?= e(__('display_groups.primary_display')) ?>"
@@ -72,7 +72,7 @@ require __DIR__ . '/../layouts/admin_header.php';
                 ><?= admin_icon('primary-display') ?><span class="sr-only"><?= e(__('display_groups.primary_display')) ?></span></button>
                 <button
                     type="button"
-                    class="btn btn-primary button button--default button--small button--icon-only display-layout-toolbar__button"
+                    class="btn btn-primary btn-sm admin-icon-button display-layout-toolbar__button"
                     data-save-layout
                     data-toolbar-tooltip="<?= e(__('display_groups.save_layout')) ?>"
                     data-saving-label="<?= e(__('display_groups.layout_saving')) ?>"
@@ -183,8 +183,8 @@ require __DIR__ . '/../layouts/admin_header.php';
             </div>
             <p class="display-model-empty muted" data-unassigned-display-empty hidden><?= e(__('display_groups.no_unassigned_displays')) ?></p>
             <div class="form-actions display-model-dialog__actions">
-                <button type="button" class="btn btn-secondary button button--normal" data-unassigned-display-close><?= admin_icon('cancel') ?><span><?= e(__('common.cancel')) ?></span></button>
-                <button type="submit" class="btn btn-primary button button--default" data-unassigned-display-submit><?= admin_icon('add') ?><span><?= e(__('display_groups.add_selected_display')) ?></span></button>
+                <button type="button" class="btn btn-outline-secondary" data-unassigned-display-close><?= admin_icon('cancel') ?><span><?= e(__('common.cancel')) ?></span></button>
+                <button type="submit" class="btn btn-primary" data-unassigned-display-submit><?= admin_icon('add') ?><span><?= e(__('display_groups.add_selected_display')) ?></span></button>
             </div>
         </form>
     </dialog>
@@ -212,7 +212,7 @@ require __DIR__ . '/../layouts/admin_header.php';
                 </label>
                 <label class="checkbox-row"><input type="checkbox" name="sync_enabled" value="1" <?= old_checked('sync_enabled', $group['sync_enabled'] ?? 0, $groupEditForm) ?>> <?= e(__('display_groups.sync_reload_to_full_minute')) ?></label>
                 <small class="field-note"><?= e(__('display_groups.sync_reload_to_full_minute_help')) ?></small>
-                <button type="submit" class="btn btn-primary button button--default"><?= admin_icon('save') ?><span><?= e(__('common.save')) ?></span></button>
+                <button type="submit" class="btn btn-primary"><?= admin_icon('save') ?><span><?= e(__('common.save')) ?></span></button>
             </form>
         </div>
 
@@ -231,7 +231,7 @@ require __DIR__ . '/../layouts/admin_header.php';
                             </span>
                             <?php if (!empty($display['vnc_configured'])): ?>
                                 <span class="display-list-actions">
-                                    <a class="btn btn-primary button button--default button--small" href="<?= e(url('/admin/displays/' . $display['id'] . '/vnc')) ?>" target="_blank" rel="noopener noreferrer" aria-label="<?= e(__('display.vnc_connect_to', ['display' => $display['name']])) ?>"><?= admin_icon('open') ?><span><?= e(__('display.vnc')) ?></span></a>
+                                    <a class="btn btn-primary btn-sm" href="<?= e(url('/admin/displays/' . $display['id'] . '/vnc')) ?>" target="_blank" rel="noopener noreferrer" aria-label="<?= e(__('display.vnc_connect_to', ['display' => $display['name']])) ?>"><?= admin_icon('open') ?><span><?= e(__('display.vnc')) ?></span></a>
                                 </span>
                             <?php endif; ?>
                         </div>

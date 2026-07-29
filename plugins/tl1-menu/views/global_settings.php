@@ -168,7 +168,7 @@ $setupI18n = [
             <div class="tl1menu-admin-checklist full-width">
                 <?php foreach (['default_show_header', 'default_display_co2', 'default_display_water', 'default_display_animal_welfare', 'default_display_rainforest'] as $key): ?>
                     <label class="checkbox-row">
-                        <input type="checkbox" name="plugin_global_settings[<?= e($plugin->getName()) ?>][<?= e($key) ?>]" value="1" <?= !empty($settings[$key]) ? 'checked' : '' ?>>
+                        <input class="form-check-input" type="checkbox" name="plugin_global_settings[<?= e($plugin->getName()) ?>][<?= e($key) ?>]" value="1" <?= !empty($settings[$key]) ? 'checked' : '' ?>>
                         <span><?= e(__('plugins.tl1-menu.global_config.' . $key)) ?></span>
                     </label>
                 <?php endforeach; ?>
@@ -182,7 +182,7 @@ $setupI18n = [
         <div class="tl1menu-admin-checklist">
             <?php foreach ($foodTypes as $typeId => $typeKey): ?>
                 <label class="checkbox-row">
-                    <input type="checkbox" name="plugin_global_settings[<?= e($plugin->getName()) ?>][default_exclude][]" value="<?= e((string)$typeId) ?>" <?= in_array((int)$typeId, $defaultExclude, true) ? 'checked' : '' ?>>
+                    <input class="form-check-input" type="checkbox" name="plugin_global_settings[<?= e($plugin->getName()) ?>][default_exclude][]" value="<?= e((string)$typeId) ?>" <?= in_array((int)$typeId, $defaultExclude, true) ? 'checked' : '' ?>>
                     <span><?= e($menuService->getFoodTypeLabel((int)$typeId, (string)$typeKey, current_locale())) ?> (<?= e((string)$typeId) ?>)</span>
                 </label>
             <?php endforeach; ?>
@@ -209,7 +209,7 @@ $setupI18n = [
                 <?= field_error_html('background_media_asset_id', $formId) ?>
             </label>
             <label><?= e(__('plugins.tl1-menu.global_config.upload_background_image')) ?>
-                <input type="file" name="plugin_global_settings[<?= e($plugin->getName()) ?>][background_image_file]" accept="image/*"<?= field_attrs('background_image_file', $formId) ?>>
+                <input class="form-control" type="file" name="plugin_global_settings[<?= e($plugin->getName()) ?>][background_image_file]" accept="image/*"<?= field_attrs('background_image_file', $formId) ?>>
                 <?= field_error_html('background_image_file', $formId) ?>
                 <small class="field-note"><?= e(__('forms.file_reselect_hint')) ?></small>
             </label>
@@ -247,14 +247,14 @@ $setupI18n = [
     </fieldset>
 
     <div class="form-actions tl1menu-global-settings__mid-actions">
-        <button type="submit" class="btn btn-primary button button--default"><?= admin_icon('save') ?><span><?= e(__('common.save')) ?></span></button>
-        <a class="btn btn-secondary button button--normal" href="<?= e(url('/admin/plugins')) ?>"><?= admin_icon('cancel') ?><span><?= e(__('common.cancel')) ?></span></a>
+        <button type="submit" class="btn btn-primary d-inline-flex align-items-center gap-2"><?= admin_icon('save') ?><span><?= e(__('common.save')) ?></span></button>
+        <a class="btn btn-outline-secondary d-inline-flex align-items-center gap-2" href="<?= e(url('/admin/plugins')) ?>"><?= admin_icon('cancel') ?><span><?= e(__('common.cancel')) ?></span></a>
     </div>
 
     <fieldset class="full-width tl1menu-setup">
         <legend><?= e(__('plugins.tl1-menu.setup.title')) ?></legend>
         <div class="tl1menu-setup__toolbar">
-            <button type="button" class="btn btn-secondary button button--normal" data-tl1menu-setup-analyze><?= admin_icon('reload') ?><span><?= e(__('plugins.tl1-menu.setup.analyze')) ?></span></button>
+            <button type="button" class="btn btn-outline-secondary d-inline-flex align-items-center gap-2" data-tl1menu-setup-analyze><?= admin_icon('reload') ?><span><?= e(__('plugins.tl1-menu.setup.analyze')) ?></span></button>
         </div>
         <p class="text-body-secondary muted"><?= e(__('plugins.tl1-menu.setup.help')) ?></p>
         <p class="text-body-secondary muted"><?= e(__('plugins.tl1-menu.setup.save_scope_help')) ?></p>
@@ -277,16 +277,16 @@ $setupI18n = [
         <div class="tl1menu-setup__icon-upload" data-tl1menu-category-icon-upload>
             <label class="tl1menu-setup__icon-upload-field">
                 <span><?= e(__('plugins.tl1-menu.setup.icon_upload.title')) ?></span>
-                <input type="file" accept=".svg,.png,.webp,image/svg+xml,image/png,image/webp" data-tl1menu-category-icon-file>
+                <input class="form-control" type="file" accept=".svg,.png,.webp,image/svg+xml,image/png,image/webp" data-tl1menu-category-icon-file>
             </label>
-            <button type="button" class="btn btn-secondary button button--normal button--small" data-tl1menu-category-icon-upload-button><?= admin_icon('upload') ?><span><?= e(__('plugins.tl1-menu.setup.icon_upload.button')) ?></span></button>
+            <button type="button" class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-2" data-tl1menu-category-icon-upload-button><?= admin_icon('upload') ?><span><?= e(__('plugins.tl1-menu.setup.icon_upload.button')) ?></span></button>
             <small class="field-note tl1menu-setup__icon-upload-help"><?= e(__('plugins.tl1-menu.setup.icon_upload.help')) ?></small>
             <span class="tl1menu-setup__icon-upload-status" data-tl1menu-category-icon-upload-status role="status" aria-live="polite"></span>
         </div>
 
         <textarea class="tl1menu-setup__json" data-tl1menu-setup-json><?= e(json_encode($parserConfig, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}') ?></textarea>
         <div class="form-actions tl1menu-setup__footer-actions">
-            <button type="button" class="btn btn-primary button button--default" data-tl1menu-setup-save><?= admin_icon('save') ?><span><?= e(__('plugins.tl1-menu.setup.save_generated')) ?></span></button>
+            <button type="button" class="btn btn-primary d-inline-flex align-items-center gap-2" data-tl1menu-setup-save><?= admin_icon('save') ?><span><?= e(__('plugins.tl1-menu.setup.save_generated')) ?></span></button>
         </div>
     </fieldset>
 
@@ -295,11 +295,11 @@ $setupI18n = [
             <h2 id="tl1menu-value-title" data-tl1menu-value-title></h2>
             <label class="tl1menu-value-dialog__field">
                 <span data-tl1menu-value-label></span>
-                <input class="tl1menu-value-dialog__input" type="text" autocomplete="off" data-tl1menu-value-input>
+                <input class="form-control tl1menu-value-dialog__input" type="text" autocomplete="off" data-tl1menu-value-input>
             </label>
             <div class="form-actions">
-                <button type="button" class="btn btn-secondary button button--normal" data-tl1menu-value-cancel><?= admin_icon('cancel') ?><span><?= e(__('plugins.tl1-menu.setup.dialog.cancel')) ?></span></button>
-                <button type="button" class="btn btn-primary button button--default" data-tl1menu-value-accept><?= admin_icon('add') ?><span data-tl1menu-value-accept-label><?= e(__('common.create')) ?></span></button>
+                <button type="button" class="btn btn-outline-secondary d-inline-flex align-items-center gap-2" data-tl1menu-value-cancel><?= admin_icon('cancel') ?><span><?= e(__('plugins.tl1-menu.setup.dialog.cancel')) ?></span></button>
+                <button type="button" class="btn btn-primary d-inline-flex align-items-center gap-2" data-tl1menu-value-accept><?= admin_icon('add') ?><span data-tl1menu-value-accept-label><?= e(__('common.create')) ?></span></button>
             </div>
         </div>
     </dialog>

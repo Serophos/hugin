@@ -477,14 +477,14 @@ require __DIR__ . '/../layouts/admin_header.php';
             <?php endforeach; ?>
         </div>
 
-        <label class="checkbox-row"><input type="checkbox" name="is_active" value="1" <?= old_checked('is_active', $slide['is_active'] ?? 1, $formId) ?>> <?= e(__('common.active')) ?></label>
+        <label class="checkbox-row"><input class="form-check-input" type="checkbox" name="is_active" value="1" <?= old_checked('is_active', $slide['is_active'] ?? 1, $formId) ?>> <?= e(__('common.active')) ?></label>
         <div class="form-actions">
-            <button type="submit" name="save_action" value="save_and_close" class="btn btn-primary button button--default"><?= admin_icon('save') ?><span><?= e(__('slide.save_and_close')) ?></span></button>
-            <button type="submit" name="save_action" value="save" class="btn btn-secondary button button--normal"><?= admin_icon('save') ?><span><?= e(__('common.save')) ?></span></button>
+            <button type="submit" name="save_action" value="save_and_close" class="btn btn-primary d-inline-flex align-items-center gap-2"><?= admin_icon('save') ?><span><?= e(__('slide.save_and_close')) ?></span></button>
+            <button type="submit" name="save_action" value="save" class="btn btn-outline-primary d-inline-flex align-items-center gap-2"><?= admin_icon('save') ?><span><?= e(__('common.save')) ?></span></button>
             <?php if ($slide && isset($slide['id'])): ?>
-                <a class="btn btn-secondary button button--normal" target="_blank" rel="noopener noreferrer" href="<?= e(url('/preview-slide/' . $slide['id'])) ?>"><?= admin_icon('preview') ?><span><?= e(__('common.preview')) ?></span></a>
+                <a class="btn btn-outline-secondary d-inline-flex align-items-center gap-2" target="_blank" rel="noopener noreferrer" href="<?= e(url('/preview-slide/' . $slide['id'])) ?>"><?= admin_icon('preview') ?><span><?= e(__('common.preview')) ?></span></a>
             <?php endif; ?>
-            <a class="btn btn-secondary button button--normal" href="<?= e(url($returnToPath)) ?>"><?= admin_icon('cancel') ?><span><?= e(__('common.cancel')) ?></span></a>
+            <a class="btn btn-outline-secondary d-inline-flex align-items-center gap-2" href="<?= e(url($returnToPath)) ?>"><?= admin_icon('cancel') ?><span><?= e(__('common.cancel')) ?></span></a>
         </div>
     </form>
 </div>

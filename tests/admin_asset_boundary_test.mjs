@@ -9,12 +9,11 @@ const read = file => fs.readFileSync(path.join(root, file), 'utf8');
 const packageJson = JSON.parse(read('package.json'));
 assert.equal(packageJson.devDependencies['admin-lte'], '4.1.0', 'AdminLTE must remain exactly pinned');
 assert.equal(packageJson.devDependencies.bootstrap, '5.3.8', 'Bootstrap must remain exactly pinned');
-assert.equal(packageJson.devDependencies['tabulator-tables'], '6.3.1', 'AdminLTE data tables must use the pinned Tabulator package');
 
 const adminHeader = read('app/Views/layouts/admin_header.php');
 const adminUserMenu = read('app/Views/admin/partials/user_menu.php');
 assert.match(adminHeader, /assets\/vendor\/adminlte\/dist\/css\/adminlte\.min\.css/);
-assert.match(adminHeader, /assets\/vendor\/adminlte\/tabulator\/dist\/css\/tabulator_bootstrap5\.min\.css/);
+assert.doesNotMatch(adminHeader, /tabulator/i, 'native AdminLTE tables must not load a competing table theme');
 assert.match(adminHeader, /assets\/js\/admin-theme\.js/);
 assert.ok(adminHeader.indexOf('admin-theme.js') < adminHeader.indexOf('adminlte.min.css'), 'theme must be applied before CSS to prevent a color-mode flash');
 assert.match(adminUserMenu, /data-admin-theme-value="light"/);
@@ -35,7 +34,7 @@ assert.doesNotMatch(adminHeader, /admin-nav-form|admin-sidebar-user/, 'user iden
 const adminFooter = read('app/Views/layouts/admin_footer.php');
 assert.match(adminFooter, /assets\/vendor\/adminlte\/dist\/js\/adminlte\.min\.js/);
 assert.match(adminFooter, /assets\/vendor\/adminlte\/bootstrap\/dist\/js\/bootstrap\.bundle\.min\.js/);
-assert.match(adminFooter, /assets\/vendor\/adminlte\/tabulator\/dist\/js\/tabulator\.min\.js/);
+assert.doesNotMatch(adminFooter, /tabulator/i, 'native AdminLTE tables must not load the Tabulator runtime');
 
 const templateEditor = read('app/Views/admin/slide_template_form.php');
 for (const hook of [
@@ -104,24 +103,59 @@ assert.match(
   'slide deletion must be the final action in a separate button group',
 );
 
+for (const [view, destructivePath] of [
+  ['users.php', 'delete'],
+  ['slide_templates.php', 'delete'],
+  ['locations.php', 'delete'],
+  ['location_edit.php', 'delete'],
+  ['displays.php', 'delete'],
+  ['media.php', 'delete'],
+  ['playlists.php', 'delete'],
+  ['playlist_form.php', 'remove'],
+  ['schedules.php', 'delete'],
+]) {
+  const source = read('app/Views/admin/' + view);
+  const separatedActionPattern = new RegExp('class="admin-action-groups">[\\s\\S]*?<\\/div>\\s*(?:<\\?php[^>]*>\\s*)?<div class="btn-group btn-group-sm admin-action-group"[\\s\\S]*?\\/' + destructivePath);
+  assert.match(source, separatedActionPattern, view + ' must place its destructive row action in a separate trailing button group');
+}
+
+const slideForm = read('app/Views/admin/slide_form.php');
+const slideFormActions = slideForm.match(/<div class="form-actions">[\s\S]*?<\/div>\s*<\/form>/)?.[0] || "";
+assert.doesNotMatch(slideFormActions, /button--(?:normal|default)|class="[^"]*\bbutton\b/, 'slide editor actions must not use the legacy button styling layer');
+assert.match(slideFormActions, /btn btn-primary d-inline-flex/, 'slide editor primary action must use native Bootstrap styling');
+assert.match(slideFormActions, /btn btn-outline-primary d-inline-flex/, 'slide editor secondary save action must use native Bootstrap styling');
+assert.match(slideForm, /class="form-check-input" type="checkbox" name="is_active"/, 'slide active state must use a native Bootstrap checkbox');
+
+const slideTemplates = read('app/Views/admin/slide_templates.php');
+assert.match(slideTemplates, /<table[^>]*data-admin-table/, 'slide templates must use the shared native data-table behavior');
+assert.equal((slideTemplates.match(/data-admin-sort=/g) || []).length, 4, 'slide templates must expose four sortable data columns');
+assert.equal((slideTemplates.match(/data-admin-filter=/g) || []).length, 4, 'slide templates must expose four column filters');
+assert.match(slideTemplates, /data-admin-sort="usage" data-sort-type="number"/, 'slide-template usage sorting must be numeric');
+assert.ok(slideTemplates.includes('data-filter-value="<?= e($statusValue) ?>"'), 'slide-template status filtering must use stable values');
+
+const vncView = read('app/Views/admin/display_vnc.php');
+assert.match(vncView, /class="card-header vnc-viewer-toolbar"/, 'VNC toolbar must use the native AdminLTE card header');
+assert.match(vncView, /class="alert alert-secondary mb-0 vnc-viewer-message"/, 'VNC failures must use a color-mode-aware Bootstrap alert');
+assert.match(vncView, /class="badge text-bg-secondary status-chip"/, 'VNC connection status must use a native Bootstrap badge');
+assert.doesNotMatch(vncView, /button--normal/, 'VNC controls must not use the legacy light-only button style');
+
 const adminCss = read('public/assets/css/admin.css');
+const breadcrumbCss = adminCss.match(/\.admin-breadcrumb \{[\s\S]*?(?=\n\.topbar \{)/)?.[0] || "";
+const vncCss = adminCss.match(/\.vnc-viewer-shell \{[\s\S]*?(?=\n\.group-layout-main \{)/)?.[0] || "";
+assert.doesNotMatch(vncCss, /#(?:111827|f8fafc)|rgba\(248, 250, 252/, "VNC chrome must not hard-code light or dark surfaces");
+assert.doesNotMatch(breadcrumbCss, /#[0-9a-f]{3,8}\b/i, "breadcrumbs must inherit native Bootstrap color-mode colors");
+assert.doesNotMatch(breadcrumbCss, /::after/, "breadcrumbs must use Bootstrap native dividers");
 const themeCss = read('public/assets/css/admin-theme-overrides.css');
 assert.match(themeCss, /\[data-bs-theme="dark"\]/, 'dark mode must have a scoped compatibility layer');
 assert.match(themeCss, /--panel:\s*var\(--bs-body-bg\)/, 'legacy layout tokens must resolve through Bootstrap theme variables');
+const adminTableJs = read('public/assets/js/admin-table.js');
+assert.doesNotMatch(adminTableJs, /Tabulator|table\.remove\(\)|admin-data-table/, 'admin tables must remain native AdminLTE tables');
+assert.match(adminTableJs, /classList\.add\("form-control", "form-control-sm"\)/, 'text filters must use native Bootstrap form controls');
+assert.match(adminTableJs, /classList\.add\("form-select", "form-select-sm"\)/, 'select filters must use native Bootstrap selects');
 assert.match(
   adminCss,
   /td\.actions\s*>\s*\.admin-action-group\s*\{[\s\S]*?justify-content:\s*flex-end;[\s\S]*?margin:\s*0\.15rem 0 0\.15rem auto;/,
   'admin action button groups must be explicitly right-aligned',
-);
-assert.match(
-  read('public/assets/js/admin-table.js'),
-  /isActionColumn[\s\S]*?admin-actions-column/,
-  'Tabulator conversion must preserve an explicit action-column marker',
-);
-assert.match(
-  adminCss,
-  /\.tabulator-cell\.admin-actions-column\s*>\s*\.admin-action-group\s*\{[\s\S]*?margin-left:\s*auto;/,
-  'Tabulator action groups must remain right-aligned after table enhancement',
 );
 
 const canvasRenderer = read('public/assets/js/template-canvas-renderer.js');
@@ -153,6 +187,16 @@ for (const [file, asset] of pluginManifests) {
 
 const tl1FrontendCss = read('plugins/tl1-menu/assets/tl1menu.css');
 const tl1AdminCss = read('plugins/tl1-menu/assets/tl1menu-admin.css');
+const tl1GlobalSettings = read('plugins/tl1-menu/views/global_settings.php');
+const tl1SetupJs = read('plugins/tl1-menu/assets/tl1menu-setup.js');
+assert.doesNotMatch(tl1AdminCss, /#[0-9a-f]{3,8}\b/i, 'TL1 admin CSS must use Bootstrap color-mode variables instead of fixed colors');
+assert.match(tl1AdminCss, /\.tl1menu-global-settings > fieldset \{[\s\S]*?background:\s*var\(--bs-body-bg\);/, 'TL1 global fieldsets must use the active Bootstrap body surface');
+assert.match(tl1AdminCss, /checkbox-row:has\(input:checked\)[\s\S]*?background:\s*var\(--bs-primary-bg-subtle\);/, 'TL1 checked rows must use the active Bootstrap primary surface');
+assert.doesNotMatch(tl1GlobalSettings, /button--(?:normal|default)/, 'TL1 global controls must not use legacy light-only buttons');
+assert.doesNotMatch(tl1SetupJs, /button--(?:normal|default)/, 'generated TL1 setup controls must not use legacy light-only buttons');
+assert.match(tl1GlobalSettings, /class="form-check-input" type="checkbox"/, 'TL1 global checkboxes must use native Bootstrap controls');
+assert.match(tl1GlobalSettings, /class="form-control" type="file"/, 'TL1 uploads must use native Bootstrap controls');
+
 for (const selector of ['.tl1menu-list__stage', '.tl1menu-list__item', '.tl1menu-list__prices']) {
   assert.ok(tl1FrontendCss.includes(selector), 'TL1 frontend CSS must retain list-view selector ' + selector);
   assert.ok(!tl1AdminCss.includes(selector), 'TL1 list-view selector ' + selector + ' must not live only in the admin CSS');

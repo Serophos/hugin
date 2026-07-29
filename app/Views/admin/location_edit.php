@@ -9,7 +9,7 @@ $breadcrumbs = [
 require __DIR__ . '/../layouts/admin_header.php';
 ?>
 <div class="page-actions">
-    <a class="btn btn-primary button button--default" href="<?= e(url($groupCreateUrl)) ?>"><?= admin_icon('add') ?><span><?= e(__('display_groups.add_new')) ?></span></a>
+    <a class="btn btn-primary" href="<?= e(url($groupCreateUrl)) ?>"><?= admin_icon('add') ?><span><?= e(__('display_groups.add_new')) ?></span></a>
 </div>
 
 <?php if ($flash): ?><div class="alert alert-success success"><?= e($flash) ?></div><?php endif; ?>
@@ -38,8 +38,8 @@ require __DIR__ . '/../layouts/admin_header.php';
                     <?= field_error_html('description', $locationEditForm) ?>
                 </label>
                 <div class="form-actions full-width">
-                    <button type="submit" class="btn btn-primary button button--default"><?= admin_icon('save') ?><span><?= e(__('common.save')) ?></span></button>
-                    <a class="btn btn-secondary button button--normal" href="<?= e(url('/admin/locations')) ?>"><?= admin_icon('cancel') ?><span><?= e(__('common.cancel')) ?></span></a>
+                    <button type="submit" class="btn btn-primary"><?= admin_icon('save') ?><span><?= e(__('common.save')) ?></span></button>
+                    <a class="btn btn-outline-secondary" href="<?= e(url('/admin/locations')) ?>"><?= admin_icon('cancel') ?><span><?= e(__('common.cancel')) ?></span></a>
                 </div>
             </form>
         </div>
@@ -79,13 +79,17 @@ require __DIR__ . '/../layouts/admin_header.php';
                                 <td data-admin-cell="displays" data-sort-value="<?= e((string)$group['display_count']) ?>" data-filter-value="<?= e((string)$group['display_count']) ?>"><?= e((string)$group['display_count']) ?></td>
                                 <td data-admin-cell="description" data-sort-value="<?= e($descriptionLabel) ?>" data-filter-value="<?= e($descriptionLabel) ?>"><?= e($descriptionLabel) ?></td>
                                 <td class="actions">
-                                    <div class="btn-group btn-group-sm admin-action-group" role="group" aria-label="<?= e(__('common.actions') . ' ' . $group['name']) ?>">
+                                    <div class="admin-action-groups">
+                                        <div class="btn-group btn-group-sm admin-action-group" role="group" aria-label="<?= e(__('common.actions') . ' ' . $group['name']) ?>">
                                     <a class="btn btn-primary" href="<?= e(url('/admin/display-groups/' . $group['id'])) ?>" aria-label="<?= e(__('common.edit') . ' ' . $group['name']) ?>" title="<?= e(__('common.edit')) ?>"><?= admin_icon('edit') ?></a>
-                                    <form method="post" action="<?= e(url('/admin/display-groups/' . $group['id'] . '/delete')) ?>" class="inline-form" data-dialog-submit data-dialog-title="<?= e(__('common.delete')) ?>" data-dialog-message="<?= e(__('display_groups.delete_confirm')) ?>" data-dialog-icon="trash" data-dialog-buttons="cancel,delete" data-dialog-accept="<?= e(__('common.delete')) ?>">
+                                    </div>
+                                    <div class="btn-group btn-group-sm admin-action-group" role="group" aria-label="<?= e(__('common.delete')) ?>">
+                                        <form method="post" action="<?= e(url('/admin/display-groups/' . $group['id'] . '/delete')) ?>" class="inline-form" data-dialog-submit data-dialog-title="<?= e(__('common.delete')) ?>" data-dialog-message="<?= e(__('display_groups.delete_confirm')) ?>" data-dialog-icon="trash" data-dialog-buttons="cancel,delete" data-dialog-accept="<?= e(__('common.delete')) ?>">
                                         <?= csrf_field() ?>
                                         <input type="hidden" name="return_to" value="<?= e('/admin/locations/' . $location['id'] . '/edit') ?>">
                                         <button type="submit" class="btn btn-danger" aria-label="<?= e(__('common.delete') . ' ' . $group['name']) ?>" title="<?= e(__('common.delete')) ?>"><?= admin_icon('delete') ?></button>
                                     </form>
+                                    </div>
                                     </div>
                                 </td>
                             </tr>
@@ -116,7 +120,7 @@ require __DIR__ . '/../layouts/admin_header.php';
                             </a>
                             <?php if (!empty($display['vnc_configured'])): ?>
                                 <span class="display-list-actions">
-                                    <a class="btn btn-primary button button--default button--small" href="<?= e(url('/admin/displays/' . $display['id'] . '/vnc')) ?>" target="_blank" rel="noopener noreferrer" aria-label="<?= e(__('display.vnc_connect_to', ['display' => $display['name']])) ?>"><?= admin_icon('open') ?><span><?= e(__('display.vnc')) ?></span></a>
+                                    <a class="btn btn-primary btn-sm" href="<?= e(url('/admin/displays/' . $display['id'] . '/vnc')) ?>" target="_blank" rel="noopener noreferrer" aria-label="<?= e(__('display.vnc_connect_to', ['display' => $display['name']])) ?>"><?= admin_icon('open') ?><span><?= e(__('display.vnc')) ?></span></a>
                                 </span>
                             <?php endif; ?>
                         </div>

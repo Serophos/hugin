@@ -32,8 +32,8 @@ require __DIR__ . '/../layouts/admin_header.php';
         <label class="checkbox-row full-width"><input type="checkbox" name="sync_enabled" value="1" <?= old_checked('sync_enabled', 0, $formId) ?>> <?= e(__('display_groups.sync_reload_to_full_minute')) ?></label>
         <small class="field-note full-width"><?= e(__('display_groups.sync_reload_to_full_minute_help')) ?></small>
         <div class="form-actions full-width">
-            <button type="submit" class="btn btn-primary button button--default"><?= admin_icon('add') ?><span><?= e(__('common.create')) ?></span></button>
-            <a class="btn btn-secondary button button--normal" href="<?= e(url($returnTo)) ?>"><?= admin_icon('cancel') ?><span><?= e(__('common.cancel')) ?></span></a>
+            <button type="submit" class="btn btn-primary"><?= admin_icon('add') ?><span><?= e(__('common.create')) ?></span></button>
+            <a class="btn btn-outline-secondary" href="<?= e(url($returnTo)) ?>"><?= admin_icon('cancel') ?><span><?= e(__('common.cancel')) ?></span></a>
         </div>
     </form>
 </div>

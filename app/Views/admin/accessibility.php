@@ -31,7 +31,7 @@ require __DIR__ . '/../layouts/admin_header.php';
         <p class="alert alert-warning warning"><?= e(__('accessibility.contact_missing', [], 'No accessibility contact email has been configured yet. Add one in Global settings before publishing this statement.')) ?></p>
     <?php endif; ?>
     <?php if ($settings['feedback_url'] !== ''): ?>
-        <p><a class="btn btn-secondary button button--normal" href="<?= e($settings['feedback_url']) ?>" target="_blank" rel="noopener noreferrer"><?= admin_icon('open') ?><span><?= e(__('accessibility.feedback_link', [], 'Open feedback form')) ?></span></a></p>
+        <p><a class="btn btn-outline-secondary" href="<?= e($settings['feedback_url']) ?>" target="_blank" rel="noopener noreferrer"><?= admin_icon('open') ?><span><?= e(__('accessibility.feedback_link', [], 'Open feedback form')) ?></span></a></p>
     <?php endif; ?>
     <?php if ($settings['enforcement_url'] !== ''): ?>
         <p><?= e(__('accessibility.enforcement_text', [], 'If feedback is not handled satisfactorily, contact the responsible enforcement body:')) ?> <a href="<?= e($settings['enforcement_url']) ?>" target="_blank" rel="noopener noreferrer"><?= e($settings['enforcement_url']) ?></a></p>

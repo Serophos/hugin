@@ -25,7 +25,6 @@
         })();
     </script>
     <link rel="stylesheet" href="<?= e(asset_url('/assets/vendor/adminlte/dist/css/adminlte.min.css')) ?>">
-    <link rel="stylesheet" href="<?= e(asset_url('/assets/vendor/adminlte/tabulator/dist/css/tabulator_bootstrap5.min.css')) ?>">
     <link rel="stylesheet" href="<?= e(asset_url('/assets/css/admin.css')) ?>">
     <link rel="stylesheet" href="<?= e(asset_url('/assets/css/admin-user-menu.css')) ?>">
     <?php

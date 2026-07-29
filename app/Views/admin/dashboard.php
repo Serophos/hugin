@@ -73,9 +73,9 @@ $monitoringInfoBoxes = [
                                     <div class="dashboard-display-row__cell"><span><?= e(__('common.screen_resolution')) ?></span><strong><?= e($display['screen_label']) ?></strong></div>
                                     <div class="dashboard-display-row__actions">
                                         <div class="btn-group btn-group-sm admin-action-group" role="group" aria-label="<?= e(__('common.actions') . ' ' . $display['name']) ?>">
-                                        <a class="btn btn-primary button button--normal button--small button--icon-only" href="<?= e(url($display['preview_url'])) ?>" target="_blank" rel="noopener noreferrer" aria-label="<?= e(__('common.preview') . ' ' . $display['name']) ?>" title="<?= e(__('common.preview')) ?>"><?= admin_icon('preview') ?></a>
+                                        <a class="btn btn-primary btn-sm admin-icon-button" href="<?= e(url($display['preview_url'])) ?>" target="_blank" rel="noopener noreferrer" aria-label="<?= e(__('common.preview') . ' ' . $display['name']) ?>" title="<?= e(__('common.preview')) ?>"><?= admin_icon('preview') ?></a>
                                         <?php if (is_admin()): ?>
-                                            <a class="btn btn-secondary button button--normal button--small button--icon-only" href="<?= e(url($display['edit_url'])) ?>" aria-label="<?= e(__('common.edit') . ' ' . $display['name']) ?>" title="<?= e(__('common.edit')) ?>"><?= admin_icon('edit') ?></a>
+                                            <a class="btn btn-outline-secondary btn-sm admin-icon-button" href="<?= e(url($display['edit_url'])) ?>" aria-label="<?= e(__('common.edit') . ' ' . $display['name']) ?>" title="<?= e(__('common.edit')) ?>"><?= admin_icon('edit') ?></a>
                                         <?php endif; ?>
                                         </div>
                                     </div>
@@ -110,9 +110,9 @@ $monitoringInfoBoxes = [
                                     <div class="dashboard-display-row__cell"><span><?= e(__('dashboard.client')) ?></span><strong><?= e($display['client_label']) ?></strong></div>
                                     <div class="dashboard-display-row__actions">
                                         <div class="btn-group btn-group-sm admin-action-group" role="group" aria-label="<?= e(__('common.actions') . ' ' . $display['name']) ?>">
-                                        <a class="btn btn-primary button button--normal button--small button--icon-only" href="<?= e(url($display['preview_url'])) ?>" target="_blank" rel="noopener noreferrer" aria-label="<?= e(__('common.preview') . ' ' . $display['name']) ?>" title="<?= e(__('common.preview')) ?>"><?= admin_icon('preview') ?></a>
+                                        <a class="btn btn-primary btn-sm admin-icon-button" href="<?= e(url($display['preview_url'])) ?>" target="_blank" rel="noopener noreferrer" aria-label="<?= e(__('common.preview') . ' ' . $display['name']) ?>" title="<?= e(__('common.preview')) ?>"><?= admin_icon('preview') ?></a>
                                         <?php if (is_admin()): ?>
-                                            <a class="btn btn-secondary button button--normal button--small button--icon-only" href="<?= e(url($display['edit_url'])) ?>" aria-label="<?= e(__('common.edit') . ' ' . $display['name']) ?>" title="<?= e(__('common.edit')) ?>"><?= admin_icon('edit') ?></a>
+                                            <a class="btn btn-outline-secondary btn-sm admin-icon-button" href="<?= e(url($display['edit_url'])) ?>" aria-label="<?= e(__('common.edit') . ' ' . $display['name']) ?>" title="<?= e(__('common.edit')) ?>"><?= admin_icon('edit') ?></a>
                                         <?php endif; ?>
                                         </div>
                                     </div>

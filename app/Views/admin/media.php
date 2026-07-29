@@ -39,7 +39,7 @@ $fontPreviewText = __('media.font_preview_default', [], 'The quick brown fox jum
                 <?= field_error_html('license_note', $uploadForm) ?>
                 <small class="field-note"><?= e(__('media.font_license_warning')) ?></small>
             </label>
-            <button type="submit" class="btn btn-primary button button--default"><?= admin_icon('upload') ?><span><?= e(__('media.upload_title')) ?></span></button>
+            <button type="submit" class="btn btn-primary"><?= admin_icon('upload') ?><span><?= e(__('media.upload_title')) ?></span></button>
         </form>
     </div>
 
@@ -162,13 +162,17 @@ $fontPreviewText = __('media.font_preview_default', [], 'The quick brown fox jum
                     <td data-admin-cell="usage" data-sort-value="<?= e((string)$asset['usage_count']) ?>" data-filter-value="<?= e((string)$asset['usage_count']) ?>"><?= e((string)$asset['usage_count']) ?></td>
                     <td class="break-word" data-admin-cell="uploaded_by" data-sort-value="<?= e($assetUploadedBy) ?>" data-filter-value="<?= e($assetUploadedBy) ?>"><?= e($assetUploadedBy) ?></td>
                     <td class="actions">
-                        <div class="btn-group btn-group-sm admin-action-group" role="group" aria-label="<?= e(__('common.actions') . ' ' . $asset['name']) ?>">
+                        <div class="admin-action-groups">
+                            <div class="btn-group btn-group-sm admin-action-group" role="group" aria-label="<?= e(__('common.actions') . ' ' . $asset['name']) ?>">
                         <button type="button" class="btn btn-primary" data-media-preview-open aria-label="<?= e(__('common.open') . ' ' . $asset['name']) ?>" title="<?= e(__('common.open')) ?>"><?= admin_icon('open') ?></button>
+                        </div>
                         <?php if (in_array(current_user_role(), ['admin', 'editor'], true)): ?>
+                        <div class="btn-group btn-group-sm admin-action-group" role="group" aria-label="<?= e(__('common.delete')) ?>">
                             <form method="post" action="<?= e(url('/admin/media/' . $asset['id'] . '/delete')) ?>" class="inline-form" data-dialog-submit data-dialog-title="<?= e(__('common.delete')) ?>" data-dialog-message="<?= e(__('media.delete_confirm')) ?>" data-dialog-icon="trash" data-dialog-buttons="cancel,delete" data-dialog-accept="<?= e(__('common.delete')) ?>">
                                 <?= csrf_field() ?>
                                 <button type="submit" class="btn btn-danger" aria-label="<?= e(__('common.delete') . ' ' . $asset['name']) ?>" title="<?= e(__('common.delete')) ?>"><?= admin_icon('delete') ?></button>
                             </form>
+                        </div>
                         <?php endif; ?>
                         </div>
                     </td>
@@ -183,13 +187,13 @@ $fontPreviewText = __('media.font_preview_default', [], 'The quick brown fox jum
     <div class="pagination">
         <div>
             <?php if ($page > 1): ?>
-                <a class="btn btn-secondary button button--normal button--small" href="<?= e($prevPageUrl) ?>"><?= e(__('media.previous_page')) ?></a>
+                <a class="btn btn-outline-secondary btn-sm" href="<?= e($prevPageUrl) ?>"><?= e(__('media.previous_page')) ?></a>
             <?php endif; ?>
         </div>
         <div class="pagination-info"><?= e(__('media.page_of', ['page' => $page, 'count' => $pageCount])) ?></div>
         <div>
             <?php if ($page < $pageCount): ?>
-                <a class="btn btn-secondary button button--normal button--small" href="<?= e($nextPageUrl) ?>"><?= e(__('media.next_page')) ?></a>
+                <a class="btn btn-outline-secondary btn-sm" href="<?= e($nextPageUrl) ?>"><?= e(__('media.next_page')) ?></a>
             <?php endif; ?>
         </div>
     </div>

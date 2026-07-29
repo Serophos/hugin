@@ -138,8 +138,8 @@ require __DIR__ . '/../layouts/admin_header.php';
     </fieldset>
     <?php require __DIR__ . '/partials/openid_settings.php'; ?>
     <div class="form-actions">
-        <button type="submit" class="btn btn-primary button button--default"><?= admin_icon('save') ?><span><?= e(__('common.save')) ?></span></button>
-        <a class="btn btn-secondary button button--normal" href="<?= e(url('/admin')) ?>"><?= admin_icon('cancel') ?><span><?= e(__('common.cancel')) ?></span></a>
+        <button type="submit" class="btn btn-primary"><?= admin_icon('save') ?><span><?= e(__('common.save')) ?></span></button>
+        <a class="btn btn-outline-secondary" href="<?= e(url('/admin')) ?>"><?= admin_icon('cancel') ?><span><?= e(__('common.cancel')) ?></span></a>
     </div>
 </form>
 <?php require __DIR__ . '/../layouts/admin_footer.php'; ?>

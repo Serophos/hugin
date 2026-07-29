@@ -97,14 +97,14 @@ require __DIR__ . '/../layouts/admin_header.php';
                             <input class="form-control" type="number" min="0" name="assignment_priority[]" value="<?= e((string)($assignment['priority'] ?? '')) ?>" placeholder="<?= e(__('channel.priority_placeholder')) ?>" title="<?= e(__('channel.priority_help')) ?>"<?= field_attrs('assignment_priority.' . $index, $formId, 'assignment-priority-help-' . $index) ?>>
                             <?= field_error_html('assignment_priority.' . $index, $formId) ?>
                         </label>
-                        <button type="button" class="btn btn-danger button button--danger assignment-remove"><?= admin_icon('remove') ?><span><?= e(__('common.remove')) ?></span></button>
+                        <button type="button" class="btn btn-danger assignment-remove"><?= admin_icon('remove') ?><span><?= e(__('common.remove')) ?></span></button>
                     </div>
                 <?php endforeach; ?>
             </div>
-            <button type="button" class="btn btn-secondary button button--normal" id="add-assignment"><?= admin_icon('add') ?><span><?= e(__('channel.add_assignment')) ?></span></button>
+            <button type="button" class="btn btn-outline-secondary" id="add-assignment"><?= admin_icon('add') ?><span><?= e(__('channel.add_assignment')) ?></span></button>
         </div>
 
-        <div class="form-actions"><button type="submit" class="btn btn-primary button button--default"><?= admin_icon('save') ?><span><?= e(__('common.save')) ?></span></button><a class="btn btn-secondary button button--normal" href="<?= e(url('/admin/playlists')) ?>"><?= admin_icon('cancel') ?><span><?= e(__('common.cancel')) ?></span></a></div>
+        <div class="form-actions"><button type="submit" class="btn btn-primary"><?= admin_icon('save') ?><span><?= e(__('common.save')) ?></span></button><a class="btn btn-outline-secondary" href="<?= e(url('/admin/playlists')) ?>"><?= admin_icon('cancel') ?><span><?= e(__('common.cancel')) ?></span></a></div>
     </form>
 </div>
 
@@ -116,10 +116,10 @@ $slideTypeReturnTo = '/admin/playlists/' . $channel['id'] . '/edit';
 <div class="card shadow-sm">
     <h2><?= e(__('slide.playlist_slides', ['playlist' => $channel['name']])) ?></h2>
     <div class="form-actions playlist-slides-toolbar">
-        <button type="button" class="btn btn-secondary button button--normal" id="add-existing-slide">
+        <button type="button" class="btn btn-outline-secondary" id="add-existing-slide">
             <?= admin_icon('add') ?><span><?= e(__('slide.add_existing_to_playlist')) ?></span>
         </button>
-        <a class="btn btn-primary button button--default" href="<?= e($slideTypeCreateUrl . '&return_to=' . rawurlencode($slideTypeReturnTo)) ?>" data-open-slide-type-dialog data-create-url="<?= e($slideTypeCreateUrl) ?>" data-return-to="<?= e($slideTypeReturnTo) ?>" aria-haspopup="dialog">
+        <a class="btn btn-primary" href="<?= e($slideTypeCreateUrl . '&return_to=' . rawurlencode($slideTypeReturnTo)) ?>" data-open-slide-type-dialog data-create-url="<?= e($slideTypeCreateUrl) ?>" data-return-to="<?= e($slideTypeReturnTo) ?>" aria-haspopup="dialog">
             <?= admin_icon('add') ?><span><?= e(__('slide.create_in_playlist')) ?></span>
         </a>
     </div>
@@ -181,17 +181,21 @@ $slideTypeReturnTo = '/admin/playlists/' . $channel['id'] . '/edit';
                         <td data-admin-cell="duration" data-sort-value="<?= e((string)$durationValue) ?>" data-filter-value="<?= e($durationLabel) ?>"><?= e($durationLabel) ?></td>
                         <td data-admin-cell="status" data-sort-value="<?= e($statusLabel) ?>" data-filter-value="<?= e($statusValue) ?>"><?= e($statusLabel) ?></td>
                         <td class="actions">
-                            <div class="btn-group btn-group-sm admin-action-group" role="group" aria-label="<?= e(__('common.actions') . ' ' . $slide['name']) ?>">
+                            <div class="admin-action-groups">
+                                <div class="btn-group btn-group-sm admin-action-group" role="group" aria-label="<?= e(__('common.actions') . ' ' . $slide['name']) ?>">
                             <a class="btn btn-primary" href="<?= e(url('/admin/slides/' . $slide['id'] . '/edit?return_to=' . rawurlencode('/admin/playlists/' . $channel['id'] . '/edit'))) ?>" aria-label="<?= e(__('common.edit') . ' ' . $slide['name']) ?>" title="<?= e(__('common.edit')) ?>">
                                 <?= admin_icon('edit') ?>
                             </a>
-                            <form method="post" action="<?= e(url('/admin/playlists/' . $channel['id'] . '/slides/' . $slide['id'] . '/remove')) ?>" class="inline-form" data-dialog-submit data-dialog-title="<?= e(__('common.remove')) ?>" data-dialog-message="<?= e(__('slide.remove_from_playlist_confirm', ['slide' => $slide['name'], 'playlist' => $channel['name']])) ?>" data-dialog-icon="warning" data-dialog-buttons="cancel,delete" data-dialog-accept="<?= e(__('common.remove')) ?>">
+                            </div>
+                            <div class="btn-group btn-group-sm admin-action-group" role="group" aria-label="<?= e(__('common.delete')) ?>">
+                                <form method="post" action="<?= e(url('/admin/playlists/' . $channel['id'] . '/slides/' . $slide['id'] . '/remove')) ?>" class="inline-form" data-dialog-submit data-dialog-title="<?= e(__('common.remove')) ?>" data-dialog-message="<?= e(__('slide.remove_from_playlist_confirm', ['slide' => $slide['name'], 'playlist' => $channel['name']])) ?>" data-dialog-icon="warning" data-dialog-buttons="cancel,delete" data-dialog-accept="<?= e(__('common.remove')) ?>">
                                 <?= csrf_field() ?>
                                 <input type="hidden" name="return_to" value="<?= e('/admin/playlists/' . $channel['id'] . '/edit') ?>">
                                 <button type="submit" class="btn btn-danger" aria-label="<?= e(__('common.remove') . ' ' . $slide['name']) ?>" title="<?= e(__('common.remove')) ?>">
                                     <?= admin_icon('remove') ?>
                                 </button>
                             </form>
+                            </div>
                             </div>
                         </td>
                     </tr>
@@ -212,7 +216,7 @@ $slideTypeReturnTo = '/admin/playlists/' . $channel['id'] . '/edit';
                 <h2 id="slide-picker-title" data-slide-picker-title><?= e(__('slide.add_existing_title', ['playlist' => $channel['name']])) ?></h2>
                 <p id="slide-picker-description" class="text-body-secondary muted"><?= e(__('slide.add_existing_hint')) ?></p>
             </div>
-            <button type="button" class="btn btn-secondary button button--normal button--small" data-slide-picker-close>
+            <button type="button" class="btn btn-outline-secondary btn-sm" data-slide-picker-close>
                 <?= admin_icon('cancel') ?><span><?= e(__('common.cancel')) ?></span>
             </button>
         </div>
@@ -223,10 +227,10 @@ $slideTypeReturnTo = '/admin/playlists/' . $channel['id'] . '/edit';
         <div class="slide-picker-list" data-slide-picker-list></div>
         <p class="text-body-secondary muted" data-slide-picker-empty hidden><?= e(__('slide.add_existing_empty')) ?></p>
         <div class="form-actions">
-            <button type="button" class="btn btn-secondary button button--normal" data-slide-picker-close>
+            <button type="button" class="btn btn-outline-secondary" data-slide-picker-close>
                 <?= admin_icon('cancel') ?><span><?= e(__('common.cancel')) ?></span>
             </button>
-            <button type="submit" class="btn btn-primary button button--default" data-slide-picker-submit disabled>
+            <button type="submit" class="btn btn-primary" data-slide-picker-submit disabled>
                 <?= admin_icon('add') ?><span><?= e(__('slide.add_selected_to_playlist')) ?></span>
             </button>
         </div>
@@ -401,7 +405,7 @@ $slideTypeReturnTo = '/admin/playlists/' . $channel['id'] . '/edit';
 
         const removeButton = document.createElement('button');
         removeButton.type = 'button';
-        removeButton.className = 'button button--normal assignment-remove';
+        removeButton.className = 'btn btn-outline-secondary assignment-remove';
         removeButton.textContent = labels.remove;
         row.appendChild(removeButton);
         list.appendChild(row);

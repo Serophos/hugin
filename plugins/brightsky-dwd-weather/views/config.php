@@ -22,9 +22,9 @@ if ($displayNameValue === '') {
             display: none;
             margin-top: -4px;
             margin-bottom: 12px;
-            border: 1px solid #d3dae6;
+            border: 1px solid var(--bs-border-color);
             border-radius: 8px;
-            background: #fff;
+            background: var(--bs-body-bg);
             box-shadow: 0 10px 28px rgba(15, 23, 42, 0.10);
             overflow: hidden;
             max-height: 280px;
@@ -41,18 +41,18 @@ if ($displayNameValue === '') {
             text-align: left;
             cursor: pointer;
         }
-        .brightsky-dwd-weather-result:hover { background: #f4f7fb; }
-        .brightsky-dwd-weather-result strong { color: #162033; }
-        .brightsky-dwd-weather-result span { color: #536071; font-size: 0.9em; }
-        .brightsky-dwd-weather-empty { padding: 12px 14px; color: #536071; }
+        .brightsky-dwd-weather-result:hover { background: var(--bs-tertiary-bg); }
+        .brightsky-dwd-weather-result strong { color: var(--bs-body-color); }
+        .brightsky-dwd-weather-result span { color: var(--bs-secondary-color); font-size: 0.9em; }
+        .brightsky-dwd-weather-empty { padding: 12px 14px; color: var(--bs-secondary-color); }
         .brightsky-dwd-weather-readonly {
-            color: #536071;
-            background: #f4f7fb;
-            border-color: #d9e1ec;
+            color: var(--bs-secondary-color);
+            background: var(--bs-secondary-bg);
+            border-color: var(--bs-border-color);
             cursor: not-allowed;
         }
         .brightsky-dwd-weather-readonly:focus {
-            outline: 2px solid #cbd7e6;
+            outline: 2px solid var(--bs-primary-border-subtle);
             outline-offset: 1px;
         }
     </style>
