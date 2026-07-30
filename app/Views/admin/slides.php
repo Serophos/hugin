@@ -19,29 +19,17 @@ require __DIR__ . '/../layouts/admin_header.php';
 <?php if ($flash): ?><div class="alert alert-success success"><?= e($flash) ?></div><?php endif; ?>
 
 <section class="slide-workspace-section">
-    <section class="card card-info slide-group">
-        <div class="card-header">
-            <span class="slide-group__title">
-                <h2 class="card-title"><?= e(__('slide.all_slides')) ?></h2>
-            </span>
-            <span class="slide-group__hint"><?= e(__('slide.all_slides_hint')) ?></span>
-            <span class="card-tools">
-                <button type="button" class="btn btn-tool" data-lte-toggle="card-collapse" data-label-expand="<?= e(__('common.expand')) ?>" data-label-collapse="<?= e(__('common.collapse')) ?>" aria-label="<?= e(__('common.collapse')) ?>">
-                    <span data-lte-icon="expand"><?= admin_icon('add') ?></span>
-                    <span data-lte-icon="collapse"><?= admin_icon('remove') ?></span>
-                </button>
-            </span>
-        </div>
-        <div class="card-body slide-group__body">
+    <section class="card shadow-sm slide-library-card">
+        <div class="card-body">
             <?php if ($allSlides === []): ?>
-                <p class="muted slide-group__empty"><?= e(__('slide.no_slides')) ?></p>
+                <p class="muted slide-library-empty"><?= e(__('slide.no_slides')) ?></p>
             <?php else: ?>
                 <div class="slide-library-toolbar">
                     <span class="slide-library-toolbar__meta" data-slide-library-count data-template="<?= e(__('slide.library_filter_count', ['visible' => '__VISIBLE__', 'total' => '__TOTAL__'])) ?>" aria-live="polite"></span>
                     <button type="button" class="btn btn-outline-secondary btn-sm" data-slide-library-reset hidden><?= e(__('slide.clear_filters')) ?></button>
                 </div>
                 <div class="table-scroll">
-                    <table class="table table-hover align-middle admin-table slide-library-table" data-admin-table data-slide-library-table>
+                    <table class="table table-hover align-middle admin-table slide-library-table" data-admin-table data-admin-table-state-key="slides" data-slide-library-table>
                         <thead>
                             <tr>
                                 <th aria-sort="none"><button type="button" class="slide-library-sort" data-admin-sort="name" data-sort-type="text" aria-label="<?= e(__('slide.sort_by_column', ['column' => __('common.name')])) ?>"><?= e(__('common.name')) ?></button></th>
@@ -118,7 +106,7 @@ require __DIR__ . '/../layouts/admin_header.php';
                         </tbody>
                     </table>
                 </div>
-                <p class="muted slide-group__empty" data-slide-library-empty hidden><?= e(__('slide.library_filter_empty')) ?></p>
+                <p class="muted slide-library-empty" data-slide-library-empty hidden><?= e(__('slide.library_filter_empty')) ?></p>
             <?php endif; ?>
         </div>
     </section>

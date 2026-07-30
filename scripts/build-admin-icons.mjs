@@ -40,6 +40,8 @@ const icons = [
   ['remove', 'action/Minus'],
   ['save', 'action/Save'],
   ['settings', 'action/Setting'],
+  ['toggle-off', 'legacy/ToggleOff'],
+  ['toggle-on', 'legacy/ToggleOn'],
   ['upload', 'action/FileUpload']
 ];
 

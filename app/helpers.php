@@ -663,7 +663,7 @@ function admin_icon(string $name): string
         'dialog-question', 'dialog-trash', 'dialog-warning', 'displays',
         'edit', 'history', 'locations', 'login', 'logout', 'manage', 'media', 'menu',
         'move', 'open', 'playlists', 'plugins', 'primary-display', 'preview', 'reload',
-        'remove', 'save', 'schedules', 'settings', 'slides', 'templates',
+        'remove', 'save', 'schedules', 'settings', 'slides', 'templates', 'toggle-off', 'toggle-on',
         'upload', 'users',
     ];
 

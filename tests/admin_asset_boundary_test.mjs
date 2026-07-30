@@ -64,9 +64,16 @@ assert.ok(playlistsView.includes("admin_icon('playlists')"), 'creating a playlis
 assert.ok(playlistsView.includes('data-lte-icon="expand"') && playlistsView.includes("admin_icon('chevron-down')"), 'collapsed playlist cards must show a down chevron');
 assert.ok(playlistsView.includes('data-lte-icon="collapse"') && playlistsView.includes("admin_icon('chevron-up')"), 'expanded playlist cards must show an up chevron');
 
+const slidesView = read('app/Views/admin/slides.php');
+assert.doesNotMatch(slidesView, /slide-group|data-lte-toggle="card-collapse"/, 'slides view must not wrap its table in a collapsible card');
+assert.ok(slidesView.includes('class="card shadow-sm slide-library-card"') && slidesView.includes('class="card-body"'), 'slides table must retain a title-less card for visual structure');
+assert.doesNotMatch(slidesView, /class="card-header"/, 'slides card must remain title-less');
+const pluginsView = read('app/Views/admin/plugins.php');
+assert.ok(pluginsView.includes('toggle-off') && pluginsView.includes('toggle-on'), 'plugin disable and enable actions must use toggle-off and toggle-on icons');
+
+
 for (const file of [
   'app/Views/admin/playlists.php',
-  'app/Views/admin/slides.php',
   'app/Views/admin/slide_template_form.php',
   'plugins/tl1-menu/views/slide_settings.php',
 ]) {
@@ -149,6 +156,9 @@ const adminTableJs = read('public/assets/js/admin-table.js');
 assert.doesNotMatch(adminTableJs, /Tabulator|table\.remove\(\)|admin-data-table/, 'admin tables must remain native AdminLTE tables');
 assert.match(adminTableJs, /classList\.add\("form-control", "form-control-sm"\)/, 'text filters must use native Bootstrap form controls');
 assert.match(adminTableJs, /classList\.add\("form-select", "form-select-sm"\)/, 'select filters must use native Bootstrap selects');
+assert.match(read('app/Views/admin/slides.php'), /data-admin-table-state-key="slides"/, 'slides table must restore filtering and sorting after delete redirects');
+assert.match(adminTableJs, /window\.sessionStorage\.(?:getItem|setItem)/, 'opt-in admin tables must persist state for redirects and reloads');
+assert.ok(adminTableJs.includes('sortColumn') && adminTableJs.includes('sortDirection') && adminTableJs.includes('filters'), 'persistent admin table state must include filters and sorting');
 assert.match(
   adminCss,
   /td\.actions\s*>\s*\.admin-action-group\s*\{[\s\S]*?justify-content:\s*flex-end;[\s\S]*?margin:\s*0\.15rem 0 0\.15rem auto;/,

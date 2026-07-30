@@ -75,7 +75,7 @@ require __DIR__ . '/../layouts/admin_header.php';
                             <?= csrf_field() ?>
                             <input type="hidden" name="enable" value="<?= $plugin['is_enabled'] ? '0' : '1' ?>">
                             <input type="hidden" name="confirm_slide_deactivation" value="0" data-plugin-disable-confirm-input>
-                            <button type="submit" class="btn <?= $plugin['is_enabled'] ? 'btn-danger' : 'btn-success' ?>" aria-label="<?= e(($plugin['is_enabled'] ? __('plugins.disable') : __('plugins.enable')) . ' ' . $plugin['display_name']) ?>" title="<?= e($plugin['is_enabled'] ? __('plugins.disable') : __('plugins.enable')) ?>"><?= admin_icon($plugin['is_enabled'] ? 'cancel' : 'add') ?></button>
+                            <button type="submit" class="btn <?= $plugin['is_enabled'] ? 'btn-danger' : 'btn-success' ?>" aria-label="<?= e(($plugin['is_enabled'] ? __('plugins.disable') : __('plugins.enable')) . ' ' . $plugin['display_name']) ?>" title="<?= e($plugin['is_enabled'] ? __('plugins.disable') : __('plugins.enable')) ?>"><?= admin_icon($plugin['is_enabled'] ? 'toggle-off' : 'toggle-on') ?></button>
                         </form>
                         </div>
                     </td>

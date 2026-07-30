@@ -45,8 +45,33 @@
                 sortType: sortButton?.dataset.sortType || "text",
             };
         });
-        let sortColumn = columns.findIndex(column => column.sortButton);
-        let sortDirection = "asc";
+        const stateKey = table.dataset.adminTableStateKey
+            ? "hugin:admin-table:" + table.dataset.adminTableStateKey
+            : "";
+        let savedState = null;
+        if (stateKey) {
+            try {
+                const parsed = JSON.parse(window.sessionStorage.getItem(stateKey) || "null");
+                if (parsed && typeof parsed === "object") savedState = parsed;
+            } catch (error) {}
+        }
+
+        const savedSortColumn = String(savedState?.sortColumn || "");
+        let sortColumn = savedSortColumn
+            ? columns.findIndex(column => column.sortButton?.dataset.adminSort === savedSortColumn)
+            : columns.findIndex(column => column.sortButton);
+        if (sortColumn < 0) sortColumn = columns.findIndex(column => column.sortButton);
+        let sortDirection = savedState?.sortDirection === "desc" ? "desc" : "asc";
+
+        const savedFilters = savedState?.filters && typeof savedState.filters === "object"
+            ? savedState.filters
+            : {};
+        columns.forEach((column) => {
+            const filterKey = column.filterControl?.dataset.adminFilter || "";
+            if (filterKey && Object.prototype.hasOwnProperty.call(savedFilters, filterKey)) {
+                column.filterControl.value = String(savedFilters[filterKey] ?? "");
+            }
+        });
 
         if (!table.caption) {
             const caption = document.createElement("caption");
@@ -86,6 +111,20 @@
                     ? (sortDirection === "asc" ? "ascending" : "descending")
                     : "none");
             });
+            if (stateKey) {
+                const filters = {};
+                columns.forEach((column) => {
+                    const filterKey = column.filterControl?.dataset.adminFilter || "";
+                    if (filterKey) filters[filterKey] = column.filterControl.value;
+                });
+                try {
+                    window.sessionStorage.setItem(stateKey, JSON.stringify({
+                        filters,
+                        sortColumn: columns[sortColumn]?.sortButton?.dataset.adminSort || "",
+                        sortDirection,
+                    }));
+                } catch (error) {}
+            }
             dispatchUpdate(table, rows);
         }
 
