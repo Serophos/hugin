@@ -271,7 +271,7 @@ class DisplayStatusService
 
     private function onlineThresholdSeconds(): int
     {
-        return max(30, (int) app_core_setting('monitoring.online_threshold_seconds', 180));
+        return max(30, (int) app_core_setting('monitoring.online_threshold_seconds', 450));
     }
 
     private function staleThresholdSeconds(): int

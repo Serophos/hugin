@@ -26,8 +26,34 @@
     let timer = null;
     let watchdog = null;
     let requestInFlight = false;
+    let requestStartedAt = 0;
     let lastAttemptAt = 0;
+    let lastSuccessAt = 0;
     let consecutiveFailures = 0;
+    let lastError = '';
+    let requestSequence = 0;
+
+    const diagnosticState = {
+        heartbeatUrl, intervalMs, requestTimeoutMs, requestInFlight: false,
+        lastAttemptAt: 0, lastSuccessAt: 0, consecutiveFailures: 0, lastError: '',
+    };
+    window.__huginHeartbeatStatus = diagnosticState;
+
+    const updateDiagnostics = () => Object.assign(diagnosticState, {
+        requestInFlight, lastAttemptAt, lastSuccessAt, consecutiveFailures, lastError,
+    });
+
+    const recordFailure = error => {
+        consecutiveFailures += 1;
+        lastError = String(error?.message || error || 'Heartbeat request failed');
+        updateDiagnostics();
+        if (consecutiveFailures === 1 || consecutiveFailures % 5 === 0) {
+            console.warn?.('[Hugin heartbeat] request failed', {
+                error: lastError, consecutiveFailures,
+                lastSuccessAt: lastSuccessAt ? new Date(lastSuccessAt).toISOString() : null,
+            });
+        }
+    };
 
     const parseBrowser = () => {
         const checks = [
@@ -101,8 +127,12 @@
 
     const payloadJson = () => JSON.stringify(collectPayload());
     const sendBeacon = payload => {
-        if (!navigator.sendBeacon) return false;
-        return navigator.sendBeacon(heartbeatUrl, new Blob([payload], { type: 'application/json' }));
+        try {
+            if (!navigator.sendBeacon || typeof Blob !== 'function') return false;
+            return navigator.sendBeacon(heartbeatUrl, new Blob([payload], { type: 'application/json' }));
+        } catch (error) {
+            return false;
+        }
     };
 
     const retryDelayMs = () => consecutiveFailures <= 0
@@ -115,50 +145,94 @@
     };
 
     const send = ({ preferBeacon = false } = {}) => {
-        const payload = payloadJson();
-        lastAttemptAt = Date.now();
-
-        if (preferBeacon && sendBeacon(payload)) return Promise.resolve(true);
         if (requestInFlight) return Promise.resolve(false);
+
+        let payload;
+        try {
+            payload = payloadJson();
+        } catch (error) {
+            lastAttemptAt = Date.now();
+            recordFailure(error);
+            scheduleNext(retryDelayMs());
+            return Promise.resolve(false);
+        }
+
+        lastAttemptAt = Date.now();
+        updateDiagnostics();
+        if (preferBeacon && sendBeacon(payload)) return Promise.resolve(true);
         if (!window.fetch) {
             const queued = sendBeacon(payload);
-            consecutiveFailures = queued ? 0 : consecutiveFailures + 1;
+            if (queued) {
+                consecutiveFailures = 0;
+                lastError = '';
+            } else {
+                recordFailure(new Error('Fetch and sendBeacon are unavailable'));
+            }
+            updateDiagnostics();
             scheduleNext(retryDelayMs());
             return Promise.resolve(queued);
         }
 
         requestInFlight = true;
+        requestStartedAt = Date.now();
+        const sequence = ++requestSequence;
         const controller = typeof AbortController === 'function' ? new AbortController() : null;
-        const timeout = window.setTimeout(() => controller?.abort(), requestTimeoutMs);
+        updateDiagnostics();
 
-        return fetch(heartbeatUrl, {
-            method: 'POST',
-            headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
-            body: payload,
-            cache: 'no-store',
-            credentials: 'same-origin',
-            keepalive: true,
-            ...(controller ? { signal: controller.signal } : {}),
-        })
+        let fetchPromise;
+        try {
+            fetchPromise = Promise.resolve(fetch(heartbeatUrl, {
+                method: 'POST',
+                headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+                body: payload, cache: 'no-store', credentials: 'same-origin', keepalive: true,
+                ...(controller ? { signal: controller.signal } : {}),
+            }));
+        } catch (error) {
+            fetchPromise = Promise.reject(error);
+        }
+
+        let timeout = null;
+        const timeoutPromise = new Promise((resolve, reject) => {
+            timeout = window.setTimeout(() => {
+                controller?.abort();
+                reject(new Error('Heartbeat timed out after ' + requestTimeoutMs + 'ms'));
+            }, requestTimeoutMs);
+        });
+
+        return Promise.race([fetchPromise, timeoutPromise])
             .then(response => {
-                if (!response.ok) throw new Error(`Heartbeat failed with HTTP ${response.status}`);
+                if (!response.ok) throw new Error('Heartbeat failed with HTTP ' + response.status);
                 consecutiveFailures = 0;
+                lastError = '';
+                lastSuccessAt = Date.now();
+                updateDiagnostics();
                 return true;
             })
-            .catch(() => {
-                consecutiveFailures += 1;
+            .catch(error => {
+                recordFailure(error);
                 sendBeacon(payload);
                 return false;
             })
             .finally(() => {
                 window.clearTimeout(timeout);
-                requestInFlight = false;
-                scheduleNext(retryDelayMs());
+                if (sequence === requestSequence) {
+                    requestInFlight = false;
+                    requestStartedAt = 0;
+                    updateDiagnostics();
+                    scheduleNext(retryDelayMs());
+                }
             });
     };
 
     const recoverIfOverdue = () => {
-        if (!requestInFlight && Date.now() - lastAttemptAt >= intervalMs) send();
+        const now = Date.now();
+        if (requestInFlight && now - requestStartedAt > requestTimeoutMs + 1000) {
+            requestSequence += 1;
+            requestInFlight = false;
+            requestStartedAt = 0;
+            recordFailure(new Error('Recovered stale in-flight heartbeat'));
+        }
+        if (!requestInFlight && now - lastAttemptAt >= intervalMs) send();
     };
 
     // Lifecycle events recover timers after sleep, background throttling, bfcache

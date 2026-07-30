@@ -116,6 +116,12 @@ $openid = new OpenIdConnectController($auth, $view);
 $uri = $request->uri();
 $method = $request->method();
 
+// Public display traffic must not retain a PHP session lock. A display may
+// share cookies with an admin tab, and heartbeat delivery must remain independent.
+if (str_starts_with($uri, '/display/') && session_status() === PHP_SESSION_ACTIVE) {
+    session_write_close();
+}
+
 if ($method === 'POST'
     && !preg_match('#^/display/[a-zA-Z0-9\-_]+/(?:heartbeat|cache-readiness)$#', $uri)
 ) {

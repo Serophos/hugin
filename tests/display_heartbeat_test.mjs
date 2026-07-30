@@ -48,6 +48,8 @@ const expectedKeys = [
 ];
 assert(JSON.stringify(Object.keys(requests[0].payload)) === JSON.stringify(expectedKeys), 'heartbeat payload fields are unchanged');
 assert(scheduled.some(item => item.delay === 60000), 'successful heartbeat schedules the configured interval');
+assert(window.__huginHeartbeatStatus.lastSuccessAt > 0, 'successful heartbeat time is exposed');
+assert(window.__huginHeartbeatStatus.requestInFlight === false, 'successful heartbeat releases the in-flight latch');
 assert(listeners.has('window:online') && listeners.has('window:pageshow') && listeners.has('document:visibilitychange'), 'recovery lifecycle listeners are installed');
 
 console.log('PASS heartbeat module contract and recovery hooks');

@@ -395,7 +395,7 @@ function app_core_settings_defaults(string $namespace): array
         'monitoring' => [
             'enabled' => false,
             'api_token' => '',
-            'online_threshold_seconds' => 180,
+            'online_threshold_seconds' => 450,
             'stale_threshold_seconds' => 1800,
         ],
         'accessibility' => [
@@ -466,7 +466,7 @@ function app_normalize_core_settings(string $namespace, array $settings): array
     if ($namespace === 'monitoring') {
         $settings['enabled'] = filter_var($settings['enabled'] ?? false, FILTER_VALIDATE_BOOLEAN);
         $settings['api_token'] = trim((string)($settings['api_token'] ?? ''));
-        $settings['online_threshold_seconds'] = max(30, (int)($settings['online_threshold_seconds'] ?? 180));
+        $settings['online_threshold_seconds'] = max(30, (int)($settings['online_threshold_seconds'] ?? 450));
         $settings['stale_threshold_seconds'] = max($settings['online_threshold_seconds'], (int)($settings['stale_threshold_seconds'] ?? 1800));
     }
 

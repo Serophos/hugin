@@ -324,8 +324,8 @@ class FrontendController
         }
 
         $this->applyDisplayLocale($display);
-        $activeAssignment = $this->resolveActiveAssignment($display);
         if ($this->isDisplayPreviewRequest()) {
+            $activeAssignment = $this->resolveActiveAssignment($display);
             json_response([
                 'ok' => true,
                 'display' => $display['name'],
@@ -335,6 +335,9 @@ class FrontendController
             ]);
         }
 
+        // Presence reporting must not depend on playlist resolution. The current
+        // assignment is resolved by monitoring reads and can be temporarily unavailable.
+        $activeAssignment = null;
         $payload = $this->readJsonBody();
         $ipAddress = client_ip();
         $userAgent = substr((string)($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 255);
@@ -657,7 +660,7 @@ class FrontendController
 
     private function onlineGroupParticipants(int $groupId, int $currentDisplayId, array $displayGroup): array
     {
-        $onlineThresholdSeconds = max(30, (int)app_core_setting('monitoring.online_threshold_seconds', 180));
+        $onlineThresholdSeconds = max(30, (int)app_core_setting('monitoring.online_threshold_seconds', 450));
         $rows = $this->db->all(
             'SELECT d.*, TIMESTAMPDIFF(SECOND, h.last_seen_at, NOW()) AS heartbeat_age_seconds
              FROM display_group_memberships dgm

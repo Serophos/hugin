@@ -166,7 +166,7 @@ require __DIR__ . '/../layouts/admin_header.php';
         <?php else: ?>
             <?php
             $heartbeatAgeSeconds = ($heartbeat['heartbeat_age_seconds'] ?? null) === null ? null : max(0, (int)$heartbeat['heartbeat_age_seconds']);
-            $isOnline = $heartbeatAgeSeconds !== null && $heartbeatAgeSeconds <= max(30, (int)app_core_setting('monitoring.online_threshold_seconds', 180));
+            $isOnline = $heartbeatAgeSeconds !== null && $heartbeatAgeSeconds <= max(30, (int)app_core_setting('monitoring.online_threshold_seconds', 450));
             ?>
             <dl class="meta-list">
                 <div><dt><?= e(__('common.status')) ?></dt><dd><span class="status-dot status-<?= e($isOnline ? 'online' : 'offline') ?>"></span> <?= e($isOnline ? __('common.online') : __('common.offline')) ?></dd></div>
