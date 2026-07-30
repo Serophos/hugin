@@ -190,7 +190,7 @@ if (str_starts_with($display['slug'] ?? '', 'preview-slide-') && preg_match('#^p
             <?php if (is_string($slide['plugin_rendered_html'] ?? null) && $slide['plugin_rendered_html'] !== ''): ?>
                 <?= $slide['plugin_rendered_html'] ?>
             <?php elseif ($slide['slide_type'] === 'image'): ?>
-                <img data-src="<?= e(url($slide['resolved_source_url'])) ?>" alt="<?= e($slide['name']) ?>" decoding="async">
+                <img <?php if ($index === 0): ?>src="<?= e(url($slide['resolved_source_url'])) ?>" fetchpriority="high" <?php else: ?>loading="lazy" <?php endif; ?>data-src="<?= e(url($slide['resolved_source_url'])) ?>" alt="<?= e($slide['name']) ?>" decoding="async">
             <?php elseif ($slide['slide_type'] === 'video'): ?>
                 <video data-src="<?= e(url($slide['resolved_source_url'])) ?>" muted playsinline loop preload="metadata"></video>
             <?php elseif ($slide['slide_type'] === 'template'): ?>

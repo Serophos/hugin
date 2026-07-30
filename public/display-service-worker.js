@@ -1,4 +1,4 @@
-const CACHE_NAME = 'hugin-display-offline-v1';
+const CACHE_NAME = 'hugin-display-offline-v2';
 const DISPLAY_PAGE_RE = /^\/display\/[^/]+$/;
 const DISPLAY_MANIFEST_RE = /^\/display\/[^/]+\/offline-manifest$/;
 const DISPLAY_STATE_RE = /^\/display\/[^/]+\/state$/;
@@ -116,11 +116,13 @@ async function cacheableAsset(request) {
 
     const cache = await caches.open(CACHE_NAME);
     const cached = await cache.match(request, { ignoreSearch: false });
-    if (cached) return cached;
+    const expectedKind = mediaKindForRequest(request);
+    if (cached && canCache(cached, expectedKind)) return cached;
+    if (cached) await cache.delete(request);
 
     try {
         const response = await fetch(request);
-        if (canCache(response)) {
+        if (canCache(response, expectedKind)) {
             await cache.put(request, response.clone());
         }
         return response;
@@ -244,7 +246,7 @@ async function cacheDisplayManifest(manifest, maxBytes, onProgress = () => {}) {
         }
 
         const alreadyCached = await cache.match(request, { ignoreSearch: false });
-        if (alreadyCached) {
+        if (alreadyCached && canCache(alreadyCached, asset.kind)) {
             cachedUrls.push(url);
             reservedBytes += budgeted;
             cachedAssets += 1;
@@ -255,7 +257,7 @@ async function cacheDisplayManifest(manifest, maxBytes, onProgress = () => {}) {
 
         try {
             const response = await fetch(request);
-            if (!canCache(response)) {
+            if (!canCache(response, asset.kind)) {
                 skippedUrls.push(url);
                 completedAssets += 1;
                 report('caching');
@@ -304,7 +306,7 @@ async function cacheVideoAsset(url) {
 
     const request = new Request(url, { method: 'GET', credentials: 'same-origin', cache: 'reload' });
     const response = await fetch(request);
-    if (!canCache(response)) return false;
+    if (!canCache(response, 'video')) return false;
 
     const contentType = response.headers.get('Content-Type') || 'application/octet-stream';
     await deleteVideoAsset(url);
@@ -482,8 +484,21 @@ async function deleteVideoAsset(url) {
     await idbRequest('meta', 'readwrite', store => store.delete(url));
 }
 
-function canCache(response) {
-    return response && response.ok && (response.type === 'basic' || response.type === 'default');
+function mediaKindForRequest(request) {
+    const destination = String(request?.destination || '').toLowerCase();
+    if (destination === 'image' || destination === 'video') return destination;
+    const pathname = new URL(request.url).pathname.toLowerCase();
+    if (/[.](?:avif|bmp|gif|jpe?g|png|svg|webp)$/.test(pathname)) return 'image';
+    if (/[.](?:m4v|mov|mp4|ogv|webm)$/.test(pathname)) return 'video';
+    return '';
+}
+
+function canCache(response, expectedKind = '') {
+    if (!response || !response.ok || !['basic', 'default'].includes(response.type)) return false;
+    const contentType = String(response.headers.get('Content-Type') || '').toLowerCase();
+    if (expectedKind === 'image') return contentType.startsWith('image/');
+    if (expectedKind === 'video') return contentType.startsWith('video/') || contentType.startsWith('application/octet-stream');
+    return true;
 }
 
 function priority(asset) {

@@ -1872,6 +1872,13 @@
             element.removeEventListener('load', loaded);
             element.removeEventListener('canplay', loaded);
             element.removeEventListener('error', failed);
+            if (ready) {
+                element.classList.remove('is-media-error');
+                delete element.dataset.mediaFailedAt;
+            } else {
+                element.classList.add('is-media-error');
+                element.dataset.mediaFailedAt = String(Date.now());
+            }
             resolve(ready);
         };
         const loaded = () => {
@@ -2249,7 +2256,7 @@
             })
             .then(() => {
                 setStartupStage('starting');
-                return waitForSlideImages(slides[index]);
+                return waitForSlideMedia(slides[index]);
             });
     };
 
