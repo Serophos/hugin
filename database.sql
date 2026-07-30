@@ -54,8 +54,6 @@ CREATE TABLE displays (
     slide_duration_seconds INT UNSIGNED NOT NULL DEFAULT 8,
     timezone VARCHAR(64) NOT NULL DEFAULT 'UTC',
     display_language ENUM('system', 'en', 'de') NOT NULL DEFAULT 'system',
-    vnc_username VARCHAR(150) NULL,
-    vnc_password VARCHAR(255) NULL,
     orientation ENUM('landscape', 'vertical') NOT NULL DEFAULT 'landscape',
     icon_file VARCHAR(120) NOT NULL DEFAULT 'display_16_9.png',
     sort_order INT NOT NULL DEFAULT 0,

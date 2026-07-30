@@ -40,7 +40,6 @@ Production PHP dependencies are installed with Composer:
 Frontend build dependencies are installed with npm and are only needed when regenerating frontend assets:
 
 - `@rsuite/icon-font`: source icon components for generated admin SVG icons.
-- `@novnc/novnc`: source modules for the bundled admin VNC viewer.
 - `react` and `react-dom`: used by the icon generation script.
 
 The normal admin and display runtime does not depend on external JavaScript CDNs; assets are served from `public/assets/`, uploaded media, or plugin asset routes.
@@ -93,14 +92,14 @@ Change initial passwords immediately on a real installation. Hugin shows a warni
 
 ### Frontend Asset Builds
 
-Hugin keeps app-owned generated admin assets committed. npm-generated vendor assets are not committed; they are generated below `public/assets/vendor/` during the build. Run the frontend build when changing generated assets, using the admin backend or VNC viewer from a clean checkout, and whenever preparing a deployable release artifact:
+Hugin keeps app-owned generated admin assets committed. npm-generated vendor assets are not committed; they are generated below `public/assets/vendor/` during the build. Run the frontend build when changing generated assets, using the admin backend from a clean checkout, and whenever preparing a deployable release artifact:
 
 ```bash
 npm ci
 npm run build
 ```
 
-`npm run build` regenerates the committed admin icon SVGs in `public/assets/icons/admin`, copies AdminLTE into the ignored `public/assets/vendor/adminlte` directory, and copies noVNC browser modules into the ignored `public/assets/vendor/novnc` directory. Use `npm run check` in CI or before committing to verify generated assets are current and npm vendor assets are not tracked.
+`npm run build` regenerates the committed admin icon SVGs in `public/assets/icons/admin` and copies AdminLTE into the ignored `public/assets/vendor/adminlte` directory. Use `npm run check` in CI or before committing to verify generated assets are current and npm vendor assets are not tracked.
 
 ### `config.php`
 

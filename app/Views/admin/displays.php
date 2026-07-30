@@ -70,9 +70,6 @@ require __DIR__ . '/../layouts/admin_header.php';
                     <div class="admin-action-groups">
                         <div class="btn-group btn-group-sm admin-action-group" role="group" aria-label="<?= e(__('common.actions') . ' ' . $display['name']) ?>">
                     <a class="btn btn-secondary" href="<?= e(url($displayPreviewUrl)) ?>" target="_blank" rel="noopener noreferrer" aria-label="<?= e(__('common.preview') . ' ' . $display['name']) ?>" title="<?= e(__('common.preview')) ?>"><?= admin_icon('preview') ?></a>
-                    <?php if (!empty($display['vnc_configured'])): ?>
-                        <a class="btn btn-secondary" href="<?= e(url('/admin/displays/' . $display['id'] . '/vnc')) ?>" target="_blank" rel="noopener noreferrer" aria-label="<?= e(__('display.vnc_connect_to', ['display' => $display['name']])) ?>" title="<?= e(__('display.vnc')) ?>"><?= admin_icon('open') ?></a>
-                    <?php endif; ?>
                     <a class="btn btn-primary" href="<?= e(url('/admin/displays/' . $display['id'] . '/edit')) ?>" aria-label="<?= e(__('common.edit') . ' ' . $display['name']) ?>" title="<?= e(__('common.edit')) ?>"><?= admin_icon('edit') ?></a>
                     <form method="post" action="<?= e(url('/admin/displays/' . $display['id'] . '/reload')) ?>" class="inline-form">
                         <?= csrf_field() ?>

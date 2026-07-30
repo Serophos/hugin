@@ -58,6 +58,11 @@ assert.match(templateEditor, /dropdown-menu template-tool-menu/);
 assert.doesNotMatch(templateEditor, /\bbtn-app\b/, 'AdminLTE 4.1 does not provide a btn-app component');
 assert.match(templateEditor, /card card-warning collapsed-card/);
 assert.match(templateEditor, /data-lte-toggle="card-collapse"/);
+const playlistsView = read('app/Views/admin/playlists.php');
+assert.ok(playlistsView.includes("admin_icon('add')"), 'adding an existing playlist must use the add icon');
+assert.ok(playlistsView.includes("admin_icon('playlists')"), 'creating a playlist must use a distinct playlist icon');
+assert.ok(playlistsView.includes('data-lte-icon="expand"') && playlistsView.includes("admin_icon('chevron-down')"), 'collapsed playlist cards must show a down chevron');
+assert.ok(playlistsView.includes('data-lte-icon="collapse"') && playlistsView.includes("admin_icon('chevron-up')"), 'expanded playlist cards must show an up chevron');
 
 for (const file of [
   'app/Views/admin/playlists.php',
@@ -133,17 +138,8 @@ assert.equal((slideTemplates.match(/data-admin-filter=/g) || []).length, 4, 'sli
 assert.match(slideTemplates, /data-admin-sort="usage" data-sort-type="number"/, 'slide-template usage sorting must be numeric');
 assert.ok(slideTemplates.includes('data-filter-value="<?= e($statusValue) ?>"'), 'slide-template status filtering must use stable values');
 
-const vncView = read('app/Views/admin/display_vnc.php');
-assert.match(vncView, /class="card-header vnc-viewer-toolbar"/, 'VNC toolbar must use the native AdminLTE card header');
-assert.match(vncView, /class="alert alert-secondary mb-0 vnc-viewer-message"/, 'VNC failures must use a color-mode-aware Bootstrap alert');
-assert.match(vncView, /class="badge text-bg-secondary status-chip"/, 'VNC connection status must use a native Bootstrap badge');
-assert.doesNotMatch(vncView, /button--normal/, 'VNC controls must not use the legacy light-only button style');
-assert.ok(read("app/Controllers/AdminController.php").includes("return $scheme . '://' . $host . ':6080';"), "VNC viewer must use the conventional websockify port 6080");
-
 const adminCss = read('public/assets/css/admin.css');
 const breadcrumbCss = adminCss.match(/\.admin-breadcrumb \{[\s\S]*?(?=\n\.topbar \{)/)?.[0] || "";
-const vncCss = adminCss.match(/\.vnc-viewer-shell \{[\s\S]*?(?=\n\.group-layout-main \{)/)?.[0] || "";
-assert.doesNotMatch(vncCss, /#(?:111827|f8fafc)|rgba\(248, 250, 252/, "VNC chrome must not hard-code light or dark surfaces");
 assert.doesNotMatch(breadcrumbCss, /#[0-9a-f]{3,8}\b/i, "breadcrumbs must inherit native Bootstrap color-mode colors");
 assert.doesNotMatch(breadcrumbCss, /::after/, "breadcrumbs must use Bootstrap native dividers");
 const themeCss = read('public/assets/css/admin-theme-overrides.css');

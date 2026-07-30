@@ -657,7 +657,8 @@ function csrf_field(): string
 function admin_icon(string $name): string
 {
     static $icons = [
-        'about', 'add', 'back', 'cancel', 'check', 'dashboard', 'delete',
+        'about', 'add', 'back', 'cancel', 'check', 'chevron-down', 'chevron-up',
+        'dashboard', 'delete',
         'dialog-error', 'dialog-exclamation', 'dialog-information',
         'dialog-question', 'dialog-trash', 'dialog-warning', 'displays',
         'edit', 'history', 'locations', 'login', 'logout', 'manage', 'media', 'menu',

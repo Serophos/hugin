@@ -10,7 +10,6 @@
 - Improve Startup behaviour. Cache media during first loading screen. Then The server should orchestrate the slideshow starting behaviour for display groups
 - Extend Display Groups:
 - Group editor: Improve Grid Layout editor for monitor placements. Adding displays should not overlap existing displays, and add snapping behavior
-- Add possibility to conenct to displays with VNC (if the display supports it, configurable in display setup)
 - Add possibility to connect to displays with SSH (if the display supports it, configurable in display setup)
 
 

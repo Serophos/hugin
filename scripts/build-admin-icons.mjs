@@ -17,6 +17,8 @@ const icons = [
   ['back', 'direction/ArowBack'],
   ['cancel', 'application/Close'],
   ['check', 'application/Check'],
+  ['chevron-down', 'legacy/ChevronDown'],
+  ['chevron-up', 'legacy/ChevronUp'],
   ['delete', 'action/Trash'],
   ['dialog-error', 'application/Danger'],
   ['dialog-exclamation', 'legacy/ExclamationCircle'],
