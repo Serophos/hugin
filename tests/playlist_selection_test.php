@@ -101,6 +101,25 @@ $test('next boundary crosses midnight and week rollover', function () use ($row,
     $same($at('2026-07-20 00:15:00')->getTimestamp() * 1000, $result['next_selection_at_ms']);
 });
 
+$test('overnight timetable remains active after midnight and ends on the following day', function () use ($row, $at, $same): void {
+    $rows = [
+        $row(1, 'fulltime', 99),
+        $row(2, 'weekly_time_slot', 1, ['id' => 20, 'weekday' => 1, 'start' => '22:00:00', 'end' => '02:00:00']),
+    ];
+    $during = PlaylistSelectionService::resolveRows($rows, $at('2026-07-21 01:00:00'));
+    $same(2, (int)$during['assignment']['id']);
+    $same($at('2026-07-21 02:00:00')->getTimestamp() * 1000, $during['next_selection_at_ms']);
+    $same(1, (int)PlaylistSelectionService::resolveRows($rows, $at('2026-07-21 02:00:00'))['assignment']['id']);
+});
+
+$test('overnight timetable specificity is its real duration', function () use ($row, $at, $same): void {
+    $rows = [
+        $row(1, 'weekly_time_slot', 50, ['id' => 10, 'weekday' => 1, 'start' => '20:00:00', 'end' => '04:00:00']),
+        $row(2, 'weekly_time_slot', 1, ['id' => 20, 'weekday' => 1, 'start' => '23:00:00', 'end' => '01:00:00']),
+    ];
+    $same(2, (int)PlaylistSelectionService::resolveRows($rows, $at('2026-07-21 00:30:00'))['assignment']['id']);
+});
+
 $test('display timezone and DST use real local boundary instants', function () use ($row, $at, $same): void {
     $rows = [$row(2, 'weekly_time_slot', 1, ['id' => 20, 'weekday' => 7, 'start' => '03:30:00', 'end' => '04:30:00'])];
     $result = PlaylistSelectionService::resolveRows($rows, $at('2026-03-29 01:00:00', 'Europe/Berlin'));

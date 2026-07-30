@@ -89,7 +89,7 @@ final class PlaylistSelectionService
                     // Specificity is the configured wall-clock width, not the
                     // elapsed UTC width, so DST transition days do not reorder
                     // otherwise identical timetable categories.
-                    $rule['specificity_seconds'] = max(0, self::timeSeconds($rule['end']) - self::timeSeconds($rule['start']));
+                    $rule['specificity_seconds'] = self::ruleDurationSeconds($rule);
                     if ($matchingRule === null
                         || $rule['specificity_seconds'] < $matchingRule['specificity_seconds']
                         || ($rule['specificity_seconds'] === $matchingRule['specificity_seconds'] && $rule['id'] < $matchingRule['id'])) {
@@ -148,7 +148,28 @@ final class PlaylistSelectionService
         $daysUntilRule = ((int)$rule['weekday'] - $dateWeekday + 7) % 7;
         $date = $date->modify('+' . $daysUntilRule . ' days');
 
-        return [self::atTime($date, (string)$rule['start']), self::atTime($date, (string)$rule['end'])];
+        $start = self::atTime($date, (string)$rule['start']);
+        $end = self::atTime($date, (string)$rule['end']);
+        if ($end <= $start) {
+            $end = $end->modify('+1 day');
+        }
+
+        if ($dayOffset === 0 && self::timeSeconds((string)$rule['end']) <= self::timeSeconds((string)$rule['start'])) {
+            $previousStart = $start->modify('-7 days');
+            $previousEnd = $end->modify('-7 days');
+            if ($now >= $previousStart && $now < $previousEnd) {
+                return [$previousStart, $previousEnd];
+            }
+        }
+
+        return [$start, $end];
+    }
+
+    private static function ruleDurationSeconds(array $rule): int
+    {
+        $start = self::timeSeconds((string)$rule['start']);
+        $end = self::timeSeconds((string)$rule['end']);
+        return $end > $start ? $end - $start : (86400 - $start) + $end;
     }
 
     private static function atTime(DateTimeImmutable $date, string $time): DateTimeImmutable

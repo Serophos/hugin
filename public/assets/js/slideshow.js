@@ -14,6 +14,9 @@
     let nextSlideDueAt = 0;
     let startupComplete = false;
     let stateRequestInFlight = false;
+    let stateRetryTimer = null;
+    let stateFailureCount = 0;
+    let transitionInFlight = false;
     let currentSignature = slideshow.dataset.stateSignature || '';
     let nextSelectionAtMs = Number(slideshow.dataset.nextSelectionAtMs || 0);
     const videoStartTimers = new WeakMap();
@@ -24,6 +27,9 @@
     const CACHE_READINESS_POLL_MS = 2000;
     const CACHE_READINESS_MAX_WAIT_MS = 45000;
     const CACHE_READINESS_REQUEST_TIMEOUT_MS = 10000;
+    const STATE_REQUEST_TIMEOUT_MS = 15000;
+    const MEDIA_FAILURE_RETRY_MS = 30000;
+    const MEDIA_READY_TIMEOUT_MS = 8000;
     const STARTUP_MAX_WAIT_MS = 45000;
     const SCHEDULED_SYNC_RELOAD_KEY = 'huginScheduledSyncReload';
     const SCHEDULED_SYNC_RELOAD_MAX_AGE_MS = 120000;
@@ -459,7 +465,32 @@
         element.dataset.fallbackBound = '1';
         element.addEventListener('error', () => {
             element.classList.add('is-media-error');
+            element.dataset.mediaFailedAt = String(Date.now());
+            const failedSlide = element.closest?.('.slide');
+            if (!startupComplete || failedSlide !== slides[index]) return;
+
+            const fallbackIndex = nextPlayableIndex(index);
+            if (fallbackIndex >= 0 && fallbackIndex !== index) {
+                window.setTimeout(() => {
+                    if (failedSlide === slides[index]) activate(fallbackIndex);
+                }, 100);
+                return;
+            }
+
+            window.setTimeout(() => {
+                if (failedSlide !== slides[index]) return;
+                delete element.dataset.mediaFailedAt;
+                element.removeAttribute('src');
+                ensureMediaLoaded(failedSlide);
+                if (element.tagName === 'VIDEO') startVideo(failedSlide);
+            }, isProbablyOffline() ? MEDIA_FAILURE_RETRY_MS : 5000);
         });
+        const recovered = () => {
+            element.classList.remove('is-media-error');
+            delete element.dataset.mediaFailedAt;
+        };
+        element.addEventListener('load', recovered);
+        element.addEventListener('canplay', recovered);
     };
 
     const restartTextCardAnimation = slide => {
@@ -559,6 +590,13 @@
 
     const isSlidePlayable = slide => {
         if (!slide) return false;
+        const hasRecentFailure = Array.from(slide.querySelectorAll('[data-media-failed-at]')).some(element => {
+            const failedAt = Number(element.dataset.mediaFailedAt || 0);
+            return failedAt > 0 && Date.now() - failedAt < MEDIA_FAILURE_RETRY_MS;
+        });
+        if (hasRecentFailure && slides.some(candidate => candidate !== slide && !candidate.querySelector('[data-media-failed-at]'))) {
+            return false;
+        }
         if (!isProbablyOffline()) return true;
 
         const policy = slide.dataset.offlinePolicy || 'skip';
@@ -669,12 +707,12 @@
         const url = resolveEndpointUrl(slideshow.dataset.offlineManifestUrl || '');
         if (!url || !window.fetch) return Promise.resolve(null);
 
-        return fetch(url, {
+        return fetchWithTimeout(url, {
             method: 'GET',
             headers: { 'Accept': 'application/json' },
             cache: 'no-store',
             credentials: 'same-origin',
-        })
+        }, STATE_REQUEST_TIMEOUT_MS)
             .then(response => response.ok ? response.json() : null)
             .then(data => data?.ok === true ? data : null)
             .catch(() => null);
@@ -1485,12 +1523,12 @@
         }
 
         logSyncDebug('startup server clock refresh request', { url });
-        return fetch(url, {
+        return fetchWithTimeout(url, {
             method: 'GET',
             headers: { 'Accept': 'application/json' },
             cache: 'no-store',
             credentials: 'same-origin',
-        })
+        }, STATE_REQUEST_TIMEOUT_MS)
             .then(response => response.ok ? response.json() : null)
             .then(data => {
                 const updated = updateServerClock(data?.server_time_ms);
@@ -1813,6 +1851,80 @@
         });
     };
 
+    const waitForMediaElement = element => new Promise(resolve => {
+        const tag = element.tagName;
+        const isReady = () => tag === 'IMG'
+            ? element.complete && Number(element.naturalWidth || 0) > 0
+            : (tag === 'VIDEO' ? element.readyState >= 2 : false);
+        if (isReady()) {
+            if (tag === 'IMG' && typeof element.decode === 'function') {
+                element.decode().then(() => resolve(true), () => resolve(false));
+                return;
+            }
+            resolve(true);
+            return;
+        }
+        let settled = false;
+        const finish = ready => {
+            if (settled) return;
+            settled = true;
+            window.clearTimeout(timeout);
+            element.removeEventListener('load', loaded);
+            element.removeEventListener('canplay', loaded);
+            element.removeEventListener('error', failed);
+            resolve(ready);
+        };
+        const loaded = () => {
+            if (tag === 'IMG' && typeof element.decode === 'function') {
+                element.decode().then(() => finish(true), () => finish(false));
+                return;
+            }
+            finish(true);
+        };
+        const failed = () => finish(false);
+        const timeout = window.setTimeout(() => finish(false), MEDIA_READY_TIMEOUT_MS);
+        element.addEventListener('load', loaded);
+        element.addEventListener('canplay', loaded);
+        element.addEventListener('error', failed);
+        if (isReady()) loaded();
+    });
+
+    const waitForBackgroundImage = element => new Promise(resolve => {
+        const source = element.dataset.bgSrc || '';
+        if (!source) { resolve(true); return; }
+        const probe = new Image();
+        let settled = false;
+        const finish = ready => {
+            if (settled) return;
+            settled = true;
+            window.clearTimeout(timeout);
+            if (ready) {
+                element.classList.remove('is-media-error');
+                delete element.dataset.mediaFailedAt;
+                element.style.backgroundImage = 'url(' + encodeURI(source) + ')';
+            } else {
+                element.classList.add('is-media-error');
+                element.dataset.mediaFailedAt = String(Date.now());
+            }
+            resolve(ready);
+        };
+        const timeout = window.setTimeout(() => finish(false), MEDIA_READY_TIMEOUT_MS);
+        probe.onload = () => finish(true);
+        probe.onerror = () => finish(false);
+        probe.src = source;
+        if (probe.complete) finish(Number(probe.naturalWidth || 0) > 0);
+    });
+
+    const waitForSlideMedia = slide => {
+        if (!slide) return Promise.resolve(false);
+        ensureMediaLoaded(slide);
+        const required = [
+            ...Array.from(slide.querySelectorAll('img[data-src], video[data-src]')).map(waitForMediaElement),
+            ...Array.from(slide.querySelectorAll('.text-slide-background--image[data-bg-src]')).map(waitForBackgroundImage),
+        ];
+        return required.length === 0 ? Promise.resolve(true) : Promise.all(required).then(results => results.every(Boolean));
+    };
+
     const reloadIfChanged = (source = 'state-check') => {
         const url = resolveEndpointUrl(slideshow.dataset.stateUrl);
         if (!url || !window.fetch || stateRequestInFlight) {
@@ -1831,12 +1943,12 @@
             url,
         });
 
-        return fetch(url, {
+        return fetchWithTimeout(url, {
             method: 'GET',
             headers: { 'Accept': 'application/json' },
             cache: 'no-store',
             credentials: 'same-origin',
-        })
+        }, STATE_REQUEST_TIMEOUT_MS)
             .then(response => {
                 logSyncDebug('state check response', {
                     source,
@@ -1865,8 +1977,12 @@
             })
             .then(data => {
                 if (!data) {
-                    logSyncDebug('state check had no JSON payload', { source });
-                    return;
+                    throw new Error('State endpoint returned no usable payload.');
+                }
+                stateFailureCount = 0;
+                if (stateRetryTimer) {
+                    window.clearTimeout(stateRetryTimer);
+                    stateRetryTimer = null;
                 }
                 const previousOffsetMs = serverClockOffsetMs;
                 const updatedClock = updateServerClock(data.server_time_ms);
@@ -1906,6 +2022,7 @@
                     return;
                 }
                 if (data.signature === currentSignature) {
+                    stateFailureCount = 0;
                     logSyncDebug('state check no change', {
                         source,
                         signature: data.signature,
@@ -1938,14 +2055,23 @@
                 }
             })
             .catch(error => {
+                stateFailureCount += 1;
                 logSyncDebug('state check failed', {
                     source,
                     error: String(error?.message || error),
+                    consecutiveFailures: stateFailureCount,
                 });
             })
-            .then(() => {
+            .finally(() => {
                 stateRequestInFlight = false;
                 logSyncDebug('state check complete', { source });
+                if (stateFailureCount > 0 && !stateRetryTimer) {
+                    const retryDelay = Math.min(30000, 2000 * (2 ** Math.min(stateFailureCount - 1, 4)));
+                    stateRetryTimer = window.setTimeout(() => {
+                        stateRetryTimer = null;
+                        reloadIfChanged('state-retry');
+                    }, retryDelay);
+                }
             });
     };
 
@@ -1970,7 +2096,7 @@
     };
 
     const activate = nextSlideIndex => {
-        if (!startupComplete) return;
+        if (!startupComplete || transitionInFlight) return;
 
         if (!isSlidePlayable(slides[nextSlideIndex])) {
             nextSlideIndex = nextPlayableIndex(index);
@@ -1983,25 +2109,42 @@
             return;
         }
 
-        requestFrame(() => {
-            try {
-                ensureMediaLoaded(next);
-                stopVideo(current);
-                current.classList.remove('is-active');
-                current.classList.remove('is-text-card-animating');
-                current.classList.remove('is-template-animating');
-                next.classList.add('is-active');
-                index = nextSlideIndex;
-                restartTextCardAnimation(next);
-                restartTemplateElementAnimations(next);
-                startVideo(next);
-                prepareMediaAround(index);
-                window.setTimeout(() => cleanupFarMedia(index), 1300);
-            } catch (error) {
-                if (window.console?.error) {
-                    window.console.error('[Hugin display] Slide transition failed', error);
+        transitionInFlight = true;
+        waitForSlideMedia(next).then(ready => {
+            if (!ready || !isSlidePlayable(next)) {
+                logReload('Skipping slide because required media is not renderable', {
+                    slideId: next.dataset.slideId || '',
+                    slideType: next.dataset.slideType || '',
+                });
+                return;
+            }
+
+            return new Promise(resolve => requestFrame(() => {
+                try {
+                    stopVideo(current);
+                    current.classList.remove('is-active');
+                    current.classList.remove('is-text-card-animating');
+                    current.classList.remove('is-template-animating');
+                    next.classList.add('is-active');
+                    index = nextSlideIndex;
+                    restartTextCardAnimation(next);
+                    restartTemplateElementAnimations(next);
+                    startVideo(next);
+                    prepareMediaAround(index);
+                    window.setTimeout(() => cleanupFarMedia(index), 1300);
+                } catch (error) {
+                    window.console?.error?.('[Hugin display] Slide transition failed', error);
+                } finally {
+                    transitionInFlight = false;
+                    queueNext();
+                    resolve();
                 }
-            } finally {
+            }));
+        }).catch(error => {
+            window.console?.error?.('[Hugin display] Media readiness check failed', error);
+        }).finally(() => {
+            if (transitionInFlight) {
+                transitionInFlight = false;
                 queueNext();
             }
         });
