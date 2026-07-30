@@ -657,13 +657,13 @@ function csrf_field(): string
 function admin_icon(string $name): string
 {
     static $icons = [
-        'about', 'add', 'back', 'cancel', 'check', 'chevron-down', 'chevron-up',
-        'dashboard', 'delete',
+        'about', 'add', 'arrow-left-right', 'back', 'calendar-date', 'cancel', 'card-image', 'card-text', 'check', 'chevron-down', 'circle', 'chevron-up',
+        'dashboard', 'delete', 'diamond',
         'dialog-error', 'dialog-exclamation', 'dialog-information',
         'dialog-question', 'dialog-trash', 'dialog-warning', 'displays',
-        'edit', 'history', 'locations', 'login', 'logout', 'manage', 'media', 'menu',
-        'move', 'open', 'playlists', 'plugins', 'primary-display', 'preview', 'reload',
-        'remove', 'save', 'schedules', 'settings', 'slides', 'templates', 'toggle-off', 'toggle-on',
+        'edit', 'hexagon', 'history', 'locations', 'login', 'logout', 'manage', 'media', 'menu',
+        'move', 'open', 'pentagon', 'playlists', 'plugins', 'primary-display', 'preview', 'qr-code', 'reload',
+        'remove', 'save', 'slash-square', 'schedules', 'settings', 'slides', 'square', 'star', 'stopwatch', 'templates', 'textarea-t', 'toggle-off', 'toggle-on', 'triangle',
         'upload', 'users',
     ];
 

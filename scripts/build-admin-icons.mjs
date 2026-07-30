@@ -10,6 +10,7 @@ const { renderToStaticMarkup } = require('react-dom/server');
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, '..');
 const iconDir = path.join(rootDir, 'public/assets/icons/admin');
+const bootstrapIconDir = path.join(rootDir, 'node_modules/bootstrap-icons/icons');
 const checkOnly = process.argv.includes('--check');
 
 const icons = [
@@ -40,12 +41,36 @@ const icons = [
   ['remove', 'action/Minus'],
   ['save', 'action/Save'],
   ['settings', 'action/Setting'],
-  ['toggle-off', 'legacy/ToggleOff'],
-  ['toggle-on', 'legacy/ToggleOn'],
+  ['arrow-left-right', 'bootstrap/arrow-left-right'],
+  ['calendar-date', 'bootstrap/calendar-date'],
+  ['card-image', 'bootstrap/card-image'],
+  ['card-text', 'bootstrap/card-text'],
+  ['circle', 'bootstrap/circle'],
+  ['diamond', 'bootstrap/diamond'],
+  ['hexagon', 'bootstrap/hexagon'],
+  ['pentagon', 'bootstrap/pentagon'],
+  ['qr-code', 'bootstrap/qr-code'],
+  ['slash-square', 'bootstrap/slash-square'],
+  ['square', 'bootstrap/square'],
+  ['star', 'bootstrap/star'],
+  ['stopwatch', 'bootstrap/stopwatch'],
+  ['textarea-t', 'bootstrap/textarea-t'],
+  ['toggle-off', 'bootstrap/toggle-off'],
+  ['toggle-on', 'bootstrap/toggle-on'],
+  ['triangle', 'bootstrap/triangle'],
   ['upload', 'action/FileUpload']
 ];
 
-function renderIcon(source) {
+async function renderIcon(source) {
+  if (source.startsWith('bootstrap/')) {
+    const iconName = source.slice('bootstrap/'.length);
+    const markup = (await fs.readFile(path.join(bootstrapIconDir, iconName + '.svg'), 'utf8')).trim();
+    return [
+      '<!-- Generated from bootstrap-icons by scripts/build-admin-icons.mjs. Do not edit directly. -->',
+      markup,
+      ''
+    ].join('\n');
+  }
   const module = require(`@rsuite/icon-font/lib/${source}`);
   const Icon = module.default || module;
   const markup = renderToStaticMarkup(
@@ -83,7 +108,7 @@ async function main() {
 
   for (const [name, source] of icons) {
     const target = path.join(iconDir, `${name}.svg`);
-    const next = renderIcon(source);
+    const next = await renderIcon(source);
 
     if (checkOnly) {
       const current = await readText(target);

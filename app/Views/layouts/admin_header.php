@@ -152,7 +152,7 @@ $bodyClasses = trim(($adminShellActive ? 'layout-fixed sidebar-expand-lg bg-body
                 <?php $isActive = $isActiveAdminPath($item['active']); ?>
                 <li class="nav-item">
                 <a class="nav-link admin-nav__item<?= $isActive ? ' active is-active' : '' ?>" href="<?= e(url($item['url'])) ?>"<?= $isActive ? ' aria-current="page"' : '' ?>>
-                    <?= admin_icon($item['icon']) ?>
+                    <span class="nav-icon admin-nav__icon"><?= admin_icon($item['icon']) ?></span>
                     <p><?= e($item['label']) ?></p>
                 </a>
                 </li>

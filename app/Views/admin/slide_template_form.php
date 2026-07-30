@@ -58,14 +58,14 @@ $mediaJson = json_encode(array_map(static function (array $asset): array {
     ];
 }, $mediaAssets ?? []), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 $shapeToolOptions = [
-    ['key' => 'square', 'label' => __('templates.shape_square'), 'svg' => '<rect x="12" y="12" width="76" height="76" rx="2"></rect>'],
-    ['key' => 'circle', 'label' => __('templates.shape_circle'), 'svg' => '<ellipse cx="50" cy="50" rx="39" ry="39"></ellipse>'],
-    ['key' => 'triangle', 'label' => __('templates.shape_triangle'), 'svg' => '<polygon points="50,10 90,88 10,88"></polygon>'],
-    ['key' => 'diamond', 'label' => __('templates.shape_diamond'), 'svg' => '<polygon points="50,8 92,50 50,92 8,50"></polygon>'],
-    ['key' => 'star', 'label' => __('templates.shape_star'), 'svg' => '<polygon points="50,8 62,35 91,38 69,58 75,88 50,72 25,88 31,58 9,38 38,35"></polygon>'],
-    ['key' => 'hexagon', 'label' => __('templates.shape_hexagon'), 'svg' => '<polygon points="50,8 86,29 86,71 50,92 14,71 14,29"></polygon>'],
-    ['key' => 'pentagon', 'label' => __('templates.shape_pentagon'), 'svg' => '<polygon points="50,8 90,38 75,88 25,88 10,38"></polygon>'],
-    ['key' => 'arrow', 'label' => __('templates.shape_arrow'), 'svg' => '<polygon points="10,30 56,30 56,10 92,50 56,90 56,70 10,70"></polygon>'],
+    ['key' => 'square', 'label' => __('templates.shape_square'), 'icon' => 'square'],
+    ['key' => 'circle', 'label' => __('templates.shape_circle'), 'icon' => 'circle'],
+    ['key' => 'triangle', 'label' => __('templates.shape_triangle'), 'icon' => 'triangle'],
+    ['key' => 'diamond', 'label' => __('templates.shape_diamond'), 'icon' => 'diamond'],
+    ['key' => 'star', 'label' => __('templates.shape_star'), 'icon' => 'star'],
+    ['key' => 'hexagon', 'label' => __('templates.shape_hexagon'), 'icon' => 'hexagon'],
+    ['key' => 'pentagon', 'label' => __('templates.shape_pentagon'), 'icon' => 'pentagon'],
+    ['key' => 'arrow', 'label' => __('templates.shape_arrow'), 'icon' => 'arrow-left-right'],
 ];
 $editorI18n = [
     'background' => __('templates.element_background'),
@@ -289,44 +289,50 @@ require __DIR__ . '/../layouts/admin_header.php';
     <section class="card shadow-sm template-editor full-width" data-template-editor>
         <div class="card-header template-editor__topbar">
             <div class="form-check form-switch mb-0 template-editor__snap-toggle">
-                <input class="form-check-input" id="template-editor-snap-to-grid" type="checkbox" data-snap-to-grid checked>
-                <label class="form-check-label" for="template-editor-snap-to-grid"><?= e(__('templates.snap_to_grid')) ?></label>
+                <input class="form-check-input visually-hidden" id="template-editor-snap-to-grid" type="checkbox" data-snap-to-grid checked>
+                <label class="form-check-label" for="template-editor-snap-to-grid">
+                    <span class="template-editor__snap-icon" aria-hidden="true">
+                        <span data-snap-icon="off"><?= admin_icon('toggle-off') ?></span>
+                        <span data-snap-icon="on"><?= admin_icon('toggle-on') ?></span>
+                    </span>
+                    <span><?= e(__('templates.snap_to_grid')) ?></span>
+                </label>
             </div>
             <div class="btn-toolbar template-editor__tools" role="toolbar" aria-label="<?= e(__('templates.element_toolbar')) ?>">
                 <button type="button" class="btn btn-outline-secondary template-tool-button template-tool-button--text" data-add-element="text" aria-label="<?= e(__('templates.add_element_accessible_label', ['type' => __('templates.element_text')])) ?>" title="<?= e(__('templates.add_element_shortcut_tooltip', ['type' => __('templates.element_text'), 'shortcut' => __('templates.shortcut_add_text')])) ?>">
-                    <span class="template-tool-button__icon" aria-hidden="true"><img src="<?= e(asset_url('/assets/icons/admin/template-tool-text.png')) ?>" alt=""></span>
+                    <span class="template-tool-button__icon" aria-hidden="true"><?= admin_icon('textarea-t') ?></span>
                     <span class="template-tool-button__label"><?= e(__('templates.element_text')) ?></span>
                 </button>
                 <button type="button" class="btn btn-outline-secondary template-tool-button template-tool-button--dynamic-text" data-add-element="dynamic_text" aria-label="<?= e(__('templates.add_element_accessible_label', ['type' => __('templates.element_dynamic_text')])) ?>" title="<?= e(__('templates.add_element_shortcut_tooltip', ['type' => __('templates.element_dynamic_text'), 'shortcut' => __('templates.shortcut_add_dynamic_text')])) ?>">
-                    <span class="template-tool-button__icon" aria-hidden="true"><img src="<?= e(asset_url('/assets/icons/admin/template-tool-dynamic-text.png')) ?>" alt=""></span>
+                    <span class="template-tool-button__icon" aria-hidden="true"><?= admin_icon('card-text') ?></span>
                     <span class="template-tool-button__label"><?= e(__('templates.element_dynamic_text')) ?></span>
                 </button>
                 <button type="button" class="btn btn-outline-secondary template-tool-button template-tool-button--media" data-add-element="media" aria-label="<?= e(__('templates.add_element_accessible_label', ['type' => __('templates.element_media')])) ?>" title="<?= e(__('templates.add_element_shortcut_tooltip', ['type' => __('templates.element_media'), 'shortcut' => __('templates.shortcut_add_media')])) ?>">
-                    <span class="template-tool-button__icon" aria-hidden="true"><img src="<?= e(asset_url('/assets/icons/admin/template-tool-media.png')) ?>" alt=""></span>
+                    <span class="template-tool-button__icon" aria-hidden="true"><?= admin_icon('card-image') ?></span>
                     <span class="template-tool-button__label"><?= e(__('templates.element_media')) ?></span>
                 </button>
                 <button type="button" class="btn btn-outline-secondary template-tool-button template-tool-button--qr" data-add-element="qr" aria-label="<?= e(__('templates.add_element_accessible_label', ['type' => __('templates.element_qr')])) ?>" title="<?= e(__('templates.add_element_shortcut_tooltip', ['type' => __('templates.element_qr'), 'shortcut' => __('templates.shortcut_add_qr')])) ?>">
-                    <span class="template-tool-button__icon" aria-hidden="true"><img src="<?= e(asset_url('/assets/icons/admin/template-tool-qr.png')) ?>" alt=""></span>
+                    <span class="template-tool-button__icon" aria-hidden="true"><?= admin_icon('qr-code') ?></span>
                     <span class="template-tool-button__label"><?= e(__('templates.element_qr')) ?></span>
                 </button>
                 <button type="button" class="btn btn-outline-secondary template-tool-button template-tool-button--datetime" data-add-element="datetime" aria-label="<?= e(__('templates.add_element_accessible_label', ['type' => __('templates.element_datetime')])) ?>" title="<?= e(__('templates.add_element_shortcut_tooltip', ['type' => __('templates.element_datetime'), 'shortcut' => __('templates.shortcut_add_datetime')])) ?>">
-                    <span class="template-tool-button__icon" aria-hidden="true"><?= admin_icon('schedules') ?></span>
+                    <span class="template-tool-button__icon" aria-hidden="true"><?= admin_icon('calendar-date') ?></span>
                     <span class="template-tool-button__label"><?= e(__('templates.element_datetime')) ?></span>
                 </button>
                 <button type="button" class="btn btn-outline-secondary template-tool-button template-tool-button--countdown" data-add-element="countdown" aria-label="<?= e(__('templates.add_element_accessible_label', ['type' => __('templates.element_countdown')])) ?>" title="<?= e(__('templates.add_element_shortcut_tooltip', ['type' => __('templates.element_countdown'), 'shortcut' => __('templates.shortcut_add_countdown')])) ?>">
-                    <span class="template-tool-button__icon" aria-hidden="true"><?= admin_icon('reload') ?></span>
+                    <span class="template-tool-button__icon" aria-hidden="true"><?= admin_icon('stopwatch') ?></span>
                     <span class="template-tool-button__label"><?= e(__('templates.element_countdown')) ?></span>
                 </button>
                 <div class="btn-group template-tool-split template-tool-split--shape" data-shape-dropdown>
                     <button type="button" class="btn btn-outline-secondary template-tool-button template-tool-button--shape" data-add-element="shape" data-shape-type="square" aria-label="<?= e(__('templates.add_element_accessible_label', ['type' => __('templates.element_shape')])) ?>" title="<?= e(__('templates.add_element_shortcut_tooltip', ['type' => __('templates.element_shape'), 'shortcut' => __('templates.shortcut_add_shape')])) ?>">
-                        <span class="template-tool-button__icon" aria-hidden="true"><img src="<?= e(asset_url('/assets/icons/admin/template-tool-shape.png')) ?>" alt=""></span>
+                        <span class="template-tool-button__icon" aria-hidden="true"><?= admin_icon('slash-square') ?></span>
                         <span class="template-tool-button__label"><?= e(__('templates.element_shape')) ?></span>
                     </button>
                     <button type="button" class="btn btn-outline-secondary dropdown-toggle dropdown-toggle-split template-tool-dropdown-toggle" data-shape-dropdown-toggle aria-haspopup="true" aria-expanded="false" aria-label="<?= e(__('templates.shape_dropdown_label')) ?>" title="<?= e(__('templates.shape_dropdown_label')) ?>"></button>
                     <div class="dropdown-menu template-tool-menu" data-shape-dropdown-menu role="menu" hidden>
                         <?php foreach ($shapeToolOptions as $shapeOption): ?>
                             <button type="button" class="dropdown-item template-tool-menu__item" data-add-shape="<?= e($shapeOption['key']) ?>" role="menuitem">
-                                <span class="template-tool-menu__shape" aria-hidden="true"><svg viewBox="0 0 100 100" preserveAspectRatio="none" focusable="false"><?= $shapeOption['svg'] ?></svg></span>
+                                <span class="template-tool-menu__shape" aria-hidden="true"><?= admin_icon((string)$shapeOption['icon']) ?></span>
                                 <span><?= e($shapeOption['label']) ?></span>
                             </button>
                         <?php endforeach; ?>

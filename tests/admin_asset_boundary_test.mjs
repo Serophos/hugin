@@ -9,6 +9,7 @@ const read = file => fs.readFileSync(path.join(root, file), 'utf8');
 const packageJson = JSON.parse(read('package.json'));
 assert.equal(packageJson.devDependencies['admin-lte'], '4.1.0', 'AdminLTE must remain exactly pinned');
 assert.equal(packageJson.devDependencies.bootstrap, '5.3.8', 'Bootstrap must remain exactly pinned');
+assert.equal(packageJson.devDependencies['bootstrap-icons'], '1.13.1', 'Bootstrap Icons must remain exactly pinned');
 
 const adminHeader = read('app/Views/layouts/admin_header.php');
 const adminUserMenu = read('app/Views/admin/partials/user_menu.php');
@@ -30,6 +31,10 @@ assert.ok(adminUserMenu.indexOf('admin-user-menu__profile') < adminUserMenu.inde
 assert.ok(adminUserMenu.includes("url('/admin/account/locale')"));
 assert.match(adminUserMenu, /admin-user-menu__menu[\s\S]*?action="<\?= e\(url\('\/admin\/logout'\)\)/);
 assert.doesNotMatch(adminHeader, /admin-nav-form|admin-sidebar-user/, 'user identity and logout must not remain in the sidebar');
+assert.ok(adminHeader.includes("<span class=\"nav-icon admin-nav__icon\"><?= admin_icon($item['icon']) ?></span>"), 'sidebar icons must use the fixed-width AdminLTE nav-icon slot');
+
+const sidebarCss = read('public/assets/css/admin.css');
+assert.match(sidebarCss, /\.admin-nav__icon \.button-icon\s*\{[^}]*display:\s*block;[^}]*width:\s*1rem;[^}]*height:\s*1rem;/s, 'sidebar icon masks must use a consistent centered size');
 
 const adminFooter = read('app/Views/layouts/admin_footer.php');
 assert.match(adminFooter, /assets\/vendor\/adminlte\/dist\/js\/adminlte\.min\.js/);
@@ -58,6 +63,14 @@ assert.match(templateEditor, /dropdown-menu template-tool-menu/);
 assert.doesNotMatch(templateEditor, /\bbtn-app\b/, 'AdminLTE 4.1 does not provide a btn-app component');
 assert.match(templateEditor, /card card-warning collapsed-card/);
 assert.match(templateEditor, /data-lte-toggle="card-collapse"/);
+const canvasToolbarIcons = ['textarea-t', 'card-text', 'card-image', 'qr-code', 'calendar-date', 'stopwatch', 'slash-square', 'square', 'circle', 'triangle', 'diamond', 'star', 'hexagon', 'pentagon', 'arrow-left-right', 'toggle-on', 'toggle-off'];
+for (const icon of canvasToolbarIcons) {
+  assert.ok(templateEditor.includes("admin_icon('" + icon + "')") || templateEditor.includes("'icon' => '" + icon + "'"), 'canvas toolbar must use Bootstrap icon ' + icon);
+}
+assert.doesNotMatch(templateEditor, /template-tool-(?:text|dynamic-text|media|qr|shape).png/, 'canvas toolbar must not use legacy bitmap icons');
+for (const legacyIcon of ['template-tool-text.png', 'template-tool-dynamic-text.png', 'template-tool-media.png', 'template-tool-qr.png', 'template-tool-shape.png']) {
+  assert.ok(!fs.existsSync(path.join(root, 'public/assets/icons/admin/' + legacyIcon)), 'legacy canvas toolbar asset must be removed: ' + legacyIcon);
+}
 const playlistsView = read('app/Views/admin/playlists.php');
 assert.ok(playlistsView.includes("admin_icon('add')"), 'adding an existing playlist must use the add icon');
 assert.ok(playlistsView.includes("admin_icon('playlists')"), 'creating a playlist must use a distinct playlist icon');
@@ -146,6 +159,10 @@ assert.match(slideTemplates, /data-admin-sort="usage" data-sort-type="number"/, 
 assert.ok(slideTemplates.includes('data-filter-value="<?= e($statusValue) ?>"'), 'slide-template status filtering must use stable values');
 
 const adminCss = read('public/assets/css/admin.css');
+assert.doesNotMatch(adminCss, /\.template-editor__snap-toggle span::before/, 'snap toggle must not render the removed legacy grid pseudo-icon');
+assert.match(adminCss, /form-check-input:checked \+ \.form-check-label \[data-snap-icon="on"\]/, 'snap toggle icon must follow the checkbox checked state');
+assert.match(adminCss, /\.template-editor__topbar\.card-header \{[\s\S]*?z-index:\s*2;[\s\S]*?overflow:\s*visible;/, 'template editor toolbar must stack above the canvas layout');
+assert.match(adminCss, /\.template-editor__layout \{[\s\S]*?z-index:\s*1;/, 'template editor canvas descendants must remain in a lower stacking context');
 const breadcrumbCss = adminCss.match(/\.admin-breadcrumb \{[\s\S]*?(?=\n\.topbar \{)/)?.[0] || "";
 assert.doesNotMatch(breadcrumbCss, /#[0-9a-f]{3,8}\b/i, "breadcrumbs must inherit native Bootstrap color-mode colors");
 assert.doesNotMatch(breadcrumbCss, /::after/, "breadcrumbs must use Bootstrap native dividers");
