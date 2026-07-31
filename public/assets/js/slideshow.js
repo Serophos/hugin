@@ -17,6 +17,8 @@
     let stateRetryTimer = null;
     let stateFailureCount = 0;
     let transitionInFlight = false;
+    let mediaRecoveryTimer = null;
+    let mediaLifecycle = null;
     let currentSignature = slideshow.dataset.stateSignature || '';
     let nextSelectionAtMs = Number(slideshow.dataset.nextSelectionAtMs || 0);
     const videoStartTimers = new WeakMap();
@@ -30,6 +32,7 @@
     const STATE_REQUEST_TIMEOUT_MS = 15000;
     const MEDIA_FAILURE_RETRY_MS = 30000;
     const MEDIA_READY_TIMEOUT_MS = 8000;
+    const STARTUP_MEDIA_SELECTION_TIMEOUT_MS = 16000;
     const STARTUP_MAX_WAIT_MS = 45000;
     const SCHEDULED_SYNC_RELOAD_KEY = 'huginScheduledSyncReload';
     const SCHEDULED_SYNC_RELOAD_MAX_AGE_MS = 120000;
@@ -38,6 +41,10 @@
     const startupProgress = slideshow.querySelector('[data-startup-cache-progress]');
     const startupProgressBar = slideshow.querySelector('[data-startup-progress-bar]');
     const startupProgressTrack = startupProgressBar?.closest('[role="progressbar"]') || null;
+    const playbackStatusScreen = slideshow.querySelector('[data-playback-status-screen]');
+    const playbackStatusMessage = playbackStatusScreen?.querySelector('p') || null;
+    const configuredPlaybackStatusMessage = playbackStatusMessage?.textContent || '';
+    const isDisplayPreview = slideshow.dataset.displayPreview === '1';
     const requestFrame = window.requestAnimationFrame
         ? window.requestAnimationFrame.bind(window)
         : (callback => window.setTimeout(callback, 16));
@@ -459,38 +466,40 @@
     let offlineCacheWarmPromise = null;
     let lastWarmSignature = '';
 
+    const showMediaUnavailable = () => {
+        if (!playbackStatusScreen) return;
+        if (playbackStatusMessage) {
+            playbackStatusMessage.textContent = slideshow.dataset.mediaUnavailableMessage
+                || configuredPlaybackStatusMessage;
+        }
+        playbackStatusScreen.classList.add('is-active');
+    };
 
-    const bindMediaFallback = element => {
-        if (!element || element.dataset.fallbackBound) return;
-        element.dataset.fallbackBound = '1';
-        element.addEventListener('error', () => {
-            element.classList.add('is-media-error');
-            element.dataset.mediaFailedAt = String(Date.now());
-            const failedSlide = element.closest?.('.slide');
-            if (!startupComplete || failedSlide !== slides[index]) return;
+    const hideMediaUnavailable = () => {
+        if (!playbackStatusScreen || slideshow.dataset.playbackStatus !== 'ready') return;
+        if (playbackStatusMessage) {
+            playbackStatusMessage.textContent = configuredPlaybackStatusMessage;
+        }
+        playbackStatusScreen.classList.remove('is-active');
+    };
 
-            const fallbackIndex = nextPlayableIndex(index);
-            if (fallbackIndex >= 0 && fallbackIndex !== index) {
-                window.setTimeout(() => {
-                    if (failedSlide === slides[index]) activate(fallbackIndex);
-                }, 100);
-                return;
-            }
-
-            window.setTimeout(() => {
-                if (failedSlide !== slides[index]) return;
-                delete element.dataset.mediaFailedAt;
-                element.removeAttribute('src');
-                ensureMediaLoaded(failedSlide);
-                if (element.tagName === 'VIDEO') startVideo(failedSlide);
-            }, isProbablyOffline() ? MEDIA_FAILURE_RETRY_MS : 5000);
+    const handleMediaElementFailure = (element, detail = {}) => {
+        const failedSlide = element?.closest?.('.slide');
+        const optional = element?.classList?.contains('text-slide-background');
+        logReload('Media attempt failed', {
+            slideId: failedSlide?.dataset.slideId || '',
+            slideType: failedSlide?.dataset.slideType || '',
+            mediaTag: element?.tagName || '',
+            mediaState: detail.state || '',
+            mediaAttempt: detail.attempt || 0,
+            reason: detail.reason || 'media-error',
+            required: !optional,
         });
-        const recovered = () => {
-            element.classList.remove('is-media-error');
-            delete element.dataset.mediaFailedAt;
-        };
-        element.addEventListener('load', recovered);
-        element.addEventListener('canplay', recovered);
+        if (optional || !startupComplete || failedSlide !== slides[index]) return;
+
+        showMediaUnavailable();
+        stopVideo(failedSlide);
+        recoverFromMediaFailure();
     };
 
     const restartTextCardAnimation = slide => {
@@ -588,15 +597,8 @@
         return Array.from(new Set(urls));
     };
 
-    const isSlidePlayable = slide => {
+    const isSlideEligible = slide => {
         if (!slide) return false;
-        const hasRecentFailure = Array.from(slide.querySelectorAll('[data-media-failed-at]')).some(element => {
-            const failedAt = Number(element.dataset.mediaFailedAt || 0);
-            return failedAt > 0 && Date.now() - failedAt < MEDIA_FAILURE_RETRY_MS;
-        });
-        if (hasRecentFailure && slides.some(candidate => candidate !== slide && !candidate.querySelector('[data-media-failed-at]'))) {
-            return false;
-        }
         if (!isProbablyOffline()) return true;
 
         const policy = slide.dataset.offlinePolicy || 'skip';
@@ -610,14 +612,14 @@
         return assetUrlsForSlide(slide).every(url => !isSameOriginAssetUrl(url) || cachedAssetUrls.has(url));
     };
 
-    const firstPlayableIndex = () => slides.findIndex(slide => isSlidePlayable(slide));
+    const firstEligibleIndex = () => slides.findIndex(slide => isSlideEligible(slide));
 
-    const nextPlayableIndex = (fromIndex, offset = 1) => {
+    const nextEligibleIndex = (fromIndex, offset = 1) => {
         if (slides.length === 0) return -1;
         const startOffset = Math.max(0, offset);
         for (let step = startOffset; step < slides.length + startOffset; step += 1) {
             const candidate = nextIndex(fromIndex, step);
-            if (isSlidePlayable(slides[candidate])) {
+            if (isSlideEligible(slides[candidate])) {
                 return candidate;
             }
         }
@@ -1075,7 +1077,6 @@
 
         return poll(firstStatus);
     };
-
 
     const stateCheckIntervalMs = () => {
         const seconds = parseInt(slideshow.dataset.stateCheckInterval || '60', 10);
@@ -1606,7 +1607,7 @@
     };
 
     const ensureMediaLoaded = slide => {
-        if (!slide || !isSlidePlayable(slide)) return;
+        if (!slide || !isSlideEligible(slide) || !mediaLifecycle) return Promise.resolve(false);
 
         slide.querySelectorAll('.text-slide-background--image[data-bg-src]').forEach(element => {
             const source = element.dataset.bgSrc;
@@ -1620,74 +1621,38 @@
             element.style.backgroundImage = `url(${JSON.stringify(source)})`;
         });
 
+        const tasks = [];
         slide.querySelectorAll('img[data-src], video[data-src], iframe[data-src]').forEach(element => {
             const source = element.dataset.src;
             const normalized = normalizeAssetUrl(source || '');
-            if (!source || element.getAttribute('src')) return;
+            if (!source) return;
             if (element.tagName === 'IFRAME' && isProbablyOffline()) return;
             if (isProbablyOffline() && isSameOriginAssetUrl(normalized) && !cachedAssetUrls.has(normalized)) {
                 element.classList.add('is-media-error');
                 return;
             }
 
-            bindMediaFallback(element);
-            element.classList.remove('is-media-error');
-            element.setAttribute('src', source);
-            if (element.tagName === 'VIDEO') {
-                element.load();
-            }
+            const required = !element.classList.contains('text-slide-background');
+            tasks.push(mediaLifecycle.prepare(element, {
+                required,
+                timeoutMs: MEDIA_READY_TIMEOUT_MS,
+            }));
         });
+        return Promise.all(tasks);
     };
 
-    const waitForSlideImages = (slide, timeoutMs = 5000) => {
-        if (!slide) return Promise.resolve();
-
-        const images = Array.from(slide.querySelectorAll('img[data-src]'));
-        if (images.length === 0) return Promise.resolve();
-
-        ensureMediaLoaded(slide);
-        const pending = new Set(images.filter(image => !image.complete));
-        if (pending.size === 0) return Promise.resolve();
-
-        return new Promise(resolve => {
-            let settled = false;
-            const listeners = new Map();
-            const finish = () => {
-                if (settled) return;
-                settled = true;
-                window.clearTimeout(timeout);
-                listeners.forEach((listener, image) => {
-                    image.removeEventListener('load', listener);
-                    image.removeEventListener('error', listener);
-                });
-                resolve();
-            };
-            const timeout = window.setTimeout(finish, Math.max(0, timeoutMs));
-            pending.forEach(image => {
-                const complete = () => {
-                    pending.delete(image);
-                    if (pending.size === 0) finish();
-                };
-                listeners.set(image, complete);
-                image.addEventListener('load', complete, { once: true });
-                image.addEventListener('error', complete, { once: true });
-                if (image.complete) complete();
-            });
-        });
-    };
+    const isSlideReady = slide => Boolean(slide && mediaLifecycle?.isSlideReady(slide));
 
     const unloadHeavyMedia = slide => {
         if (!slide) return;
-
         slide.querySelectorAll('video[data-src]').forEach(video => {
             clearPendingVideoStart(video);
             video.pause();
-            video.removeAttribute('src');
-            video.load();
+            mediaLifecycle?.dispose(video, { unload: true });
         });
 
         slide.querySelectorAll('iframe[data-src]').forEach(iframe => {
-            iframe.removeAttribute('src');
+            mediaLifecycle?.dispose(iframe, { unload: true });
         });
 
         slide.querySelectorAll('.text-slide-background--image[data-bg-src]').forEach(element => {
@@ -1696,21 +1661,22 @@
     };
 
     const prepareMediaAround = activeIndex => {
+        if (activeIndex < 0 || !slides[activeIndex]) return;
         ensureMediaLoaded(slides[activeIndex]);
         if (slides.length > 1) {
-            const nextPlayable = nextPlayableIndex(activeIndex);
-            if (nextPlayable >= 0 && nextPlayable !== activeIndex) {
-                ensureMediaLoaded(slides[nextPlayable]);
+            const nextEligible = nextEligibleIndex(activeIndex);
+            if (nextEligible >= 0 && nextEligible !== activeIndex) {
+                ensureMediaLoaded(slides[nextEligible]);
             }
         }
     };
 
     const cleanupFarMedia = activeIndex => {
-        const keep = new Set([activeIndex]);
+        const keep = new Set(activeIndex >= 0 ? [activeIndex] : []);
         if (slides.length > 1) {
-            const nextPlayable = nextPlayableIndex(activeIndex);
-            if (nextPlayable >= 0) {
-                keep.add(nextPlayable);
+            const nextEligible = nextEligibleIndex(activeIndex);
+            if (nextEligible >= 0) {
+                keep.add(nextEligible);
             }
         }
 
@@ -1818,7 +1784,7 @@
     };
 
     const startVideo = slide => {
-        if (!slide || !isSlidePlayable(slide)) return;
+        if (!slide || !isSlideEligible(slide) || !isSlideReady(slide)) return;
 
         ensureMediaLoaded(slide);
         slide.querySelectorAll('video').forEach(video => {
@@ -1831,7 +1797,7 @@
             }
 
             requestFrame(() => {
-                if (!slide.classList.contains('is-active') || !isSlidePlayable(slide)) return;
+                if (!slide.classList.contains('is-active') || !isSlideEligible(slide) || !isSlideReady(slide)) return;
 
                 const delay = templateVideoStartDelay(video);
                 if (delay <= 0) {
@@ -1840,7 +1806,7 @@
                 }
 
                 const startTimer = window.setTimeout(() => {
-                    if (slide.classList.contains('is-active') && isSlidePlayable(slide)) {
+                    if (slide.classList.contains('is-active') && isSlideEligible(slide) && isSlideReady(slide)) {
                         playVideoFromStart(video);
                     } else {
                         videoStartTimers.delete(video);
@@ -1849,87 +1815,6 @@
                 videoStartTimers.set(video, startTimer);
             });
         });
-    };
-
-    const waitForMediaElement = element => new Promise(resolve => {
-        const tag = element.tagName;
-        const isReady = () => tag === 'IMG'
-            ? element.complete && Number(element.naturalWidth || 0) > 0
-            : (tag === 'VIDEO' ? element.readyState >= 2 : false);
-        if (isReady()) {
-            if (tag === 'IMG' && typeof element.decode === 'function') {
-                element.decode().then(() => resolve(true), () => resolve(false));
-                return;
-            }
-            resolve(true);
-            return;
-        }
-        let settled = false;
-        const finish = ready => {
-            if (settled) return;
-            settled = true;
-            window.clearTimeout(timeout);
-            element.removeEventListener('load', loaded);
-            element.removeEventListener('canplay', loaded);
-            element.removeEventListener('error', failed);
-            if (ready) {
-                element.classList.remove('is-media-error');
-                delete element.dataset.mediaFailedAt;
-            } else {
-                element.classList.add('is-media-error');
-                element.dataset.mediaFailedAt = String(Date.now());
-            }
-            resolve(ready);
-        };
-        const loaded = () => {
-            if (tag === 'IMG' && typeof element.decode === 'function') {
-                element.decode().then(() => finish(true), () => finish(false));
-                return;
-            }
-            finish(true);
-        };
-        const failed = () => finish(false);
-        const timeout = window.setTimeout(() => finish(false), MEDIA_READY_TIMEOUT_MS);
-        element.addEventListener('load', loaded);
-        element.addEventListener('canplay', loaded);
-        element.addEventListener('error', failed);
-        if (isReady()) loaded();
-    });
-
-    const waitForBackgroundImage = element => new Promise(resolve => {
-        const source = element.dataset.bgSrc || '';
-        if (!source) { resolve(true); return; }
-        const probe = new Image();
-        let settled = false;
-        const finish = ready => {
-            if (settled) return;
-            settled = true;
-            window.clearTimeout(timeout);
-            if (ready) {
-                element.classList.remove('is-media-error');
-                delete element.dataset.mediaFailedAt;
-                element.style.backgroundImage = 'url(' + encodeURI(source) + ')';
-            } else {
-                element.classList.add('is-media-error');
-                element.dataset.mediaFailedAt = String(Date.now());
-            }
-            resolve(ready);
-        };
-        const timeout = window.setTimeout(() => finish(false), MEDIA_READY_TIMEOUT_MS);
-        probe.onload = () => finish(true);
-        probe.onerror = () => finish(false);
-        probe.src = source;
-        if (probe.complete) finish(Number(probe.naturalWidth || 0) > 0);
-    });
-
-    const waitForSlideMedia = slide => {
-        if (!slide) return Promise.resolve(false);
-        ensureMediaLoaded(slide);
-        const required = [
-            ...Array.from(slide.querySelectorAll('img[data-src], video[data-src]')).map(waitForMediaElement),
-            ...Array.from(slide.querySelectorAll('.text-slide-background--image[data-bg-src]')).map(waitForBackgroundImage),
-        ];
-        return required.length === 0 ? Promise.resolve(true) : Promise.all(required).then(results => results.every(Boolean));
     };
 
     const reloadIfChanged = (source = 'state-check') => {
@@ -2082,14 +1967,122 @@
             });
     };
 
-    const queueNext = () => {
-        clearTimeout(timer);
+    const findReadySlideIndex = (startIndex, options = {}) => mediaLifecycle.findReadyCandidate(slides, startIndex, {
+        excludeIndex: options.excludeIndex,
+        retryFailed: options.retryFailed === true,
+        timeoutMs: MEDIA_READY_TIMEOUT_MS,
+        shouldContinue: options.shouldContinue,
+        isEligible: isSlideEligible,
+        onRejected: candidate => logReload('Skipping slide because required media is not renderable', {
+            slideId: candidate.dataset.slideId || '',
+            slideType: candidate.dataset.slideType || '',
+        }),
+    });
 
-        if (!startupComplete || slides.length <= 1) {
+    const commitSlide = nextSlideIndex => new Promise(resolve => requestFrame(() => {
+        const previousIndex = index;
+        const current = slides[index];
+        const next = slides[nextSlideIndex];
+        if (!next || !isSlideEligible(next) || !isSlideReady(next)) {
+            resolve(false);
             return;
         }
+        const nextWasActive = next.classList.contains('is-active');
+        const currentTextAnimating = current?.classList.contains('is-text-card-animating') || false;
+        const currentTemplateAnimating = current?.classList.contains('is-template-animating') || false;
 
-        const targetIndex = nextPlayableIndex(index);
+        try {
+            const handedOff = mediaLifecycle.handoffVisible(current, next, {
+                afterAdd: () => {
+                    index = nextSlideIndex;
+                },
+                beforeRemove: () => {
+                    stopVideo(current);
+                    current.classList.remove('is-text-card-animating');
+                    current.classList.remove('is-template-animating');
+                },
+            });
+            if (!handedOff) throw new Error('Verified slide handoff was rejected.');
+            hideMediaUnavailable();
+            restartTextCardAnimation(next);
+            restartTemplateElementAnimations(next);
+            startVideo(next);
+            prepareMediaAround(index);
+            const committedIndex = index;
+            const cleanupCommittedMedia = () => {
+                if (index !== committedIndex) return;
+                if (transitionInFlight) {
+                    window.setTimeout(cleanupCommittedMedia, 250);
+                    return;
+                }
+                cleanupFarMedia(committedIndex);
+            };
+            window.setTimeout(cleanupCommittedMedia, 1300);
+            resolve(true);
+        } catch (error) {
+            index = previousIndex;
+            if (!nextWasActive && next !== current) {
+                next.classList.remove('is-active');
+                next.classList.remove('is-text-card-animating');
+                next.classList.remove('is-template-animating');
+                stopVideo(next);
+            }
+            if (current) {
+                current.classList.add('is-active');
+                if (currentTextAnimating) current.classList.add('is-text-card-animating');
+                if (currentTemplateAnimating) current.classList.add('is-template-animating');
+                if (isSlideReady(current)) {
+                    hideMediaUnavailable();
+                    try {
+                        startVideo(current);
+                    } catch (restartError) {}
+                } else {
+                    showMediaUnavailable();
+                }
+            }
+            window.console?.error?.('[Hugin display] Slide transition failed', error);
+            resolve(false);
+        }
+    }));
+
+    const scheduleMediaRecovery = (delayMs = MEDIA_FAILURE_RETRY_MS) => {
+        if (mediaRecoveryTimer || !startupComplete || slides.length === 0) return;
+        mediaRecoveryTimer = window.setTimeout(() => {
+            mediaRecoveryTimer = null;
+            if (transitionInFlight) {
+                scheduleMediaRecovery(250);
+                return;
+            }
+            const target = index >= 0 ? nextEligibleIndex(index) : firstEligibleIndex();
+            activate(target, { retryFailed: true });
+        }, Math.max(250, delayMs));
+    };
+
+    const recoverFromMediaFailure = () => {
+        if (!startupComplete || transitionInFlight) {
+            scheduleMediaRecovery(250);
+            return;
+        }
+        const target = index >= 0 ? nextEligibleIndex(index) : firstEligibleIndex();
+        if (target >= 0 && target !== index) {
+            activate(target, { retryFailed: false });
+            return;
+        }
+        scheduleMediaRecovery();
+    };
+
+    const queueNext = () => {
+        clearTimeout(timer);
+        timer = null;
+
+        if (!startupComplete || index < 0 || !isSlideReady(slides[index])) {
+            nextSlideDueAt = 0;
+            scheduleMediaRecovery();
+            return;
+        }
+        if (slides.length <= 1) return;
+
+        const targetIndex = nextEligibleIndex(index);
         if (targetIndex < 0 || targetIndex === index) {
             nextSlideDueAt = 0;
             return;
@@ -2097,62 +2090,52 @@
 
         const delay = durationForSlide(slides[index]);
         nextSlideDueAt = Date.now() + delay;
-        timer = window.setTimeout(() => {
-            activate(targetIndex);
-        }, delay);
+        timer = window.setTimeout(() => activate(targetIndex, { retryFailed: true }), delay);
     };
 
-    const activate = nextSlideIndex => {
-        if (!startupComplete || transitionInFlight) return;
-
-        if (!isSlidePlayable(slides[nextSlideIndex])) {
-            nextSlideIndex = nextPlayableIndex(index);
+    const activate = (nextSlideIndex, options = {}) => {
+        if (!startupComplete || transitionInFlight) return Promise.resolve(false);
+        if (!isSlideEligible(slides[nextSlideIndex])) {
+            nextSlideIndex = index >= 0 ? nextEligibleIndex(index) : firstEligibleIndex();
+        }
+        if (nextSlideIndex < 0) {
+            showMediaUnavailable();
+            scheduleMediaRecovery();
+            return Promise.resolve(false);
         }
 
         const current = slides[index];
-        const next = slides[nextSlideIndex];
-        if (!next || next === current) {
+        if (slides[nextSlideIndex] === current && isSlideReady(current)) {
+            hideMediaUnavailable();
             queueNext();
-            return;
+            return Promise.resolve(true);
         }
 
         transitionInFlight = true;
-        waitForSlideMedia(next).then(ready => {
-            if (!ready || !isSlidePlayable(next)) {
-                logReload('Skipping slide because required media is not renderable', {
-                    slideId: next.dataset.slideId || '',
-                    slideType: next.dataset.slideType || '',
-                });
-                return;
+        const excludeIndex = current && isSlideReady(current) ? index : -1;
+        return findReadySlideIndex(nextSlideIndex, {
+            excludeIndex,
+            retryFailed: options.retryFailed === true,
+        }).then(readyIndex => {
+            if (readyIndex < 0) {
+                if (!current || !isSlideReady(current)) showMediaUnavailable();
+                return false;
             }
-
-            return new Promise(resolve => requestFrame(() => {
-                try {
-                    stopVideo(current);
-                    current.classList.remove('is-active');
-                    current.classList.remove('is-text-card-animating');
-                    current.classList.remove('is-template-animating');
-                    next.classList.add('is-active');
-                    index = nextSlideIndex;
-                    restartTextCardAnimation(next);
-                    restartTemplateElementAnimations(next);
-                    startVideo(next);
-                    prepareMediaAround(index);
-                    window.setTimeout(() => cleanupFarMedia(index), 1300);
-                } catch (error) {
-                    window.console?.error?.('[Hugin display] Slide transition failed', error);
-                } finally {
-                    transitionInFlight = false;
-                    queueNext();
-                    resolve();
-                }
-            }));
+            if (mediaRecoveryTimer) {
+                window.clearTimeout(mediaRecoveryTimer);
+                mediaRecoveryTimer = null;
+            }
+            return commitSlide(readyIndex);
         }).catch(error => {
             window.console?.error?.('[Hugin display] Media readiness check failed', error);
+            if (!current || !isSlideReady(current)) showMediaUnavailable();
+            return false;
         }).finally(() => {
-            if (transitionInFlight) {
-                transitionInFlight = false;
+            transitionInFlight = false;
+            if (index >= 0 && isSlideReady(slides[index])) {
                 queueNext();
+            } else {
+                scheduleMediaRecovery();
             }
         });
     };
@@ -2193,7 +2176,7 @@
 
             const lateBy = Date.now() - nextSlideDueAt;
             if (lateBy > Math.max(5000, durationForSlide(slides[index]))) {
-                const targetIndex = nextPlayableIndex(index);
+                const targetIndex = nextEligibleIndex(index);
                 if (targetIndex >= 0 && targetIndex !== index) {
                     activate(targetIndex);
                 }
@@ -2201,32 +2184,50 @@
         }, 5000);
     };
 
-    const startSlideshow = () => {
+    const startSlideshow = (readyIndex = -1) => {
         startupComplete = true;
         markStartupSeen();
-        slideshow.classList.remove('is-startup-sync-pending');
         queueSelectionBoundaryCheck(nextSelectionAtMs);
         if (slides.length === 0) {
             setStartupStage('starting');
             reloadIfChanged('startup');
+            slideshow.classList.remove('is-startup-sync-pending', 'is-media-startup-pending');
             queueStateCheck();
             queueMinuteAlignedStateCheck();
             return;
         }
-        if (!isSlidePlayable(slides[index])) {
-            const playable = firstPlayableIndex();
-            if (playable >= 0 && playable !== index) {
-                slides[index].classList.remove('is-active');
-                slides[index].classList.remove('is-template-animating');
-                slides[playable].classList.add('is-active');
-                index = playable;
-            }
+
+        const readySlide = slides[readyIndex];
+        if (readySlide && isSlideEligible(readySlide) && isSlideReady(readySlide)) {
+            readySlide.classList.add('is-active');
+            slides.forEach(slide => {
+                if (slide !== readySlide) {
+                    stopVideo(slide);
+                    slide.classList.remove('is-active');
+                    slide.classList.remove('is-text-card-animating');
+                    slide.classList.remove('is-template-animating');
+                }
+            });
+            index = readyIndex;
+            hideMediaUnavailable();
+            prepareMediaAround(index);
+            restartTextCardAnimation(readySlide);
+            restartTemplateElementAnimations(readySlide);
+            startVideo(readySlide);
+            cleanupFarMedia(index);
+        } else {
+            slides.forEach(slide => {
+                stopVideo(slide);
+                slide.classList.remove('is-active');
+                slide.classList.remove('is-text-card-animating');
+                slide.classList.remove('is-template-animating');
+            });
+            index = -1;
+            showMediaUnavailable();
+            scheduleMediaRecovery();
         }
-        prepareMediaAround(index);
-        restartTextCardAnimation(slides[index]);
-        restartTemplateElementAnimations(slides[index]);
-        startVideo(slides[index]);
-        cleanupFarMedia(index);
+
+        slideshow.classList.remove('is-startup-sync-pending', 'is-media-startup-pending');
         setStartupStage('starting');
         logSyncDebug('slideshow started', {
             activeIndex: index,
@@ -2240,6 +2241,11 @@
     };
 
     const prepareStartup = () => {
+        if (isDisplayPreview) {
+            setStartupStage('starting');
+            return Promise.resolve();
+        }
+
         const scheduledReload = shouldUseSyncedGroupReload() ? readScheduledSyncReload() : null;
         const fallbackStartAtMs = Number(scheduledReload?.startAtMs || 0);
 
@@ -2253,10 +2259,6 @@
 
                 return waitForCacheReadinessRelease('startup', cacheResult)
                     .then(status => waitForReadinessStart(status, { fallbackStartAtMs }));
-            })
-            .then(() => {
-                setStartupStage('starting');
-                return waitForSlideMedia(slides[index]);
             });
     };
 
@@ -2291,11 +2293,30 @@
         reloadIfChanged('online');
     });
     window.addEventListener('offline', () => {
-        if (!isSlidePlayable(slides[index])) {
-            const playable = firstPlayableIndex();
-            if (playable >= 0 && playable !== index) {
-                activate(playable);
+        if (index < 0 || !isSlideEligible(slides[index]) || !isSlideReady(slides[index])) {
+            const eligible = firstEligibleIndex();
+            if (eligible >= 0) {
+                showMediaUnavailable();
+                activate(eligible, { retryFailed: true });
+                return;
             }
+
+            // An online-only active slide must not remain as the sole visible
+            // surface after connectivity makes every candidate ineligible.
+            const current = slides[index];
+            showMediaUnavailable();
+            if (current) {
+                stopVideo(current);
+                unloadHeavyMedia(current);
+                current.classList.remove('is-active');
+                current.classList.remove('is-text-card-animating');
+                current.classList.remove('is-template-animating');
+            }
+            index = -1;
+            nextSlideDueAt = 0;
+            window.clearTimeout(timer);
+            timer = null;
+            scheduleMediaRecovery();
         }
     });
     window.addEventListener('resize', () => {
@@ -2328,8 +2349,48 @@
     if (updateTemplateTimedElements()) {
         window.setInterval(updateTemplateTimedElements, 1000);
     }
-    // Prime the current and next slide while the startup overlay is visible.
-    // Field-selected template images are often not in the browser cache yet.
+    if (!window.HuginDisplayMedia?.create) {
+        window.console?.error?.('[Hugin display] Media lifecycle helper is unavailable.');
+        startSlideshow(-1);
+        return;
+    }
+    mediaLifecycle = window.HuginDisplayMedia.create({
+        host: window,
+        timeoutMs: MEDIA_READY_TIMEOUT_MS,
+        retryDelayMs: MEDIA_FAILURE_RETRY_MS,
+        onFailure: handleMediaElementFailure,
+    });
+    window.__huginDisplayMedia = mediaLifecycle;
+
+    // Prime media while cache/start-time coordination is still in progress.
     prepareMediaAround(index);
-    prepareStartupWithDeadline().then(startSlideshow, startSlideshow);
+    prepareStartupWithDeadline()
+        .then(() => {
+            let selectionActive = true;
+            const selection = findReadySlideIndex(index, {
+                retryFailed: true,
+                shouldContinue: () => selectionActive,
+            });
+            let deadlineTimer = null;
+            const deadline = new Promise(resolve => {
+                deadlineTimer = window.setTimeout(() => {
+                    deadlineTimer = null;
+                    logReload('Startup media selection deadline reached', {
+                        maxWaitMs: STARTUP_MEDIA_SELECTION_TIMEOUT_MS,
+                    });
+                    resolve(-1);
+                }, STARTUP_MEDIA_SELECTION_TIMEOUT_MS);
+            });
+            return Promise.race([selection, deadline]).finally(() => {
+                selectionActive = false;
+                if (deadlineTimer !== null) {
+                    window.clearTimeout(deadlineTimer);
+                }
+            });
+        })
+        .then(startSlideshow)
+        .catch(error => {
+            window.console?.error?.('[Hugin display] Startup media selection failed', error);
+            startSlideshow(-1);
+        });
 })();

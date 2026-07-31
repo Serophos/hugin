@@ -22,9 +22,18 @@ if (is_file($manifestFile)) {
 }
 $GLOBALS['app_manifest'] = $manifest;
 
-if (session_status() === PHP_SESSION_NONE) {
+require_once __DIR__ . '/session_policy.php';
+
+$requestRequiresSession = $GLOBALS['app_request_requires_session']
+    ?? app_request_requires_session(
+        (string)($_SERVER['REQUEST_METHOD'] ?? 'GET'),
+        (string)($_SERVER['REQUEST_URI'] ?? '/'),
+    );
+if ($requestRequiresSession && session_status() === PHP_SESSION_NONE) {
     session_name($config['app']['session_name'] ?? 'info_display_session');
     session_start();
+} elseif (!$requestRequiresSession && session_status() === PHP_SESSION_ACTIVE) {
+    session_write_close();
 }
 
 $autoload = __DIR__ . '/../vendor/autoload.php';

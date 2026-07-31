@@ -1,5 +1,5 @@
 <?php
-$heartbeatInterval = max(30, min(120, (int)floor(((int)app_core_setting('monitoring.online_threshold_seconds', 450)) / 5)));
+$heartbeatInterval = max(30, min(120, (int)floor(((int)app_core_setting('monitoring.online_threshold_seconds', 180)) / 2)));
 $displayGroup = $displayGroup ?? null;
 $syncReloadToFullMinute = !empty($displayGroup['sync_reload_to_full_minute']);
 $startupSyncKey = 'hugin:slideshow-started:' . (string)($display['slug'] ?? '');
@@ -10,6 +10,11 @@ $playbackStatus = (string)($playbackStatus ?? (($slides ?? []) ? 'ready' : 'no_p
 $playbackStatusMessage = $playbackStatus === 'no_slides'
     ? __('frontend.playback_no_slides')
     : __('frontend.playback_no_playlist');
+$coreFrontendRevision = (string)($coreFrontendRevision ?? '');
+$coreFrontendAssetUrl = static function (string $publicPath) use ($coreFrontendRevision): string {
+    $assetUrl = asset_url($publicPath);
+    return $coreFrontendRevision !== '' ? append_url_query_param($assetUrl, 'runtime', $coreFrontendRevision) : $assetUrl;
+};
 $templateFontAssetIds = [];
 foreach (($slides ?? []) as $slide) {
     foreach ((array)($slide['template_font_asset_ids'] ?? []) as $fontAssetId) {
@@ -62,7 +67,7 @@ $defaultHeadingFontCss = \App\Core\TemplateSlideService::fontFamilyCssForToken((
             } catch (error) {}
         })();
     </script>
-    <link rel="stylesheet" href="<?= e(asset_url('/assets/css/display.css')) ?>">
+    <link rel="stylesheet" href="<?= e($coreFrontendAssetUrl('/assets/css/display.css')) ?>">
     <?php foreach (($pluginAssets['css'] ?? []) as $cssAsset): ?>
         <link rel="stylesheet" href="<?= e($cssAsset) ?>">
     <?php endforeach; ?>
@@ -103,17 +108,19 @@ if (str_starts_with($display['slug'] ?? '', 'preview-slide-') && preg_match('#^p
 }
 ?>
 <div id="slideshow"
-     class="slideshow <?= $isPreviewDisplay ? '' : 'is-startup-sync-pending ' ?>effect-<?= e($effect) ?> orientation-<?= e($orientation ?? ($display['orientation'] ?? 'landscape')) ?>"
+     class="slideshow <?= $isPreviewDisplay ? '' : 'is-startup-sync-pending ' ?>is-media-startup-pending effect-<?= e($effect) ?> orientation-<?= e($orientation ?? ($display['orientation'] ?? 'landscape')) ?>"
      data-default-duration="<?= e((string)$duration) ?>"
+     data-display-preview="<?= $isPreviewDisplay ? '1' : '0' ?>"
      data-heartbeat-url="<?= $isPreviewDisplay ? '' : e(url($displayRoutePrefix . '/heartbeat')) ?>"
      data-heartbeat-interval="<?= e((string)$heartbeatInterval) ?>"
      data-state-url="<?= e(url($displayRoutePrefix . '/state')) ?>"
      data-cache-readiness-url="<?= $isPreviewDisplay ? '' : e(url($displayRoutePrefix . '/cache-readiness')) ?>"
      data-offline-manifest-url="<?= $isPreviewDisplay ? '' : e(url($displayRoutePrefix . '/offline-manifest')) ?>"
-     data-service-worker-url="<?= $isPreviewDisplay ? '' : e(asset_url('/display-service-worker.js')) ?>"
+     data-service-worker-url="<?= $isPreviewDisplay ? '' : e($coreFrontendAssetUrl('/display-service-worker.js')) ?>"
      data-state-check-interval="60"
      data-state-signature="<?= e($stateSignature) ?>"
      data-playback-status="<?= e($playbackStatus) ?>"
+     data-media-unavailable-message="<?= e(__('frontend.playback_media_unavailable')) ?>"
      data-next-selection-at-ms="<?= e((string)($nextSelectionAtMs ?? 0)) ?>"
      data-server-time-ms="<?= e((string)($serverTimeMs ?? 0)) ?>"
      data-sync-reload-to-full-minute="<?= $syncReloadToFullMinute ? '1' : '0' ?>"
@@ -190,7 +197,7 @@ if (str_starts_with($display['slug'] ?? '', 'preview-slide-') && preg_match('#^p
             <?php if (is_string($slide['plugin_rendered_html'] ?? null) && $slide['plugin_rendered_html'] !== ''): ?>
                 <?= $slide['plugin_rendered_html'] ?>
             <?php elseif ($slide['slide_type'] === 'image'): ?>
-                <img <?php if ($index === 0): ?>src="<?= e(url($slide['resolved_source_url'])) ?>" fetchpriority="high" <?php else: ?>loading="lazy" <?php endif; ?>data-src="<?= e(url($slide['resolved_source_url'])) ?>" alt="<?= e($slide['name']) ?>" decoding="async">
+                <img data-src="<?= e(url($slide['resolved_source_url'])) ?>" alt="<?= e($slide['name']) ?>" decoding="async">
             <?php elseif ($slide['slide_type'] === 'video'): ?>
                 <video data-src="<?= e(url($slide['resolved_source_url'])) ?>" muted playsinline loop preload="metadata"></video>
             <?php elseif ($slide['slide_type'] === 'template'): ?>
@@ -264,15 +271,16 @@ if (str_starts_with($display['slug'] ?? '', 'preview-slide-') && preg_match('#^p
                     <?php endif; ?>
                 </div>
             <?php else: ?>
-                <iframe data-src="<?= e($slide['resolved_source_url']) ?>" loading="lazy" referrerpolicy="no-referrer-when-downgrade" title="<?= e($slide['name']) ?>"></iframe>
+                <iframe data-src="<?= e($slide['resolved_source_url']) ?>" loading="eager" referrerpolicy="no-referrer-when-downgrade" title="<?= e($slide['name']) ?>"></iframe>
             <?php endif; ?>
         </section>
     <?php endforeach; ?>
 </div>
-<script src="<?= e(asset_url('/assets/js/hugin-qr.js')) ?>"></script>
-<script src="<?= e(asset_url('/assets/js/playback-scheduler.js')) ?>"></script>
-<script src="<?= e(asset_url('/assets/js/display-heartbeat.js')) ?>"></script>
-<script src="<?= e(asset_url('/assets/js/slideshow.js')) ?>"></script>
+<script src="<?= e($coreFrontendAssetUrl('/assets/js/hugin-qr.js')) ?>"></script>
+<script src="<?= e($coreFrontendAssetUrl('/assets/js/playback-scheduler.js')) ?>"></script>
+<script src="<?= e($coreFrontendAssetUrl('/assets/js/display-heartbeat.js')) ?>"></script>
+<script src="<?= e($coreFrontendAssetUrl('/assets/js/display-media-lifecycle.js')) ?>"></script>
+<script src="<?= e($coreFrontendAssetUrl('/assets/js/slideshow.js')) ?>"></script>
 <?php foreach (($pluginAssets['js'] ?? []) as $jsAsset): ?>
     <script src="<?= e($jsAsset) ?>"></script>
 <?php endforeach; ?>

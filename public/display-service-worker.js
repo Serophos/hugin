@@ -1,9 +1,9 @@
-const CACHE_NAME = 'hugin-display-offline-v2';
+const CACHE_NAME = 'hugin-display-offline-v1';
 const DISPLAY_PAGE_RE = /^\/display\/[^/]+$/;
 const DISPLAY_MANIFEST_RE = /^\/display\/[^/]+\/offline-manifest$/;
 const DISPLAY_STATE_RE = /^\/display\/[^/]+\/state$/;
 const CACHEABLE_PATH_RE = /^(?:\/assets\/|\/uploads\/|\/plugin-assets\/|\/display-service-worker\.js$)/;
-const CRITICAL_STATIC_RE = /^(?:\/assets\/(?:js\/(?:display-heartbeat|playback-scheduler|slideshow)\.js|css\/display\.css)|\/display-service-worker\.js$)/;
+const CRITICAL_STATIC_RE = /^(?:\/assets\/(?:js\/(?:display-heartbeat|display-media-lifecycle|playback-scheduler|slideshow)\.js|css\/display\.css)|\/display-service-worker\.js$)/;
 const VIDEO_DB_NAME = 'hugin-display-video-cache-v1';
 const VIDEO_CHUNK_SIZE = 2 * 1024 * 1024;
 
@@ -116,13 +116,11 @@ async function cacheableAsset(request) {
 
     const cache = await caches.open(CACHE_NAME);
     const cached = await cache.match(request, { ignoreSearch: false });
-    const expectedKind = mediaKindForRequest(request);
-    if (cached && canCache(cached, expectedKind)) return cached;
-    if (cached) await cache.delete(request);
+    if (cached) return cached;
 
     try {
         const response = await fetch(request);
-        if (canCache(response, expectedKind)) {
+        if (canCache(response)) {
             await cache.put(request, response.clone());
         }
         return response;
@@ -246,7 +244,7 @@ async function cacheDisplayManifest(manifest, maxBytes, onProgress = () => {}) {
         }
 
         const alreadyCached = await cache.match(request, { ignoreSearch: false });
-        if (alreadyCached && canCache(alreadyCached, asset.kind)) {
+        if (alreadyCached) {
             cachedUrls.push(url);
             reservedBytes += budgeted;
             cachedAssets += 1;
@@ -257,7 +255,7 @@ async function cacheDisplayManifest(manifest, maxBytes, onProgress = () => {}) {
 
         try {
             const response = await fetch(request);
-            if (!canCache(response, asset.kind)) {
+            if (!canCache(response)) {
                 skippedUrls.push(url);
                 completedAssets += 1;
                 report('caching');
@@ -306,7 +304,7 @@ async function cacheVideoAsset(url) {
 
     const request = new Request(url, { method: 'GET', credentials: 'same-origin', cache: 'reload' });
     const response = await fetch(request);
-    if (!canCache(response, 'video')) return false;
+    if (!canCache(response)) return false;
 
     const contentType = response.headers.get('Content-Type') || 'application/octet-stream';
     await deleteVideoAsset(url);
@@ -484,21 +482,8 @@ async function deleteVideoAsset(url) {
     await idbRequest('meta', 'readwrite', store => store.delete(url));
 }
 
-function mediaKindForRequest(request) {
-    const destination = String(request?.destination || '').toLowerCase();
-    if (destination === 'image' || destination === 'video') return destination;
-    const pathname = new URL(request.url).pathname.toLowerCase();
-    if (/[.](?:avif|bmp|gif|jpe?g|png|svg|webp)$/.test(pathname)) return 'image';
-    if (/[.](?:m4v|mov|mp4|ogv|webm)$/.test(pathname)) return 'video';
-    return '';
-}
-
-function canCache(response, expectedKind = '') {
-    if (!response || !response.ok || !['basic', 'default'].includes(response.type)) return false;
-    const contentType = String(response.headers.get('Content-Type') || '').toLowerCase();
-    if (expectedKind === 'image') return contentType.startsWith('image/');
-    if (expectedKind === 'video') return contentType.startsWith('video/') || contentType.startsWith('application/octet-stream');
-    return true;
+function canCache(response) {
+    return response && response.ok && (response.type === 'basic' || response.type === 'default');
 }
 
 function priority(asset) {

@@ -18,7 +18,8 @@
     "test:admin-assets": "node tests/admin_asset_boundary_test.mjs",
     "test:admin-theme": "node tests/admin_theme_test.mjs",
     "check:icons": "node scripts/build-admin-icons.mjs --check",
-    "check:adminlte": "node scripts/build-adminlte-assets.mjs --check"
+    "check:adminlte": "node scripts/build-adminlte-assets.mjs --check",
+    "test:renderer": "node tests/display_media_lifecycle_test.mjs && node tests/display_renderer_integration_test.mjs"
   },
   "devDependencies": {
     "@rsuite/icon-font": "4.1.0",

@@ -127,7 +127,7 @@ require __DIR__ . '/../layouts/admin_header.php';
                 <?= field_error_html('monitoring_api_token', 'settings') ?>
             </label>
             <label><?= e(__('settings.monitoring_online_threshold_seconds', [], 'Online threshold (seconds)')) ?>
-                <input class="form-control" type="number" name="settings[monitoring_online_threshold_seconds]" min="30" step="1" value="<?= e((string)old('monitoring_online_threshold_seconds', $settings['monitoring_online_threshold_seconds'] ?? '450', 'settings')) ?>"<?= field_attrs('monitoring_online_threshold_seconds', 'settings') ?>>
+                <input class="form-control" type="number" name="settings[monitoring_online_threshold_seconds]" min="30" step="1" value="<?= e((string)old('monitoring_online_threshold_seconds', $settings['monitoring_online_threshold_seconds'] ?? '180', 'settings')) ?>"<?= field_attrs('monitoring_online_threshold_seconds', 'settings') ?>>
                 <?= field_error_html('monitoring_online_threshold_seconds', 'settings') ?>
             </label>
             <label><?= e(__('settings.monitoring_stale_threshold_seconds', [], 'Stale threshold (seconds)')) ?>

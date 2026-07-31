@@ -179,6 +179,22 @@ html, body {
     visibility: visible;
 }
 
+.slideshow.is-media-startup-pending .startup-loading {
+    display: grid;
+}
+
+.slideshow.is-media-startup-pending .slide {
+    visibility: hidden;
+}
+
+.hugin-startup-loading-seen .slideshow.is-media-startup-pending .startup-loading {
+    display: grid;
+}
+
+.hugin-startup-loading-seen .slideshow.is-media-startup-pending .slide {
+    visibility: hidden;
+}
+
 @media (max-width: 700px) {
     .startup-loading {
         padding: 22px;

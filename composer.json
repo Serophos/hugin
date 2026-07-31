@@ -21,6 +21,8 @@
     },
     "scripts": {
         "test:playback": "php tests/playlist_selection_test.php",
-        "test:openid": "php tests/secret_cipher_test.php && php tests/openid_settings_validation_test.php && php tests/openid_connect_test.php && php tests/openid_claim_validation_test.php"
+        "test:openid": "php tests/secret_cipher_test.php && php tests/openid_settings_validation_test.php && php tests/openid_connect_test.php && php tests/openid_claim_validation_test.php",
+        "test:session-policy": "php tests/session_policy_test.php",
+        "test:frontend-runtime": "php tests/frontend_runtime_revision_test.php"
     }
 }

@@ -99,6 +99,13 @@ if (is_string($staticUri) && in_array($staticMethod, ['GET', 'HEAD'], true)) {
     }
 }
 
+require_once __DIR__ . '/../app/session_policy.php';
+
+$GLOBALS['app_request_requires_session'] = app_request_requires_session(
+    $staticMethod,
+    (string)($_SERVER['REQUEST_URI'] ?? '/'),
+);
+
 require_once __DIR__ . '/../app/bootstrap.php';
 
 use App\Controllers\AdminController;
@@ -115,12 +122,6 @@ $openid = new OpenIdConnectController($auth, $view);
 
 $uri = $request->uri();
 $method = $request->method();
-
-// Public display traffic must not retain a PHP session lock. A display may
-// share cookies with an admin tab, and heartbeat delivery must remain independent.
-if (str_starts_with($uri, '/display/') && session_status() === PHP_SESSION_ACTIVE) {
-    session_write_close();
-}
 
 if ($method === 'POST'
     && !preg_match('#^/display/[a-zA-Z0-9\-_]+/(?:heartbeat|cache-readiness)$#', $uri)

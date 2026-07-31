@@ -17,6 +17,7 @@ class FrontendController
 
     private TemplateSlideService $templateSlides;
     private PlaylistSelectionService $playlistSelection;
+    private ?string $coreFrontendRevision = null;
 
     public function __construct(private Database $db, private View $view, private PluginManager $plugins)
     {
@@ -84,6 +85,7 @@ class FrontendController
             'serverTimeMs' => $state['server_time_ms'],
             'displayGroup' => $displayGroup,
             'orientation' => $display['orientation'] ?? 'landscape',
+            'coreFrontendRevision' => $state['core_frontend_revision'],
             'pluginAssets' => $pluginAssets,
             'brandingSettings' => $brandingSettings,
             'isDisplayPreview' => $this->isDisplayPreviewRequest(),
@@ -160,6 +162,7 @@ class FrontendController
             'stateSignature' => $state['signature'],
             'serverTimeMs' => $state['server_time_ms'],
             'orientation' => $display['orientation'],
+            'coreFrontendRevision' => $state['core_frontend_revision'],
             'pluginAssets' => $pluginAssets,
             'brandingSettings' => $brandingSettings,
         ]);
@@ -660,7 +663,7 @@ class FrontendController
 
     private function onlineGroupParticipants(int $groupId, int $currentDisplayId, array $displayGroup): array
     {
-        $onlineThresholdSeconds = max(30, (int)app_core_setting('monitoring.online_threshold_seconds', 450));
+        $onlineThresholdSeconds = max(30, (int)app_core_setting('monitoring.online_threshold_seconds', 180));
         $rows = $this->db->all(
             'SELECT d.*, TIMESTAMPDIFF(SECOND, h.last_seen_at, NOW()) AS heartbeat_age_seconds
              FROM display_group_memberships dgm
@@ -992,12 +995,13 @@ class FrontendController
 
         $this->addManifestAsset($assets, url('/display/' . $display['slug']), 'shell', 'document', null, true);
         $this->addManifestAsset($assets, url('/display/' . $display['slug'] . '/offline-manifest'), 'manifest', 'json', null, true);
-        $this->addManifestAsset($assets, asset_url('/assets/css/display.css'), 'static', 'style', $this->publicFileSize('/assets/css/display.css'), true);
-        $this->addManifestAsset($assets, asset_url('/assets/js/hugin-qr.js'), 'static', 'script', $this->publicFileSize('/assets/js/hugin-qr.js'), true);
-        $this->addManifestAsset($assets, asset_url('/assets/js/playback-scheduler.js'), 'static', 'script', $this->publicFileSize('/assets/js/playback-scheduler.js'), true);
-        $this->addManifestAsset($assets, asset_url('/assets/js/display-heartbeat.js'), 'static', 'script', $this->publicFileSize('/assets/js/display-heartbeat.js'), true);
-        $this->addManifestAsset($assets, asset_url('/assets/js/slideshow.js'), 'static', 'script', $this->publicFileSize('/assets/js/slideshow.js'), true);
-        $this->addManifestAsset($assets, asset_url('/display-service-worker.js'), 'static', 'script', $this->publicFileSize('/display-service-worker.js'), true);
+        $this->addManifestAsset($assets, $this->coreFrontendAssetUrl('/assets/css/display.css'), 'static', 'style', $this->publicFileSize('/assets/css/display.css'), true);
+        $this->addManifestAsset($assets, $this->coreFrontendAssetUrl('/assets/js/hugin-qr.js'), 'static', 'script', $this->publicFileSize('/assets/js/hugin-qr.js'), true);
+        $this->addManifestAsset($assets, $this->coreFrontendAssetUrl('/assets/js/playback-scheduler.js'), 'static', 'script', $this->publicFileSize('/assets/js/playback-scheduler.js'), true);
+        $this->addManifestAsset($assets, $this->coreFrontendAssetUrl('/assets/js/display-heartbeat.js'), 'static', 'script', $this->publicFileSize('/assets/js/display-heartbeat.js'), true);
+        $this->addManifestAsset($assets, $this->coreFrontendAssetUrl('/assets/js/display-media-lifecycle.js'), 'static', 'script', $this->publicFileSize('/assets/js/display-media-lifecycle.js'), true);
+        $this->addManifestAsset($assets, $this->coreFrontendAssetUrl('/assets/js/slideshow.js'), 'static', 'script', $this->publicFileSize('/assets/js/slideshow.js'), true);
+        $this->addManifestAsset($assets, $this->coreFrontendAssetUrl('/display-service-worker.js'), 'static', 'script', $this->publicFileSize('/display-service-worker.js'), true);
         $this->addManifestAsset($assets, url('/assets/img/hugin-logo.webp'), 'static', 'image', $this->publicFileSize('/assets/img/hugin-logo.webp'), true);
 
         foreach (($pluginAssets['css'] ?? []) as $asset) {
@@ -1287,6 +1291,7 @@ class FrontendController
             'duration' => $duration,
             'orientation' => (string)($display['orientation'] ?? 'landscape'),
             'frontend_assets' => $this->frontendAssetUrls($pluginAssets),
+            'core_frontend_revision' => $this->coreFrontendRuntimeRevision(),
             'plugin_global_updated_at' => $this->collectPluginGlobalUpdatedAt($resolvedSlides),
             'slides' => array_map(static function (array $slide): array {
                 return [
@@ -1428,9 +1433,68 @@ class FrontendController
         ];
     }
 
+    private function coreFrontendRuntimeRevision(): string
+    {
+        if ($this->coreFrontendRevision !== null) return $this->coreFrontendRevision;
+
+        $publicRoot = realpath((string)app_config('paths.public', dirname(__DIR__, 2) . '/public'));
+        $contents = [];
+        foreach ([
+            '/assets/css/display.css',
+            '/assets/js/hugin-qr.js',
+            '/assets/js/playback-scheduler.js',
+            '/assets/js/display-heartbeat.js',
+            '/assets/js/display-media-lifecycle.js',
+            '/assets/js/slideshow.js',
+            '/display-service-worker.js',
+        ] as $publicPath) {
+            $filePath = $publicRoot === false
+                ? false
+                : realpath($publicRoot . DIRECTORY_SEPARATOR . ltrim($publicPath, '/'));
+            if ($filePath === false
+                || !str_starts_with($filePath, $publicRoot . DIRECTORY_SEPARATOR)
+                || !is_file($filePath)) {
+                $contents[$publicPath] = null;
+                continue;
+            }
+
+            $content = file_get_contents($filePath);
+            $contents[$publicPath] = $content === false ? null : $content;
+        }
+
+        return $this->coreFrontendRevision = self::coreFrontendRuntimeRevisionForContents($contents);
+    }
+
+    private static function coreFrontendRuntimeRevisionForContents(array $contents): string
+    {
+        ksort($contents, SORT_STRING);
+        $assets = [];
+        foreach ($contents as $publicPath => $content) {
+            $assets[] = [
+                'path' => (string)$publicPath,
+                'digest' => is_string($content) ? hash('sha256', $content) : null,
+            ];
+        }
+
+        // Plugin assets remain outside the state signature because their dynamic
+        // URLs previously caused a reload loop. Core file contents are stable,
+        // but any deployed runtime change must make existing displays reload.
+        return hash('sha256', json_encode($assets, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '');
+    }
+
+    private function coreFrontendAssetUrl(string $publicPath): string
+    {
+        return self::coreFrontendAssetUrlForRevision($publicPath, $this->coreFrontendRuntimeRevision());
+    }
+
+    private static function coreFrontendAssetUrlForRevision(string $publicPath, string $revision): string
+    {
+        return append_url_query_param(asset_url($publicPath), 'runtime', $revision);
+    }
+
     private function frontendAssetUrls(array $pluginAssets): array
     {
-        $css = [asset_url('/assets/css/display.css')];
+        $css = [$this->coreFrontendAssetUrl('/assets/css/display.css')];
         foreach (($pluginAssets['css'] ?? []) as $asset) {
             $asset = trim((string)$asset);
             if ($asset !== '' && !in_array($asset, $css, true)) {
@@ -1439,10 +1503,11 @@ class FrontendController
         }
 
         $js = [
-            asset_url('/assets/js/hugin-qr.js'),
-            asset_url('/assets/js/playback-scheduler.js'),
-            asset_url('/assets/js/display-heartbeat.js'),
-            asset_url('/assets/js/slideshow.js'),
+            $this->coreFrontendAssetUrl('/assets/js/hugin-qr.js'),
+            $this->coreFrontendAssetUrl('/assets/js/playback-scheduler.js'),
+            $this->coreFrontendAssetUrl('/assets/js/display-heartbeat.js'),
+            $this->coreFrontendAssetUrl('/assets/js/display-media-lifecycle.js'),
+            $this->coreFrontendAssetUrl('/assets/js/slideshow.js'),
         ];
         foreach (($pluginAssets['js'] ?? []) as $asset) {
             $asset = trim((string)$asset);
@@ -1454,7 +1519,7 @@ class FrontendController
         return [
             'css' => $css,
             'js' => $js,
-            'service_worker' => asset_url('/display-service-worker.js'),
+            'service_worker' => $this->coreFrontendAssetUrl('/display-service-worker.js'),
         ];
     }
 

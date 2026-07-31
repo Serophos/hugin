@@ -1,4 +1,16 @@
 (() => {
+    const previousController = window.__huginHeartbeatController;
+    let previousStopResult = null;
+    if (previousController && typeof previousController.stop === 'function') {
+        try {
+            previousStopResult = previousController.stop({ reason: 'replaced' });
+        } catch (error) {
+            window.console?.warn?.('[Hugin heartbeat] previous controller cleanup failed', error);
+        }
+    }
+    window.__huginHeartbeatController = null;
+    window.__huginHeartbeatStatus = null;
+
     const slideshow = document.getElementById('slideshow');
     if (!slideshow) return;
 
@@ -22,35 +34,63 @@
     const configuredSeconds = parseInt(slideshow.dataset.heartbeatInterval || '90', 10);
     const intervalMs = Math.max(configuredSeconds || 90, 30) * 1000;
     const requestTimeoutMs = Math.min(20000, Math.max(10000, Math.floor(intervalMs / 2)));
+    const transportCleanupTimeoutMs = Math.min(2000, Math.max(1000, Math.floor(requestTimeoutMs / 10)));
     const ua = navigator.userAgent || '';
-    let timer = null;
-    let watchdog = null;
-    let requestInFlight = false;
-    let requestStartedAt = 0;
-    let lastAttemptAt = 0;
-    let lastSuccessAt = 0;
-    let consecutiveFailures = 0;
-    let lastError = '';
+    const listeners = [];
+    let cadenceTimer = null;
+    let resizeTimer = null;
+    let activeRequest = null;
+    let recoveryPromise = null;
     let requestSequence = 0;
+    let running = false;
+    let disposed = false;
+    let pausedForBfcache = false;
 
-    const diagnosticState = {
-        heartbeatUrl, intervalMs, requestTimeoutMs, requestInFlight: false,
-        lastAttemptAt: 0, lastSuccessAt: 0, consecutiveFailures: 0, lastError: '',
+    const status = {
+        heartbeatUrl,
+        intervalMs,
+        requestTimeoutMs,
+        transportCleanupTimeoutMs,
+        running: false,
+        disposed: false,
+        pausedForBfcache: false,
+        requestInFlight: false,
+        requestReason: '',
+        attemptCount: 0,
+        successCount: 0,
+        skippedCount: 0,
+        beaconCount: 0,
+        cleanupTimeoutCount: 0,
+        consecutiveFailures: 0,
+        lastAttemptAt: 0,
+        lastSuccessAt: 0,
+        lastFailureAt: 0,
+        lastBeaconAt: 0,
+        lastBeaconReason: '',
+        lastCleanupTimeoutAt: 0,
+        lastError: '',
+        stopReason: '',
     };
-    window.__huginHeartbeatStatus = diagnosticState;
 
-    const updateDiagnostics = () => Object.assign(diagnosticState, {
-        requestInFlight, lastAttemptAt, lastSuccessAt, consecutiveFailures, lastError,
+    const syncStatus = () => Object.assign(status, {
+        running,
+        disposed,
+        pausedForBfcache,
+        requestInFlight: activeRequest !== null || recoveryPromise !== null,
+        requestReason: activeRequest?.reason || (recoveryPromise ? 'recovering' : ''),
     });
 
-    const recordFailure = error => {
-        consecutiveFailures += 1;
-        lastError = String(error?.message || error || 'Heartbeat request failed');
-        updateDiagnostics();
-        if (consecutiveFailures === 1 || consecutiveFailures % 5 === 0) {
-            console.warn?.('[Hugin heartbeat] request failed', {
-                error: lastError, consecutiveFailures,
-                lastSuccessAt: lastSuccessAt ? new Date(lastSuccessAt).toISOString() : null,
+    const warnFailure = error => {
+        const previousFailures = status.consecutiveFailures;
+        status.consecutiveFailures = previousFailures + 1;
+        status.lastFailureAt = Date.now();
+        status.lastError = String(error?.message || error || 'Heartbeat request failed');
+        syncStatus();
+        if (status.consecutiveFailures === 1 || status.consecutiveFailures % 5 === 0) {
+            window.console?.warn?.('[Hugin heartbeat] request failed', {
+                error: status.lastError,
+                consecutiveFailures: status.consecutiveFailures,
+                lastSuccessAt: status.lastSuccessAt ? new Date(status.lastSuccessAt).toISOString() : null,
             });
         }
     };
@@ -126,130 +166,320 @@
     };
 
     const payloadJson = () => JSON.stringify(collectPayload());
-    const sendBeacon = payload => {
+
+    const queueBeacon = (reason, payload = null) => {
         try {
-            if (!navigator.sendBeacon || typeof Blob !== 'function') return false;
-            return navigator.sendBeacon(heartbeatUrl, new Blob([payload], { type: 'application/json' }));
+            if (typeof navigator.sendBeacon !== 'function' || typeof Blob !== 'function') return false;
+            const queued = navigator.sendBeacon(
+                heartbeatUrl,
+                new Blob([payload ?? payloadJson()], { type: 'application/json' }),
+            );
+            if (queued) {
+                status.beaconCount += 1;
+                status.lastBeaconAt = Date.now();
+                status.lastBeaconReason = reason;
+            }
+            return queued;
         } catch (error) {
+            window.console?.warn?.('[Hugin heartbeat] beacon could not be queued', error);
             return false;
         }
     };
 
-    const retryDelayMs = () => consecutiveFailures <= 0
-        ? intervalMs
-        : Math.min(intervalMs, 5000 * (2 ** Math.min(consecutiveFailures - 1, 4)));
+    const awaitTransportCleanup = transportSettled => new Promise(resolve => {
+        let finished = false;
+        const finish = settled => {
+            if (finished) return;
+            finished = true;
+            window.clearTimeout(cleanupTimer);
+            resolve(settled);
+        };
+        const cleanupTimer = window.setTimeout(() => {
+            status.cleanupTimeoutCount += 1;
+            status.lastCleanupTimeoutAt = Date.now();
+            window.console?.warn?.('[Hugin heartbeat] aborted transport did not settle', {
+                timeoutMs: transportCleanupTimeoutMs,
+            });
+            finish(false);
+        }, transportCleanupTimeoutMs);
+        Promise.resolve(transportSettled).then(() => finish(true), () => finish(true));
+    });
 
-    const scheduleNext = delayMs => {
-        window.clearTimeout(timer);
-        timer = window.setTimeout(send, Math.max(1000, Number(delayMs || intervalMs)));
+    const abortActiveRequest = () => {
+        if (!activeRequest) return Promise.resolve(true);
+        const request = activeRequest;
+        activeRequest = null;
+        requestSequence += 1;
+        window.clearTimeout(request.timeoutTimer);
+        request.abortTransport?.();
+        syncStatus();
+        return awaitTransportCleanup(request.transportSettled || Promise.resolve());
     };
 
-    const send = ({ preferBeacon = false } = {}) => {
-        if (requestInFlight) return Promise.resolve(false);
+    const send = ({ reason = 'manual' } = {}) => {
+        if (!running || pausedForBfcache) return Promise.resolve(false);
+        if (activeRequest || recoveryPromise) {
+            status.skippedCount += 1;
+            syncStatus();
+            return Promise.resolve(false);
+        }
 
         let payload;
         try {
             payload = payloadJson();
         } catch (error) {
-            lastAttemptAt = Date.now();
-            recordFailure(error);
-            scheduleNext(retryDelayMs());
+            status.attemptCount += 1;
+            status.lastAttemptAt = Date.now();
+            warnFailure(error);
             return Promise.resolve(false);
         }
 
-        lastAttemptAt = Date.now();
-        updateDiagnostics();
-        if (preferBeacon && sendBeacon(payload)) return Promise.resolve(true);
-        if (!window.fetch) {
-            const queued = sendBeacon(payload);
+        status.attemptCount += 1;
+        status.lastAttemptAt = Date.now();
+        const canUseAbortableFetch = typeof window.fetch === 'function'
+            && typeof window.AbortController === 'function';
+        const canUseXhr = typeof window.XMLHttpRequest === 'function';
+        if (!canUseAbortableFetch && !canUseXhr) {
+            const queued = queueBeacon(reason, payload);
             if (queued) {
-                consecutiveFailures = 0;
-                lastError = '';
+                status.successCount += 1;
+                status.consecutiveFailures = 0;
+                status.lastError = '';
             } else {
-                recordFailure(new Error('Fetch and sendBeacon are unavailable'));
+                warnFailure(new Error('No abortable heartbeat transport is available'));
             }
-            updateDiagnostics();
-            scheduleNext(retryDelayMs());
+            syncStatus();
             return Promise.resolve(queued);
         }
 
-        requestInFlight = true;
-        requestStartedAt = Date.now();
         const sequence = ++requestSequence;
-        const controller = typeof AbortController === 'function' ? new AbortController() : null;
-        updateDiagnostics();
-
-        let fetchPromise;
-        try {
-            fetchPromise = Promise.resolve(fetch(heartbeatUrl, {
-                method: 'POST',
-                headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
-                body: payload, cache: 'no-store', credentials: 'same-origin', keepalive: true,
-                ...(controller ? { signal: controller.signal } : {}),
-            }));
-        } catch (error) {
-            fetchPromise = Promise.reject(error);
-        }
-
-        let timeout = null;
+        let rejectTimeout;
         const timeoutPromise = new Promise((resolve, reject) => {
-            timeout = window.setTimeout(() => {
-                controller?.abort();
-                reject(new Error('Heartbeat timed out after ' + requestTimeoutMs + 'ms'));
-            }, requestTimeoutMs);
+            rejectTimeout = reject;
         });
+        const timeoutTimer = window.setTimeout(() => {
+            rejectTimeout(new Error(`Heartbeat timed out after ${requestTimeoutMs}ms`));
+            if (activeRequest?.sequence === sequence) activeRequest.abortTransport?.();
+        }, requestTimeoutMs);
 
-        return Promise.race([fetchPromise, timeoutPromise])
+        activeRequest = {
+            sequence,
+            reason,
+            timeoutTimer,
+            startedAt: Date.now(),
+            abortTransport: null,
+            transportSettled: null,
+        };
+        syncStatus();
+
+        let transportPromise;
+        if (canUseAbortableFetch) {
+            const controller = new window.AbortController();
+            activeRequest.abortTransport = () => controller.abort();
+            try {
+                transportPromise = Promise.resolve(window.fetch(heartbeatUrl, {
+                    method: 'POST',
+                    headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+                    body: payload,
+                    cache: 'no-store',
+                    credentials: 'same-origin',
+                    keepalive: true,
+                    signal: controller.signal,
+                }));
+            } catch (error) {
+                transportPromise = Promise.reject(error);
+            }
+        } else {
+            transportPromise = new Promise((resolve, reject) => {
+                try {
+                    const xhr = new window.XMLHttpRequest();
+                    activeRequest.abortTransport = () => xhr.abort();
+                    xhr.open('POST', heartbeatUrl, true);
+                    xhr.setRequestHeader('Accept', 'application/json');
+                    xhr.setRequestHeader('Content-Type', 'application/json');
+                    xhr.onload = () => resolve({
+                        ok: xhr.status >= 200 && xhr.status < 300,
+                        status: xhr.status,
+                    });
+                    xhr.onerror = () => reject(new Error('Heartbeat network request failed'));
+                    xhr.onabort = () => reject(new Error('Heartbeat request was aborted'));
+                    xhr.send(payload);
+                } catch (error) {
+                    reject(error);
+                }
+            });
+        }
+        activeRequest.transportSettled = transportPromise.then(() => undefined, () => undefined);
+
+        return Promise.race([transportPromise, timeoutPromise])
             .then(response => {
-                if (!response.ok) throw new Error('Heartbeat failed with HTTP ' + response.status);
-                consecutiveFailures = 0;
-                lastError = '';
-                lastSuccessAt = Date.now();
-                updateDiagnostics();
+                if (!response?.ok) throw new Error(`Heartbeat failed with HTTP ${response?.status ?? 0}`);
+                if (activeRequest?.sequence !== sequence) return false;
+                const recoveredFailures = status.consecutiveFailures;
+                status.successCount += 1;
+                status.consecutiveFailures = 0;
+                status.lastError = '';
+                status.lastSuccessAt = Date.now();
+                if (recoveredFailures > 0) {
+                    window.console?.info?.('[Hugin heartbeat] connection recovered', { failures: recoveredFailures });
+                }
                 return true;
             })
             .catch(error => {
-                recordFailure(error);
-                sendBeacon(payload);
+                if (activeRequest?.sequence !== sequence) return false;
+                warnFailure(error);
                 return false;
             })
             .finally(() => {
-                window.clearTimeout(timeout);
-                if (sequence === requestSequence) {
-                    requestInFlight = false;
-                    requestStartedAt = 0;
-                    updateDiagnostics();
-                    scheduleNext(retryDelayMs());
+                window.clearTimeout(timeoutTimer);
+                if (activeRequest?.sequence === sequence) {
+                    activeRequest = null;
+                    syncStatus();
                 }
             });
     };
 
-    const recoverIfOverdue = () => {
-        const now = Date.now();
-        if (requestInFlight && now - requestStartedAt > requestTimeoutMs + 1000) {
-            requestSequence += 1;
-            requestInFlight = false;
-            requestStartedAt = 0;
-            recordFailure(new Error('Recovered stale in-flight heartbeat'));
+    const recoverAndSend = reason => {
+        if (activeRequest && Date.now() - activeRequest.startedAt >= requestTimeoutMs) {
+            const transportSettled = abortActiveRequest();
+            warnFailure(new Error(`Recovered stale heartbeat after ${requestTimeoutMs}ms`));
+            const pendingRecovery = transportSettled.then(() => {
+                if (recoveryPromise !== pendingRecovery) return false;
+                recoveryPromise = null;
+                syncStatus();
+                return send({ reason });
+            });
+            recoveryPromise = pendingRecovery;
+            syncStatus();
+            return pendingRecovery;
         }
-        if (!requestInFlight && now - lastAttemptAt >= intervalMs) send();
+        return send({ reason });
     };
 
-    // Lifecycle events recover timers after sleep, background throttling, bfcache
-    // restoration, connectivity changes, and playlist-driven page reloads.
-    window.addEventListener('online', () => send());
-    window.addEventListener('focus', recoverIfOverdue);
-    window.addEventListener('pageshow', recoverIfOverdue);
-    window.addEventListener('pagehide', () => send({ preferBeacon: true }));
-    document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible') recoverIfOverdue();
-    });
-    window.addEventListener('resize', () => {
-        window.clearTimeout(window.__huginResizeHeartbeat);
-        window.__huginResizeHeartbeat = window.setTimeout(() => send(), 600);
-    });
-    screen.orientation?.addEventListener?.('change', () => send());
+    const clearCadence = () => {
+        if (cadenceTimer !== null) {
+            window.clearInterval(cadenceTimer);
+            cadenceTimer = null;
+        }
+    };
 
-    watchdog = window.setInterval(recoverIfOverdue, Math.min(15000, Math.max(5000, Math.floor(intervalMs / 3))));
-    send();
+    const armCadence = () => {
+        clearCadence();
+        cadenceTimer = window.setInterval(() => {
+            recoverAndSend('cadence');
+        }, intervalMs);
+    };
+
+    const listen = (target, eventName, handler) => {
+        if (!target?.addEventListener) return;
+        target.addEventListener(eventName, handler);
+        listeners.push([target, eventName, handler]);
+    };
+
+    const pauseForBfcache = () => {
+        pausedForBfcache = true;
+        clearCadence();
+        const hadActiveRequest = activeRequest !== null;
+        const transportSettled = abortActiveRequest();
+        if (hadActiveRequest) {
+            const pendingRecovery = transportSettled.then(() => {
+                if (recoveryPromise !== pendingRecovery) return false;
+                recoveryPromise = null;
+                syncStatus();
+                if (running && !pausedForBfcache) return send({ reason: 'pageshow' });
+                return false;
+            });
+            recoveryPromise = pendingRecovery;
+        }
+        syncStatus();
+    };
+
+    const resumeFromBfcache = () => {
+        if (!running) return;
+        pausedForBfcache = false;
+        armCadence();
+        syncStatus();
+        recoverAndSend('pageshow');
+    };
+
+    const stop = ({ reason = 'intentional-shutdown', sendFinalBeacon = false } = {}) => {
+        disposed = true;
+        status.stopReason = reason;
+        if (!running) {
+            syncStatus();
+            return previousStopResult && typeof previousStopResult.then === 'function'
+                ? Promise.resolve(previousStopResult).then(() => undefined, () => undefined)
+                : Promise.resolve();
+        }
+        running = false;
+        pausedForBfcache = false;
+        const pendingRecovery = recoveryPromise;
+        recoveryPromise = null;
+        clearCadence();
+        if (resizeTimer !== null) {
+            window.clearTimeout(resizeTimer);
+            resizeTimer = null;
+        }
+        const transportSettled = abortActiveRequest();
+        if (sendFinalBeacon) queueBeacon(reason);
+        while (listeners.length > 0) {
+            const [target, eventName, handler] = listeners.pop();
+            target.removeEventListener?.(eventName, handler);
+        }
+        syncStatus();
+        return Promise.all([
+            transportSettled,
+            pendingRecovery || Promise.resolve(),
+        ].map(promise => Promise.resolve(promise).catch(() => undefined)));
+    };
+
+    const start = () => {
+        if (running || disposed || window.__huginHeartbeatController !== controller) return;
+        running = true;
+        status.stopReason = '';
+        syncStatus();
+
+        listen(window, 'online', () => recoverAndSend('online'));
+        listen(window, 'focus', () => recoverAndSend('focus'));
+        listen(window, 'pageshow', event => {
+            if (event?.persisted) {
+                resumeFromBfcache();
+            } else {
+                recoverAndSend('pageshow');
+            }
+        });
+        listen(window, 'pagehide', event => {
+            if (event?.persisted) {
+                pauseForBfcache();
+            } else {
+                stop({ reason: 'pagehide', sendFinalBeacon: true });
+            }
+        });
+        listen(document, 'visibilitychange', () => {
+            if (document.visibilityState === 'visible') recoverAndSend('visibilitychange');
+        });
+        listen(window, 'resize', () => {
+            if (resizeTimer !== null) window.clearTimeout(resizeTimer);
+            resizeTimer = window.setTimeout(() => {
+                resizeTimer = null;
+                recoverAndSend('resize');
+            }, 600);
+        });
+        listen(screen.orientation, 'change', () => recoverAndSend('orientationchange'));
+
+        armCadence();
+        recoverAndSend('startup');
+    };
+
+    const controller = { stop, send, status };
+    window.__huginHeartbeatController = controller;
+    window.__huginHeartbeatStatus = status;
+    if (previousStopResult && typeof previousStopResult.then === 'function') {
+        Promise.resolve(previousStopResult).then(start, error => {
+            window.console?.warn?.('[Hugin heartbeat] previous transport cleanup failed', error);
+            start();
+        });
+    } else {
+        start();
+    }
 })();

@@ -1,44 +1,13 @@
-const listeners = new Map();
-const requests = [];
-const scheduled = [];
-const slideshow = { dataset: { heartbeatUrl: '/display/lobby/heartbeat', heartbeatInterval: '60' } };
+import {
+    assert,
+    createDeferredResponse,
+    flushPromises,
+    installHeartbeatHarness,
+} from './display_heartbeat_harness.mjs';
 
-globalThis.window = globalThis;
-window.location = { href: 'https://hugin.test/display/lobby', origin: 'https://hugin.test', protocol: 'https:', host: 'hugin.test' };
-window.innerWidth = 1920;
-window.innerHeight = 1080;
-window.addEventListener = (name, handler) => listeners.set(`window:${name}`, handler);
-window.setTimeout = (handler, delay) => { scheduled.push({ handler, delay }); return scheduled.length; };
-window.clearTimeout = () => {};
-window.setInterval = () => 1;
-globalThis.document = {
-    documentElement: { clientWidth: 1920, clientHeight: 1080 },
-    visibilityState: 'visible',
-    getElementById: id => id === 'slideshow' ? slideshow : null,
-    addEventListener: (name, handler) => listeners.set(`document:${name}`, handler),
-};
-globalThis.screen = {
-    width: 1920, height: 1080, availWidth: 1920, availHeight: 1040, colorDepth: 24,
-    orientation: { type: 'landscape-primary', addEventListener: (name, handler) => listeners.set(`orientation:${name}`, handler) },
-};
-Object.defineProperty(globalThis, 'navigator', { configurable: true, value: {
-    userAgent: 'Mozilla/5.0 Chrome/130.0.0.0', platform: 'Linux x86_64', language: 'en-US',
-    maxTouchPoints: 0, hardwareConcurrency: 4, deviceMemory: 4, onLine: true, cookieEnabled: true,
-    sendBeacon: () => true,
-} });
-globalThis.fetch = async (url, options) => {
-    requests.push({ url, options, payload: JSON.parse(options.body) });
-    return { ok: true, status: 200 };
-};
-
-await import('../public/assets/js/display-heartbeat.js');
-await new Promise(resolve => setImmediate(resolve));
-
-const assert = (condition, message) => { if (!condition) throw new Error(message); };
-assert(requests.length === 1, 'heartbeat starts independently on module load');
-assert(requests[0].url === 'https://hugin.test/display/lobby/heartbeat', 'heartbeat URL is unchanged');
-assert(requests[0].options.method === 'POST', 'heartbeat method is POST');
-assert(requests[0].options.headers['Content-Type'] === 'application/json', 'heartbeat content type is unchanged');
+const harness = installHeartbeatHarness({ intervalSeconds: 60 });
+await import('../public/assets/js/display-heartbeat.js?contract-and-lifecycle');
+await flushPromises();
 
 const expectedKeys = [
     'seenAt', 'browserName', 'browserVersion', 'osName', 'osVersion', 'platform', 'language', 'timezone',
@@ -46,10 +15,89 @@ const expectedKeys = [
     'devicePixelRatio', 'colorDepth', 'maxTouchPoints', 'hardwareConcurrency', 'deviceMemory',
     'screenOrientation', 'online', 'cookieEnabled', 'userAgent',
 ];
-assert(JSON.stringify(Object.keys(requests[0].payload)) === JSON.stringify(expectedKeys), 'heartbeat payload fields are unchanged');
-assert(scheduled.some(item => item.delay === 60000), 'successful heartbeat schedules the configured interval');
-assert(window.__huginHeartbeatStatus.lastSuccessAt > 0, 'successful heartbeat time is exposed');
-assert(window.__huginHeartbeatStatus.requestInFlight === false, 'successful heartbeat releases the in-flight latch');
-assert(listeners.has('window:online') && listeners.has('window:pageshow') && listeners.has('document:visibilitychange'), 'recovery lifecycle listeners are installed');
+const originalController = window.__huginHeartbeatController;
+assert(harness.requests.length === 1, 'heartbeat sends immediately on startup');
+assert(harness.requests[0].url === 'https://hugin.test/display/lobby/heartbeat', 'heartbeat URL stays same-origin');
+assert(harness.requests[0].options.method === 'POST', 'heartbeat uses POST');
+assert(harness.requests[0].options.headers['Content-Type'] === 'application/json', 'heartbeat sends JSON');
+assert(JSON.stringify(Object.keys(harness.requests[0].payload)) === JSON.stringify(expectedKeys), 'payload contract is unchanged');
+assert(originalController.status.successCount === 1, 'initial heartbeat succeeds');
+assert(originalController.status.requestInFlight === false, 'successful request releases the latch');
+assert(harness.clock.intervalCount() === 1, 'exactly one fixed cadence is installed');
+assert(harness.clock.timeoutCount() === 0, 'settled requests leave no timeout behind');
 
-console.log('PASS heartbeat module contract and recovery hooks');
+for (let tick = 0; tick < 105; tick += 1) {
+    await harness.clock.advance(60_000);
+}
+assert(harness.requests.length === 106, 'heartbeat remains alive for more than 100 cadence ticks');
+assert(originalController.status.successCount === 106, 'every long-run cadence request settles');
+assert(harness.clock.intervalCount() === 1, 'long-running heartbeat never duplicates its cadence');
+
+const deferred = createDeferredResponse();
+harness.setFetchHandler(request => {
+    request.options.signal?.addEventListener('abort', () => deferred.reject(new Error('aborted')), { once: true });
+    return deferred.promise;
+});
+harness.emitWindow('online');
+await flushPromises();
+const pendingRequestCount = harness.requests.length;
+harness.emitWindow('focus');
+harness.emitWindow('pageshow', { persisted: false });
+harness.emitDocument('visibilitychange');
+harness.emitOrientation('change');
+harness.emitWindow('resize');
+await harness.clock.advance(600);
+assert(harness.requests.length === pendingRequestCount, 'lifecycle bursts share one in-flight request');
+assert(harness.maxActiveFetches() === 1, 'at most one transport request is active');
+assert(originalController.status.skippedCount >= 5, 'guarded lifecycle sends are diagnosed');
+deferred.resolve({ ok: true, status: 200 });
+await flushPromises();
+assert(originalController.status.requestInFlight === false, 'lifecycle request releases the latch');
+
+const beforeBfcacheRequests = harness.requests.length;
+harness.emitWindow('pagehide', { persisted: true });
+assert(originalController.status.pausedForBfcache === true, 'persisted pagehide pauses the controller');
+assert(harness.clock.intervalCount() === 0, 'BFCache pause clears the cadence');
+assert(harness.beacons.length === 0, 'BFCache pause does not overlap its restore send with an unload beacon');
+harness.setFetchHandler(() => Promise.resolve({ ok: true, status: 200 }));
+harness.emitWindow('pageshow', { persisted: true });
+await flushPromises();
+assert(originalController.status.pausedForBfcache === false, 'persisted pageshow resumes the controller');
+assert(harness.clock.intervalCount() === 1, 'BFCache resume installs one cadence');
+assert(harness.requests.length === beforeBfcacheRequests + 1, 'BFCache resume sends once immediately');
+
+const oldStatus = originalController.status;
+let replacementAttempt = 0;
+harness.setFetchHandler(request => {
+    replacementAttempt += 1;
+    if (replacementAttempt > 1) return Promise.resolve({ ok: true, status: 200 });
+    return new Promise((resolve, reject) => {
+        request.options.signal?.addEventListener('abort', () => reject(new Error('replaced')), { once: true });
+    });
+});
+harness.emitWindow('online');
+await flushPromises();
+assert(originalController.status.requestInFlight === true, 'old controller has an active request before replacement');
+await import('../public/assets/js/display-heartbeat.js?replacement-controller');
+await flushPromises();
+const replacementController = window.__huginHeartbeatController;
+assert(replacementController !== originalController, 'script reevaluation creates a fresh controller');
+assert(oldStatus.running === false && oldStatus.stopReason === 'replaced', 'script reevaluation stops the old owner');
+assert(harness.clock.intervalCount() === 1, 'script reevaluation still leaves exactly one cadence');
+assert(harness.maxActiveFetches() === 1, 'replacement waits for the aborted transport to settle');
+assert(replacementController.status.successCount === 1, 'replacement sends immediately after old transport cleanup');
+for (const eventName of ['online', 'focus', 'pageshow', 'pagehide', 'resize']) {
+    assert(harness.listenerCount('window', eventName) === 1, `${eventName} has one listener after reevaluation`);
+}
+assert(harness.listenerCount('document', 'visibilitychange') === 1, 'visibility has one listener after reevaluation');
+assert(harness.listenerCount('orientation', 'change') === 1, 'orientation has one listener after reevaluation');
+
+const requestsBeforeStop = harness.requests.length;
+replacementController.stop({ reason: 'test-shutdown' });
+assert(replacementController.status.running === false, 'intentional stop updates diagnostics');
+assert(harness.clock.intervalCount() === 0, 'intentional stop clears the cadence');
+assert(harness.totalListeners() === 0, 'intentional stop removes every listener');
+await harness.clock.advance(60_000 * 5);
+assert(harness.requests.length === requestsBeforeStop, 'no heartbeats run after intentional shutdown');
+
+console.log('PASS heartbeat fixed cadence, lifecycle ownership, BFCache, remount, and 100+ tick endurance');

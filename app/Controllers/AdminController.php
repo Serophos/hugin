@@ -331,7 +331,7 @@ class AdminController
             'upload_max_size_mb' => (string)max(1, (int)ceil(((int)app_core_setting('upload.max_size_bytes', 52428800)) / 1048576)),
             'monitoring_enabled' => app_core_setting('monitoring.enabled', false) ? '1' : '0',
             'monitoring_api_token' => (string)app_core_setting('monitoring.api_token', ''),
-            'monitoring_online_threshold_seconds' => (string)app_core_setting('monitoring.online_threshold_seconds', 450),
+            'monitoring_online_threshold_seconds' => (string)app_core_setting('monitoring.online_threshold_seconds', 180),
             'monitoring_stale_threshold_seconds' => (string)app_core_setting('monitoring.stale_threshold_seconds', 1800),
             'accessibility_contact_email' => '',
             'accessibility_feedback_url' => '',
@@ -379,7 +379,7 @@ class AdminController
         $uploadMaxSizeMb = (int)($input['upload_max_size_mb'] ?? 50);
         $monitoringEnabled = !empty($input['monitoring_enabled']);
         $monitoringApiToken = trim((string)($input['monitoring_api_token'] ?? ''));
-        $monitoringOnlineThreshold = (int)($input['monitoring_online_threshold_seconds'] ?? 450);
+        $monitoringOnlineThreshold = (int)($input['monitoring_online_threshold_seconds'] ?? 180);
         $monitoringStaleThreshold = (int)($input['monitoring_stale_threshold_seconds'] ?? 1800);
         $contactEmail = trim((string)($input['accessibility_contact_email'] ?? ''));
         $feedbackUrl = trim((string)($input['accessibility_feedback_url'] ?? ''));
@@ -3962,7 +3962,7 @@ class AdminController
 
     private function monitoringOnlineThresholdSeconds(): int
     {
-        return max(30, (int)app_core_setting('monitoring.online_threshold_seconds', 450));
+        return max(30, (int)app_core_setting('monitoring.online_threshold_seconds', 180));
     }
 
     private function monitoringStaleThresholdSeconds(): int
