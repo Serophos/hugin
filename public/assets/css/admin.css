@@ -778,7 +778,7 @@ fieldset > :last-child {
     min-height: var(--control-height);
     border-radius: var(--radius-field);
     border: 1px solid var(--border-strong);
-    background: var(--bs-body-bg);
+    background-color: var(--bs-body-bg);
     color: var(--text);
     padding: var(--field-padding);
     font: inherit;

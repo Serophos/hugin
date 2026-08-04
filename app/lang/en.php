@@ -529,6 +529,7 @@ return [
         'heartbeat_none' => 'No heartbeat received yet. Open the public display URL on the client to populate this panel.',
         'current_channel' => 'Current playlist',
         'last_seen' => 'Last seen',
+        'aspect_ratio' => 'Aspect Ratio',
         'available_screen' => 'Available screen',
         'screen_orientation' => 'Screen orientation',
         'pixel_ratio' => 'Pixel ratio',

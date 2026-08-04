@@ -1241,6 +1241,54 @@ function format_bytes(int $bytes): string
     return $bytes . ' B';
 }
 
+function aspect_ratio_label(mixed $width, mixed $height): string
+{
+    $width = (int)($width ?? 0);
+    $height = (int)($height ?? 0);
+    if ($width <= 0 || $height <= 0) {
+        return '';
+    }
+
+    $ratio = $width / $height;
+    $commonRatios = [
+        '1:1' => 1 / 1,
+        '5:4' => 5 / 4,
+        '4:3' => 4 / 3,
+        '3:2' => 3 / 2,
+        '16:10' => 16 / 10,
+        '16:9' => 16 / 9,
+        '21:9' => 21 / 9,
+        '32:9' => 32 / 9,
+        '4:5' => 4 / 5,
+        '3:4' => 3 / 4,
+        '2:3' => 2 / 3,
+        '10:16' => 10 / 16,
+        '9:16' => 9 / 16,
+        '9:21' => 9 / 21,
+        '9:32' => 9 / 32,
+    ];
+    $closestLabel = '';
+    $closestDifference = INF;
+    foreach ($commonRatios as $label => $commonRatio) {
+        $difference = abs($ratio - $commonRatio) / $commonRatio;
+        if ($difference < $closestDifference) {
+            $closestLabel = $label;
+            $closestDifference = $difference;
+        }
+    }
+    if ($closestDifference <= 0.03) {
+        return $closestLabel;
+    }
+
+    $first = $width;
+    $second = $height;
+    while ($second !== 0) {
+        [$first, $second] = [$second, $first % $second];
+    }
+
+    return (int)($width / $first) . ':' . (int)($height / $first);
+}
+
 function parse_size(string $value): int
 {
     if (!preg_match('/^\s*([\d.]+)\s*([kmgtpezy]?)b?\s*$/i', $value, $matches)) {

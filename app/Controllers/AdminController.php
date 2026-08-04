@@ -22,6 +22,7 @@ class AdminController
     private const SYSTEM_SETTINGS_NAMESPACE = 'system';
     private const OPENID_SETTINGS_NAMESPACE = 'openid';
     private const DEFAULT_DISPLAY_ICON = 'display_16_9.png';
+    private const DEFAULT_DISPLAY_TIMEZONE = 'Europe/Berlin';
     private const DISPLAY_LANGUAGE_OPTIONS = ['system', 'en', 'de'];
     private const DISPLAY_LAYOUT_CANVAS_WIDTH = 780;
     private const DISPLAY_LAYOUT_CANVAS_HEIGHT = 560;
@@ -635,6 +636,8 @@ class AdminController
             'display' => $display,
             'displayIcons' => $displayIcons,
             'defaultDisplayIcon' => $defaultDisplayIcon,
+            'displayTimezoneOptions' => \DateTimeZone::listIdentifiers(),
+            'defaultDisplayTimezone' => self::DEFAULT_DISPLAY_TIMEZONE,
             'displayLanguageOptions' => $this->displayLanguageOptions(),
             'heartbeat' => $heartbeat,
             'error' => flash('error'),
@@ -661,7 +664,8 @@ class AdminController
         $description = trim((string)$this->request->input('description'));
         $effect = $this->sanitizeEffect((string)$this->request->input('transition_effect', 'fade'), false);
         $duration = max(1, (int)$durationRaw);
-        $timezone = trim((string)$this->request->input('timezone', 'UTC')) ?: 'UTC';
+        $timezone = trim((string)$this->request->input('timezone', self::DEFAULT_DISPLAY_TIMEZONE))
+            ?: self::DEFAULT_DISPLAY_TIMEZONE;
         $displayLanguage = trim((string)$this->request->input('display_language', 'system')) ?: 'system';
         $sortOrder = max(0, (int)$sortOrderRaw);
         $orientation = $this->sanitizeOrientation((string)$this->request->input('orientation', 'landscape'));
@@ -673,7 +677,7 @@ class AdminController
             'description' => (string)$this->request->input('description'),
             'transition_effect' => $effect,
             'slide_duration_seconds' => $durationRaw,
-            'timezone' => (string)$this->request->input('timezone', 'UTC'),
+            'timezone' => (string)$this->request->input('timezone', self::DEFAULT_DISPLAY_TIMEZONE),
             'display_language' => $displayLanguage,
             'sort_order' => $sortOrderRaw,
             'orientation' => $orientation,
@@ -3298,17 +3302,7 @@ class AdminController
 
     private function isValidTimezone(string $timezone): bool
     {
-        $timezone = trim($timezone);
-        if ($timezone === '') {
-            return false;
-        }
-
-        try {
-            new \DateTimeZone($timezone);
-            return true;
-        } catch (\Exception) {
-            return false;
-        }
+        return in_array(trim($timezone), \DateTimeZone::listIdentifiers(), true);
     }
 
     private function uploadedMediaKind(array $file): ?string

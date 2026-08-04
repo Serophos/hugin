@@ -549,6 +549,7 @@ return [
         'heartbeat_none' => 'Noch kein Heartbeat empfangen. Öffnen Sie die öffentliche Bildschirm-URL auf dem Client, um dieses Panel zu füllen.',
         'current_channel' => 'Aktuelle Playlist',
         'last_seen' => 'Zuletzt gesehen',
+        'aspect_ratio' => 'Seitenverhältnis',
         'available_screen' => 'Verfügbarer Bildschirm',
         'screen_orientation' => 'Bildschirmausrichtung',
         'pixel_ratio' => 'Pixelverhältnis',

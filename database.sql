@@ -52,7 +52,7 @@ CREATE TABLE displays (
     description TEXT NULL,
     transition_effect ENUM('fade', 'slide-left', 'slide-right', 'slide-up', 'slide-down', 'zoom', 'flip', 'blur', 'none') NOT NULL DEFAULT 'fade',
     slide_duration_seconds INT UNSIGNED NOT NULL DEFAULT 8,
-    timezone VARCHAR(64) NOT NULL DEFAULT 'UTC',
+    timezone VARCHAR(64) NOT NULL DEFAULT 'Europe/Berlin',
     display_language ENUM('system', 'en', 'de') NOT NULL DEFAULT 'system',
     orientation ENUM('landscape', 'vertical') NOT NULL DEFAULT 'landscape',
     icon_file VARCHAR(120) NOT NULL DEFAULT 'display_16_9.png',

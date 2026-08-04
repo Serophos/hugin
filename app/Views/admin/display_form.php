@@ -25,6 +25,18 @@ $selectedDisplayLanguage = (string)old('display_language', $display['display_lan
 if (!array_key_exists($selectedDisplayLanguage, $displayLanguageOptions)) {
     $selectedDisplayLanguage = 'system';
 }
+$displayTimezoneOptions = is_array($displayTimezoneOptions ?? null)
+    ? $displayTimezoneOptions
+    : DateTimeZone::listIdentifiers();
+$defaultDisplayTimezone = (string)($defaultDisplayTimezone ?? 'Europe/Berlin');
+$selectedDisplayTimezone = (string)old(
+    'timezone',
+    $display['timezone'] ?? $defaultDisplayTimezone,
+    $formId
+);
+if (!in_array($selectedDisplayTimezone, $displayTimezoneOptions, true)) {
+    $selectedDisplayTimezone = $defaultDisplayTimezone;
+}
 require __DIR__ . '/../layouts/admin_header.php';
 ?>
 <?php if ($error): ?><div class="alert alert-danger error"><?= e($error) ?></div><?php endif; ?>
@@ -61,7 +73,11 @@ require __DIR__ . '/../layouts/admin_header.php';
                 <?= field_error_html('slide_duration_seconds', $formId) ?>
             </label>
             <label><?= e(__('common.timezone')) ?>
-                <input class="form-control" type="text" name="timezone" value="<?= e((string)old('timezone', $display['timezone'] ?? 'UTC', $formId)) ?>" placeholder="<?= e(__('display.timezone_placeholder')) ?>" required<?= field_attrs('timezone', $formId) ?>>
+                <select class="form-select" name="timezone" required<?= field_attrs('timezone', $formId) ?>>
+                    <?php foreach ($displayTimezoneOptions as $timezone): ?>
+                        <option value="<?= e((string)$timezone) ?>" <?= selected($selectedDisplayTimezone, (string)$timezone) ?>><?= e((string)$timezone) ?></option>
+                    <?php endforeach; ?>
+                </select>
                 <?= field_error_html('timezone', $formId) ?>
             </label>
             <label><?= e(__('display.language')) ?>
@@ -152,6 +168,7 @@ require __DIR__ . '/../layouts/admin_header.php';
             <?php
             $heartbeatAgeSeconds = ($heartbeat['heartbeat_age_seconds'] ?? null) === null ? null : max(0, (int)$heartbeat['heartbeat_age_seconds']);
             $isOnline = $heartbeatAgeSeconds !== null && $heartbeatAgeSeconds <= max(30, (int)app_core_setting('monitoring.online_threshold_seconds', 180));
+            $aspectRatio = aspect_ratio_label($heartbeat['screen_width'] ?? null, $heartbeat['screen_height'] ?? null);
             ?>
             <dl class="meta-list">
                 <div><dt><?= e(__('common.status')) ?></dt><dd><span class="status-dot status-<?= e($isOnline ? 'online' : 'offline') ?>"></span> <?= e($isOnline ? __('common.online') : __('common.offline')) ?></dd></div>
@@ -162,6 +179,7 @@ require __DIR__ . '/../layouts/admin_header.php';
                 <div><dt><?= e(__('common.operating_system')) ?></dt><dd><?= e(trim(($heartbeat['os_name'] ?: __('common.unknown')) . ' ' . ($heartbeat['os_version'] ?: ''))) ?></dd></div>
                 <div><dt><?= e(__('common.viewport')) ?></dt><dd><?= e(($heartbeat['viewport_width'] ?: '?') . ' × ' . ($heartbeat['viewport_height'] ?: '?')) ?></dd></div>
                 <div><dt><?= e(__('common.screen_resolution')) ?></dt><dd><?= e(($heartbeat['screen_width'] ?: '?') . ' × ' . ($heartbeat['screen_height'] ?: '?')) ?></dd></div>
+                <div><dt><?= e(__('display.aspect_ratio')) ?></dt><dd><?= e($aspectRatio !== '' ? $aspectRatio : __('common.unknown')) ?></dd></div>
                 <div><dt><?= e(__('display.available_screen')) ?></dt><dd><?= e(($heartbeat['avail_screen_width'] ?: '?') . ' × ' . ($heartbeat['avail_screen_height'] ?: '?')) ?></dd></div>
                 <div><dt><?= e(__('display.screen_orientation')) ?></dt><dd><?= e($heartbeat['screen_orientation'] ?: __('common.unknown')) ?></dd></div>
                 <div><dt><?= e(__('display.pixel_ratio')) ?></dt><dd><?= e($heartbeat['device_pixel_ratio'] !== null ? (string)$heartbeat['device_pixel_ratio'] : __('common.unknown')) ?></dd></div>
