@@ -37,6 +37,7 @@
     const SCHEDULED_SYNC_RELOAD_KEY = 'huginScheduledSyncReload';
     const SCHEDULED_SYNC_RELOAD_MAX_AGE_MS = 120000;
     let serverClockOffsetMs = 0;
+    let startupReadinessReported = false;
     const startupStatus = slideshow.querySelector('.startup-loading__status');
     const startupProgress = slideshow.querySelector('[data-startup-cache-progress]');
     const startupProgressBar = slideshow.querySelector('[data-startup-progress-bar]');
@@ -905,7 +906,13 @@
             credentials: 'same-origin',
         })
             .then(response => response.ok ? response.json() : null)
-            .then(data => normalizeReadinessStatus(data || { ok: false, released: true }));
+            .then(data => {
+                const status = normalizeReadinessStatus(data || { ok: false, released: true });
+                if (status.ok) {
+                    startupReadinessReported = true;
+                }
+                return status;
+            });
     };
 
     const fetchCacheReadinessStatus = () => {
@@ -927,9 +934,11 @@
     const failOpenReadinessStatus = () => normalizeReadinessStatus({ ok: false, released: true });
 
     const showReadinessGroupStage = status => {
+        const participantCount = Math.max(0, Number(status?.participantCount || 0));
+        const reportedCount = startupReadinessReported && participantCount > 0 ? 1 : 0;
         setStartupStage('waitingGroup', {
-            completed: status?.readyCount || 0,
-            total: status?.participantCount || 0,
+            completed: Math.max(reportedCount, Number(status?.readyCount || 0)),
+            total: participantCount,
         });
     };
 
@@ -973,8 +982,15 @@
                 return currentStatus;
             }
 
+            // Apply every server response before deciding whether the group has
+            // been released. The response that completes the group otherwise
+            // skipped the readiness count and left the bar on the prior value.
+            showReadinessGroupStage(currentStatus);
+
             if (currentStatus.released && (currentStatus.startAtMs > 0 || currentStatus.participantCount <= 0)) {
-                return currentStatus;
+                // Let the completed group count reach the screen before the
+                // following minute-alignment stage replaces it.
+                return new Promise(resolve => requestFrame(() => resolve(currentStatus)));
             }
 
             if (Date.now() - waitStartedAt >= CACHE_READINESS_MAX_WAIT_MS) {
@@ -984,8 +1000,6 @@
                 });
                 return readinessTimeoutFallback(currentStatus);
             }
-
-            showReadinessGroupStage(currentStatus);
 
             return sleep(CACHE_READINESS_POLL_MS)
                 .then(fetchCacheReadinessStatus)
