@@ -29,6 +29,13 @@ class Database
 
     public function __construct(array $config)
     {
+        if (!in_array('mysql', PDO::getAvailableDrivers(), true)) {
+            throw new \RuntimeException(
+                'Hugin requires the PDO MySQL driver (pdo_mysql). Install/enable it for this PHP runtime; '
+                . 'on Fedora/RHEL install php-mysqlnd, then restart PHP-FPM or the web server.'
+            );
+        }
+
         $dsn = sprintf(
             'mysql:host=%s;port=%s;dbname=%s;charset=%s',
             $config['host'],

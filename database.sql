@@ -1,4 +1,5 @@
 SET FOREIGN_KEY_CHECKS = 0;
+DROP TABLE IF EXISTS schema_migrations;
 DROP TABLE IF EXISTS slide_plugin_data;
 DROP TABLE IF EXISTS slide_template_data;
 DROP TABLE IF EXISTS slide_templates;
@@ -23,6 +24,18 @@ DROP TABLE IF EXISTS displays;
 DROP TABLE IF EXISTS media_assets;
 DROP TABLE IF EXISTS users;
 SET FOREIGN_KEY_CHECKS = 1;
+
+CREATE TABLE schema_migrations (
+    sequence SMALLINT UNSIGNED NOT NULL PRIMARY KEY,
+    filename VARCHAR(255) NOT NULL,
+    checksum CHAR(64) NOT NULL,
+    state ENUM('running', 'applied', 'failed') NOT NULL,
+    started_at DATETIME NULL,
+    applied_at DATETIME NULL,
+    execution_ms INT UNSIGNED NULL,
+    error_summary VARCHAR(500) NULL,
+    UNIQUE KEY uniq_schema_migrations_filename (filename)
+);
 
 CREATE TABLE users (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -442,3 +455,28 @@ INSERT INTO channel_slide_assignments (channel_id, slide_id, sort_order) VALUES
 (2, 6, 2),
 (2, 7, 3),
 (2, 8, 4);
+
+-- Seed the ledger last: an interrupted schema import must never appear current.
+INSERT INTO schema_migrations (sequence, filename, checksum, state, started_at, applied_at, execution_ms) VALUES
+(1, '001_database.display-groups-migration.sql', '1222181dca661a732fde6e7ec721bad2d51ea7a2dab1b5b3cf444197398b4983', 'applied', NOW(), NOW(), 0),
+(2, '002_database.display-icons-migration.sql', '152827d9834c2410ea75d50115369aaf72f6326a51aa8a56d7761a996cff099f', 'applied', NOW(), NOW(), 0),
+(3, '003_database.plugin-api-v2-migration.sql', '1f797d041545a628dd52ffbb427db05ecdb9194856cb499cc1695e2280ee7643', 'applied', NOW(), NOW(), 0),
+(4, '004_database.schedules-migration.sql', '2bbe348a100e30cd3f1863a681dc0bc856541e01922e254becd45aaf51d06e08', 'applied', NOW(), NOW(), 0),
+(5, '005_database.settings-migration.sql', '5f954f282b7100ab11184c27acae15ab1f7bff4d4819e5eb719a1f671f625187', 'applied', NOW(), NOW(), 0),
+(6, '006_database.text-slide-migration.sql', '3bf85835f2c12dacb1cdd954d0f3b0bd9faa9ee4afe8973edb224da190b1e64b', 'applied', NOW(), NOW(), 0),
+(7, '007_database.text-slide-enhancements-migration.sql', '871a7c35803821a6b44d2146e4823ca20c3496051a4661bd6612062bf9293e2d', 'applied', NOW(), NOW(), 0),
+(8, '008_database.text-slide-animation-layout-migration.sql', '8a22472542e8ec5698c829d1274e7140454b2331177607d8adbb1170a4be8a17', 'applied', NOW(), NOW(), 0),
+(9, '009_database.text-slide-qr-size-migration.sql', '55a485a82d221d1094e56f502f7764eec78fdc0a1906d15008bba165daaad42f', 'applied', NOW(), NOW(), 0),
+(10, '010_database.text-slide-radius-qr-animation-migration.sql', '9109df0d7169ea845dbdc7b7ffc21097b8c0348133bbfaff9d93159c3a20adf4', 'applied', NOW(), NOW(), 0),
+(11, '011_database.tl1-menu-plugin-rename.sql', '2400434f27a762d65f855c419be4b5512e9ff78f08ec67e7cb3da15c65793165', 'applied', NOW(), NOW(), 0),
+(12, '012_database.slide-templates-migration.sql', '18590d7fbeb483f5fb9d346641b0081b48aee54724223af26ed1d5413261dbf7', 'applied', NOW(), NOW(), 0),
+(13, '013_database.user-password-changed-at-migration.sql', '19da91a41817fbc9c1e9d1548b0ac33c559947a4797361d2577a24a19406be0d', 'applied', NOW(), NOW(), 0),
+(14, '014_database.media-video-preview-migration.sql', 'a850c599cb5b4ef5d097b58511097dd6d143a81d5f11e5786f783a69de8f1bc9', 'applied', NOW(), NOW(), 0),
+(15, '015_database.media-fonts-migration.sql', 'c4ce57a6ed604cd25e6bacf402bfa6522ff638dc24402d00afc286a11882f0b8', 'applied', NOW(), NOW(), 0),
+(16, '016_database.display-cache-readiness-migration.sql', 'f386c66be9aeb774ab7faa1851a00af4cbad33414f95abccf4edd89085db687c', 'applied', NOW(), NOW(), 0),
+(17, '017_database.display-language-migration.sql', '5c9ceb8803d55d04f538c44778843a1d7ceecba5e6b18ae9a2311248b21103f2', 'applied', NOW(), NOW(), 0),
+(18, '018_database.display-group-primary-display-migration.sql', 'cd7c154b389464b50f3e18e6ca21447d39fc31964f4156efd17c0226f694fefc', 'applied', NOW(), NOW(), 0),
+(19, '019_database.openid-authentication-migration.sql', '86b3e9257a4ff5b302030259a08a0ac3d5b65f225ea5bd888883fe13321f9bd4', 'applied', NOW(), NOW(), 0),
+(20, '020_database.openid-profile-fields-migration.sql', 'e14eff872cda928095114b6e6a22a5404e3c306c16282740b2dd493fd11622c2', 'applied', NOW(), NOW(), 0),
+(21, '021_database.remove-experimental-remote-access-migration.sql', 'dfd76480b22c90471e03d78055ee9e7601c6879cc5f471051009e1eaced98215', 'applied', NOW(), NOW(), 0),
+(22, '022_database.display-timezone-default-migration.sql', '6b12367c21ba7dfc561273a1b0f46f8d6cb2b56703cbcb0ea94299ebf2e1b9f4', 'applied', NOW(), NOW(), 0);

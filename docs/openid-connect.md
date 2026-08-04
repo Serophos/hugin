@@ -4,7 +4,7 @@ Hugin can use an existing OpenID Connect provider in addition to its local datab
 
 ## Database and Hugin configuration
 
-1. For an existing installation, apply both `db-migrations/database.openid-authentication-migration.sql` and `db-migrations/database.openid-profile-fields-migration.sql`. New installations already contain the required schema in `database.sql`.
+1. For an existing installation, follow the automated CLI procedure in [Database upgrades](database-upgrades.md). New installations already contain the required schema and migration ledger in `database.sql`.
 2. Set `app.encryption_key` in `config/config.php` to a unique random value containing at least 32 characters. Generate one with:
 
    ```shell
