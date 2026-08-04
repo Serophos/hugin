@@ -247,8 +247,7 @@ html, body {
     inset: 0;
     opacity: 0;
     transform: translate3d(0, 0, 0) scale(1);
-    filter: blur(0);
-    transition: opacity 900ms ease, transform 900ms ease, filter 900ms ease;
+    transition: opacity 900ms ease, transform 900ms ease;
     background: #000;
     pointer-events: none;
     backface-visibility: hidden;
@@ -284,8 +283,13 @@ html, body {
 .effect-zoom .slide.is-active { transform: scale(1); }
 .effect-flip .slide { transform: rotateY(90deg); transform-origin: center center; }
 .effect-flip .slide.is-active { transform: rotateY(0deg); }
-.effect-blur .slide { filter: blur(18px); transform: scale(1.04); }
-.effect-blur .slide.is-active { filter: blur(0); transform: scale(1); }
+/* A neutral blur(0) still allocates a full-size compositor surface. Keep filters exclusive to the real blur transition. */
+.effect-blur .slide {
+    filter: blur(18px);
+    transform: scale(1.04);
+    transition: opacity 900ms ease, transform 900ms ease, filter 900ms ease;
+}
+.effect-blur .slide.is-active { filter: none; transform: scale(1); }
 
 .slide-label {
     position: absolute;

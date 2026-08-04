@@ -542,6 +542,17 @@ assert.match(
   /\.hugin-startup-loading-seen \.slideshow\.is-media-startup-pending \.slide\s*\{\s*visibility:\s*hidden;/
 );
 
+const baseSlideCss = displayCss.match(/(?:^|\n)\.slide\s*\{([^}]*)\}/)?.[1] || '';
+const blurSlideCss = displayCss.match(/(?:^|\n)\.effect-blur \.slide\s*\{([^}]*)\}/)?.[1] || '';
+const activeBlurSlideCss = displayCss.match(/(?:^|\n)\.effect-blur \.slide\.is-active\s*\{([^}]*)\}/)?.[1] || '';
+assert.notEqual(baseSlideCss, '', 'the base slide CSS rule must remain testable');
+assert.doesNotMatch(baseSlideCss, /\bfilter\s*:/, 'ordinary slides must not allocate a filtered compositor surface');
+assert.doesNotMatch(baseSlideCss, /\btransition\s*:[^;]*\bfilter\b/, 'ordinary slide transitions must not promote a filtered surface');
+assert.match(blurSlideCss, /\bfilter\s*:\s*blur\(18px\)/, 'only the blur effect starts with a nonzero filter');
+assert.match(blurSlideCss, /\btransition\s*:[^;]*\bfilter\b/, 'the blur effect must retain its filter animation');
+assert.match(activeBlurSlideCss, /\bfilter\s*:\s*none\b/, 'the settled blur effect must release its filtered surface');
+assert.doesNotMatch(activeBlurSlideCss, /blur\(0(?:px)?\)/, 'a zero blur still creates a filtered surface on texture-limited GPUs');
+
 assert.ok(
   lifecycleSource.indexOf('next.classList.add(activeClass)') < lifecycleSource.indexOf('current.classList.remove(activeClass)'),
   'the handoff primitive adds a verified candidate before removing the current slide'
