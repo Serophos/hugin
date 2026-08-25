@@ -77,6 +77,16 @@ assert.ok(playlistsView.includes("admin_icon('playlists')"), 'creating a playlis
 assert.ok(playlistsView.includes('data-lte-icon="expand"') && playlistsView.includes("admin_icon('chevron-down')"), 'collapsed playlist cards must show a down chevron');
 assert.ok(playlistsView.includes('data-lte-icon="collapse"') && playlistsView.includes("admin_icon('chevron-up')"), 'expanded playlist cards must show an up chevron');
 
+assert.match(
+  playlistsView,
+  /action="<\?= e\(url\('\/admin\/displays\/' \. \$display\['id'\] \. '\/reload'\)\) \?>"[\s\S]*?csrf_field\(\)[\s\S]*?name="return_to" value="\/admin\/playlists"[\s\S]*?admin_icon\('reload'\)[\s\S]*?__\('common\.reload'\)/,
+  'each assigned display must expose the existing CSRF-protected reload action and return to playlists',
+);
+const adminController = read('app/Controllers/AdminController.php');
+const reloadDisplayMethod = adminController.match(/public function reloadDisplay\(int \$id\): void[\s\S]*?(?=\n    public function )/)?.[0] || '';
+assert.match(reloadDisplayMethod, /\$this->auth->requireLogin\(\)/, 'display reload must be available to authenticated admins and editors');
+assert.doesNotMatch(reloadDisplayMethod, /requireRole\('admin'\)/, 'display reload must not remain admin-only');
+
 const slidesView = read('app/Views/admin/slides.php');
 assert.doesNotMatch(slidesView, /slide-group|data-lte-toggle="card-collapse"/, 'slides view must not wrap its table in a collapsible card');
 assert.ok(slidesView.includes('class="card shadow-sm slide-library-card"') && slidesView.includes('class="card-body"'), 'slides table must retain a title-less card for visual structure');

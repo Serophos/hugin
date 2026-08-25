@@ -87,6 +87,11 @@ if (!$isUnused) {
         </span>
         <?php if (!$isUnused): ?>
             <span class="playlist-display-group__actions">
+                <form method="post" action="<?= e(url('/admin/displays/' . $display['id'] . '/reload')) ?>" class="inline-form">
+                    <?= csrf_field() ?>
+                    <input type="hidden" name="return_to" value="/admin/playlists">
+                    <button type="submit" class="btn btn-success btn-sm" aria-label="<?= e(__('display.reload_slideshow') . ' ' . $display['name']) ?>"><?= admin_icon('reload') ?><span><?= e(__('common.reload')) ?></span></button>
+                </form>
                 <a class="btn btn-primary btn-sm" href="<?= e(url($previewPath)) ?>" target="_blank" rel="noopener noreferrer"><?= admin_icon('preview') ?><span><?= e(__('common.preview')) ?></span></a>
                 <button type="button" class="btn btn-outline-secondary btn-sm" data-playlist-add-open data-display-id="<?= e((string)$display['id']) ?>" aria-label="<?= e(__('channel.add_existing_playlist')) ?>"><?= admin_icon('add') ?><span><?= e(__('channel.add_existing_playlist_short')) ?></span></button>
                 <a class="btn btn-primary btn-sm" href="<?= e(url($createPlaylistPath)) ?>" aria-label="<?= e(__('channel.add_new_playlist')) ?>"><?= admin_icon('playlists') ?><span><?= e(__('channel.add_new_playlist_short')) ?></span></a>

@@ -758,7 +758,7 @@ class AdminController
 
     public function reloadDisplay(int $id): void
     {
-        $this->auth->requireRole('admin');
+        $this->auth->requireLogin();
 
         $display = $this->db->one(
             'SELECT d.id, d.name, g.id AS group_id, g.sync_enabled
@@ -770,7 +770,7 @@ class AdminController
         );
         if (!$display) {
             flash('error', __('display.not_found'));
-            redirect('/admin/displays');
+            redirect($this->adminReturnPath('/admin/displays'));
         }
 
         $this->requestReloadForDisplays([$id]);
