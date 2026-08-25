@@ -119,6 +119,8 @@ if (str_starts_with($display['slug'] ?? '', 'preview-slide-') && preg_match('#^p
      data-service-worker-url="<?= $isPreviewDisplay ? '' : e($coreFrontendAssetUrl('/display-service-worker.js')) ?>"
      data-state-check-interval="60"
      data-state-signature="<?= e($stateSignature) ?>"
+     data-channel-id="<?= e((string)($channel['id'] ?? 0)) ?>"
+     data-channel-name="<?= e((string)($channel['name'] ?? '')) ?>"
      data-playback-status="<?= e($playbackStatus) ?>"
      data-media-unavailable-message="<?= e(__('frontend.playback_media_unavailable')) ?>"
      data-next-selection-at-ms="<?= e((string)($nextSelectionAtMs ?? 0)) ?>"

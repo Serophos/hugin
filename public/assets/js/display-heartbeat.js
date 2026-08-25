@@ -138,6 +138,17 @@
         const browser = parseBrowser();
         const os = parseOs();
         const screenOrientation = screen.orientation?.type || (window.innerHeight > window.innerWidth ? 'portrait' : 'landscape');
+        const runtimePlayback = window.__huginPlaybackReport || {};
+        const configuredPlaybackStatus = slideshow.dataset.playbackStatus || 'starting';
+        const playback = {
+            channelId: Number(runtimePlayback.channelId ?? slideshow.dataset.channelId ?? 0),
+            channelName: String(runtimePlayback.channelName ?? slideshow.dataset.channelName ?? ''),
+            stateSignature: String(runtimePlayback.stateSignature ?? slideshow.dataset.stateSignature ?? ''),
+            status: String(runtimePlayback.status ?? (configuredPlaybackStatus === 'ready' ? 'starting' : configuredPlaybackStatus)),
+            pendingStateSignature: String(runtimePlayback.pendingStateSignature ?? ''),
+            pendingActivationAtMs: Number(runtimePlayback.pendingActivationAtMs || 0),
+        };
+
         return {
             seenAt: new Date().toISOString(),
             browserName: browser.browserName,
@@ -162,6 +173,7 @@
             online: typeof navigator.onLine === 'boolean' ? navigator.onLine : null,
             cookieEnabled: typeof navigator.cookieEnabled === 'boolean' ? navigator.cookieEnabled : null,
             userAgent: ua,
+            playback,
         };
     };
 

@@ -141,6 +141,10 @@ export function installHeartbeatHarness({ intervalSeconds = 60, initialFetchHand
         dataset: {
             heartbeatUrl: '/display/lobby/heartbeat',
             heartbeatInterval: String(intervalSeconds),
+            channelId: '17',
+            channelName: 'Lobby Standard',
+            stateSignature: '0123456789abcdef0123456789abcdef01234567',
+            playbackStatus: 'ready',
         },
     };
     globalThis.document = {

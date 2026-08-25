@@ -111,8 +111,26 @@ class MonitoringController
             'seconds_since_seen' => $status['seconds_since_seen'],
             'minutes_since_seen' => $status['minutes_since_seen'],
             'channel' => [
-                'id' => $status['resolved_channel_id'] !== null ? (int) $status['resolved_channel_id'] : null,
-                'name' => $status['resolved_channel_name'] ?: null,
+                'id' => $status['reported_channel_id'] !== null ? (int) $status['reported_channel_id'] : null,
+                'name' => $status['reported_channel_name'] ?: null,
+            ],
+            'expected_playlist' => [
+                'id' => $status['expected_channel_id'] !== null ? (int) $status['expected_channel_id'] : null,
+                'name' => $status['expected_channel_name'] ?: null,
+            ],
+            'reported_playlist' => [
+                'id' => $status['reported_channel_id'] !== null ? (int) $status['reported_channel_id'] : null,
+                'name' => $status['reported_channel_name'] ?: null,
+            ],
+            'playback' => [
+                'status' => $status['reported_playback_status'] ?: null,
+                'reported_at' => $status['playback_reported_at'] ?: null,
+                'state_signature' => $status['reported_state_signature'] ?: null,
+                'pending_state_signature' => $status['pending_state_signature'] ?: null,
+                'pending_activation_at_ms' => $status['pending_activation_at_ms'] !== null
+                    ? (int)$status['pending_activation_at_ms']
+                    : null,
+                'in_sync' => $status['playback_in_sync'],
             ],
             'client' => [
                 'ip' => $status['last_seen_ip'] ?: null,

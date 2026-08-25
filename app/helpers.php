@@ -662,7 +662,7 @@ function admin_icon(string $name): string
         'dialog-error', 'dialog-exclamation', 'dialog-information',
         'dialog-question', 'dialog-trash', 'dialog-warning', 'displays',
         'edit', 'hexagon', 'history', 'locations', 'login', 'logout', 'manage', 'media', 'menu',
-        'move', 'open', 'pentagon', 'playlists', 'plugins', 'primary-display', 'preview', 'qr-code', 'reload',
+        'move', 'open', 'pentagon', 'play', 'playlists', 'plugins', 'primary-display', 'preview', 'qr-code', 'reload',
         'remove', 'save', 'slash-square', 'schedules', 'settings', 'slides', 'square', 'star', 'stopwatch', 'templates', 'textarea-t', 'toggle-off', 'toggle-on', 'triangle',
         'upload', 'users',
     ];

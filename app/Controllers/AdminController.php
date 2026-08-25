@@ -1287,10 +1287,11 @@ class AdminController
                     g.name AS group_name, g.sync_enabled AS group_sync_enabled, l.name AS location_name,
                     c.id AS channel_id, c.name AS channel_name, c.transition_effect, c.is_active,
                     cdsa.id AS assignment_id, cdsa.priority, cdsa.is_active AS assignment_is_active,
-                    s.name AS schedule_name, s.type AS schedule_type,
+                    s.name AS schedule_name, s.type AS schedule_type, h.current_channel_id,
                     (SELECT COUNT(*) FROM channel_slide_assignments csa WHERE csa.channel_id = c.id) AS slide_count
              FROM channel_display_schedule_assignments cdsa
              INNER JOIN displays d ON d.id = cdsa.display_id
+             LEFT JOIN display_heartbeats h ON h.display_id = d.id
              LEFT JOIN display_group_memberships dgm ON dgm.display_id = d.id
              LEFT JOIN display_groups g ON g.id = dgm.group_id
              LEFT JOIN display_locations l ON l.id = g.location_id
@@ -1305,6 +1306,11 @@ class AdminController
                       c.name ASC,
                       s.name ASC'
         );
+        $displayStatuses = (new DisplayStatusService($this->db))->getAllDisplayStatuses();
+        $statusByDisplayId = [];
+        foreach ($displayStatuses as $displayStatus) {
+            $statusByDisplayId[(int)$displayStatus['id']] = $displayStatus;
+        }
 
         $groups = [];
         $assignedChannelIds = [];
@@ -1315,6 +1321,7 @@ class AdminController
             $key = 'display-' . $displayId;
             if (!isset($groups[$key])) {
                 $iconFile = $this->normalizeDisplayIcon((string)($row['display_icon_file'] ?? ''), $displayIcons);
+                $displayStatus = $statusByDisplayId[$displayId] ?? [];
                 $groups[$key]['display'] = [
                     'id' => $displayId,
                     'name' => $row['display_name'],
@@ -1323,6 +1330,14 @@ class AdminController
                     'location_name' => $row['location_name'] ?: __('locations.unassigned'),
                     'group_name' => $row['group_name'] ?: __('locations.unassigned'),
                     'group_sync_enabled' => (int)($row['group_sync_enabled'] ?? 0),
+                    'monitoring_status' => (string)($displayStatus['monitoring_status'] ?? 'never_seen'),
+                    'monitoring_status_label' => $this->displayMonitoringLabel((string)($displayStatus['monitoring_status'] ?? 'never_seen')),
+                    'last_seen_at' => $displayStatus['last_seen_at'] ?? null,
+                    'reported_channel_id' => $displayStatus['reported_channel_id'] ?? null,
+                    'reported_channel_name' => $displayStatus['reported_channel_name'] ?? null,
+                    'expected_channel_id' => $displayStatus['expected_channel_id'] ?? null,
+                    'expected_channel_name' => $displayStatus['expected_channel_name'] ?? null,
+                    'playback_in_sync' => $displayStatus['playback_in_sync'] ?? null,
                     'is_unused' => false,
                 ];
             }
@@ -3850,7 +3865,7 @@ class AdminController
             'slug' => (string)$display['slug'],
             'status' => $status,
             'status_label' => $this->displayMonitoringLabel($status),
-            'channel_label' => $display['resolved_channel_name'] ?: __('dashboard.no_channel'),
+            'channel_label' => $display['reported_channel_name'] ?: __('dashboard.no_channel'),
             'last_seen_label' => $this->dashboardLastSeenLabel($display),
             'ip_label' => $display['last_seen_ip'] ?: __('common.unknown'),
             'client_label' => trim($browserLabel . ($browserLabel !== '' && $osLabel !== '' ? ' / ' : '') . $osLabel) ?: __('common.unknown'),

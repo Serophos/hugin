@@ -49,6 +49,7 @@ const icons = [
   ['diamond', 'bootstrap/diamond'],
   ['hexagon', 'bootstrap/hexagon'],
   ['pentagon', 'bootstrap/pentagon'],
+  ['play', 'bootstrap/play-fill'],
   ['qr-code', 'bootstrap/qr-code'],
   ['slash-square', 'bootstrap/slash-square'],
   ['square', 'bootstrap/square'],

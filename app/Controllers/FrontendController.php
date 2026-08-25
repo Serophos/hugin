@@ -338,14 +338,9 @@ class FrontendController
             ]);
         }
 
-        // Presence reporting must not depend on playlist resolution. The current
-        // assignment is resolved by monitoring reads and can be temporarily unavailable.
-        $activeAssignment = null;
         $payload = $this->readJsonBody();
         $ipAddress = client_ip();
         $userAgent = substr((string)($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 255);
-        $channelId = $activeAssignment ? (int)$activeAssignment['channel_id'] : null;
-        $channelName = $activeAssignment['channel_name'] ?? null;
 
         $browserName = $this->limitString($payload['browserName'] ?? null, 80);
         $browserVersion = $this->limitString($payload['browserVersion'] ?? null, 80);
@@ -381,8 +376,8 @@ class FrontendController
             )
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
              ON DUPLICATE KEY UPDATE
-                current_channel_id = VALUES(current_channel_id),
-                current_channel_name = VALUES(current_channel_name),
+                current_channel_id = display_heartbeats.current_channel_id,
+                current_channel_name = display_heartbeats.current_channel_name,
                 last_seen_ip = VALUES(last_seen_ip),
                 user_agent = VALUES(user_agent),
                 browser_name = VALUES(browser_name),
@@ -409,7 +404,7 @@ class FrontendController
                 client_payload_json = VALUES(client_payload_json),
                 last_seen_at = NOW()',
             [
-                $display['id'], $channelId, $channelName, $ipAddress, $userAgent,
+                $display['id'], null, null, $ipAddress, $userAgent,
                 $browserName, $browserVersion, $osName, $osVersion, $platform, $language, $timezone,
                 $screenWidth, $screenHeight, $availableScreenWidth, $availableScreenHeight,
                 $viewportWidth, $viewportHeight, $pixelRatio, $colorDepth,
@@ -418,12 +413,94 @@ class FrontendController
             ]
         );
 
+        $playbackReport = $this->storeHeartbeatPlaybackReport((int)$display['id'], $payload['playback'] ?? null);
+
         json_response([
             'ok' => true,
             'display' => $display['name'],
-            'channel' => $channelName,
+            'channel' => $playbackReport['channel_name'],
+            'playback_report_accepted' => $playbackReport['accepted'],
             'seen_at' => date('c'),
         ]);
+    }
+
+    /**
+     * Store only playback facts reported by the display client. Schedule
+     * resolution deliberately stays out of this path: it describes expected
+     * playback, not what the display has actually loaded.
+     *
+     * @return array{accepted: bool, channel_name: ?string}
+     */
+    private function storeHeartbeatPlaybackReport(int $displayId, mixed $value): array
+    {
+        if (!is_array($value)) {
+            return ['accepted' => false, 'channel_name' => null];
+        }
+
+        try {
+            $reportedChannelId = $this->positiveIntOrNull($value['channelId'] ?? null);
+            $reportedChannelName = $this->limitString($value['channelName'] ?? null, 150);
+            $channel = $reportedChannelId
+                ? $this->db->one('SELECT id, name FROM channels WHERE id = ? LIMIT 1', [$reportedChannelId])
+                : null;
+            $channelId = $channel ? (int)$channel['id'] : null;
+            $channelName = $channel ? (string)$channel['name'] : $reportedChannelName;
+            $stateSignature = $this->heartbeatStateSignature($value['stateSignature'] ?? null);
+            $pendingStateSignature = $this->heartbeatStateSignature($value['pendingStateSignature'] ?? null);
+            $playbackStatus = strtolower(trim((string)($value['status'] ?? '')));
+            if (!in_array($playbackStatus, [
+                'starting',
+                'playing',
+                'no_playlist',
+                'no_slides',
+                'media_unavailable',
+                'error',
+            ], true)) {
+                $playbackStatus = null;
+            }
+
+            $pendingActivationAtMs = null;
+            if (is_numeric($value['pendingActivationAtMs'] ?? null)) {
+                $candidate = (int)$value['pendingActivationAtMs'];
+                $pendingActivationAtMs = $candidate > 0 ? $candidate : null;
+            }
+
+            $this->db->execute(
+                'UPDATE display_heartbeats
+                 SET current_channel_id = ?,
+                     current_channel_name = ?,
+                     reported_state_signature = ?,
+                     reported_playback_status = ?,
+                     playback_reported_at = NOW(),
+                     pending_state_signature = ?,
+                     pending_activation_at_ms = ?
+                 WHERE display_id = ?',
+                [
+                    $channelId,
+                    $channelName,
+                    $stateSignature,
+                    $playbackStatus,
+                    $pendingStateSignature,
+                    $pendingActivationAtMs,
+                    $displayId,
+                ]
+            );
+
+            return ['accepted' => true, 'channel_name' => $channelName];
+        } catch (\Throwable $error) {
+            error_log('Could not store display playback report: ' . $error->getMessage());
+            return ['accepted' => false, 'channel_name' => null];
+        }
+    }
+
+    private function heartbeatStateSignature(mixed $value): ?string
+    {
+        if (!is_string($value)) {
+            return null;
+        }
+
+        $signature = strtolower(trim($value));
+        return preg_match('/\A[a-f0-9]{40}\z/', $signature) === 1 ? $signature : null;
     }
 
     private function isDisplayPreviewRequest(): bool

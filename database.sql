@@ -139,6 +139,11 @@ CREATE TABLE display_heartbeats (
     display_id INT UNSIGNED NOT NULL PRIMARY KEY,
     current_channel_id INT UNSIGNED NULL,
     current_channel_name VARCHAR(150) NULL,
+    reported_state_signature CHAR(40) NULL,
+    reported_playback_status VARCHAR(32) NULL,
+    playback_reported_at DATETIME NULL,
+    pending_state_signature CHAR(40) NULL,
+    pending_activation_at_ms BIGINT UNSIGNED NULL,
     last_seen_ip VARCHAR(45) NULL,
     user_agent VARCHAR(255) NULL,
     browser_name VARCHAR(80) NULL,
@@ -479,4 +484,5 @@ INSERT INTO schema_migrations (sequence, filename, checksum, state, started_at, 
 (19, '019_database.openid-authentication-migration.sql', '86b3e9257a4ff5b302030259a08a0ac3d5b65f225ea5bd888883fe13321f9bd4', 'applied', NOW(), NOW(), 0),
 (20, '020_database.openid-profile-fields-migration.sql', 'e14eff872cda928095114b6e6a22a5404e3c306c16282740b2dd493fd11622c2', 'applied', NOW(), NOW(), 0),
 (21, '021_database.remove-experimental-remote-access-migration.sql', 'dfd76480b22c90471e03d78055ee9e7601c6879cc5f471051009e1eaced98215', 'applied', NOW(), NOW(), 0),
-(22, '022_database.display-timezone-default-migration.sql', '6b12367c21ba7dfc561273a1b0f46f8d6cb2b56703cbcb0ea94299ebf2e1b9f4', 'applied', NOW(), NOW(), 0);
+(22, '022_database.display-timezone-default-migration.sql', '6b12367c21ba7dfc561273a1b0f46f8d6cb2b56703cbcb0ea94299ebf2e1b9f4', 'applied', NOW(), NOW(), 0),
+(23, '023_database.display-playback-reporting-migration.sql', '559961c46f89467876d11d2ec7c105f232a384a7c929e592bc7b783c22aeeab6', 'applied', NOW(), NOW(), 0);

@@ -82,6 +82,21 @@ if (!$isUnused) {
                 <span class="playlist-display-group__meta">
                     <span><strong><?= e(__('locations.singular')) ?>:</strong> <?= e($display['location_name']) ?></span>
                     <span><strong><?= e(__('display_groups.singular')) ?>:</strong> <?= e($display['group_name']) ?></span>
+                    <span>
+                        <strong><?= e(__('common.status')) ?>:</strong>
+                        <?= e((string)($display['monitoring_status_label'] ?? __('common.unknown'))) ?>
+                        <?php if (!empty($display['last_seen_at'])): ?>
+                            · <?= e(__('display.last_seen')) ?> <?= e((string)$display['last_seen_at']) ?>
+                        <?php endif; ?>
+                        <?php if (!empty($display['reported_channel_name'])): ?>
+                            · <?= e(__('channel.last_reported_playing', ['playlist' => (string)$display['reported_channel_name']])) ?>
+                        <?php endif; ?>
+                        <?php if (($display['monitoring_status'] ?? '') === 'online' && ($display['playback_in_sync'] ?? null) === false): ?>
+                            · <span class="badge text-bg-warning"><?= e(__('channel.playback_mismatch', [
+                                'playlist' => (string)($display['expected_channel_name'] ?? __('common.none')),
+                            ])) ?></span>
+                        <?php endif; ?>
+                    </span>
                 </span>
             </span>
         </span>
@@ -142,9 +157,27 @@ if (!$isUnused) {
             $effectLabel = enum_label('effects', $channel['transition_effect'], $channel['transition_effect']);
             $statusValue = $channel['is_active'] ? 'active' : 'inactive';
             $statusLabel = $channel['is_active'] ? __('common.active') : __('common.inactive');
+            $isCurrentlyPlaying = !$isUnused
+                && $display['reported_channel_id'] !== null
+                && (int)$display['reported_channel_id'] === (int)$channel['channel_id'];
+            $currentlyPlayingLabel = $isCurrentlyPlaying
+                ? (($display['monitoring_status'] ?? '') === 'online'
+                    ? __('channel.currently_playing', ['display' => $display['name']])
+                    : __('channel.last_reported_playing_on_display', [
+                        'display' => $display['name'],
+                        'last_seen' => (string)($display['last_seen_at'] ?? __('common.never')),
+                    ]))
+                : '';
             ?>
             <tr data-admin-row>
-                <td data-admin-cell="name" data-sort-value="<?= e((string)$channel['channel_name']) ?>" data-filter-value="<?= e((string)$channel['channel_name']) ?>"><?= e($channel['channel_name']) ?></td>
+                <td data-admin-cell="name" data-sort-value="<?= e((string)$channel['channel_name']) ?>" data-filter-value="<?= e((string)$channel['channel_name']) ?>">
+                    <?php if ($isCurrentlyPlaying): ?>
+                        <span class="d-inline-flex align-items-center <?= ($display['monitoring_status'] ?? '') === 'online' ? 'text-success' : 'text-secondary' ?> me-1" title="<?= e($currentlyPlayingLabel) ?>">
+                            <?= admin_icon('play') ?><span class="sr-only"><?= e($currentlyPlayingLabel) ?></span>
+                        </span>
+                    <?php endif; ?>
+                    <?= e($channel['channel_name']) ?>
+                </td>
                 <td data-admin-cell="schedule" data-sort-value="<?= e($scheduleLabel) ?>" data-filter-value="<?= e($scheduleLabel) ?>"><?= e($scheduleLabel) ?></td>
                 <td data-admin-cell="priority" data-sort-value="<?= e($prioritySort) ?>" data-filter-value="<?= e($priorityLabel) ?>"><?= e($priorityLabel) ?></td>
                 <td data-admin-cell="effect" data-sort-value="<?= e($effectLabel) ?>" data-filter-value="<?= e($effectLabel) ?>"><?= e($effectLabel) ?></td>

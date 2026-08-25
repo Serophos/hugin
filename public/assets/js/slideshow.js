@@ -21,6 +21,17 @@
     let mediaLifecycle = null;
     let currentSignature = slideshow.dataset.stateSignature || '';
     let nextSelectionAtMs = Number(slideshow.dataset.nextSelectionAtMs || 0);
+    const playbackReport = window.__huginPlaybackReport = {
+        channelId: Number(slideshow.dataset.channelId || 0),
+        channelName: slideshow.dataset.channelName || '',
+        stateSignature: currentSignature,
+        status: slideshow.dataset.playbackStatus === 'ready'
+            ? 'starting'
+            : (slideshow.dataset.playbackStatus || 'starting'),
+        pendingStateSignature: '',
+        pendingActivationAtMs: 0,
+    };
+    const updatePlaybackReport = updates => Object.assign(playbackReport, updates);
     const videoStartTimers = new WeakMap();
     const videoStartHandlers = new WeakMap();
     const MINUTE_MS = 60000;
@@ -468,6 +479,7 @@
     let lastWarmSignature = '';
 
     const showMediaUnavailable = () => {
+        updatePlaybackReport({ status: 'media_unavailable' });
         if (!playbackStatusScreen) return;
         if (playbackStatusMessage) {
             playbackStatusMessage.textContent = slideshow.dataset.mediaUnavailableMessage
@@ -482,6 +494,9 @@
             playbackStatusMessage.textContent = configuredPlaybackStatusMessage;
         }
         playbackStatusScreen.classList.remove('is-active');
+        if (startupComplete && index >= 0 && isSlideReady(slides[index])) {
+            updatePlaybackReport({ status: 'playing' });
+        }
     };
 
     const handleMediaElementFailure = (element, detail = {}) => {
@@ -1247,6 +1262,10 @@
         }
         pendingReloadTimer = null;
         pendingReload = null;
+        updatePlaybackReport({
+            pendingStateSignature: '',
+            pendingActivationAtMs: 0,
+        });
 
         logSyncDebug('reload immediately requested', {
             reason,
@@ -1279,6 +1298,10 @@
             activateAtMs,
             startAtMs,
             readinessGenerationHash: status?.generationHash || reload.readinessGenerationHash || '',
+        });
+        updatePlaybackReport({
+            pendingStateSignature: pendingReload.signature || '',
+            pendingActivationAtMs: activateAtMs,
         });
         pendingReloadTimer = window.setTimeout(applyPendingReload, delayUntilServerTime(activateAtMs));
 
@@ -1330,6 +1353,10 @@
             reload.startAtMs = computeNextFullMinuteActivation();
             reload.activateAtMs = Math.max(serverNowMs(), reload.startAtMs - SYNC_RELOAD_PAGE_LOAD_LEAD_MS);
             pendingReload = reload;
+            updatePlaybackReport({
+                pendingStateSignature: reload.signature || '',
+                pendingActivationAtMs: reload.activateAtMs,
+            });
             pendingReloadTimer = window.setTimeout(applyPendingReload, delayUntilServerTime(reload.activateAtMs));
             logReload('Postponed synchronized reload while offline', {
                 reason: reload.reason,
@@ -2203,6 +2230,9 @@
         markStartupSeen();
         queueSelectionBoundaryCheck(nextSelectionAtMs);
         if (slides.length === 0) {
+            updatePlaybackReport({
+                status: slideshow.dataset.playbackStatus || 'no_playlist',
+            });
             setStartupStage('starting');
             reloadIfChanged('startup');
             slideshow.classList.remove('is-startup-sync-pending', 'is-media-startup-pending');
@@ -2224,6 +2254,7 @@
             });
             index = readyIndex;
             hideMediaUnavailable();
+            updatePlaybackReport({ status: 'playing' });
             prepareMediaAround(index);
             restartTextCardAnimation(readySlide);
             restartTemplateElementAnimations(readySlide);

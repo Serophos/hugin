@@ -13,7 +13,7 @@ const expectedKeys = [
     'seenAt', 'browserName', 'browserVersion', 'osName', 'osVersion', 'platform', 'language', 'timezone',
     'screenWidth', 'screenHeight', 'availScreenWidth', 'availScreenHeight', 'viewportWidth', 'viewportHeight',
     'devicePixelRatio', 'colorDepth', 'maxTouchPoints', 'hardwareConcurrency', 'deviceMemory',
-    'screenOrientation', 'online', 'cookieEnabled', 'userAgent',
+    'screenOrientation', 'online', 'cookieEnabled', 'userAgent', 'playback',
 ];
 const originalController = window.__huginHeartbeatController;
 assert(harness.requests.length === 1, 'heartbeat sends immediately on startup');
@@ -21,6 +21,17 @@ assert(harness.requests[0].url === 'https://hugin.test/display/lobby/heartbeat',
 assert(harness.requests[0].options.method === 'POST', 'heartbeat uses POST');
 assert(harness.requests[0].options.headers['Content-Type'] === 'application/json', 'heartbeat sends JSON');
 assert(JSON.stringify(Object.keys(harness.requests[0].payload)) === JSON.stringify(expectedKeys), 'payload contract is unchanged');
+assert(
+    JSON.stringify(harness.requests[0].payload.playback) === JSON.stringify({
+        channelId: 17,
+        channelName: 'Lobby Standard',
+        stateSignature: '0123456789abcdef0123456789abcdef01234567',
+        status: 'starting',
+        pendingStateSignature: '',
+        pendingActivationAtMs: 0,
+    }),
+    'heartbeat reports the playlist and state loaded by the display',
+);
 assert(originalController.status.successCount === 1, 'initial heartbeat succeeds');
 assert(originalController.status.requestInFlight === false, 'successful request releases the latch');
 assert(harness.clock.intervalCount() === 1, 'exactly one fixed cadence is installed');

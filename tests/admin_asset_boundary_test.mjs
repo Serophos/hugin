@@ -76,6 +76,9 @@ assert.ok(playlistsView.includes("admin_icon('add')"), 'adding an existing playl
 assert.ok(playlistsView.includes("admin_icon('playlists')"), 'creating a playlist must use a distinct playlist icon');
 assert.ok(playlistsView.includes('data-lte-icon="expand"') && playlistsView.includes("admin_icon('chevron-down')"), 'collapsed playlist cards must show a down chevron');
 assert.ok(playlistsView.includes('data-lte-icon="collapse"') && playlistsView.includes("admin_icon('chevron-up')"), 'expanded playlist cards must show an up chevron');
+assert.ok(playlistsView.includes("admin_icon('play')"), 'the currently playing playlist must use the generated Bootstrap play icon');
+assert.match(playlistsView, /reported_channel_id[\s\S]*?channel_id[\s\S]*?channel\.currently_playing[\s\S]*?class="sr-only"/, 'the current-playlist marker must match the heartbeat-reported playlist and expose an accessible message');
+assert.match(playlistsView, /monitoring_status[\s\S]*?last_reported_playing_on_display/, 'offline playlist markers must identify playback as a last report rather than current inferred playback');
 
 assert.match(
   playlistsView,
@@ -83,6 +86,7 @@ assert.match(
   'each assigned display must expose the existing CSRF-protected reload action and return to playlists',
 );
 const adminController = read('app/Controllers/AdminController.php');
+assert.match(adminController, /h\.current_channel_id[\s\S]*?LEFT JOIN display_heartbeats h ON h\.display_id = d\.id/, 'the playlists query must reuse heartbeat current-playlist state');
 const reloadDisplayMethod = adminController.match(/public function reloadDisplay\(int \$id\): void[\s\S]*?(?=\n    public function )/)?.[0] || '';
 assert.match(reloadDisplayMethod, /\$this->auth->requireLogin\(\)/, 'display reload must be available to authenticated admins and editors');
 assert.doesNotMatch(reloadDisplayMethod, /requireRole\('admin'\)/, 'display reload must not remain admin-only');
