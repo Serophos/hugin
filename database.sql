@@ -1,5 +1,6 @@
 SET FOREIGN_KEY_CHECKS = 0;
 DROP TABLE IF EXISTS schema_migrations;
+DROP TABLE IF EXISTS plugin_scheduled_tasks;
 DROP TABLE IF EXISTS slide_plugin_data;
 DROP TABLE IF EXISTS slide_template_data;
 DROP TABLE IF EXISTS slide_templates;
@@ -373,6 +374,25 @@ CREATE TABLE plugin_global_settings (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
+CREATE TABLE plugin_scheduled_tasks (
+    plugin_name VARCHAR(100) NOT NULL,
+    task_name VARCHAR(100) NOT NULL,
+    interval_seconds INT UNSIGNED NOT NULL,
+    retry_seconds INT UNSIGNED NOT NULL,
+    is_registered TINYINT(1) NOT NULL DEFAULT 1,
+    status ENUM('idle', 'running', 'success', 'failed') NOT NULL DEFAULT 'idle',
+    last_started_at DATETIME NULL,
+    last_finished_at DATETIME NULL,
+    last_success_at DATETIME NULL,
+    next_run_at DATETIME NOT NULL,
+    last_duration_ms INT UNSIGNED NULL,
+    last_error VARCHAR(500) NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (plugin_name, task_name),
+    KEY idx_plugin_scheduled_tasks_due (is_registered, next_run_at)
+);
+
 CREATE TABLE app_settings (
     namespace VARCHAR(100) NOT NULL,
     setting_key VARCHAR(100) NOT NULL,
@@ -485,4 +505,5 @@ INSERT INTO schema_migrations (sequence, filename, checksum, state, started_at, 
 (20, '020_database.openid-profile-fields-migration.sql', 'e14eff872cda928095114b6e6a22a5404e3c306c16282740b2dd493fd11622c2', 'applied', NOW(), NOW(), 0),
 (21, '021_database.remove-experimental-remote-access-migration.sql', 'dfd76480b22c90471e03d78055ee9e7601c6879cc5f471051009e1eaced98215', 'applied', NOW(), NOW(), 0),
 (22, '022_database.display-timezone-default-migration.sql', '6b12367c21ba7dfc561273a1b0f46f8d6cb2b56703cbcb0ea94299ebf2e1b9f4', 'applied', NOW(), NOW(), 0),
-(23, '023_database.display-playback-reporting-migration.sql', '559961c46f89467876d11d2ec7c105f232a384a7c929e592bc7b783c22aeeab6', 'applied', NOW(), NOW(), 0);
+(23, '023_database.display-playback-reporting-migration.sql', '559961c46f89467876d11d2ec7c105f232a384a7c929e592bc7b783c22aeeab6', 'applied', NOW(), NOW(), 0),
+(24, '024_database.plugin-scheduled-tasks-migration.sql', 'bf0e64d3d709422443602b1ea94a8e24b5845ee641d1cafdc8a0481492b6c232', 'applied', NOW(), NOW(), 0);

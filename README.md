@@ -90,6 +90,22 @@ The seeded demo users use the password `admin123!`:
 
 Change initial passwords immediately on a real installation. Hugin shows a warning to users until their password has been changed after account creation.
 
+### Plugin Scheduled Tasks
+
+Run Hugin's plugin task runner once per minute in production. Use the same operating-system user as the web process so both processes have compatible ownership and write access below `storage/`:
+
+```cron
+* * * * * cd /path/to/hugin && /usr/bin/php bin/hugin-tasks run
+```
+
+Inspect persisted task health with:
+
+```bash
+php bin/hugin-tasks status
+```
+
+The runner executes only due tasks from enabled plugins, prevents overlapping runs with a database advisory lock, and records failures without stopping unrelated tasks. TL1 Menu and both bundled weather plugins use it for feed refreshes; their request-time cache refresh remains available as a compatibility fallback. Database migrations must be current before either command runs.
+
 ### Frontend Asset Builds
 
 Hugin keeps app-owned generated admin assets committed. npm-generated vendor assets are not committed; they are generated below `public/assets/vendor/` during the build. Run the frontend build when changing generated assets, using the admin backend from a clean checkout, and whenever preparing a deployable release artifact:
@@ -411,6 +427,15 @@ Available hooks:
 - `normalizeGlobalSettings(array $input, array $existingSettings, PluginApi $api)`
 
 Slide settings are edited in the slide form. Global plugin settings are edited by admins at `/admin/plugins/<plugin>/settings`.
+
+### Optional Scheduled Tasks
+
+A plugin that needs server-side background work can additionally implement `App\Core\ScheduledTaskProviderInterface`. This does not change the required slide plugin interface.
+
+- `getScheduledTasks(PluginApi $api)` returns task definitions with a stable lowercase `name`, an `interval_seconds` value of at least 60, and an optional `retry_seconds` value of at least 60.
+- `runScheduledTask(string $taskName, PluginApi $api)` performs the named task and throws on failure.
+- Only enabled plugins are registered. Removed tasks remain visible as inactive history.
+- Keep externally refreshed content in plugin cache/storage and expose a deterministic content revision through `getStateData()` when displays should reload.
 
 ### Access The Media Library From A Plugin
 

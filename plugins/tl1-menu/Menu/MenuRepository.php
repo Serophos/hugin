@@ -6,6 +6,7 @@ namespace Plugins\Tl1Menu\Menu;
 
 use DateTimeInterface;
 use RuntimeException;
+use Throwable;
 
 final class MenuRepository
 {
@@ -38,18 +39,45 @@ final class MenuRepository
             return $this->cacheFile;
         }
 
-        return $this->refreshCache(true);
+        return $this->refreshCache(true, !$refresh);
     }
 
-    public function refreshCache(bool $allowCachedFallback = false): string
+    public function refreshCache(bool $allowCachedFallback = false, bool $skipIfFreshAfterLock = false): string
     {
         $this->ensureCacheDirectoryExists();
-        $xml = $this->downloadXml($allowCachedFallback);
-        $this->writeCache($xml);
-        return $this->cacheFile;
+        $lock = $this->acquireRefreshLock();
+        try {
+            if ($skipIfFreshAfterLock && $this->isCacheFresh()) {
+                return $this->cacheFile;
+            }
+
+            try {
+                $xml = $this->downloadXml();
+            } catch (Throwable $error) {
+                if ($allowCachedFallback && is_file($this->cacheFile)) {
+                    return $this->cacheFile;
+                }
+                throw $error;
+            }
+
+            $this->writeValidatedCache($xml);
+            return $this->cacheFile;
+        } finally {
+            flock($lock, LOCK_UN);
+            fclose($lock);
+        }
     }
 
-    private function downloadXml(bool $allowCachedFallback): string
+    public function contentRevision(): string
+    {
+        if (!is_file($this->cacheFile) || !is_readable($this->cacheFile)) {
+            return 'missing';
+        }
+        $revision = hash_file('sha256', $this->cacheFile);
+        return is_string($revision) && $revision !== '' ? $revision : 'unreadable';
+    }
+
+    private function downloadXml(): string
     {
         $url = (string)($this->config['menu_url'] ?? '');
         if ($url === '') {
@@ -70,20 +98,47 @@ final class MenuRepository
 
         $xml = @file_get_contents($url, false, $context);
         if (!is_string($xml) || trim($xml) === '') {
-            if ($allowCachedFallback && is_file($this->cacheFile)) {
-                return (string)file_get_contents($this->cacheFile);
-            }
             throw new RuntimeException('Could not download TL1 menu XML from ' . $url);
         }
-
         return $xml;
     }
 
-    private function writeCache(string $xml): void
+    private function writeValidatedCache(string $xml): void
     {
-        if (file_put_contents($this->cacheFile, $xml) === false) {
-            throw new RuntimeException('Could not write XML cache file: ' . $this->cacheFile);
+        $directory = dirname($this->cacheFile);
+        $temporary = tempnam($directory, '.speiseplan-');
+        if ($temporary === false) {
+            throw new RuntimeException('Could not create temporary XML cache file in: ' . $directory);
         }
+
+        try {
+            if (file_put_contents($temporary, $xml, LOCK_EX) === false) {
+                throw new RuntimeException('Could not write XML cache file: ' . $temporary);
+            }
+            $this->parser->parseFile($temporary);
+            @chmod($temporary, 0664);
+            if (!rename($temporary, $this->cacheFile)) {
+                throw new RuntimeException('Could not replace XML cache file: ' . $this->cacheFile);
+            }
+        } finally {
+            if (is_file($temporary)) {
+                @unlink($temporary);
+            }
+        }
+    }
+
+    /** @return resource */
+    private function acquireRefreshLock()
+    {
+        $lockFile = $this->cacheFile . '.lock';
+        $lock = fopen($lockFile, 'c');
+        if ($lock === false || !flock($lock, LOCK_EX)) {
+            if (is_resource($lock)) {
+                fclose($lock);
+            }
+            throw new RuntimeException('Could not lock XML cache file: ' . $this->cacheFile);
+        }
+        return $lock;
     }
 
     private function resolveCacheFile(): string

@@ -23,10 +23,10 @@ function expect_migration_error(callable $callback, string $fragment): void
 $pdo = new PDO('sqlite::memory:');
 $service = new MigrationService($pdo, __DIR__ . '/../db-migrations');
 $migrations = $service->discover();
-migration_assert(count($migrations) === 23, 'Expected 23 migrations.');
-migration_assert(array_keys($migrations) === range(1, 23), 'Migrations are not sequential.');
+migration_assert(count($migrations) === 24, 'Expected 24 migrations.');
+migration_assert(array_keys($migrations) === range(1, 24), 'Migrations are not sequential.');
 migration_assert($migrations[1]['filename'] === '001_database.display-groups-migration.sql', 'Unexpected first migration.');
-migration_assert($migrations[23]['filename'] === '023_database.display-playback-reporting-migration.sql', 'Unexpected last migration.');
+migration_assert($migrations[24]['filename'] === '024_database.plugin-scheduled-tasks-migration.sql', 'Unexpected last migration.');
 foreach ($migrations as $migration) {
     $sql = file_get_contents($migration['path']);
     migration_assert(is_string($sql) && $service->splitStatements($sql) !== [], 'Migration does not contain executable SQL: ' . $migration['filename']);

@@ -136,7 +136,7 @@ final class MigrationService
     public function validateCurrentSchema(): array
     {
         $requiredTables = [
-            'display_locations', 'display_groups', 'display_group_memberships', 'plugin_global_settings',
+            'display_locations', 'display_groups', 'display_group_memberships', 'plugin_global_settings', 'plugin_scheduled_tasks',
             'schedules', 'schedule_rules', 'channel_display_schedule_assignments', 'app_settings',
             'slide_templates', 'slide_template_data', 'display_cache_readiness', 'display_sync_releases',
         ];
@@ -147,6 +147,7 @@ final class MigrationService
             'media_assets' => ['preview_file_path', 'font_family_name', 'font_full_name', 'font_subfamily', 'font_weight', 'font_postscript_name', 'font_version', 'font_format', 'license_note'],
             'display_groups' => ['primary_display_id'],
             'display_heartbeats' => ['reported_state_signature', 'reported_playback_status', 'playback_reported_at', 'pending_state_signature', 'pending_activation_at_ms'],
+            'plugin_scheduled_tasks' => ['plugin_name', 'task_name', 'interval_seconds', 'retry_seconds', 'is_registered', 'status', 'last_started_at', 'last_finished_at', 'last_success_at', 'next_run_at', 'last_duration_ms', 'last_error', 'created_at', 'updated_at'],
         ];
         $errors = [];
         foreach ($requiredTables as $table) {
@@ -172,6 +173,12 @@ final class MigrationService
         if (!$this->constraintExists('display_groups', 'fk_display_group_primary_display')) {
             $errors[] = 'Missing constraint: display_groups.fk_display_group_primary_display';
         }
+        if (!$this->indexExists('plugin_scheduled_tasks', 'idx_plugin_scheduled_tasks_due')) {
+            $errors[] = 'Missing index: plugin_scheduled_tasks.idx_plugin_scheduled_tasks_due';
+        }
+        if (!$this->indexExists('plugin_scheduled_tasks', 'PRIMARY')) {
+            $errors[] = 'Missing primary key: plugin_scheduled_tasks';
+        }
         if (!$this->indexExists('users', 'uniq_users_oidc_identity')) {
             $errors[] = 'Missing index: users.uniq_users_oidc_identity';
         }
@@ -184,6 +191,20 @@ final class MigrationService
             $errors[] = 'media_assets.media_kind does not allow fonts.';
         }
         $timezone = $this->columnMetadata('displays', 'timezone');
+        $taskStatus = $this->columnMetadata('plugin_scheduled_tasks', 'status');
+        if ($taskStatus !== null && (
+            !str_contains((string)$taskStatus['COLUMN_TYPE'], "'idle'")
+            || !str_contains((string)$taskStatus['COLUMN_TYPE'], "'running'")
+            || !str_contains((string)$taskStatus['COLUMN_TYPE'], "'success'")
+            || !str_contains((string)$taskStatus['COLUMN_TYPE'], "'failed'")
+            || (string)$taskStatus['COLUMN_DEFAULT'] !== 'idle'
+        )) {
+            $errors[] = 'plugin_scheduled_tasks.status has an unexpected definition.';
+        }
+        $taskRegistration = $this->columnMetadata('plugin_scheduled_tasks', 'is_registered');
+        if ($taskRegistration !== null && (string)$taskRegistration['COLUMN_DEFAULT'] !== '1') {
+            $errors[] = 'plugin_scheduled_tasks.is_registered has an unexpected default.';
+        }
         if ($timezone !== null && (string)$timezone['COLUMN_DEFAULT'] !== 'Europe/Berlin') {
             $errors[] = 'displays.timezone has an unexpected default.';
         }
@@ -288,6 +309,7 @@ final class MigrationService
                 'pending_state_signature',
                 'pending_activation_at_ms',
             ])),
+            24 => $this->pluginScheduledTasksMigrationState($classify),
             default => throw new RuntimeException(sprintf('No legacy adoption signature exists for migration %03d.', $sequence)),
         };
     }
@@ -299,6 +321,34 @@ final class MigrationService
         if (!in_array(false, $new, true) && !in_array(true, $old, true)) { return 'applied'; }
         if (!in_array(true, $new, true) && !in_array(false, $old, true)) { return 'pending'; }
         return 'partial';
+    }
+
+    /** @param callable(array):string $classify */
+    private function pluginScheduledTasksMigrationState(callable $classify): string
+    {
+        $columns = [
+            'plugin_name', 'task_name', 'interval_seconds', 'retry_seconds', 'is_registered', 'status',
+            'last_started_at', 'last_finished_at', 'last_success_at', 'next_run_at', 'last_duration_ms', 'last_error',
+            'created_at', 'updated_at',
+        ];
+        $effects = [$this->tableExists('plugin_scheduled_tasks')];
+        foreach ($columns as $column) {
+            $effects[] = $this->columnExists('plugin_scheduled_tasks', $column);
+        }
+        $effects[] = $this->indexExists('plugin_scheduled_tasks', 'PRIMARY');
+        $effects[] = $this->indexExists('plugin_scheduled_tasks', 'idx_plugin_scheduled_tasks_due');
+
+        $status = $this->columnMetadata('plugin_scheduled_tasks', 'status');
+        $effects[] = $status !== null
+            && str_contains((string)$status['COLUMN_TYPE'], "'idle'")
+            && str_contains((string)$status['COLUMN_TYPE'], "'running'")
+            && str_contains((string)$status['COLUMN_TYPE'], "'success'")
+            && str_contains((string)$status['COLUMN_TYPE'], "'failed'")
+            && (string)$status['COLUMN_DEFAULT'] === 'idle';
+        $registration = $this->columnMetadata('plugin_scheduled_tasks', 'is_registered');
+        $effects[] = $registration !== null && (string)$registration['COLUMN_DEFAULT'] === '1';
+
+        return $classify($effects);
     }
 
     /** @param callable(array):string $classify */

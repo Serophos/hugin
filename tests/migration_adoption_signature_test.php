@@ -50,4 +50,35 @@ foreach ($playbackColumns as $column) {
     }
 }
 
+$scheduledTaskColumns = [
+    'plugin_name',
+    'task_name',
+    'interval_seconds',
+    'retry_seconds',
+    'is_registered',
+    'status',
+    'last_started_at',
+    'last_finished_at',
+    'last_success_at',
+    'next_run_at',
+    'last_duration_ms',
+    'last_error',
+    'created_at',
+    'updated_at',
+];
+foreach ($scheduledTaskColumns as $column) {
+    if (substr_count($serviceSource, "'" . $column . "'") < 2) {
+        throw new RuntimeException(
+            'Migration 024 column is missing from adoption or current-schema validation: ' . $column
+        );
+    }
+}
+if (substr_count($serviceSource, "'idx_plugin_scheduled_tasks_due'") < 2) {
+if (substr_count($serviceSource, "'PRIMARY'") < 2) {
+    throw new RuntimeException('Migration 024 primary key is missing from adoption or current-schema validation.');
+}
+    throw new RuntimeException('Migration 024 due index is missing from adoption or current-schema validation.');
+}
+
+
 echo "Migration adoption signature tests passed.\n";
