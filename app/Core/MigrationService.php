@@ -146,6 +146,7 @@ final class MigrationService
             'users' => ['password_changed_at', 'first_name', 'last_name', 'auth_provider', 'oidc_issuer', 'oidc_subject', 'department', 'title', 'picture_url'],
             'media_assets' => ['preview_file_path', 'font_family_name', 'font_full_name', 'font_subfamily', 'font_weight', 'font_postscript_name', 'font_version', 'font_format', 'license_note'],
             'display_groups' => ['primary_display_id'],
+            'display_heartbeats' => ['reported_state_signature', 'reported_playback_status', 'playback_reported_at', 'pending_state_signature', 'pending_activation_at_ms'],
         ];
         $errors = [];
         foreach ($requiredTables as $table) {
@@ -280,6 +281,13 @@ final class MigrationService
             20 => $classify($columns('users', ['department', 'title', 'picture_url'])),
             21 => $this->removedVncMigrationState(),
             22 => ((string)($this->columnMetadata('displays', 'timezone')['COLUMN_DEFAULT'] ?? '') === 'Europe/Berlin') ? 'applied' : 'pending',
+            23 => $classify($columns('display_heartbeats', [
+                'reported_state_signature',
+                'reported_playback_status',
+                'playback_reported_at',
+                'pending_state_signature',
+                'pending_activation_at_ms',
+            ])),
             default => throw new RuntimeException(sprintf('No legacy adoption signature exists for migration %03d.', $sequence)),
         };
     }
