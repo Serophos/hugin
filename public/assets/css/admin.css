@@ -5847,6 +5847,20 @@ input[type="color"] {
     color: var(--bs-body-color);
 }
 
+.playlist-display-group > .card-header button.playlist-display-group__summary {
+    appearance: none;
+    border: 0;
+    padding: 0;
+    background: transparent;
+    text-align: left;
+    cursor: pointer;
+}
+
+.playlist-display-group > .card-header button.playlist-display-group__summary:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: 0.25rem;
+}
+
 .playlist-display-group > .card-header .playlist-display-group__meta {
     color: var(--bs-secondary-color);
 }

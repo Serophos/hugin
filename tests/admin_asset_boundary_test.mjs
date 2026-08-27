@@ -76,6 +76,9 @@ assert.ok(playlistsView.includes("admin_icon('add')"), 'adding an existing playl
 assert.ok(playlistsView.includes("admin_icon('playlists')"), 'creating a playlist must use a distinct playlist icon');
 assert.ok(playlistsView.includes('data-lte-icon="expand"') && playlistsView.includes("admin_icon('chevron-down')"), 'collapsed playlist cards must show a down chevron');
 assert.ok(playlistsView.includes('data-lte-icon="collapse"') && playlistsView.includes("admin_icon('chevron-up')"), 'expanded playlist cards must show an up chevron');
+assert.match(playlistsView, /<button[^>]*data-playlist-card-title[^>]*>[\s\S]*?playlist-display-group__name[\s\S]*?<\/button>/, 'playlist card titles must be keyboard-accessible buttons');
+assert.match(playlistsView, /\[data-playlist-card-title\][\s\S]*?data-lte-toggle="card-collapse"[\s\S]*?\.click\(\)/, 'playlist card titles must delegate to the existing card collapse control');
+assert.match(playlistsView, /data-playlist-card-title[^>]*aria-expanded="false"[\s\S]*?setAttribute\("aria-expanded"/, 'playlist card titles must expose their expanded state');
 assert.ok(playlistsView.includes("admin_icon('play')"), 'the currently playing playlist must use the generated Bootstrap play icon');
 assert.match(playlistsView, /reported_channel_id[\s\S]*?channel_id[\s\S]*?channel\.currently_playing[\s\S]*?class="sr-only"/, 'the current-playlist marker must match the heartbeat-reported playlist and expose an accessible message');
 assert.match(playlistsView, /monitoring_status[\s\S]*?last_reported_playing_on_display/, 'offline playlist markers must identify playback as a last report rather than current inferred playback');

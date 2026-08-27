@@ -63,7 +63,7 @@ if (!$isUnused) {
 ?>
 <section class="card card-outline card-secondary collapsed-card playlist-display-group">
     <div class="card-header">
-        <span class="card-title playlist-display-group__summary">
+        <button type="button" class="card-title playlist-display-group__summary" data-playlist-card-title aria-expanded="false">
             <span class="playlist-display-group__icon" aria-hidden="true">
                 <?php if (!$isUnused && !empty($display['icon_url'])): ?>
                     <img src="<?= e($display['icon_url']) ?>" alt="" loading="lazy">
@@ -99,7 +99,7 @@ if (!$isUnused) {
                     </span>
                 </span>
             </span>
-        </span>
+        </button>
         <?php if (!$isUnused): ?>
             <span class="playlist-display-group__actions">
                 <form method="post" action="<?= e(url('/admin/displays/' . $display['id'] . '/reload')) ?>" class="inline-form">
@@ -210,10 +210,18 @@ if (!$isUnused) {
     const setPlaylistCardVariant = (card, isExpanded) => {
         card.classList.toggle("card-primary", isExpanded);
         card.classList.toggle("card-secondary", !isExpanded);
+        card.querySelector("[data-playlist-card-title]")?.setAttribute("aria-expanded", isExpanded ? "true" : "false");
     };
 
     document.querySelectorAll(".playlist-display-group").forEach((card) => {
         setPlaylistCardVariant(card, !card.classList.contains("collapsed-card"));
+    });
+
+    document.querySelectorAll("[data-playlist-card-title]").forEach((title) => {
+        title.addEventListener("click", () => {
+            const card = title.closest(".playlist-display-group");
+            card?.querySelector(':scope > .card-header [data-lte-toggle="card-collapse"]')?.click();
+        });
     });
 
     document.addEventListener("expand.lte.card-widget", (event) => {
