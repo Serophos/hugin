@@ -9,7 +9,7 @@ Hugin is designed for simple web-based signage deployments: point a display brow
 
 Current application metadata:
 
-- Version: `1.0`
+- Version: `1.1.0`
 - License: `AGPL-3.0-or-later`
 - Runtime: PHP, MySQL, JavaScript
 - Plugin API version: `2`
