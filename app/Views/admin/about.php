@@ -1,11 +1,15 @@
-<?php $title = __('about.title'); require __DIR__ . '/../layouts/admin_header.php'; ?>
+<?php
+$title = __('about.title');
+$breadcrumbs = [['label' => $title]];
+require __DIR__ . '/../layouts/admin_header.php';
+?>
 <div class="about-layout">
     <section class="card about-logo-card">
         <img src="<?= e(url('/assets/img/hugin-logo.webp')) ?>" alt="<?= e(__('about.logo_alt')) ?>" class="about-logo">
-        <p class="muted"><?= e(__('app.description')) ?></p>
+        <p class="text-body-secondary muted"><?= e(__('app.description')) ?></p>
     </section>
 
-    <section class="card">
+    <section class="card shadow-sm">
         <div class="about-title">
             <div class="about-title__name"><?= e(__('app.name', [], 'Hugin')) ?></div>
             <span class="about-version"><?= e(__('common.version', [], 'Version')) ?> <?= e($software['version']) ?></span>
@@ -48,7 +52,7 @@
         </ul>
 
         <h2><?= e(__('nav.accessibility', [], 'Accessibility')) ?></h2>
-        <p><a class="button button--normal" href="<?= e(url('/admin/accessibility')) ?>"><?= admin_icon('about') ?><span><?= e(__('accessibility.title', [], 'Accessibility statement')) ?></span></a></p>
+        <p><a class="btn btn-outline-secondary" href="<?= e(url('/admin/accessibility')) ?>"><?= admin_icon('about') ?><span><?= e(__('accessibility.title', [], 'Accessibility statement')) ?></span></a></p>
 
         <h2><?= e(__('about.licensing')) ?></h2>
         <div class="license-box">

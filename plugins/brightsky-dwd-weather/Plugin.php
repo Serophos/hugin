@@ -3,11 +3,13 @@ namespace Plugins\BrightSkyDwdWeather;
 
 use App\Core\AbstractSlidePlugin;
 use App\Core\PluginApi;
+use App\Core\PluginJsonCache;
+use App\Core\ScheduledTaskProviderInterface;
 use DateTimeImmutable;
 use DateTimeZone;
 use RuntimeException;
 
-class Plugin extends AbstractSlidePlugin
+class Plugin extends AbstractSlidePlugin implements ScheduledTaskProviderInterface
 {
     private const DEFAULT_CURRENT_WEATHER_URL = 'https://api.brightsky.dev/current_weather';
     private const DEFAULT_STATION_DATA_PATH = 'data/stations.json';
@@ -49,6 +51,32 @@ class Plugin extends AbstractSlidePlugin
             'max_dist_meters' => self::DEFAULT_MAX_DIST_METERS,
             'user_agent' => self::DEFAULT_USER_AGENT,
         ];
+    }
+
+    public function getScheduledTasks(PluginApi $api): array
+    {
+        $globalSettings = array_replace($this->getDefaultGlobalSettings(), $api->loadGlobalSettings($this->getName()));
+        $interval = max(60, (int)($globalSettings['cache_ttl_seconds'] ?? self::DEFAULT_CACHE_TTL_SECONDS));
+        $tasks = [];
+        foreach ($api->listActiveSlideSettings($this->getName(), $this->getSlideType()) as $slide) {
+            $settings = array_replace($this->getDefaultSettings(), $slide['settings']);
+            if (trim((string)$settings['dwd_station_id']) === '') {
+                continue;
+            }
+            $tasks[] = [
+                'name' => 'refresh-slide-' . $slide['slide_id'],
+                'interval_seconds' => $interval,
+                'retry_seconds' => min($interval, 300),
+            ];
+        }
+        return $tasks;
+    }
+
+    public function runScheduledTask(string $taskName, PluginApi $api): void
+    {
+        $settings = $this->scheduledSlideSettings($taskName, $api);
+        $this->activeGlobalSettings = array_replace($this->getDefaultGlobalSettings(), $api->loadGlobalSettings($this->getName()));
+        $this->fetchCurrentWeather((string)$settings['dwd_station_id'], $api, true);
     }
 
     public function renderGlobalSettings(array $settings, PluginApi $api): string
@@ -185,6 +213,8 @@ class Plugin extends AbstractSlidePlugin
 
     public function getStateData(array $slide, array $settings, PluginApi $api): array
     {
+        $this->activeGlobalSettings = array_replace($this->getDefaultGlobalSettings(), $api->loadGlobalSettings($this->getName()));
+        $settings = array_replace($this->getDefaultSettings(), $settings);
         return [
             'station_name' => $settings['station_name'] ?? null,
             'display_name' => $settings['display_name'] ?? null,
@@ -192,6 +222,7 @@ class Plugin extends AbstractSlidePlugin
             'wmo_station_id' => $settings['wmo_station_id'] ?? null,
             'unit_system' => $settings['unit_system'] ?? null,
             'enable_weather_animations' => $settings['enable_weather_animations'] ?? ($settings['enable_rain_effect'] ?? null),
+            'weather_content_revision' => PluginJsonCache::revision($this->weatherCacheFile((string)$settings['dwd_station_id'], $api)),
         ];
     }
 
@@ -405,7 +436,27 @@ class Plugin extends AbstractSlidePlugin
         ];
     }
 
-    private function fetchCurrentWeather(string $dwdStationId, PluginApi $api): array
+    private function fetchCurrentWeather(string $dwdStationId, PluginApi $api, bool $forceRefresh = false): array
+    {
+        $cacheFile = $this->weatherCacheFile($dwdStationId, $api);
+        $ttl = max(60, (int)$this->globalSetting('cache_ttl_seconds', 900));
+
+        return PluginJsonCache::load($cacheFile, $ttl, $forceRefresh, function () use ($dwdStationId): array {
+            $url = $this->buildUrlWithQuery($this->currentWeatherUrl(), [
+                'dwd_station_id' => $dwdStationId,
+                'tz' => (string)$this->globalSetting('timezone', 'Europe/Berlin'),
+                'units' => 'dwd',
+                'max_dist' => (int)$this->globalSetting('max_dist_meters', self::DEFAULT_MAX_DIST_METERS),
+            ]);
+            $payload = $this->httpGetJson($url);
+            if (!is_array($payload['weather'] ?? null) || !$payload['weather']) {
+                throw new RuntimeException($this->t('errors.current_weather_missing', 'BrightSky DWD Weather: weather API did not return current data.'));
+            }
+            return $payload;
+        });
+    }
+
+    private function weatherCacheFile(string $dwdStationId, PluginApi $api): string
     {
         $cacheKey = sha1(json_encode([
             $this->currentWeatherUrl(),
@@ -413,26 +464,26 @@ class Plugin extends AbstractSlidePlugin
             $this->globalSetting('timezone', 'Europe/Berlin'),
             $this->globalSetting('max_dist_meters', self::DEFAULT_MAX_DIST_METERS),
         ], JSON_UNESCAPED_SLASHES));
-        $cacheFile = $api->pluginCachePath($this->getName(), $cacheKey . '.json');
-        $ttl = max(60, (int)$this->globalSetting('cache_ttl_seconds', 900));
+        return $api->pluginCachePath($this->getName(), $cacheKey . '.json');
+    }
 
-        if (is_file($cacheFile) && (filemtime($cacheFile) ?: 0) >= time() - $ttl) {
-            $cached = json_decode((string)file_get_contents($cacheFile), true);
-            if (is_array($cached)) {
-                return $cached;
-            }
+    private function scheduledSlideSettings(string $taskName, PluginApi $api): array
+    {
+        if (preg_match('/^refresh-slide-([1-9][0-9]*)$/D', $taskName, $matches) !== 1) {
+            throw new RuntimeException('BrightSky DWD Weather: unknown scheduled task.');
         }
-
-        $url = $this->buildUrlWithQuery($this->currentWeatherUrl(), [
-            'dwd_station_id' => $dwdStationId,
-            'tz' => (string)$this->globalSetting('timezone', 'Europe/Berlin'),
-            'units' => 'dwd',
-            'max_dist' => (int)$this->globalSetting('max_dist_meters', self::DEFAULT_MAX_DIST_METERS),
-        ]);
-        $payload = $this->httpGetJson($url);
-
-        @file_put_contents($cacheFile, json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
-        return $payload;
+        $slideId = (int)$matches[1];
+        foreach ($api->listActiveSlideSettings($this->getName(), $this->getSlideType()) as $slide) {
+            if ($slide['slide_id'] !== $slideId) {
+                continue;
+            }
+            $settings = array_replace($this->getDefaultSettings(), $slide['settings']);
+            if (trim((string)$settings['dwd_station_id']) === '') {
+                break;
+            }
+            return $settings;
+        }
+        throw new RuntimeException('BrightSky DWD Weather: scheduled slide is inactive or not configured.');
     }
 
     private function globalSetting(string $key, mixed $fallback): mixed

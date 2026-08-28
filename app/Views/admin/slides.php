@@ -1,5 +1,6 @@
 <?php
 $title = __('slide.plural');
+$breadcrumbs = [['label' => $title]];
 $allSlides = $allSlides ?? [];
 $pluginLabels = $pluginLabels ?? [];
 $slideTypeDefinitions = array_values($slideTypeDefinitions ?? []);
@@ -13,32 +14,22 @@ natcasesort($slideTypeOptions);
 require __DIR__ . '/../layouts/admin_header.php';
 ?>
 <div class="page-actions">
-    <a class="button button--default" href="<?= e(url('/admin/slides/create?return_to=' . rawurlencode('/admin/slides'))) ?>" data-open-slide-type-dialog data-create-url="<?= e(url('/admin/slides/create')) ?>" data-return-to="/admin/slides" aria-haspopup="dialog"><?= admin_icon('add') ?><span><?= e(__('slide.new')) ?></span></a>
+    <a class="btn btn-primary" href="<?= e(url('/admin/slides/create?return_to=' . rawurlencode('/admin/slides'))) ?>" data-open-slide-type-dialog data-create-url="<?= e(url('/admin/slides/create')) ?>" data-return-to="/admin/slides" aria-haspopup="dialog"><?= admin_icon('add') ?><span><?= e(__('slide.new')) ?></span></a>
 </div>
-<?php if ($flash): ?><div class="alert success"><?= e($flash) ?></div><?php endif; ?>
+<?php if ($flash): ?><div class="alert alert-success success"><?= e($flash) ?></div><?php endif; ?>
 
 <section class="slide-workspace-section">
-    <details class="card slide-group" open>
-        <summary>
-            <span class="slide-group__title">
-                <span class="slide-group__chevron" aria-hidden="true"></span>
-                <span>
-                    <h2><?= e(__('slide.all_slides')) ?></h2>
-                    <small><?= e(__('slide.unique_slide_count', ['count' => count($allSlides)])) ?></small>
-                </span>
-            </span>
-            <span class="slide-group__hint"><?= e(__('slide.all_slides_hint')) ?></span>
-        </summary>
-        <div class="slide-group__body">
+    <section class="card shadow-sm slide-library-card">
+        <div class="card-body">
             <?php if ($allSlides === []): ?>
-                <p class="muted slide-group__empty"><?= e(__('slide.no_slides')) ?></p>
+                <p class="muted slide-library-empty"><?= e(__('slide.no_slides')) ?></p>
             <?php else: ?>
                 <div class="slide-library-toolbar">
                     <span class="slide-library-toolbar__meta" data-slide-library-count data-template="<?= e(__('slide.library_filter_count', ['visible' => '__VISIBLE__', 'total' => '__TOTAL__'])) ?>" aria-live="polite"></span>
-                    <button type="button" class="button button--normal button--small" data-slide-library-reset hidden><?= e(__('slide.clear_filters')) ?></button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" data-slide-library-reset hidden><?= e(__('slide.clear_filters')) ?></button>
                 </div>
                 <div class="table-scroll">
-                    <table class="admin-table slide-library-table" data-admin-table data-slide-library-table>
+                    <table class="table table-hover align-middle admin-table slide-library-table" data-admin-table data-admin-table-state-key="slides" data-slide-library-table>
                         <thead>
                             <tr>
                                 <th aria-sort="none"><button type="button" class="slide-library-sort" data-admin-sort="name" data-sort-type="text" aria-label="<?= e(__('slide.sort_by_column', ['column' => __('common.name')])) ?>"><?= e(__('common.name')) ?></button></th>
@@ -49,19 +40,19 @@ require __DIR__ . '/../layouts/admin_header.php';
                                 <th><?= e(__('common.actions')) ?></th>
                             </tr>
                             <tr class="slide-library-filter-row">
-                                <th><input type="search" data-admin-filter="name" aria-label="<?= e(__('slide.filter_column', ['column' => __('common.name')])) ?>" placeholder="<?= e(__('common.name')) ?>"></th>
+                                <th><input class="form-control" type="search" data-admin-filter="name" aria-label="<?= e(__('slide.filter_column', ['column' => __('common.name')])) ?>" placeholder="<?= e(__('common.name')) ?>"></th>
                                 <th>
-                                    <select data-admin-filter="type" aria-label="<?= e(__('slide.filter_column', ['column' => __('common.type')])) ?>">
+                                    <select class="form-select" data-admin-filter="type" aria-label="<?= e(__('slide.filter_column', ['column' => __('common.type')])) ?>">
                                         <option value=""><?= e(__('slide.filter_all_types')) ?></option>
                                         <?php foreach ($slideTypeOptions as $typeLabel): ?>
                                             <option value="<?= e($typeLabel) ?>"><?= e($typeLabel) ?></option>
                                         <?php endforeach; ?>
                                     </select>
                                 </th>
-                                <th><input type="search" data-admin-filter="channels" aria-label="<?= e(__('slide.filter_column', ['column' => __('slide.assigned_channel_names')])) ?>" placeholder="<?= e(__('slide.assigned_channel_names')) ?>"></th>
-                                <th><input type="search" data-admin-filter="duration" aria-label="<?= e(__('slide.filter_column', ['column' => __('common.duration')])) ?>" placeholder="<?= e(__('common.duration')) ?>"></th>
+                                <th><input class="form-control" type="search" data-admin-filter="channels" aria-label="<?= e(__('slide.filter_column', ['column' => __('slide.assigned_channel_names')])) ?>" placeholder="<?= e(__('slide.assigned_channel_names')) ?>"></th>
+                                <th><input class="form-control" type="search" data-admin-filter="duration" aria-label="<?= e(__('slide.filter_column', ['column' => __('common.duration')])) ?>" placeholder="<?= e(__('common.duration')) ?>"></th>
                                 <th>
-                                    <select data-admin-filter="status" aria-label="<?= e(__('slide.filter_column', ['column' => __('common.status')])) ?>">
+                                    <select class="form-select" data-admin-filter="status" aria-label="<?= e(__('slide.filter_column', ['column' => __('common.status')])) ?>">
                                         <option value=""><?= e(__('slide.filter_all_statuses')) ?></option>
                                         <option value="active"><?= e(__('common.active')) ?></option>
                                         <option value="inactive"><?= e(__('common.inactive')) ?></option>
@@ -87,32 +78,38 @@ require __DIR__ . '/../layouts/admin_header.php';
                                 <td data-admin-cell="duration" data-sort-value="<?= e((string)$durationSort) ?>" data-filter-value="<?= e($durationLabel) ?>"><?= e($durationLabel) ?></td>
                                 <td data-admin-cell="status" data-sort-value="<?= e($statusLabel) ?>" data-filter-value="<?= e($statusValue) ?>"><?= e($statusLabel) ?></td>
                                 <td class="actions">
-                                    <a class="button button--normal button--small" href="<?= e(url('/admin/slides/' . $slide['id'] . '/edit')) ?>"><?= admin_icon('edit') ?><span><?= e(__('common.edit')) ?></span></a>
-                                    <form
-                                        method="post"
-                                        action="<?= e(url('/admin/slides/' . $slide['id'] . '/delete')) ?>"
-                                        class="inline-form"
-                                        data-dialog-submit
-                                        data-dialog-title="<?= e(__('common.delete')) ?>"
-                                        data-dialog-message="<?= e(__('slide.delete_everywhere_confirm', ['slide' => $slide['name'], 'count' => (int)($slide['channel_count'] ?? 0)])) ?>"
-                                        data-dialog-icon="trash"
-                                        data-dialog-buttons="cancel,delete"
-                                        data-dialog-accept="<?= e(__('common.delete')) ?>"
-                                    >
-                                        <?= csrf_field() ?>
-                                        <button type="submit" class="button button--danger button--small"><?= admin_icon('delete') ?><span><?= e(__('common.delete')) ?></span></button>
-                                    </form>
-                                    <a class="button button--normal button--small" target="_blank" rel="noopener noreferrer" href="<?= e(url('/preview-slide/' . $slide['id'])) ?>"><?= admin_icon('preview') ?><span><?= e(__('common.preview')) ?></span></a>
+                                    <div class="admin-action-groups">
+                                        <div class="btn-group btn-group-sm admin-action-group" role="group" aria-label="<?= e(__('common.actions') . ' ' . $slide['name']) ?>">
+                                            <a class="btn btn-secondary" target="_blank" rel="noopener noreferrer" href="<?= e(url('/preview-slide/' . $slide['id'])) ?>" aria-label="<?= e(__('common.preview') . ' ' . $slide['name']) ?>" title="<?= e(__('common.preview')) ?>"><?= admin_icon('preview') ?></a>
+                                            <a class="btn btn-primary" href="<?= e(url('/admin/slides/' . $slide['id'] . '/edit')) ?>" aria-label="<?= e(__('common.edit') . ' ' . $slide['name']) ?>" title="<?= e(__('common.edit')) ?>"><?= admin_icon('edit') ?></a>
+                                        </div>
+                                        <div class="btn-group btn-group-sm admin-action-group" role="group" aria-label="<?= e(__('common.delete') . ' ' . $slide['name']) ?>">
+                                            <form
+                                                method="post"
+                                                action="<?= e(url('/admin/slides/' . $slide['id'] . '/delete')) ?>"
+                                                class="inline-form"
+                                                data-dialog-submit
+                                                data-dialog-title="<?= e(__('common.delete')) ?>"
+                                                data-dialog-message="<?= e(__('slide.delete_everywhere_confirm', ['slide' => $slide['name'], 'count' => (int)($slide['channel_count'] ?? 0)])) ?>"
+                                                data-dialog-icon="trash"
+                                                data-dialog-buttons="cancel,delete"
+                                                data-dialog-accept="<?= e(__('common.delete')) ?>"
+                                            >
+                                                <?= csrf_field() ?>
+                                                <button type="submit" class="btn btn-danger" aria-label="<?= e(__('common.delete') . ' ' . $slide['name']) ?>" title="<?= e(__('common.delete')) ?>"><?= admin_icon('delete') ?></button>
+                                            </form>
+                                        </div>
+                                    </div>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
                         </tbody>
                     </table>
                 </div>
-                <p class="muted slide-group__empty" data-slide-library-empty hidden><?= e(__('slide.library_filter_empty')) ?></p>
+                <p class="muted slide-library-empty" data-slide-library-empty hidden><?= e(__('slide.library_filter_empty')) ?></p>
             <?php endif; ?>
         </div>
-    </details>
+    </section>
 </section>
 
 <?php
@@ -123,50 +120,31 @@ require __DIR__ . '/partials/slide_type_dialog.php';
 
 <script>
 (() => {
-    const libraryTable = document.querySelector('[data-slide-library-table]');
-    if (libraryTable) {
-        const rows = Array.from(libraryTable.querySelectorAll('[data-admin-row]'));
-        const filterControls = Array.from(libraryTable.querySelectorAll('[data-admin-filter]'));
-        const resetFilters = document.querySelector('[data-slide-library-reset]');
-        const count = document.querySelector('[data-slide-library-count]');
-        const empty = document.querySelector('[data-slide-library-empty]');
-        const total = rows.length;
-        const normalize = (value) => String(value || '').trim();
+    const resetFilters = document.querySelector('[data-slide-library-reset]');
+    const count = document.querySelector('[data-slide-library-count]');
+    const empty = document.querySelector('[data-slide-library-empty]');
 
-        function updateLibrarySummary() {
-            const visible = rows.filter((row) => !row.hidden).length;
-            if (count) {
-                const template = count.dataset.template || '__VISIBLE__ / __TOTAL__';
-                count.textContent = template.replace('__VISIBLE__', String(visible)).replace('__TOTAL__', String(total));
-            }
-            if (empty) {
-                empty.hidden = visible > 0;
-            }
-            if (resetFilters) {
-                resetFilters.hidden = !filterControls.some((control) => normalize(control.value) !== '');
-            }
+    document.addEventListener('admin-table-updated', (event) => {
+        const table = event.target instanceof Element ? event.target.closest('[data-slide-library-table]') : null;
+        if (!table) return;
+
+        const visible = Number(event.detail?.visible || 0);
+        const total = Number(event.detail?.total || 0);
+        if (count) {
+            const template = count.dataset.template || '__VISIBLE__ / __TOTAL__';
+            count.textContent = template.replace('__VISIBLE__', String(visible)).replace('__TOTAL__', String(total));
         }
-
-        function scheduleLibrarySummaryUpdate() {
-            window.requestAnimationFrame(updateLibrarySummary);
+        if (empty) {
+            empty.hidden = visible > 0;
         }
+        if (resetFilters) {
+            resetFilters.hidden = visible === total;
+        }
+    });
 
-        filterControls.forEach((control) => {
-            control.addEventListener('input', scheduleLibrarySummaryUpdate);
-            control.addEventListener('change', scheduleLibrarySummaryUpdate);
-        });
-
-        resetFilters?.addEventListener('click', () => {
-            filterControls.forEach((control) => {
-                control.value = '';
-                control.dispatchEvent(new Event('input', { bubbles: true }));
-            });
-            scheduleLibrarySummaryUpdate();
-            filterControls[0]?.focus();
-        });
-
-        updateLibrarySummary();
-    }
+    resetFilters?.addEventListener('click', () => {
+        document.querySelector('[data-slide-library-table]')?.dispatchEvent(new CustomEvent('admin-table-reset'));
+    });
 
 })();
 </script>

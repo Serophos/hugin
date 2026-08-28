@@ -24,8 +24,10 @@ Existing `plugins/weather/config.php` files are no longer read by the plugin. Ke
 1. A slide stores location, coordinate, unit, and display options in slide plugin settings.
 2. The plugin resolves location searches through the configured geocoding endpoint.
 3. Current weather requests are made server-side.
-4. Weather responses are cached below `storage/cache/plugins/weather/` using `cache_ttl_seconds`.
-5. Frontend CSS and JavaScript are served through Hugin's plugin asset route.
+4. Every active, configured weather slide registers a scheduled refresh at `cache_ttl_seconds` (minimum 60 seconds) with Hugin's shared task runner.
+5. Weather responses are cached atomically below `storage/cache/plugins/weather/`; request-time TTL refresh remains as a fallback when cron is missing or delayed.
+6. Accepted weather changes update plugin state, so Hugin's existing frontend state polling and synchronized reload flow refresh displays without a second polling mechanism.
+7. Frontend CSS and JavaScript are served through Hugin's plugin asset route.
 
 ## Common Adjustments
 

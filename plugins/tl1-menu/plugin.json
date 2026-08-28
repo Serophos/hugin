@@ -4,7 +4,7 @@
     "en": "TL1 Menu",
     "de": "TL1 Speiseplan"
   },
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": {
     "en": "Displays today's TL1 menu for a selected mensa or cafeteria with prices, allergens, additives, categories, and sustainability data.",
     "de": "Zeigt den heutigen TL1-Speiseplan für eine ausgewählte Mensa oder Cafeteria mit Preisen, Allergenen, Zusatzstoffen, Kategorien und Nachhaltigkeitsdaten an."

@@ -211,6 +211,28 @@ class PluginManager
         return is_array($data) ? $data : [];
     }
 
+    /** @return list<array{slide_id:int,settings:array}> */
+    public function listActiveSlideSettings(string $pluginName, string $slideType): array
+    {
+        $rows = $this->db->all(
+            'SELECT s.id AS slide_id, spd.settings_json
+             FROM slides s
+             INNER JOIN slide_plugin_data spd ON spd.slide_id = s.id AND spd.plugin_name = ?
+             WHERE s.slide_type = ? AND s.is_active = 1
+             ORDER BY s.id ASC',
+            [$pluginName, $slideType]
+        );
+
+        $result = [];
+        foreach ($rows as $row) {
+            $settings = json_decode((string)($row['settings_json'] ?? ''), true);
+            if (is_array($settings)) {
+                $result[] = ['slide_id' => (int)$row['slide_id'], 'settings' => $settings];
+            }
+        }
+        return $result;
+    }
+
     public function saveSlideSettings(int $slideId, string $pluginName, array $settings): void
     {
         $json = json_encode($settings, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);

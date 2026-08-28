@@ -99,20 +99,33 @@ if (is_string($staticUri) && in_array($staticMethod, ['GET', 'HEAD'], true)) {
     }
 }
 
+require_once __DIR__ . '/../app/session_policy.php';
+
+$GLOBALS['app_request_requires_session'] = app_request_requires_session(
+    $staticMethod,
+    (string)($_SERVER['REQUEST_URI'] ?? '/'),
+);
+
 require_once __DIR__ . '/../app/bootstrap.php';
 
 use App\Controllers\AdminController;
+use App\Controllers\AccountController;
 use App\Controllers\FrontendController;
 use App\Controllers\MonitoringController;
+use App\Controllers\OpenIdConnectController;
 
 $admin = new AdminController($db, $view, $auth, $request, $uploadManager, $pluginManager);
+$account = new AccountController($auth, $view, $request);
 $frontend = new FrontendController($db, $view, $pluginManager);
 $monitoring = new MonitoringController($db, $displayStatusService);
+$openid = new OpenIdConnectController($auth, $view);
 
 $uri = $request->uri();
 $method = $request->method();
 
-if ($method === 'POST' && !preg_match('#^/display/[a-zA-Z0-9\-_]+/heartbeat$#', $uri)) {
+if ($method === 'POST'
+    && !preg_match('#^/display/[a-zA-Z0-9\-_]+/(?:heartbeat|cache-readiness)$#', $uri)
+) {
     require_csrf();
 }
 
@@ -120,13 +133,19 @@ if ($uri === '/' && $method === 'GET') {
     redirect($auth->check() ? '/admin' : '/admin/login');
 }
 
-if ($uri === '/admin/login' && $method === 'GET') { $admin->loginForm(); exit; }
-if ($uri === '/admin/login' && $method === 'POST') { $admin->login(); exit; }
+if ($uri === '/admin/login' && $method === 'GET') { $openid->loginOrLocal(); exit; }
+if ($uri === '/admin/login/local' && $method === 'GET') { $openid->localLoginView(); exit; }
+if (($uri === '/admin/login' || $uri === '/admin/login/local') && $method === 'POST') { $admin->login(); exit; }
+if ($uri === '/admin/oidc/start' && $method === 'GET') { $openid->start(); exit; }
+if ($uri === '/admin/oidc/callback' && $method === 'GET') { $openid->callback(); exit; }
+if ($uri === '/admin/oidc/test' && $method === 'POST') { $openid->testConfiguration(); exit; }
 if ($uri === '/admin/logout' && $method === 'POST') { $admin->logout(); exit; }
 
 if ($uri === '/admin' && $method === 'GET') { $admin->dashboard(); exit; }
 if ($uri === '/admin/about' && $method === 'GET') { $admin->about(); exit; }
 if ($uri === '/admin/accessibility' && $method === 'GET') { $admin->accessibility(); exit; }
+if ($uri === '/admin/account' && $method === 'GET') { $account->show(); exit; }
+if ($uri === '/admin/account/locale' && $method === 'POST') { $account->setLocale(); exit; }
 if ($uri === '/admin/account/password' && $method === 'GET') { $admin->passwordForm(); exit; }
 if ($uri === '/admin/account/password' && $method === 'POST') { $admin->savePassword(); exit; }
 if ($uri === '/admin/plugins' && $method === 'GET') { $admin->plugins(); exit; }
@@ -153,10 +172,12 @@ if (preg_match('#^/admin/displays/(\d+)/reload$#', $uri, $m) && $method === 'POS
 if (preg_match('#^/admin/displays/(\d+)/delete$#', $uri, $m) && $method === 'POST') { $admin->deleteDisplay((int)$m[1]); exit; }
 
 if ($uri === '/admin/locations' && $method === 'GET') { $admin->locations(); exit; }
+if ($uri === '/admin/locations/create' && $method === 'GET') { $admin->locationCreateForm(); exit; }
 if ($uri === '/admin/locations/create' && $method === 'POST') { $admin->saveLocation(); exit; }
 if (preg_match('#^/admin/locations/(\d+)/edit$#', $uri, $m) && $method === 'GET') { $admin->locationForm((int)$m[1]); exit; }
 if (preg_match('#^/admin/locations/(\d+)/edit$#', $uri, $m) && $method === 'POST') { $admin->saveLocation((int)$m[1]); exit; }
 if (preg_match('#^/admin/locations/(\d+)/delete$#', $uri, $m) && $method === 'POST') { $admin->deleteLocation((int)$m[1]); exit; }
+if ($uri === '/admin/display-groups/create' && $method === 'GET') { $admin->displayGroupCreateForm(); exit; }
 if ($uri === '/admin/display-groups/create' && $method === 'POST') { $admin->saveDisplayGroup(); exit; }
 if ($uri === '/admin/display-groups/bulk' && $method === 'POST') { $admin->moveDisplaysToGroup(); exit; }
 if (preg_match('#^/admin/display-groups/(\d+)$#', $uri, $m) && $method === 'GET') { $admin->displayGroup((int)$m[1]); exit; }
@@ -222,6 +243,8 @@ if (preg_match('#^/api/media/(\d+)/preview$#', $uri, $m) && $method === 'GET') {
 if (preg_match('#^/display/([a-zA-Z0-9\-_]+)/offline-manifest$#', $uri, $m) && $method === 'GET') { $frontend->offlineManifest($m[1]); exit; }
 if (preg_match('#^/display/([a-zA-Z0-9\-_]+)$#', $uri, $m) && $method === 'GET') { $frontend->display($m[1]); exit; }
 if (preg_match('#^/display/([a-zA-Z0-9\-_]+)/heartbeat$#', $uri, $m) && $method === 'POST') { $frontend->heartbeat($m[1]); exit; }
+if (preg_match('#^/display/([a-zA-Z0-9\-_]+)/cache-readiness$#', $uri, $m) && $method === 'POST') { $frontend->cacheReadiness($m[1]); exit; }
+if (preg_match('#^/display/([a-zA-Z0-9\-_]+)/cache-readiness$#', $uri, $m) && $method === 'GET') { $frontend->cacheReadinessStatus($m[1]); exit; }
 if (preg_match('#^/display/([a-zA-Z0-9\-_]+)/state$#', $uri, $m) && $method === 'GET') { $frontend->state($m[1]); exit; }
 
 http_response_code(404);

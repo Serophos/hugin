@@ -3,9 +3,11 @@ namespace Plugins\Weather;
 
 use App\Core\AbstractSlidePlugin;
 use App\Core\PluginApi;
+use App\Core\PluginJsonCache;
+use App\Core\ScheduledTaskProviderInterface;
 use RuntimeException;
 
-class Plugin extends AbstractSlidePlugin
+class Plugin extends AbstractSlidePlugin implements ScheduledTaskProviderInterface
 {
     private const DEFAULT_GEOCODING_BASE_URL = 'https://geocoding-api.open-meteo.com/v1/search';
     private const DEFAULT_WEATHER_BASE_URL = 'https://api.open-meteo.com/v1/forecast';
@@ -39,6 +41,31 @@ class Plugin extends AbstractSlidePlugin
             'http_timeout_seconds' => self::DEFAULT_HTTP_TIMEOUT_SECONDS,
             'user_agent' => self::DEFAULT_USER_AGENT,
         ];
+    }
+
+    public function getScheduledTasks(PluginApi $api): array
+    {
+        $globalSettings = $this->loadGlobalSettings($api);
+        $interval = max(60, (int)($globalSettings['cache_ttl_seconds'] ?? self::DEFAULT_CACHE_TTL_SECONDS));
+        $tasks = [];
+        foreach ($api->listActiveSlideSettings($this->getName(), $this->getSlideType()) as $slide) {
+            $settings = array_replace($this->getDefaultSettings(), $slide['settings']);
+            if (trim((string)$settings['latitude']) === '' || trim((string)$settings['longitude']) === '') {
+                continue;
+            }
+            $tasks[] = [
+                'name' => 'refresh-slide-' . $slide['slide_id'],
+                'interval_seconds' => $interval,
+                'retry_seconds' => min($interval, 300),
+            ];
+        }
+        return $tasks;
+    }
+
+    public function runScheduledTask(string $taskName, PluginApi $api): void
+    {
+        $settings = $this->scheduledSlideSettings($taskName, $api);
+        $this->fetchCurrentWeather($settings, $this->loadGlobalSettings($api), $api, true);
     }
 
     public function isCommercialMode(array $globalSettings = []): bool
@@ -198,6 +225,8 @@ class Plugin extends AbstractSlidePlugin
 
     public function getStateData(array $slide, array $settings, PluginApi $api): array
     {
+        $settings = array_replace($this->getDefaultSettings(), $settings);
+        $globalSettings = $this->loadGlobalSettings($api);
         return [
             'location_name' => $settings['location_name'] ?? null,
             'latitude' => $settings['latitude'] ?? null,
@@ -205,6 +234,7 @@ class Plugin extends AbstractSlidePlugin
             'temperature_unit' => $settings['temperature_unit'] ?? null,
             'wind_speed_unit' => $settings['wind_speed_unit'] ?? null,
             'precipitation_unit' => $settings['precipitation_unit'] ?? null,
+            'weather_content_revision' => PluginJsonCache::revision($this->weatherCacheFile($settings, $globalSettings, $api)),
         ];
     }
 
@@ -364,7 +394,23 @@ class Plugin extends AbstractSlidePlugin
         ];
     }
 
-    private function fetchCurrentWeather(array $settings, array $globalSettings, PluginApi $api): array
+    private function fetchCurrentWeather(array $settings, array $globalSettings, PluginApi $api, bool $forceRefresh = false): array
+    {
+        $cacheFile = $this->weatherCacheFile($settings, $globalSettings, $api);
+        $ttl = max(1, (int)($globalSettings['cache_ttl_seconds'] ?? self::DEFAULT_CACHE_TTL_SECONDS));
+
+        return PluginJsonCache::load($cacheFile, $ttl, $forceRefresh, function () use ($settings, $globalSettings): array {
+            $url = $this->buildWeatherUrl($settings, $globalSettings);
+            $payload = $this->httpGetJson($url, $globalSettings);
+            $current = is_array($payload['current'] ?? null) ? $payload['current'] : null;
+            if (!$current) {
+                throw new RuntimeException($this->t('plugin.weather.error.current_weather_missing', 'Weather plugin: weather API did not return current data.'));
+            }
+            return $current;
+        });
+    }
+
+    private function weatherCacheFile(array $settings, array $globalSettings, PluginApi $api): string
     {
         $cacheKey = sha1(json_encode([
             $globalSettings['weather_base_url'],
@@ -375,24 +421,26 @@ class Plugin extends AbstractSlidePlugin
             $settings['wind_speed_unit'],
             $settings['precipitation_unit'],
         ], JSON_UNESCAPED_SLASHES));
-        $cacheFile = $api->pluginCachePath($this->getName(), $cacheKey . '.json');
-        $ttl = max(1, (int)($globalSettings['cache_ttl_seconds'] ?? self::DEFAULT_CACHE_TTL_SECONDS));
-        if (is_file($cacheFile) && (filemtime($cacheFile) ?: 0) >= time() - $ttl) {
-            $cached = json_decode((string)file_get_contents($cacheFile), true);
-            if (is_array($cached)) {
-                return $cached;
+        return $api->pluginCachePath($this->getName(), $cacheKey . '.json');
+    }
+
+    private function scheduledSlideSettings(string $taskName, PluginApi $api): array
+    {
+        if (preg_match('/^refresh-slide-([1-9][0-9]*)$/D', $taskName, $matches) !== 1) {
+            throw new RuntimeException('Weather plugin: unknown scheduled task.');
+        }
+        $slideId = (int)$matches[1];
+        foreach ($api->listActiveSlideSettings($this->getName(), $this->getSlideType()) as $slide) {
+            if ($slide['slide_id'] !== $slideId) {
+                continue;
             }
+            $settings = array_replace($this->getDefaultSettings(), $slide['settings']);
+            if (trim((string)$settings['latitude']) === '' || trim((string)$settings['longitude']) === '') {
+                break;
+            }
+            return $settings;
         }
-
-        $url = $this->buildWeatherUrl($settings, $globalSettings);
-        $payload = $this->httpGetJson($url, $globalSettings);
-        $current = is_array($payload['current'] ?? null) ? $payload['current'] : null;
-        if (!$current) {
-            throw new RuntimeException($this->t('plugin.weather.error.current_weather_missing', 'Weather plugin: weather API did not return current data.'));
-        }
-
-        @file_put_contents($cacheFile, json_encode($current, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
-        return $current;
+        throw new RuntimeException('Weather plugin: scheduled slide is inactive or not configured.');
     }
 
     private function buildWeatherUrl(array $settings, array $globalSettings): string

@@ -22,6 +22,10 @@ Existing `plugins/brightsky-dwd-weather/config.php` files are no longer read by 
 
 ## Runtime Behavior
 
+Each active, configured BrightSky slide registers a per-slide refresh task with Hugin's shared task runner. The task interval follows `cache_ttl_seconds`, failed tasks use the scheduler's bounded retry interval, and one station failure does not prevent other station tasks from running.
+
+Successful responses are validated and atomically replace the cached JSON. Request-time TTL refresh remains available when cron is missing or delayed. A hash of the accepted cache is included in plugin state, allowing Hugin's existing frontend state polling and synchronized reload infrastructure to update displays when weather changes.
+
 1. The admin slide form loads station search data from `station_data_path` through the plugin asset route.
 2. Each slide stores the selected DWD station, display name, unit system, and animation options.
 3. The frontend requests current weather from `brightsky_current_weather_url` with `dwd_station_id`, `tz`, `units=dwd`, and `max_dist`.

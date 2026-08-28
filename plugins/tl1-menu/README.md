@@ -45,6 +45,10 @@ The generated parser setup is stored under `parser_config`; operational defaults
 - It selects the slide’s mensa by mapping TL1 location IDs.
 - It applies excluded food types and category assignments.
 - It renders the menu in card or list layout with prices, labels, and environment indicators.
+- The XML feed is refreshed by the shared Hugin scheduled-task runner at the configured cache TTL.
+- Downloads are validated and atomically replace the cache; failures preserve the last known-good menu.
+- The accepted XML content hash is part of display state, so existing frontend polling reloads displays when menu content changes.
+- Request-time TTL refresh remains available when cron is missing or delayed.
 
 ## Current config model
 

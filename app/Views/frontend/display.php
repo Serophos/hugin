@@ -3,6 +3,18 @@ $heartbeatInterval = max(30, min(120, (int)floor(((int)app_core_setting('monitor
 $displayGroup = $displayGroup ?? null;
 $syncReloadToFullMinute = !empty($displayGroup['sync_reload_to_full_minute']);
 $startupSyncKey = 'hugin:slideshow-started:' . (string)($display['slug'] ?? '');
+$startupLocationName = (string)($displayGroup['location_name'] ?? __('locations.unassigned'));
+$startupGroupName = (string)($displayGroup['name'] ?? __('common.none'));
+$startupDisplayName = (string)($display['name'] ?? '');
+$playbackStatus = (string)($playbackStatus ?? (($slides ?? []) ? 'ready' : 'no_playlist'));
+$playbackStatusMessage = $playbackStatus === 'no_slides'
+    ? __('frontend.playback_no_slides')
+    : __('frontend.playback_no_playlist');
+$coreFrontendRevision = (string)($coreFrontendRevision ?? '');
+$coreFrontendAssetUrl = static function (string $publicPath) use ($coreFrontendRevision): string {
+    $assetUrl = asset_url($publicPath);
+    return $coreFrontendRevision !== '' ? append_url_query_param($assetUrl, 'runtime', $coreFrontendRevision) : $assetUrl;
+};
 $templateFontAssetIds = [];
 foreach (($slides ?? []) as $slide) {
     foreach ((array)($slide['template_font_asset_ids'] ?? []) as $fontAssetId) {
@@ -32,14 +44,12 @@ $defaultHeadingFontCss = \App\Core\TemplateSlideService::fontFamilyCssForToken((
     <title><?= e($display['name']) ?> · <?= e(__('app.name', [], 'Hugin')) ?></title>
     <script>
         (() => {
-            const startupKey = <?= json_encode($startupSyncKey, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
             const scheduledReloadKey = 'huginScheduledSyncReload';
             const maxScheduledReloadAgeMs = 120000;
 
             try {
                 const navEntry = window.performance?.getEntriesByType?.('navigation')?.[0];
                 const isReload = navEntry?.type === 'reload' || window.performance?.navigation?.type === 1;
-                const hasStartedBefore = Boolean(startupKey && window.sessionStorage.getItem(startupKey));
                 const rawScheduledReload = window.sessionStorage.getItem(scheduledReloadKey);
                 const scheduledReload = rawScheduledReload ? JSON.parse(rawScheduledReload) : null;
                 const scheduledReloadAgeMs = Date.now() - Number(scheduledReload?.at || 0);
@@ -47,13 +57,17 @@ $defaultHeadingFontCss = \App\Core\TemplateSlideService::fontFamilyCssForToken((
                     && scheduledReloadAgeMs >= 0
                     && scheduledReloadAgeMs <= maxScheduledReloadAgeMs;
 
-                if (isReload || hasStartedBefore || hasFreshScheduledReload) {
+                // A session marker survives fresh navigations in the same tab and
+                // must not hide the first-load screen. Suppress it only for a real
+                // playback/config reload; preview pages never receive the pending
+                // class in the first place.
+                if (!hasFreshScheduledReload && isReload) {
                     document.documentElement.classList.add('hugin-startup-loading-seen');
                 }
             } catch (error) {}
         })();
     </script>
-    <link rel="stylesheet" href="<?= e(asset_url('/assets/css/display.css')) ?>">
+    <link rel="stylesheet" href="<?= e($coreFrontendAssetUrl('/assets/css/display.css')) ?>">
     <?php foreach (($pluginAssets['css'] ?? []) as $cssAsset): ?>
         <link rel="stylesheet" href="<?= e($cssAsset) ?>">
     <?php endforeach; ?>
@@ -87,27 +101,46 @@ $defaultHeadingFontCss = \App\Core\TemplateSlideService::fontFamilyCssForToken((
 <body class="display-orientation-<?= e($orientation ?? ($display['orientation'] ?? 'landscape')) ?>">
 <?php
 $displayRoutePrefix = '/display/' . $display['slug'];
-$isPreviewDisplay = false;
+$isPreviewDisplay = !empty($isDisplayPreview);
 if (str_starts_with($display['slug'] ?? '', 'preview-slide-') && preg_match('#^preview-slide-(\d+)$#', $display['slug'], $slugMatch)) {
     $displayRoutePrefix = '/preview-slide/' . $slugMatch[1];
     $isPreviewDisplay = true;
 }
 ?>
 <div id="slideshow"
-     class="slideshow <?= $isPreviewDisplay ? '' : 'is-startup-sync-pending ' ?>effect-<?= e($effect) ?> orientation-<?= e($orientation ?? ($display['orientation'] ?? 'landscape')) ?>"
+     class="slideshow <?= $isPreviewDisplay ? '' : 'is-startup-sync-pending ' ?>is-media-startup-pending effect-<?= e($effect) ?> orientation-<?= e($orientation ?? ($display['orientation'] ?? 'landscape')) ?>"
      data-default-duration="<?= e((string)$duration) ?>"
-     data-heartbeat-url="<?= e(url($displayRoutePrefix . '/heartbeat')) ?>"
+     data-display-preview="<?= $isPreviewDisplay ? '1' : '0' ?>"
+     data-heartbeat-url="<?= $isPreviewDisplay ? '' : e(url($displayRoutePrefix . '/heartbeat')) ?>"
      data-heartbeat-interval="<?= e((string)$heartbeatInterval) ?>"
      data-state-url="<?= e(url($displayRoutePrefix . '/state')) ?>"
+     data-cache-readiness-url="<?= $isPreviewDisplay ? '' : e(url($displayRoutePrefix . '/cache-readiness')) ?>"
      data-offline-manifest-url="<?= $isPreviewDisplay ? '' : e(url($displayRoutePrefix . '/offline-manifest')) ?>"
-     data-service-worker-url="<?= $isPreviewDisplay ? '' : e(asset_url('/display-service-worker.js')) ?>"
+     data-service-worker-url="<?= $isPreviewDisplay ? '' : e($coreFrontendAssetUrl('/display-service-worker.js')) ?>"
      data-state-check-interval="60"
      data-state-signature="<?= e($stateSignature) ?>"
+     data-channel-id="<?= e((string)($channel['id'] ?? 0)) ?>"
+     data-channel-name="<?= e((string)($channel['name'] ?? '')) ?>"
+     data-playback-status="<?= e($playbackStatus) ?>"
+     data-media-unavailable-message="<?= e(__('frontend.playback_media_unavailable')) ?>"
+     data-next-selection-at-ms="<?= e((string)($nextSelectionAtMs ?? 0)) ?>"
      data-server-time-ms="<?= e((string)($serverTimeMs ?? 0)) ?>"
      data-sync-reload-to-full-minute="<?= $syncReloadToFullMinute ? '1' : '0' ?>"
      data-display-group-id="<?= e((string)($displayGroup['id'] ?? '')) ?>"
      data-display-group-name="<?= e((string)($displayGroup['name'] ?? '')) ?>"
      data-display-group-sync-mode="<?= e((string)($displayGroup['sync_mode'] ?? 'independent')) ?>"
+     data-display-language="<?= e((string)($display['display_language'] ?? 'system')) ?>"
+     data-display-locale="<?= e(current_locale()) ?>"
+     data-loading-stage-preparing="<?= e(__('frontend.loading_stage_preparing')) ?>"
+     data-loading-stage-caching="<?= e(__('frontend.loading_stage_caching')) ?>"
+     data-loading-stage-degraded="<?= e(__('frontend.loading_stage_degraded')) ?>"
+     data-loading-stage-ready="<?= e(__('frontend.loading_stage_ready')) ?>"
+     data-loading-stage-waiting-group="<?= e(__('frontend.loading_stage_waiting_group')) ?>"
+     data-loading-stage-waiting-minute="<?= e(__('frontend.loading_stage_waiting_minute')) ?>"
+     data-loading-stage-starting="<?= e(__('frontend.loading_stage_starting')) ?>"
+     data-loading-progress-template="<?= e(__('frontend.loading_progress_template')) ?>"
+     data-loading-group-progress-template="<?= e(__('frontend.loading_group_progress_template')) ?>"
+     data-loading-minute-progress-template="<?= e(__('frontend.loading_minute_progress_template')) ?>"
      data-startup-sync-key="<?= e($startupSyncKey) ?>">
     <div class="startup-loading" role="status" aria-live="polite">
         <div class="startup-loading__content">
@@ -115,10 +148,37 @@ if (str_starts_with($display['slug'] ?? '', 'preview-slide-') && preg_match('#^p
             <div class="startup-loading__copy">
                 <h1><?= e(__('frontend.loading_title')) ?></h1>
                 <p class="startup-loading__status"><?= e(__('frontend.loading_status')) ?></p>
+                <p class="startup-loading__progress" data-startup-cache-progress></p>
             </div>
-            <div class="startup-loading__bar" aria-hidden="true"></div>
+            <div class="startup-loading__bar"
+                 role="progressbar"
+                 aria-valuemin="0"
+                 aria-valuemax="100"
+                 aria-valuenow="0"
+                 aria-label="<?= e(__('frontend.loading_status')) ?>">
+                <span class="startup-loading__bar-fill" data-startup-progress-bar></span>
+            </div>
             <p class="startup-loading__legal"><?= e(__('frontend.loading_legal')) ?></p>
         </div>
+        <dl class="startup-loading__identity" aria-label="<?= e(__('display.singular')) ?>">
+            <div>
+                <dt><?= e(__('locations.singular')) ?></dt>
+                <dd><?= e($startupLocationName) ?></dd>
+            </div>
+            <div>
+                <dt><?= e(__('display_groups.singular')) ?></dt>
+                <dd><?= e($startupGroupName) ?></dd>
+            </div>
+            <div>
+                <dt><?= e(__('display.singular')) ?></dt>
+                <dd><?= e($startupDisplayName) ?></dd>
+            </div>
+        </dl>
+    </div>
+    <div class="playback-status<?= $playbackStatus === 'ready' ? '' : ' is-active' ?>" data-playback-status-screen role="status" aria-live="polite">
+        <img src="<?= e(url('/assets/img/hugin-logo.webp')) ?>" alt="">
+        <p><?= e($playbackStatusMessage) ?></p>
+        <small><?= e(__('frontend.playback_waiting')) ?></small>
     </div>
     <?php foreach ($slides as $index => $slide): ?>
         <?php
@@ -213,13 +273,16 @@ if (str_starts_with($display['slug'] ?? '', 'preview-slide-') && preg_match('#^p
                     <?php endif; ?>
                 </div>
             <?php else: ?>
-                <iframe data-src="<?= e($slide['resolved_source_url']) ?>" loading="lazy" referrerpolicy="no-referrer-when-downgrade" title="<?= e($slide['name']) ?>"></iframe>
+                <iframe data-src="<?= e($slide['resolved_source_url']) ?>" loading="eager" referrerpolicy="no-referrer-when-downgrade" title="<?= e($slide['name']) ?>"></iframe>
             <?php endif; ?>
         </section>
     <?php endforeach; ?>
 </div>
-<script src="<?= e(asset_url('/assets/js/hugin-qr.js')) ?>"></script>
-<script src="<?= e(asset_url('/assets/js/slideshow.js')) ?>"></script>
+<script src="<?= e($coreFrontendAssetUrl('/assets/js/hugin-qr.js')) ?>"></script>
+<script src="<?= e($coreFrontendAssetUrl('/assets/js/playback-scheduler.js')) ?>"></script>
+<script src="<?= e($coreFrontendAssetUrl('/assets/js/display-heartbeat.js')) ?>"></script>
+<script src="<?= e($coreFrontendAssetUrl('/assets/js/display-media-lifecycle.js')) ?>"></script>
+<script src="<?= e($coreFrontendAssetUrl('/assets/js/slideshow.js')) ?>"></script>
 <?php foreach (($pluginAssets['js'] ?? []) as $jsAsset): ?>
     <script src="<?= e($jsAsset) ?>"></script>
 <?php endforeach; ?>

@@ -9,7 +9,7 @@ Hugin is designed for simple web-based signage deployments: point a display brow
 
 Current application metadata:
 
-- Version: `1.0`
+- Version: `1.1.0`
 - License: `AGPL-3.0-or-later`
 - Runtime: PHP, MySQL, JavaScript
 - Plugin API version: `2`
@@ -37,7 +37,7 @@ Production PHP dependencies are installed with Composer:
 - `erusev/parsedown`: safe Markdown rendering for text slides.
 - `dompdf/php-font-lib`: font metadata extraction for uploaded TTF/OTF/WOFF fonts.
 
-Frontend build dependencies are installed with npm and are only needed when regenerating committed admin assets:
+Frontend build dependencies are installed with npm and are only needed when regenerating frontend assets:
 
 - `@rsuite/icon-font`: source icon components for generated admin SVG icons.
 - `react` and `react-dom`: used by the icon generation script.
@@ -90,20 +90,38 @@ The seeded demo users use the password `admin123!`:
 
 Change initial passwords immediately on a real installation. Hugin shows a warning to users until their password has been changed after account creation.
 
+### Plugin Scheduled Tasks
+
+Run Hugin's plugin task runner once per minute in production. Use the same operating-system user as the web process so both processes have compatible ownership and write access below `storage/`:
+
+```cron
+* * * * * cd /path/to/hugin && /usr/bin/php bin/hugin-tasks run
+```
+
+Inspect persisted task health with:
+
+```bash
+php bin/hugin-tasks status
+```
+
+The runner executes only due tasks from enabled plugins, prevents overlapping runs with a database advisory lock, and records failures without stopping unrelated tasks. TL1 Menu and both bundled weather plugins use it for feed refreshes; their request-time cache refresh remains available as a compatibility fallback. Database migrations must be current before either command runs.
+
 ### Frontend Asset Builds
 
-Hugin keeps generated frontend assets committed so a normal production deployment can remain PHP/Composer-only after checkout. Use npm when changing generated admin assets or preparing a release artifact:
+Hugin keeps app-owned generated admin assets committed. npm-generated vendor assets are not committed; they are generated below `public/assets/vendor/` during the build. Run the frontend build when changing generated assets, using the admin backend from a clean checkout, and whenever preparing a deployable release artifact:
 
 ```bash
 npm ci
 npm run build
 ```
 
-`npm run build` currently regenerates the admin icon SVGs in `public/assets/icons/admin` from `@rsuite/icon-font`. Use `npm run check` in CI or before committing to verify those generated assets are current.
+`npm run build` regenerates the committed admin icon SVGs in `public/assets/icons/admin` and copies AdminLTE into the ignored `public/assets/vendor/adminlte` directory. Use `npm run check` in CI or before committing to verify generated assets are current and npm vendor assets are not tracked.
 
 ### `config.php`
 
 Hugin requires `config/config.php` at runtime. Copy `config/config.example.php` to `config/config.php` during setup and configure the boot, web server, and database values for your installation. Runtime settings such as uploads, monitoring, branding, and accessibility are managed in `/admin/settings`.
+OpenID Connect and Keycloak deployment are documented in [docs/openid-connect.md](docs/openid-connect.md).
+Safe, CLI-only schema upgrades and legacy database adoption are documented in [docs/database-upgrades.md](docs/database-upgrades.md).
 
 ```php
 <?php
@@ -140,11 +158,11 @@ Notes:
 
 - Public display pages at `/display/<slug>`.
 - Landscape and vertical display orientation.
-- Per-display default slide duration, transition effect, timezone, icon, active flag, and sort order.
+- Per-display default slide duration, transition effect, timezone, language, icon, active flag, and sort order.
 - Manual display reload requests from the admin UI.
 - Automatic heartbeat collection from display clients.
 - Display state endpoint at `/display/<slug>/state` for client-side refresh detection.
-- Display clients wait until the next full minute on first load and may show the Hugin logo during that startup phase.
+- Display clients cache their display shell and same-origin slideshow media during the startup loading phase, then wait until the next full minute before playback.
 
 ### Locations And Display Groups
 
@@ -152,7 +170,8 @@ Notes:
 - Create display groups inside locations.
 - Move displays between groups in bulk.
 - Maintain group layout metadata: x/y position, width, height, rotation, and sort order.
-- Optionally synchronize grouped playlist/config reloads to the next full minute. During these later updates, the current content remains visible and the Hugin startup logo is not shown. Clients use their local epoch clock for this behavior, so grouped displays should run with NTP-synchronized system clocks. This does not add server-side slide orchestration or live slide-change synchronization.
+- Optionally choose one primary display per group for future group-led behavior.
+- Optionally synchronize grouped playlist/config reloads to the next full minute. Grouped displays cache the updated slideshow first, report readiness to Hugin, and start together after currently online active group members are ready. Clients still depend on reasonably synchronized system clocks for the final start minute. This does not add live slide-change synchronization.
 
 ### Playlists
 
@@ -170,6 +189,16 @@ Notes:
 - Multiple weekday/time rules per schedule.
 - Schedule resolution uses the display timezone.
 - Higher-priority scheduled playlists can override full-time playlists.
+
+### Display Playback Flow
+
+The server is the authority for playlist selection. It filters inactive assignments, playlists, and schedules, then ranks active candidates by timetable specificity: a weekly time slot wins over Fulltime, and a narrower weekly window wins over a broader overlapping window. Only equally specific candidates use assignment priority (higher numbers win), followed by the assignment ID tie-breaker. Schedule starts are inclusive, ends are exclusive, and all calculations use the display timezone.
+
+Every display state includes the next timetable boundary. The frontend schedules an exact check for that instant and also polls periodically to recover from suspended browsers, clock drift, network interruptions, and configuration edits. A display with no matching playlist, or with a selected playlist that has no active slides, shows a waiting status and resumes automatically when server state changes.
+
+Independent displays reload a changed playlist immediately. Sync-enabled groups share the earliest timetable boundary and a generation covering every active member. A change for one member therefore makes every member cache and report readiness before the group activates together on the next full minute. The state signature identifies rendered playback configuration; the next check deadline itself is deliberately not part of that identity.
+
+Display heartbeats run in a separate frontend module from slideshow playback and synchronization. They start as soon as the display shell loads, use the configured monitoring interval, retry failed or timed-out requests with bounded backoff, and recover after connectivity changes, browser sleep, background throttling, and back/forward-cache restoration. Page reloads send a final beacon and the replacement page starts a fresh heartbeat immediately.
 
 ### Slides
 
@@ -398,6 +427,15 @@ Available hooks:
 - `normalizeGlobalSettings(array $input, array $existingSettings, PluginApi $api)`
 
 Slide settings are edited in the slide form. Global plugin settings are edited by admins at `/admin/plugins/<plugin>/settings`.
+
+### Optional Scheduled Tasks
+
+A plugin that needs server-side background work can additionally implement `App\Core\ScheduledTaskProviderInterface`. This does not change the required slide plugin interface.
+
+- `getScheduledTasks(PluginApi $api)` returns task definitions with a stable lowercase `name`, an `interval_seconds` value of at least 60, and an optional `retry_seconds` value of at least 60.
+- `runScheduledTask(string $taskName, PluginApi $api)` performs the named task and throws on failure.
+- Only enabled plugins are registered. Removed tasks remain visible as inactive history.
+- Keep externally refreshed content in plugin cache/storage and expose a deterministic content revision through `getStateData()` when displays should reload.
 
 ### Access The Media Library From A Plugin
 

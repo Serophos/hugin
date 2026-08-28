@@ -10,15 +10,15 @@ if ($queryValue === '') {
 ?>
 <div class="plugin-settings-card weather-plugin-config">
     <h3><?= e($strings['title'] ?? 'Weather plugin') ?></h3>
-    <p class="muted"><?= e($strings['description'] ?? '') ?></p>
+    <p class="text-body-secondary muted"><?= e($strings['description'] ?? '') ?></p>
     <?php if (!$plugin->isCommercialMode($globalSettings)): ?>
-        <div class="alert warning">
+        <div class="alert alert-warning warning">
             <?= e($strings['free_notice'] ?? '') ?>
         </div>
     <?php endif; ?>
 
     <label class="full-width"><?= e($strings['location_search'] ?? 'Location search') ?>
-        <input
+        <input class="form-control"
             type="text"
             name="plugin_settings[<?= e($plugin->getName()) ?>][location_query]"
             value="<?= e($queryValue) ?>"
@@ -30,13 +30,13 @@ if ($queryValue === '') {
         <?= field_error_html($fieldPrefix . 'location_query', $formId) ?>
     </label>
     <div class="weather-search-results" data-weather-role="search-results"></div>
-    <p class="muted small"><?= e($strings['search_help'] ?? '') ?></p>
+    <p class="text-body-secondary small muted"><?= e($strings['search_help'] ?? '') ?></p>
     <div class="grid-2 compact-grid">
         <label><?= e($strings['selected_location'] ?? 'Selected location') ?>
-            <input type="text" value="<?= e($settings['location_name']) ?>" data-weather-role="selected-location-label" readonly>
+            <input class="form-control" type="text" value="<?= e($settings['location_name']) ?>" data-weather-role="selected-location-label" readonly>
         </label>
         <label><?= e($strings['timezone'] ?? 'Timezone') ?>
-            <input type="text" name="plugin_settings[<?= e($plugin->getName()) ?>][timezone_name]" value="<?= e($settings['timezone_name']) ?>" readonly data-weather-role="timezone-name">
+            <input class="form-control" type="text" name="plugin_settings[<?= e($plugin->getName()) ?>][timezone_name]" value="<?= e($settings['timezone_name']) ?>" readonly data-weather-role="timezone-name">
         </label>
     </div>
 
@@ -47,14 +47,14 @@ if ($queryValue === '') {
 
     <div class="grid-3 compact-grid">
         <label><?= e($strings['temperature_unit'] ?? 'Temperature unit') ?>
-            <select name="plugin_settings[<?= e($plugin->getName()) ?>][temperature_unit]"<?= field_attrs($fieldPrefix . 'temperature_unit', $formId) ?>>
+            <select class="form-select" name="plugin_settings[<?= e($plugin->getName()) ?>][temperature_unit]"<?= field_attrs($fieldPrefix . 'temperature_unit', $formId) ?>>
                 <option value="celsius" <?= selected($settings['temperature_unit'], 'celsius') ?>>°C</option>
                 <option value="fahrenheit" <?= selected($settings['temperature_unit'], 'fahrenheit') ?>>°F</option>
             </select>
             <?= field_error_html($fieldPrefix . 'temperature_unit', $formId) ?>
         </label>
         <label><?= e($strings['wind_speed_unit'] ?? 'Wind speed unit') ?>
-            <select name="plugin_settings[<?= e($plugin->getName()) ?>][wind_speed_unit]"<?= field_attrs($fieldPrefix . 'wind_speed_unit', $formId) ?>>
+            <select class="form-select" name="plugin_settings[<?= e($plugin->getName()) ?>][wind_speed_unit]"<?= field_attrs($fieldPrefix . 'wind_speed_unit', $formId) ?>>
                 <option value="kmh" <?= selected($settings['wind_speed_unit'], 'kmh') ?>>km/h</option>
                 <option value="ms" <?= selected($settings['wind_speed_unit'], 'ms') ?>>m/s</option>
                 <option value="mph" <?= selected($settings['wind_speed_unit'], 'mph') ?>>mph</option>
@@ -63,7 +63,7 @@ if ($queryValue === '') {
             <?= field_error_html($fieldPrefix . 'wind_speed_unit', $formId) ?>
         </label>
         <label><?= e($strings['precipitation_unit'] ?? 'Precipitation unit') ?>
-            <select name="plugin_settings[<?= e($plugin->getName()) ?>][precipitation_unit]"<?= field_attrs($fieldPrefix . 'precipitation_unit', $formId) ?>>
+            <select class="form-select" name="plugin_settings[<?= e($plugin->getName()) ?>][precipitation_unit]"<?= field_attrs($fieldPrefix . 'precipitation_unit', $formId) ?>>
                 <option value="mm" <?= selected($settings['precipitation_unit'], 'mm') ?>>mm</option>
                 <option value="inch" <?= selected($settings['precipitation_unit'], 'inch') ?>>inch</option>
             </select>
@@ -77,7 +77,7 @@ if ($queryValue === '') {
         </label>
     </div>
 
-    <p class="muted small"><?= e($strings['footer_note'] ?? '') ?></p>
+    <p class="text-body-secondary small muted"><?= e($strings['footer_note'] ?? '') ?></p>
 </div>
 
 <script>

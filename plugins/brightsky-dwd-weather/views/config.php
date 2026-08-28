@@ -22,9 +22,9 @@ if ($displayNameValue === '') {
             display: none;
             margin-top: -4px;
             margin-bottom: 12px;
-            border: 1px solid #d3dae6;
+            border: 1px solid var(--bs-border-color);
             border-radius: 8px;
-            background: #fff;
+            background: var(--bs-body-bg);
             box-shadow: 0 10px 28px rgba(15, 23, 42, 0.10);
             overflow: hidden;
             max-height: 280px;
@@ -41,27 +41,27 @@ if ($displayNameValue === '') {
             text-align: left;
             cursor: pointer;
         }
-        .brightsky-dwd-weather-result:hover { background: #f4f7fb; }
-        .brightsky-dwd-weather-result strong { color: #162033; }
-        .brightsky-dwd-weather-result span { color: #536071; font-size: 0.9em; }
-        .brightsky-dwd-weather-empty { padding: 12px 14px; color: #536071; }
+        .brightsky-dwd-weather-result:hover { background: var(--bs-tertiary-bg); }
+        .brightsky-dwd-weather-result strong { color: var(--bs-body-color); }
+        .brightsky-dwd-weather-result span { color: var(--bs-secondary-color); font-size: 0.9em; }
+        .brightsky-dwd-weather-empty { padding: 12px 14px; color: var(--bs-secondary-color); }
         .brightsky-dwd-weather-readonly {
-            color: #536071;
-            background: #f4f7fb;
-            border-color: #d9e1ec;
+            color: var(--bs-secondary-color);
+            background: var(--bs-secondary-bg);
+            border-color: var(--bs-border-color);
             cursor: not-allowed;
         }
         .brightsky-dwd-weather-readonly:focus {
-            outline: 2px solid #cbd7e6;
+            outline: 2px solid var(--bs-primary-border-subtle);
             outline-offset: 1px;
         }
     </style>
 
     <h3><?= e($strings['title'] ?? 'BrightSky DWD Weather') ?></h3>
-    <p class="muted"><?= e($strings['description'] ?? '') ?></p>
+    <p class="text-body-secondary muted"><?= e($strings['description'] ?? '') ?></p>
 
     <label class="full-width"><?= e($strings['station_search'] ?? 'DWD station search') ?>
-        <input
+        <input class="form-control"
             type="text"
             name="plugin_settings[<?= e($plugin->getName()) ?>][station_query]"
             value="<?= e($queryValue) ?>"
@@ -73,10 +73,10 @@ if ($displayNameValue === '') {
         <?= field_error_html($fieldPrefix . 'station_query', $formId) ?>
     </label>
     <div class="brightsky-dwd-weather-results" data-brightsky-role="station-results"></div>
-    <p class="muted small"><?= e($strings['search_help'] ?? '') ?></p>
+    <p class="text-body-secondary small muted"><?= e($strings['search_help'] ?? '') ?></p>
 
     <label class="full-width"><?= e($strings['display_name'] ?? 'Name shown on slide') ?>
-        <input
+        <input class="form-control"
             type="text"
             name="plugin_settings[<?= e($plugin->getName()) ?>][display_name]"
             value="<?= e($displayNameValue) ?>"
@@ -89,19 +89,19 @@ if ($displayNameValue === '') {
 
     <div class="grid-2 compact-grid">
         <label><?= e($strings['selected_station'] ?? 'Selected station') ?>
-            <input type="text" value="<?= e($selectedLabel) ?>" data-brightsky-role="selected-station-label" class="brightsky-dwd-weather-readonly" readonly>
+            <input class="form-control" type="text" value="<?= e($selectedLabel) ?>" data-brightsky-role="selected-station-label" class="brightsky-dwd-weather-readonly" readonly>
         </label>
         <label><?= e($strings['dwd_station_id'] ?? 'DWD station ID') ?>
-            <input type="text" value="<?= e((string)($settings['dwd_station_id'] ?? '')) ?>" data-brightsky-role="selected-dwd-id" class="brightsky-dwd-weather-readonly" readonly>
+            <input class="form-control" type="text" value="<?= e((string)($settings['dwd_station_id'] ?? '')) ?>" data-brightsky-role="selected-dwd-id" class="brightsky-dwd-weather-readonly" readonly>
         </label>
     </div>
 
     <div class="grid-2 compact-grid">
         <label><?= e($strings['wmo_station_id'] ?? 'WMO ID') ?>
-            <input type="text" value="<?= e((string)($settings['wmo_station_id'] ?? '')) ?>" data-brightsky-role="selected-wmo-id" class="brightsky-dwd-weather-readonly" readonly>
+            <input class="form-control" type="text" value="<?= e((string)($settings['wmo_station_id'] ?? '')) ?>" data-brightsky-role="selected-wmo-id" class="brightsky-dwd-weather-readonly" readonly>
         </label>
         <label><?= e($strings['coordinates'] ?? 'Coordinates') ?>
-            <input type="text" value="<?= e(trim((string)($settings['latitude'] ?? '') . ', ' . (string)($settings['longitude'] ?? ''), ', ')) ?>" data-brightsky-role="selected-coordinates" class="brightsky-dwd-weather-readonly" readonly>
+            <input class="form-control" type="text" value="<?= e(trim((string)($settings['latitude'] ?? '') . ', ' . (string)($settings['longitude'] ?? ''), ', ')) ?>" data-brightsky-role="selected-coordinates" class="brightsky-dwd-weather-readonly" readonly>
         </label>
     </div>
 
@@ -114,7 +114,7 @@ if ($displayNameValue === '') {
 
     <div class="grid-2 compact-grid">
         <label><?= e($strings['unit_system'] ?? 'Units') ?>
-            <select name="plugin_settings[<?= e($plugin->getName()) ?>][unit_system]"<?= field_attrs($fieldPrefix . 'unit_system', $formId) ?>>
+            <select class="form-select" name="plugin_settings[<?= e($plugin->getName()) ?>][unit_system]"<?= field_attrs($fieldPrefix . 'unit_system', $formId) ?>>
                 <option value="metric" <?= selected($settings['unit_system'] ?? 'metric', 'metric') ?>><?= e($strings['metric'] ?? 'Metric') ?></option>
                 <option value="imperial" <?= selected($settings['unit_system'] ?? 'metric', 'imperial') ?>><?= e($strings['imperial'] ?? 'Imperial') ?></option>
             </select>
@@ -128,9 +128,9 @@ if ($displayNameValue === '') {
     <label class="checkbox-row">
         <input type="checkbox" name="plugin_settings[<?= e($plugin->getName()) ?>][enable_weather_animations]" value="1" <?= checked(($settings['enable_weather_animations'] ?? false) || ($settings['enable_rain_effect'] ?? false)) ?>> <?= e($strings['weather_animations'] ?? 'Show weather animations') ?>
     </label>
-    <p class="muted small"><?= e($strings['weather_animations_help'] ?? 'Shows subtle animations that match the current weather, such as raindrops or lightning. Designed to preserve readability.') ?></p>
+    <p class="text-body-secondary small muted"><?= e($strings['weather_animations_help'] ?? 'Shows subtle animations that match the current weather, such as raindrops or lightning. Designed to preserve readability.') ?></p>
 
-    <p class="muted small"><?= e($strings['footer_note'] ?? '') ?></p>
+    <p class="text-body-secondary small muted"><?= e($strings['footer_note'] ?? '') ?></p>
 </div>
 
 <script>

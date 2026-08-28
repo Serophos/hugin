@@ -5,16 +5,39 @@ use App\Core\Database;
 use App\Core\PluginManager;
 use App\Core\TemplateSlideService;
 use App\Core\View;
-use DateTime;
-use DateTimeZone;
+use App\Services\PlaylistSelectionService;
 
 class FrontendController
 {
+    private const DISPLAY_LANGUAGE_SYSTEM = 'system';
+    private const DISPLAY_LANGUAGE_OPTIONS = ['en', 'de'];
+    private const SYNC_JOIN_STABILIZATION_SECONDS = 8;
+    private const SYNC_READINESS_MAX_WAIT_SECONDS = 30;
+    private const SYNC_RELEASE_TTL_SECONDS = 300;
+
     private TemplateSlideService $templateSlides;
+    private PlaylistSelectionService $playlistSelection;
+    private ?string $coreFrontendRevision = null;
 
     public function __construct(private Database $db, private View $view, private PluginManager $plugins)
     {
         $this->templateSlides = new TemplateSlideService($db);
+        $this->playlistSelection = new PlaylistSelectionService($db);
+    }
+
+    private function applyDisplayLocale(array $display): string
+    {
+        return app_switch_locale($this->resolveDisplayLocale($display));
+    }
+
+    private function resolveDisplayLocale(array $display): string
+    {
+        $displayLanguage = trim((string)($display['display_language'] ?? self::DISPLAY_LANGUAGE_SYSTEM));
+        if (in_array($displayLanguage, self::DISPLAY_LANGUAGE_OPTIONS, true)) {
+            return $displayLanguage;
+        }
+
+        return (string)app_core_setting('system.locale', app_config('app.locale', 'en'));
     }
 
     public function display(string $slug): void
@@ -27,47 +50,45 @@ class FrontendController
             return;
         }
 
+        $this->applyDisplayLocale($display);
         $displayGroup = $this->loadDisplayGroup((int)$display['id']);
-        $activeAssignment = $this->resolveActiveAssignment($display);
-        if (!$activeAssignment) {
-            http_response_code(500);
-            echo __('frontend.no_active_channel');
-            return;
-        }
-
-        $slides = $this->loadChannelSlides((int)$activeAssignment['channel_id']);
-        if (!$slides) {
-            http_response_code(500);
-            echo __('frontend.no_active_slides');
-            return;
-        }
-
-        $effect = $activeAssignment['transition_effect'] !== 'inherit'
+        $selection = $this->playlistSelection->resolve($display);
+        $activeAssignment = $selection['assignment'];
+        $slides = $activeAssignment ? $this->loadChannelSlides((int)$activeAssignment['channel_id']) : [];
+        $effect = $activeAssignment && $activeAssignment['transition_effect'] !== 'inherit'
             ? $activeAssignment['transition_effect']
             : $display['transition_effect'];
-
-        $duration = (int)($activeAssignment['slide_duration_seconds'] ?: $display['slide_duration_seconds']);
+        $duration = (int)(($activeAssignment['slide_duration_seconds'] ?? 0) ?: $display['slide_duration_seconds']);
         $heartbeat = $this->db->one('SELECT * FROM display_heartbeats WHERE display_id = ?', [$display['id']]);
-        [$resolvedSlides, $pluginAssets] = $this->resolveSlides($slides, $display, $activeAssignment, $heartbeat, $duration);
-        $state = $this->buildDisplayState($display, $activeAssignment, $resolvedSlides, $effect, $duration, $displayGroup, $pluginAssets);
+        [$resolvedSlides, $pluginAssets] = $activeAssignment
+            ? $this->resolveSlides($slides, $display, $activeAssignment, $heartbeat, $duration)
+            : [[], ['css' => [], 'js' => []]];
+        $state = $this->coordinateDisplayState(
+            $this->buildDisplayState($display, $activeAssignment, $resolvedSlides, $effect, $duration, $displayGroup, $pluginAssets, (int)$selection['next_selection_at_ms']),
+            $displayGroup
+        );
         $brandingSettings = $this->loadBrandingSettings();
 
         $this->view->render('frontend/display', [
             'display' => $display,
             'channel' => [
-                'id' => $activeAssignment['channel_id'],
-                'name' => $activeAssignment['channel_name'],
-                'description' => $activeAssignment['channel_description'],
+                'id' => $activeAssignment['channel_id'] ?? 0,
+                'name' => $activeAssignment['channel_name'] ?? '',
+                'description' => $activeAssignment['channel_description'] ?? '',
             ],
             'slides' => $resolvedSlides,
             'effect' => $effect,
             'duration' => $duration,
             'stateSignature' => $state['signature'],
+            'playbackStatus' => $state['playback_status'],
+            'nextSelectionAtMs' => $state['next_selection_at_ms'],
             'serverTimeMs' => $state['server_time_ms'],
             'displayGroup' => $displayGroup,
             'orientation' => $display['orientation'] ?? 'landscape',
+            'coreFrontendRevision' => $state['core_frontend_revision'],
             'pluginAssets' => $pluginAssets,
             'brandingSettings' => $brandingSettings,
+            'isDisplayPreview' => $this->isDisplayPreviewRequest(),
         ]);
     }
 
@@ -141,6 +162,7 @@ class FrontendController
             'stateSignature' => $state['signature'],
             'serverTimeMs' => $state['server_time_ms'],
             'orientation' => $display['orientation'],
+            'coreFrontendRevision' => $state['core_frontend_revision'],
             'pluginAssets' => $pluginAssets,
             'brandingSettings' => $brandingSettings,
         ]);
@@ -248,26 +270,24 @@ class FrontendController
             json_response(['ok' => false, 'message' => __('frontend.state_message_display_not_found')], 404);
         }
 
+        $this->applyDisplayLocale($display);
         $displayGroup = $this->loadDisplayGroup((int)$display['id']);
-        $activeAssignment = $this->resolveActiveAssignment($display);
-        if (!$activeAssignment) {
-            json_response(['ok' => false, 'message' => __('frontend.state_message_no_channel')], 409);
-        }
-
-        $slides = $this->loadChannelSlides((int)$activeAssignment['channel_id']);
-        if (!$slides) {
-            json_response(['ok' => false, 'message' => __('frontend.state_message_no_slides')], 409);
-        }
-
-        $effect = $activeAssignment['transition_effect'] !== 'inherit'
+        $selection = $this->playlistSelection->resolve($display);
+        $activeAssignment = $selection['assignment'];
+        $slides = $activeAssignment ? $this->loadChannelSlides((int)$activeAssignment['channel_id']) : [];
+        $effect = $activeAssignment && $activeAssignment['transition_effect'] !== 'inherit'
             ? $activeAssignment['transition_effect']
             : $display['transition_effect'];
-
-        $duration = (int)($activeAssignment['slide_duration_seconds'] ?: $display['slide_duration_seconds']);
+        $duration = (int)(($activeAssignment['slide_duration_seconds'] ?? 0) ?: $display['slide_duration_seconds']);
         $heartbeat = $this->db->one('SELECT * FROM display_heartbeats WHERE display_id = ?', [$display['id']]);
-        [$resolvedSlides, $pluginAssets] = $this->resolveSlides($slides, $display, $activeAssignment, $heartbeat, $duration);
+        [$resolvedSlides, $pluginAssets] = $activeAssignment
+            ? $this->resolveSlides($slides, $display, $activeAssignment, $heartbeat, $duration)
+            : [[], ['css' => [], 'js' => []]];
 
-        json_response($this->buildDisplayState($display, $activeAssignment, $resolvedSlides, $effect, $duration, $displayGroup, $pluginAssets));
+        json_response($this->coordinateDisplayState(
+            $this->buildDisplayState($display, $activeAssignment, $resolvedSlides, $effect, $duration, $displayGroup, $pluginAssets, (int)$selection['next_selection_at_ms']),
+            $displayGroup
+        ));
     }
 
     public function offlineManifest(string $slug): void
@@ -277,24 +297,23 @@ class FrontendController
             json_response(['ok' => false, 'message' => __('frontend.state_message_display_not_found')], 404);
         }
 
+        $this->applyDisplayLocale($display);
         $displayGroup = $this->loadDisplayGroup((int)$display['id']);
-        $activeAssignment = $this->resolveActiveAssignment($display);
-        if (!$activeAssignment) {
-            json_response(['ok' => false, 'message' => __('frontend.state_message_no_channel')], 409);
-        }
-
-        $slides = $this->loadChannelSlides((int)$activeAssignment['channel_id']);
-        if (!$slides) {
-            json_response(['ok' => false, 'message' => __('frontend.state_message_no_slides')], 409);
-        }
-
-        $effect = $activeAssignment['transition_effect'] !== 'inherit'
+        $selection = $this->playlistSelection->resolve($display);
+        $activeAssignment = $selection['assignment'];
+        $slides = $activeAssignment ? $this->loadChannelSlides((int)$activeAssignment['channel_id']) : [];
+        $effect = $activeAssignment && $activeAssignment['transition_effect'] !== 'inherit'
             ? $activeAssignment['transition_effect']
             : $display['transition_effect'];
-        $duration = (int)($activeAssignment['slide_duration_seconds'] ?: $display['slide_duration_seconds']);
+        $duration = (int)(($activeAssignment['slide_duration_seconds'] ?? 0) ?: $display['slide_duration_seconds']);
         $heartbeat = $this->db->one('SELECT * FROM display_heartbeats WHERE display_id = ?', [$display['id']]);
-        [$resolvedSlides, $pluginAssets] = $this->resolveSlides($slides, $display, $activeAssignment, $heartbeat, $duration);
-        $state = $this->buildDisplayState($display, $activeAssignment, $resolvedSlides, $effect, $duration, $displayGroup, $pluginAssets);
+        [$resolvedSlides, $pluginAssets] = $activeAssignment
+            ? $this->resolveSlides($slides, $display, $activeAssignment, $heartbeat, $duration)
+            : [[], ['css' => [], 'js' => []]];
+        $state = $this->coordinateDisplayState(
+            $this->buildDisplayState($display, $activeAssignment, $resolvedSlides, $effect, $duration, $displayGroup, $pluginAssets, (int)$selection['next_selection_at_ms']),
+            $displayGroup
+        );
         $brandingSettings = $this->loadBrandingSettings();
 
         json_response($this->buildOfflineManifest($display, $resolvedSlides, $pluginAssets, $state, $brandingSettings));
@@ -307,12 +326,21 @@ class FrontendController
             json_response(['ok' => false, 'message' => __('frontend.state_message_display_not_found')], 404);
         }
 
-        $activeAssignment = $this->resolveActiveAssignment($display);
+        $this->applyDisplayLocale($display);
+        if ($this->isDisplayPreviewRequest()) {
+            $activeAssignment = $this->resolveActiveAssignment($display);
+            json_response([
+                'ok' => true,
+                'display' => $display['name'],
+                'channel' => $activeAssignment['channel_name'] ?? null,
+                'seen_at' => date('c'),
+                'preview' => true,
+            ]);
+        }
+
         $payload = $this->readJsonBody();
         $ipAddress = client_ip();
         $userAgent = substr((string)($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 255);
-        $channelId = $activeAssignment ? (int)$activeAssignment['channel_id'] : null;
-        $channelName = $activeAssignment['channel_name'] ?? null;
 
         $browserName = $this->limitString($payload['browserName'] ?? null, 80);
         $browserVersion = $this->limitString($payload['browserVersion'] ?? null, 80);
@@ -348,8 +376,8 @@ class FrontendController
             )
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
              ON DUPLICATE KEY UPDATE
-                current_channel_id = VALUES(current_channel_id),
-                current_channel_name = VALUES(current_channel_name),
+                current_channel_id = display_heartbeats.current_channel_id,
+                current_channel_name = display_heartbeats.current_channel_name,
                 last_seen_ip = VALUES(last_seen_ip),
                 user_agent = VALUES(user_agent),
                 browser_name = VALUES(browser_name),
@@ -376,7 +404,7 @@ class FrontendController
                 client_payload_json = VALUES(client_payload_json),
                 last_seen_at = NOW()',
             [
-                $display['id'], $channelId, $channelName, $ipAddress, $userAgent,
+                $display['id'], null, null, $ipAddress, $userAgent,
                 $browserName, $browserVersion, $osName, $osVersion, $platform, $language, $timezone,
                 $screenWidth, $screenHeight, $availableScreenWidth, $availableScreenHeight,
                 $viewportWidth, $viewportHeight, $pixelRatio, $colorDepth,
@@ -385,12 +413,534 @@ class FrontendController
             ]
         );
 
+        $playbackReport = $this->storeHeartbeatPlaybackReport((int)$display['id'], $payload['playback'] ?? null);
+
         json_response([
             'ok' => true,
             'display' => $display['name'],
-            'channel' => $channelName,
+            'channel' => $playbackReport['channel_name'],
+            'playback_report_accepted' => $playbackReport['accepted'],
             'seen_at' => date('c'),
         ]);
+    }
+
+    /**
+     * Store only playback facts reported by the display client. Schedule
+     * resolution deliberately stays out of this path: it describes expected
+     * playback, not what the display has actually loaded.
+     *
+     * @return array{accepted: bool, channel_name: ?string}
+     */
+    private function storeHeartbeatPlaybackReport(int $displayId, mixed $value): array
+    {
+        if (!is_array($value)) {
+            return ['accepted' => false, 'channel_name' => null];
+        }
+
+        try {
+            $reportedChannelId = $this->positiveIntOrNull($value['channelId'] ?? null);
+            $reportedChannelName = $this->limitString($value['channelName'] ?? null, 150);
+            $channel = $reportedChannelId
+                ? $this->db->one('SELECT id, name FROM channels WHERE id = ? LIMIT 1', [$reportedChannelId])
+                : null;
+            $channelId = $channel ? (int)$channel['id'] : null;
+            $channelName = $channel ? (string)$channel['name'] : $reportedChannelName;
+            $stateSignature = $this->heartbeatStateSignature($value['stateSignature'] ?? null);
+            $pendingStateSignature = $this->heartbeatStateSignature($value['pendingStateSignature'] ?? null);
+            $playbackStatus = strtolower(trim((string)($value['status'] ?? '')));
+            if (!in_array($playbackStatus, [
+                'starting',
+                'playing',
+                'no_playlist',
+                'no_slides',
+                'media_unavailable',
+                'error',
+            ], true)) {
+                $playbackStatus = null;
+            }
+
+            $pendingActivationAtMs = null;
+            if (is_numeric($value['pendingActivationAtMs'] ?? null)) {
+                $candidate = (int)$value['pendingActivationAtMs'];
+                $pendingActivationAtMs = $candidate > 0 ? $candidate : null;
+            }
+
+            $this->db->execute(
+                'UPDATE display_heartbeats
+                 SET current_channel_id = ?,
+                     current_channel_name = ?,
+                     reported_state_signature = ?,
+                     reported_playback_status = ?,
+                     playback_reported_at = NOW(),
+                     pending_state_signature = ?,
+                     pending_activation_at_ms = ?
+                 WHERE display_id = ?',
+                [
+                    $channelId,
+                    $channelName,
+                    $stateSignature,
+                    $playbackStatus,
+                    $pendingStateSignature,
+                    $pendingActivationAtMs,
+                    $displayId,
+                ]
+            );
+
+            return ['accepted' => true, 'channel_name' => $channelName];
+        } catch (\Throwable $error) {
+            error_log('Could not store display playback report: ' . $error->getMessage());
+            return ['accepted' => false, 'channel_name' => null];
+        }
+    }
+
+    private function heartbeatStateSignature(mixed $value): ?string
+    {
+        if (!is_string($value)) {
+            return null;
+        }
+
+        $signature = strtolower(trim($value));
+        return preg_match('/\A[a-f0-9]{40}\z/', $signature) === 1 ? $signature : null;
+    }
+
+    private function isDisplayPreviewRequest(): bool
+    {
+        $preview = strtolower(trim((string)($_GET['preview'] ?? '')));
+        if (!in_array($preview, ['1', 'true', 'yes', 'on'], true)) {
+            return false;
+        }
+
+        return \current_user() !== null;
+    }
+
+    public function cacheReadiness(string $slug): void
+    {
+        $display = $this->db->one('SELECT * FROM displays WHERE slug = ? AND is_active = 1', [$slug]);
+        if (!$display) {
+            json_response(['ok' => false, 'message' => __('frontend.state_message_display_not_found')], 404);
+        }
+
+        $this->applyDisplayLocale($display);
+        $displayGroup = $this->loadDisplayGroup((int)$display['id']);
+        $context = $this->currentDisplayStateContext($display, $displayGroup);
+        if (!$context) {
+            json_response(['ok' => false, 'message' => __('frontend.state_message_no_channel')], 409);
+        }
+
+        $payload = $this->readJsonBody();
+        $state = $context['state'];
+        $payloadStateSignature = $this->signatureFromPayload($payload['state_signature'] ?? null, (string)$state['signature']);
+        $manifestSignature = $this->signatureFromPayload($payload['manifest_signature'] ?? null, $payloadStateSignature);
+        $cacheStatus = $this->cacheStatusFromPayload($payload['cache_status'] ?? null);
+        $accepted = hash_equals((string)$state['signature'], $payloadStateSignature);
+
+        $this->storeCacheReadiness(
+            (int)$display['id'],
+            $displayGroup ? (int)$displayGroup['id'] : null,
+            $payloadStateSignature,
+            $manifestSignature,
+            $cacheStatus,
+            (string)($this->limitString($payload['reason'] ?? 'startup', 50) ?? 'startup'),
+            $this->nonNegativeInt($payload['total_assets'] ?? 0),
+            $this->nonNegativeInt($payload['cached_assets'] ?? 0),
+            $this->nonNegativeInt($payload['skipped_assets'] ?? 0),
+            $this->nonNegativeInt($payload['bytes_reserved'] ?? 0),
+            $this->normalizeJson($payload)
+        );
+
+        $response = $this->cacheReadinessResponse($display, $displayGroup, $state);
+        $response['accepted'] = $accepted;
+        json_response($response);
+    }
+
+    public function cacheReadinessStatus(string $slug): void
+    {
+        $display = $this->db->one('SELECT * FROM displays WHERE slug = ? AND is_active = 1', [$slug]);
+        if (!$display) {
+            json_response(['ok' => false, 'message' => __('frontend.state_message_display_not_found')], 404);
+        }
+
+        $this->applyDisplayLocale($display);
+        $displayGroup = $this->loadDisplayGroup((int)$display['id']);
+        $context = $this->currentDisplayStateContext($display, $displayGroup);
+        if (!$context) {
+            json_response(['ok' => false, 'message' => __('frontend.state_message_no_channel')], 409);
+        }
+
+        json_response($this->cacheReadinessResponse($display, $displayGroup, $context['state']));
+    }
+
+    private function currentDisplayStateContext(array $display, ?array $displayGroup): ?array
+    {
+        $selection = $this->playlistSelection->resolve($display);
+        $activeAssignment = $selection['assignment'];
+        $slides = $activeAssignment ? $this->loadChannelSlides((int)$activeAssignment['channel_id']) : [];
+        $effect = $activeAssignment && $activeAssignment['transition_effect'] !== 'inherit'
+            ? $activeAssignment['transition_effect']
+            : $display['transition_effect'];
+
+        $duration = (int)(($activeAssignment['slide_duration_seconds'] ?? 0) ?: $display['slide_duration_seconds']);
+        $heartbeat = $this->db->one('SELECT * FROM display_heartbeats WHERE display_id = ?', [$display['id']]);
+        [$resolvedSlides, $pluginAssets] = $activeAssignment
+            ? $this->resolveSlides($slides, $display, $activeAssignment, $heartbeat, $duration)
+            : [[], ['css' => [], 'js' => []]];
+
+        return [
+            'active_assignment' => $activeAssignment,
+            'resolved_slides' => $resolvedSlides,
+            'plugin_assets' => $pluginAssets,
+            'state' => $this->coordinateDisplayState(
+                $this->buildDisplayState($display, $activeAssignment, $resolvedSlides, $effect, $duration, $displayGroup, $pluginAssets, (int)$selection['next_selection_at_ms']),
+                $displayGroup
+            ),
+        ];
+    }
+
+    private function storeCacheReadiness(
+        int $displayId,
+        ?int $displayGroupId,
+        string $stateSignature,
+        string $manifestSignature,
+        string $cacheStatus,
+        string $reason,
+        int $totalAssets,
+        int $cachedAssets,
+        int $skippedAssets,
+        int $bytesReserved,
+        ?string $payloadJson
+    ): void {
+        $this->db->execute(
+            'INSERT INTO display_cache_readiness (
+                display_id, display_group_id, state_signature, manifest_signature, cache_status, reason,
+                total_assets, cached_assets, skipped_assets, bytes_reserved, client_payload_json, ready_at
+            )
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+             ON DUPLICATE KEY UPDATE
+                display_group_id = VALUES(display_group_id),
+                manifest_signature = VALUES(manifest_signature),
+                cache_status = VALUES(cache_status),
+                reason = VALUES(reason),
+                total_assets = VALUES(total_assets),
+                cached_assets = VALUES(cached_assets),
+                skipped_assets = VALUES(skipped_assets),
+                bytes_reserved = VALUES(bytes_reserved),
+                client_payload_json = VALUES(client_payload_json),
+                ready_at = NOW()',
+            [
+                $displayId,
+                $displayGroupId,
+                $stateSignature,
+                $manifestSignature,
+                $cacheStatus,
+                $reason,
+                $totalAssets,
+                $cachedAssets,
+                $skippedAssets,
+                $bytesReserved,
+                $payloadJson,
+            ]
+        );
+    }
+
+    private function cacheReadinessResponse(array $display, ?array $displayGroup, array $state): array
+    {
+        $response = [
+            'ok' => true,
+            'server_time_ms' => (int)floor(microtime(true) * 1000),
+            'state_signature' => (string)$state['signature'],
+            'sync_enabled' => false,
+            'released' => true,
+            'participant_count' => 1,
+            'ready_count' => 1,
+            'pending_count' => 0,
+            'current_display_ready' => true,
+            'generation_hash' => '',
+            'start_at_ms' => 0,
+        ];
+
+        if (!$displayGroup || empty($displayGroup['sync_reload_to_full_minute'])) {
+            return $response;
+        }
+
+        return array_replace(
+            $response,
+            $this->groupCacheReadinessResponse((int)$displayGroup['id'], (int)$display['id'], $displayGroup)
+        );
+    }
+
+    private function groupCacheReadinessResponse(int $groupId, int $currentDisplayId, array $displayGroup): array
+    {
+        $participants = $this->onlineGroupParticipants($groupId, $currentDisplayId, $displayGroup);
+        if (!$participants) {
+            return [
+                'sync_enabled' => true,
+                'released' => true,
+                'participant_count' => 0,
+                'ready_count' => 0,
+                'pending_count' => 0,
+                'current_display_ready' => false,
+                'generation_hash' => '',
+                'start_at_ms' => 0,
+            ];
+        }
+
+        $generationPayload = array_map(
+            static fn(array $participant): array => [
+                'display_id' => (int)$participant['display_id'],
+                'state_signature' => (string)$participant['state_signature'],
+            ],
+            $participants
+        );
+        $generationHash = sha1(json_encode($generationPayload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '');
+        $readinessRows = $this->cacheReadinessRows($participants);
+        $readyCount = 0;
+        $currentDisplayReady = false;
+
+        foreach ($participants as $participant) {
+            $key = $this->readinessKey((int)$participant['display_id'], (string)$participant['state_signature']);
+            $row = $readinessRows[$key] ?? null;
+            $isReady = $row && in_array((string)$row['cache_status'], ['ready', 'degraded'], true);
+            if ($isReady) {
+                $readyCount++;
+            }
+            if ((int)$participant['display_id'] === $currentDisplayId) {
+                $currentDisplayReady = $isReady;
+            }
+        }
+
+        $participantCount = count($participants);
+        $activeGroupDisplayCount = $this->activeGroupDisplayCount($groupId);
+        $release = $this->syncRelease($groupId, $generationHash);
+        if (!$release) {
+            $progress = $this->storeSyncGenerationProgress($groupId, $generationHash, $participantCount, $readyCount);
+            $generationStable = $this->syncGenerationIsStable($progress, $activeGroupDisplayCount);
+            $generationAgeSeconds = max(0, (int)($progress['age_seconds'] ?? 0));
+            $readinessTimedOut = $generationAgeSeconds >= self::SYNC_READINESS_MAX_WAIT_SECONDS;
+            // A browser that remains heartbeat-online but never reports cache
+            // readiness must not strand every healthy display on the loader.
+            // After a bounded join window, release the ready cohort together.
+            if ($generationStable && $readyCount > 0 && ($readyCount >= $participantCount || $readinessTimedOut)) {
+                $release = $this->releaseSyncGeneration($groupId, $generationHash, $participantCount, $readyCount);
+            }
+        }
+
+        $startAtMs = $release ? $this->syncReleaseStartAtMs($release) : 0;
+
+        return [
+            'sync_enabled' => true,
+            'released' => $startAtMs > 0,
+            'participant_count' => $participantCount,
+            'ready_count' => $readyCount,
+            'pending_count' => max(0, $participantCount - $readyCount),
+            'current_display_ready' => $currentDisplayReady,
+            'generation_hash' => $generationHash,
+            'start_at_ms' => $startAtMs,
+        ];
+    }
+
+    private function onlineGroupParticipants(int $groupId, int $currentDisplayId, array $displayGroup): array
+    {
+        $onlineThresholdSeconds = max(30, (int)app_core_setting('monitoring.online_threshold_seconds', 180));
+        $rows = $this->db->all(
+            'SELECT d.*, TIMESTAMPDIFF(SECOND, h.last_seen_at, NOW()) AS heartbeat_age_seconds
+             FROM display_group_memberships dgm
+             INNER JOIN displays d ON d.id = dgm.display_id
+             LEFT JOIN display_heartbeats h ON h.display_id = d.id
+             WHERE dgm.group_id = ?
+               AND d.is_active = 1
+               AND (
+                    d.id = ?
+                    OR (h.last_seen_at IS NOT NULL AND TIMESTAMPDIFF(SECOND, h.last_seen_at, NOW()) <= ?)
+               )
+             ORDER BY dgm.sort_order ASC, d.sort_order ASC, d.id ASC',
+            [$groupId, $currentDisplayId, $onlineThresholdSeconds]
+        );
+
+        $participants = [];
+        $coordination = $this->groupPlaybackCoordination($groupId);
+        $originalLocale = current_locale();
+        try {
+            foreach ($rows as $row) {
+                $this->applyDisplayLocale($row);
+                $participantDisplayGroup = $this->displayGroupForDisplay($displayGroup, (int)$row['id']);
+                $context = $this->currentDisplayStateContext($row, null);
+                if (!$context) {
+                    continue;
+                }
+                $participantState = $this->coordinateDisplayState($context['state'], $participantDisplayGroup, $coordination);
+                $participants[] = [
+                    'display_id' => (int)$row['id'],
+                    'state_signature' => (string)$participantState['signature'],
+                ];
+            }
+        } finally {
+            app_switch_locale($originalLocale);
+        }
+
+        return $participants;
+    }
+
+    private function displayGroupForDisplay(array $displayGroup, int $displayId): array
+    {
+        $participantDisplayGroup = $displayGroup;
+        $participantDisplayGroup['is_primary_display'] = (int)($displayGroup['primary_display_id'] ?? 0) === $displayId;
+        return $participantDisplayGroup;
+    }
+
+    private function cacheReadinessRows(array $participants): array
+    {
+        $displayIds = array_values(array_unique(array_map(static fn(array $participant): int => (int)$participant['display_id'], $participants)));
+        if (!$displayIds) {
+            return [];
+        }
+
+        $placeholders = implode(', ', array_fill(0, count($displayIds), '?'));
+        $rows = $this->db->all(
+            'SELECT display_id, state_signature, cache_status, ready_at
+             FROM display_cache_readiness
+             WHERE display_id IN (' . $placeholders . ')',
+            $displayIds
+        );
+
+        $readiness = [];
+        foreach ($rows as $row) {
+            $readiness[$this->readinessKey((int)$row['display_id'], (string)$row['state_signature'])] = $row;
+        }
+
+        return $readiness;
+    }
+
+    private function activeGroupDisplayCount(int $groupId): int
+    {
+        $row = $this->db->one(
+            'SELECT COUNT(*) AS active_count
+             FROM display_group_memberships dgm
+             INNER JOIN displays d ON d.id = dgm.display_id
+             WHERE dgm.group_id = ?
+               AND d.is_active = 1',
+            [$groupId]
+        );
+
+        return max(0, (int)($row['active_count'] ?? 0));
+    }
+
+    private function syncRelease(int $groupId, string $generationHash): ?array
+    {
+        return $this->db->one(
+            'SELECT *
+             FROM display_sync_releases
+             WHERE display_group_id = ?
+               AND generation_hash = ?
+               AND start_at IS NOT NULL
+               AND released_at >= (NOW() - INTERVAL ' . self::SYNC_RELEASE_TTL_SECONDS . ' SECOND)
+             LIMIT 1',
+            [$groupId, $generationHash]
+        );
+    }
+
+    private function syncGenerationProgress(int $groupId, string $generationHash): ?array
+    {
+        return $this->db->one(
+            'SELECT *, TIMESTAMPDIFF(SECOND, created_at, NOW()) AS age_seconds
+             FROM display_sync_releases
+             WHERE display_group_id = ?
+               AND generation_hash = ?
+             LIMIT 1',
+            [$groupId, $generationHash]
+        );
+    }
+
+    private function storeSyncGenerationProgress(int $groupId, string $generationHash, int $participantCount, int $readyCount): ?array
+    {
+        $this->db->execute(
+            'INSERT INTO display_sync_releases (display_group_id, generation_hash, participant_count, ready_count)
+             VALUES (?, ?, ?, ?)
+             ON DUPLICATE KEY UPDATE
+                participant_count = VALUES(participant_count),
+                ready_count = VALUES(ready_count),
+                created_at = IF(updated_at < (NOW() - INTERVAL ' . self::SYNC_RELEASE_TTL_SECONDS . ' SECOND), CURRENT_TIMESTAMP, created_at),
+                start_at = IF(released_at IS NOT NULL AND released_at < (NOW() - INTERVAL ' . self::SYNC_RELEASE_TTL_SECONDS . ' SECOND), NULL, start_at),
+                released_at = IF(released_at IS NOT NULL AND released_at < (NOW() - INTERVAL ' . self::SYNC_RELEASE_TTL_SECONDS . ' SECOND), NULL, released_at)',
+            [$groupId, $generationHash, $participantCount, $readyCount]
+        );
+
+        return $this->syncGenerationProgress($groupId, $generationHash);
+    }
+
+    private function syncGenerationIsStable(?array $progress, int $activeGroupDisplayCount): bool
+    {
+        if ($activeGroupDisplayCount <= 1) {
+            return true;
+        }
+
+        $ageSeconds = max(0, (int)($progress['age_seconds'] ?? 0));
+        return $ageSeconds >= self::SYNC_JOIN_STABILIZATION_SECONDS;
+    }
+
+    private function releaseSyncGeneration(int $groupId, string $generationHash, int $participantCount, int $readyCount): ?array
+    {
+        $startAt = date('Y-m-d H:i:s', $this->nextFullMinuteTimestamp(3));
+        $this->db->execute(
+            'INSERT INTO display_sync_releases (
+                display_group_id, generation_hash, participant_count, ready_count, start_at, released_at
+            )
+             VALUES (?, ?, ?, ?, ?, NOW())
+             ON DUPLICATE KEY UPDATE
+                participant_count = VALUES(participant_count),
+                ready_count = VALUES(ready_count),
+                start_at = IF(released_at IS NULL OR released_at < (NOW() - INTERVAL ' . self::SYNC_RELEASE_TTL_SECONDS . ' SECOND), VALUES(start_at), start_at),
+                released_at = IF(released_at IS NULL OR released_at < (NOW() - INTERVAL ' . self::SYNC_RELEASE_TTL_SECONDS . ' SECOND), VALUES(released_at), released_at)',
+            [$groupId, $generationHash, $participantCount, $readyCount, $startAt]
+        );
+
+        return $this->syncRelease($groupId, $generationHash);
+    }
+
+    private function syncReleaseStartAtMs(array $release): int
+    {
+        $timestamp = strtotime((string)($release['start_at'] ?? ''));
+        return $timestamp === false ? 0 : $timestamp * 1000;
+    }
+
+    private function nextFullMinuteTimestamp(int $minLeadSeconds): int
+    {
+        $now = microtime(true);
+        $next = (int)(ceil($now / 60) * 60);
+        if (($next - $now) < max(0, $minLeadSeconds)) {
+            $next += 60;
+        }
+
+        return $next;
+    }
+
+    private function readinessKey(int $displayId, string $stateSignature): string
+    {
+        return $displayId . ':' . $stateSignature;
+    }
+
+    private function signatureFromPayload(mixed $value, string $fallback): string
+    {
+        if (!is_scalar($value)) {
+            return $fallback;
+        }
+
+        $signature = strtolower(trim((string)$value));
+        return preg_match('/\A[a-f0-9]{40}\z/', $signature) ? $signature : $fallback;
+    }
+
+    private function cacheStatusFromPayload(mixed $value): string
+    {
+        $status = is_scalar($value) ? strtolower(trim((string)$value)) : '';
+        return in_array($status, ['ready', 'degraded'], true) ? $status : 'degraded';
+    }
+
+    private function nonNegativeInt(mixed $value): int
+    {
+        if (!is_numeric($value)) {
+            return 0;
+        }
+
+        return max(0, (int)$value);
     }
 
     private function loadChannelSlides(int $channelId): array
@@ -522,10 +1072,13 @@ class FrontendController
 
         $this->addManifestAsset($assets, url('/display/' . $display['slug']), 'shell', 'document', null, true);
         $this->addManifestAsset($assets, url('/display/' . $display['slug'] . '/offline-manifest'), 'manifest', 'json', null, true);
-        $this->addManifestAsset($assets, asset_url('/assets/css/display.css'), 'static', 'style', $this->publicFileSize('/assets/css/display.css'), true);
-        $this->addManifestAsset($assets, asset_url('/assets/js/hugin-qr.js'), 'static', 'script', $this->publicFileSize('/assets/js/hugin-qr.js'), true);
-        $this->addManifestAsset($assets, asset_url('/assets/js/slideshow.js'), 'static', 'script', $this->publicFileSize('/assets/js/slideshow.js'), true);
-        $this->addManifestAsset($assets, asset_url('/display-service-worker.js'), 'static', 'script', $this->publicFileSize('/display-service-worker.js'), true);
+        $this->addManifestAsset($assets, $this->coreFrontendAssetUrl('/assets/css/display.css'), 'static', 'style', $this->publicFileSize('/assets/css/display.css'), true);
+        $this->addManifestAsset($assets, $this->coreFrontendAssetUrl('/assets/js/hugin-qr.js'), 'static', 'script', $this->publicFileSize('/assets/js/hugin-qr.js'), true);
+        $this->addManifestAsset($assets, $this->coreFrontendAssetUrl('/assets/js/playback-scheduler.js'), 'static', 'script', $this->publicFileSize('/assets/js/playback-scheduler.js'), true);
+        $this->addManifestAsset($assets, $this->coreFrontendAssetUrl('/assets/js/display-heartbeat.js'), 'static', 'script', $this->publicFileSize('/assets/js/display-heartbeat.js'), true);
+        $this->addManifestAsset($assets, $this->coreFrontendAssetUrl('/assets/js/display-media-lifecycle.js'), 'static', 'script', $this->publicFileSize('/assets/js/display-media-lifecycle.js'), true);
+        $this->addManifestAsset($assets, $this->coreFrontendAssetUrl('/assets/js/slideshow.js'), 'static', 'script', $this->publicFileSize('/assets/js/slideshow.js'), true);
+        $this->addManifestAsset($assets, $this->coreFrontendAssetUrl('/display-service-worker.js'), 'static', 'script', $this->publicFileSize('/display-service-worker.js'), true);
         $this->addManifestAsset($assets, url('/assets/img/hugin-logo.webp'), 'static', 'image', $this->publicFileSize('/assets/img/hugin-logo.webp'), true);
 
         foreach (($pluginAssets['css'] ?? []) as $asset) {
@@ -596,6 +1149,8 @@ class FrontendController
             'generated_at' => date('c'),
             'signature' => (string)$state['signature'],
             'display_slug' => (string)$display['slug'],
+            'display_language' => (string)($display['display_language'] ?? self::DISPLAY_LANGUAGE_SYSTEM),
+            'display_locale' => current_locale(),
             'shell_url' => url('/display/' . $display['slug']),
             'state_url' => url('/display/' . $display['slug'] . '/state'),
             'assets' => array_values($assets),
@@ -782,17 +1337,22 @@ class FrontendController
         return array_replace($defaults, $settings);
     }
 
-    private function buildDisplayState(array $display, array $activeAssignment, array $resolvedSlides, string $effect, int $duration, ?array $displayGroup = null, array $pluginAssets = []): array
+    private function buildDisplayState(array $display, ?array $activeAssignment, array $resolvedSlides, string $effect, int $duration, ?array $displayGroup = null, array $pluginAssets = [], int $nextSelectionAtMs = 0): array
     {
+        $playbackStatus = PlaylistSelectionService::playbackStatus($activeAssignment, $resolvedSlides);
         $payload = [
             'display_id' => (int)$display['id'],
             'display_slug' => (string)$display['slug'],
             'display_updated_at' => (string)($display['updated_at'] ?? ''),
+            'display_language' => (string)($display['display_language'] ?? self::DISPLAY_LANGUAGE_SYSTEM),
+            'display_locale' => current_locale(),
             'display_group' => $displayGroup,
-            'channel_id' => (int)$activeAssignment['channel_id'],
-            'channel_name' => (string)$activeAssignment['channel_name'],
+            'playback_status' => $playbackStatus,
+            'next_selection_at_ms' => $nextSelectionAtMs,
+            'channel_id' => (int)($activeAssignment['channel_id'] ?? 0),
+            'channel_name' => (string)($activeAssignment['channel_name'] ?? ''),
             'channel_updated_at' => (string)($activeAssignment['channel_updated_at'] ?? ''),
-            'assignment_id' => (int)$activeAssignment['id'],
+            'assignment_id' => (int)($activeAssignment['id'] ?? 0),
             'assignment_created_at' => (string)($activeAssignment['assignment_created_at'] ?? ''),
             'assignment_default' => (int)(($activeAssignment['schedule_type'] ?? '') === 'fulltime'),
             'assignment_schedule_id' => (int)($activeAssignment['schedule_id'] ?? 0),
@@ -803,11 +1363,12 @@ class FrontendController
             'assignment_schedule_rule_weekday' => (int)($activeAssignment['schedule_rule_weekday'] ?? 0),
             'assignment_schedule_rule_start_time' => (string)($activeAssignment['schedule_rule_start_time'] ?? ''),
             'assignment_schedule_rule_end_time' => (string)($activeAssignment['schedule_rule_end_time'] ?? ''),
-            'assignment_sort_order' => (int)$activeAssignment['sort_order'],
+            'assignment_sort_order' => (int)($activeAssignment['sort_order'] ?? 0),
             'effect' => $effect,
             'duration' => $duration,
             'orientation' => (string)($display['orientation'] ?? 'landscape'),
             'frontend_assets' => $this->frontendAssetUrls($pluginAssets),
+            'core_frontend_revision' => $this->coreFrontendRuntimeRevision(),
             'plugin_global_updated_at' => $this->collectPluginGlobalUpdatedAt($resolvedSlides),
             'slides' => array_map(static function (array $slide): array {
                 return [
@@ -860,8 +1421,17 @@ class FrontendController
             }, $resolvedSlides),
         ];
 
+        return $this->signDisplayState($payload);
+    }
+
+    private function signDisplayState(array $payload): array
+    {
         $signaturePayload = $payload;
+        unset($signaturePayload['signature'], $signaturePayload['ok'], $signaturePayload['server_time_ms']);
         unset($signaturePayload['frontend_assets']);
+        // The deadline tells clients when to re-check, but is not playback
+        // identity: an unrelated rule boundary must not force a page reload.
+        unset($signaturePayload['next_selection_at_ms']);
         foreach ($signaturePayload['slides'] as &$signatureSlide) {
             // Template-rendered HTML can contain time-based or client-animated elements.
             // Keep reload signatures tied to stable saved config/values instead of runtime DOM state.
@@ -875,9 +1445,133 @@ class FrontendController
         return $payload;
     }
 
+    /**
+     * Sync groups share a playback generation and the earliest member boundary.
+     * Consequently every member prepares the next generation when any member's
+     * timetable changes, even when its own selected playlist stays unchanged.
+     */
+    private function coordinateDisplayState(array $state, ?array $displayGroup, ?array $coordination = null): array
+    {
+        if (!$displayGroup || empty($displayGroup['sync_reload_to_full_minute'])) {
+            return $state;
+        }
+
+        $coordination ??= $this->groupPlaybackCoordination((int)$displayGroup['id']);
+        $state['group_playback_generation'] = $coordination['generation'];
+        if ($coordination['next_selection_at_ms'] > 0) {
+            $state['next_selection_at_ms'] = $coordination['next_selection_at_ms'];
+        }
+
+        return $this->signDisplayState($state);
+    }
+
+    private function groupPlaybackCoordination(int $groupId): array
+    {
+        $displays = $this->db->all(
+            'SELECT d.*
+             FROM display_group_memberships dgm
+             INNER JOIN displays d ON d.id = dgm.display_id
+             WHERE dgm.group_id = ? AND d.is_active = 1
+             ORDER BY d.id ASC',
+            [$groupId]
+        );
+        $generation = [];
+        $nextSelectionAtMs = 0;
+        $originalLocale = current_locale();
+
+        try {
+            foreach ($displays as $display) {
+                // Resolve each member in its own locale so every requester
+                // calculates the same group generation.
+                $this->applyDisplayLocale($display);
+                // A null group deliberately produces the member's raw state and
+                // prevents recursive group coordination.
+                $context = $this->currentDisplayStateContext($display, null);
+                if (!$context) {
+                    continue;
+                }
+                $memberState = $context['state'];
+                $generation[] = [
+                    'display_id' => (int)$display['id'],
+                    'signature' => (string)$memberState['signature'],
+                ];
+                $memberBoundary = (int)($memberState['next_selection_at_ms'] ?? 0);
+                if ($memberBoundary > 0 && ($nextSelectionAtMs === 0 || $memberBoundary < $nextSelectionAtMs)) {
+                    $nextSelectionAtMs = $memberBoundary;
+                }
+            }
+        } finally {
+            app_switch_locale($originalLocale);
+        }
+
+        return [
+            'generation' => sha1(json_encode($generation, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: ''),
+            'next_selection_at_ms' => $nextSelectionAtMs,
+        ];
+    }
+
+    private function coreFrontendRuntimeRevision(): string
+    {
+        if ($this->coreFrontendRevision !== null) return $this->coreFrontendRevision;
+
+        $publicRoot = realpath((string)app_config('paths.public', dirname(__DIR__, 2) . '/public'));
+        $contents = [];
+        foreach ([
+            '/assets/css/display.css',
+            '/assets/js/hugin-qr.js',
+            '/assets/js/playback-scheduler.js',
+            '/assets/js/display-heartbeat.js',
+            '/assets/js/display-media-lifecycle.js',
+            '/assets/js/slideshow.js',
+            '/display-service-worker.js',
+        ] as $publicPath) {
+            $filePath = $publicRoot === false
+                ? false
+                : realpath($publicRoot . DIRECTORY_SEPARATOR . ltrim($publicPath, '/'));
+            if ($filePath === false
+                || !str_starts_with($filePath, $publicRoot . DIRECTORY_SEPARATOR)
+                || !is_file($filePath)) {
+                $contents[$publicPath] = null;
+                continue;
+            }
+
+            $content = file_get_contents($filePath);
+            $contents[$publicPath] = $content === false ? null : $content;
+        }
+
+        return $this->coreFrontendRevision = self::coreFrontendRuntimeRevisionForContents($contents);
+    }
+
+    private static function coreFrontendRuntimeRevisionForContents(array $contents): string
+    {
+        ksort($contents, SORT_STRING);
+        $assets = [];
+        foreach ($contents as $publicPath => $content) {
+            $assets[] = [
+                'path' => (string)$publicPath,
+                'digest' => is_string($content) ? hash('sha256', $content) : null,
+            ];
+        }
+
+        // Plugin assets remain outside the state signature because their dynamic
+        // URLs previously caused a reload loop. Core file contents are stable,
+        // but any deployed runtime change must make existing displays reload.
+        return hash('sha256', json_encode($assets, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '');
+    }
+
+    private function coreFrontendAssetUrl(string $publicPath): string
+    {
+        return self::coreFrontendAssetUrlForRevision($publicPath, $this->coreFrontendRuntimeRevision());
+    }
+
+    private static function coreFrontendAssetUrlForRevision(string $publicPath, string $revision): string
+    {
+        return append_url_query_param(asset_url($publicPath), 'runtime', $revision);
+    }
+
     private function frontendAssetUrls(array $pluginAssets): array
     {
-        $css = [asset_url('/assets/css/display.css')];
+        $css = [$this->coreFrontendAssetUrl('/assets/css/display.css')];
         foreach (($pluginAssets['css'] ?? []) as $asset) {
             $asset = trim((string)$asset);
             if ($asset !== '' && !in_array($asset, $css, true)) {
@@ -886,8 +1580,11 @@ class FrontendController
         }
 
         $js = [
-            asset_url('/assets/js/hugin-qr.js'),
-            asset_url('/assets/js/slideshow.js'),
+            $this->coreFrontendAssetUrl('/assets/js/hugin-qr.js'),
+            $this->coreFrontendAssetUrl('/assets/js/playback-scheduler.js'),
+            $this->coreFrontendAssetUrl('/assets/js/display-heartbeat.js'),
+            $this->coreFrontendAssetUrl('/assets/js/display-media-lifecycle.js'),
+            $this->coreFrontendAssetUrl('/assets/js/slideshow.js'),
         ];
         foreach (($pluginAssets['js'] ?? []) as $asset) {
             $asset = trim((string)$asset);
@@ -899,7 +1596,7 @@ class FrontendController
         return [
             'css' => $css,
             'js' => $js,
-            'service_worker' => asset_url('/display-service-worker.js'),
+            'service_worker' => $this->coreFrontendAssetUrl('/display-service-worker.js'),
         ];
     }
 
@@ -910,9 +1607,10 @@ class FrontendController
         }
 
         $group = $this->db->one(
-            'SELECT g.id, g.name, g.sync_enabled, g.sync_mode
+            'SELECT g.id, g.name, g.primary_display_id, g.sync_enabled, g.sync_mode, l.name AS location_name
              FROM display_group_memberships dgm
              INNER JOIN display_groups g ON g.id = dgm.group_id
+             INNER JOIN display_locations l ON l.id = g.location_id
              WHERE dgm.display_id = ?
              LIMIT 1',
             [$displayId]
@@ -926,6 +1624,9 @@ class FrontendController
         return [
             'id' => (int)$group['id'],
             'name' => (string)$group['name'],
+            'location_name' => (string)($group['location_name'] ?? ''),
+            'primary_display_id' => (int)($group['primary_display_id'] ?? 0),
+            'is_primary_display' => (int)($group['primary_display_id'] ?? 0) === $displayId,
             'sync_enabled' => $syncEnabled ? 1 : 0,
             'sync_mode' => (string)($group['sync_mode'] ?? 'independent'),
             'sync_reload_to_full_minute' => $syncEnabled,
@@ -1027,38 +1728,6 @@ class FrontendController
 
     public function resolveActiveAssignment(array $display): ?array
     {
-        $timezone = new DateTimeZone($display['timezone'] ?: 'UTC');
-        $now = new DateTime('now', $timezone);
-        $weekday = (int)$now->format('N');
-        $currentTime = $now->format('H:i:s');
-
-        return $this->db->one(
-            'SELECT cdsa.id, cdsa.display_id, cdsa.channel_id, cdsa.schedule_id, cdsa.priority AS sort_order,
-                    cdsa.created_at AS assignment_created_at,
-                    s.name AS schedule_name, s.type AS schedule_type, s.updated_at AS schedule_updated_at,
-                    sr.id AS schedule_rule_id, sr.weekday AS schedule_rule_weekday,
-                    sr.start_time AS schedule_rule_start_time, sr.end_time AS schedule_rule_end_time,
-                    c.name AS channel_name, c.description AS channel_description,
-                    c.transition_effect, c.slide_duration_seconds, c.updated_at AS channel_updated_at, c.is_active AS channel_is_active
-             FROM channel_display_schedule_assignments cdsa
-             INNER JOIN channels c ON c.id = cdsa.channel_id
-             INNER JOIN schedules s ON s.id = cdsa.schedule_id
-             LEFT JOIN schedule_rules sr ON sr.schedule_id = s.id
-                AND s.type = \'weekly_time_slot\'
-                AND sr.weekday = ?
-                AND ? >= sr.start_time
-                AND ? < sr.end_time
-             WHERE cdsa.display_id = ?
-               AND cdsa.is_active = 1
-               AND c.is_active = 1
-               AND s.is_active = 1
-               AND (
-                    s.type = \'fulltime\'
-                    OR (s.type = \'weekly_time_slot\' AND sr.id IS NOT NULL)
-               )
-             ORDER BY CASE WHEN s.type = \'fulltime\' THEN 1 ELSE 0 END ASC, cdsa.priority ASC, cdsa.id ASC, sr.id ASC
-             LIMIT 1',
-            [$weekday, $currentTime, $currentTime, $display['id']]
-        );
+        return $this->playlistSelection->resolve($display)['assignment'];
     }
 }

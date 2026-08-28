@@ -1,0 +1,114 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+use App\Core\Database;
+use App\Core\MigrationService;
+use App\Core\PluginManager;
+use App\Services\PluginTaskScheduler;
+
+if (PHP_SAPI !== 'cli') {
+    fwrite(STDERR, "This command is CLI-only.\n");
+    exit(1);
+}
+
+$root = dirname(__DIR__);
+$configFile = $root . '/config/config.php';
+if (!is_file($configFile)) {
+    fwrite(STDERR, "Missing config/config.php.\n");
+    exit(1);
+}
+
+$config = require $configFile;
+$config['paths'] = ['root' => realpath($root), 'public' => realpath($root . '/public')];
+$GLOBALS['app_config'] = $config;
+$manifestFile = $root . '/manifest.json';
+$GLOBALS['app_manifest'] = is_file($manifestFile) ? (json_decode((string)file_get_contents($manifestFile), true) ?: []) : [];
+
+$autoload = $root . '/vendor/autoload.php';
+if (is_file($autoload)) {
+    require_once $autoload;
+}
+require_once $root . '/app/helpers.php';
+require_once $root . '/app/Core/I18n.php';
+require_once $root . '/app/Core/Database.php';
+require_once $root . '/app/Core/MigrationService.php';
+require_once $root . '/app/Core/UploadManager.php';
+require_once $root . '/app/Core/SlidePluginInterface.php';
+require_once $root . '/app/Core/ScheduledTaskProviderInterface.php';
+require_once $root . '/app/Core/AbstractSlidePlugin.php';
+require_once $root . '/app/Core/GlobalSettingsApi.php';
+require_once $root . '/app/Core/PluginApi.php';
+require_once $root . '/app/Core/PluginManager.php';
+require_once $root . '/app/Services/PluginTaskScheduler.php';
+
+$command = $argv[1] ?? 'help';
+if (in_array($command, ['help', '--help', '-h'], true)) {
+    echo "Hugin plugin scheduled-task runner\n\n";
+    echo "Usage:\n";
+    echo "  php bin/hugin-tasks run\n";
+    echo "  php bin/hugin-tasks status\n";
+    exit(0);
+}
+if (!in_array($command, ['run', 'status'], true) || count($argv) !== 2) {
+    fwrite(STDERR, "Unknown command or options. Run php bin/hugin-tasks help.\n");
+    exit(1);
+}
+
+try {
+    $db = new Database($config['db']);
+    $migrations = new MigrationService($db->pdo(), $root . '/db-migrations');
+    $migrationStatus = $migrations->status();
+    if (!$migrationStatus['healthy']) {
+        throw new RuntimeException('Database migrations are not current. Run php bin/hugin-db status.');
+    }
+
+    $locale = (string)($config['app']['locale'] ?? 'en');
+    $fallbackLocale = (string)($config['app']['fallback_locale'] ?? $locale);
+    $GLOBALS['i18n'] = app_build_i18n($locale, $fallbackLocale);
+    $GLOBALS['i18n_locale'] = $locale;
+
+    $plugins = new PluginManager($db, $root . '/plugins');
+    $plugins->syncRegistry();
+    $scheduler = new PluginTaskScheduler($db, $plugins);
+
+    if ($command === 'run') {
+        $result = $scheduler->run(static fn(string $line) => print($line . PHP_EOL));
+        printf(
+            "Scheduled tasks: %d executed, %d failed, %d definition errors.\n",
+            $result['executed'],
+            $result['failed'],
+            $result['definition_errors']
+        );
+        exit(($result['failed'] + $result['definition_errors']) > 0 ? 2 : 0);
+    }
+
+    $rows = $scheduler->status();
+    if ($rows === []) {
+        echo "No scheduled tasks have been registered. Run php bin/hugin-tasks run.\n";
+        exit(0);
+    }
+
+    $unhealthy = false;
+    printf("%-32s %-12s %-10s %-20s %-20s %s\n", 'Task', 'Registration', 'Status', 'Last success', 'Next run', 'Last error');
+    foreach ($rows as $row) {
+        $registered = (int)$row['is_registered'] === 1;
+        $overdue = (int)$row['is_overdue'] === 1;
+        $failed = (string)$row['status'] === 'failed';
+        $unhealthy = $unhealthy || ($registered && ($overdue || $failed));
+        printf(
+            "%-32s %-12s %-10s %-20s %-20s %s\n",
+            (string)$row['plugin_name'] . ':' . (string)$row['task_name'],
+            $registered ? 'registered' : 'inactive',
+            $overdue ? 'overdue' : (string)$row['status'],
+            (string)($row['last_success_at'] ?? '-'),
+            (string)($row['next_run_at'] ?? '-'),
+            (string)($row['last_error'] ?? '')
+        );
+    }
+    exit($unhealthy ? 2 : 0);
+} catch (Throwable $error) {
+    fwrite(STDERR, 'Scheduled-task runner failed: ' . $error->getMessage() . PHP_EOL);
+    exit(1);
+}

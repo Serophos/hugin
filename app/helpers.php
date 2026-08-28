@@ -75,6 +75,64 @@ function app_available_locales(): array
     return $locales;
 }
 
+function app_resolve_locale(string $locale, ?string $default = null): string
+{
+    $availableLocales = app_available_locales();
+    $locale = trim($locale);
+    if ($locale !== '' && array_key_exists($locale, $availableLocales)) {
+        return $locale;
+    }
+
+    $default = trim((string)($default ?? app_config('app.locale', 'en')));
+    if ($default !== '' && array_key_exists($default, $availableLocales)) {
+        return $default;
+    }
+
+    return array_key_first($availableLocales) ?: 'en';
+}
+
+function app_build_i18n(string $locale, ?string $fallbackLocale = null): \App\Core\I18n
+{
+    $locale = app_resolve_locale($locale);
+    $fallbackLocale = app_resolve_locale((string)($fallbackLocale ?? $locale), $locale);
+    $root = rtrim((string)app_config('paths.root', dirname(__DIR__)), '/');
+    $i18n = new \App\Core\I18n($locale, $fallbackLocale);
+
+    foreach (array_values(array_unique([$fallbackLocale, $locale])) as $loadedLocale) {
+        $i18n->loadFile($loadedLocale, $root . '/app/lang/' . $loadedLocale . '.php');
+    }
+
+    $pluginsRoot = $root . '/plugins';
+    if (is_dir($pluginsRoot)) {
+        foreach (scandir($pluginsRoot) ?: [] as $entry) {
+            if ($entry === '.' || $entry === '..') {
+                continue;
+            }
+            $langDir = $pluginsRoot . '/' . $entry . '/lang';
+            if (!is_dir($langDir)) {
+                continue;
+            }
+            foreach (array_values(array_unique([$fallbackLocale, $locale])) as $loadedLocale) {
+                $i18n->loadFile($loadedLocale, $langDir . '/' . $loadedLocale . '.php', 'plugins.' . $entry);
+            }
+        }
+    }
+
+    return $i18n;
+}
+
+function app_switch_locale(string $locale, ?string $fallbackLocale = null): string
+{
+    $systemLocale = (string)app_core_setting('system.locale', app_config('app.locale', 'en'));
+    $locale = app_resolve_locale($locale, $systemLocale);
+    $fallbackLocale = app_resolve_locale((string)($fallbackLocale ?? app_config('app.fallback_locale', $locale)), $locale);
+
+    $GLOBALS['i18n'] = app_build_i18n($locale, $fallbackLocale);
+    $GLOBALS['i18n_locale'] = $locale;
+
+    return $locale;
+}
+
 function __(string $key, array $replace = [], ?string $default = null): string
 {
     $i18n = $GLOBALS['i18n'] ?? null;
@@ -328,7 +386,6 @@ function field_error_html(string $key, string $form = 'default'): string
 
     return '<small id="' . e(field_error_id($key, $form)) . '" class="field-error" role="alert">' . e($message) . '</small>';
 }
-
 function app_core_settings_defaults(string $namespace): array
 {
     $defaults = [
@@ -351,6 +408,23 @@ function app_core_settings_defaults(string $namespace): array
         ],
         'system' => [
             'locale' => (string)app_config('app.locale', 'en'),
+        ],
+        'openid' => [
+            'enabled' => false,
+            'issuer_url' => '',
+            'client_id' => '',
+            'client_secret' => '',
+            'scopes' => 'openid profile',
+            'username_claim' => 'preferred_username',
+            'name_claim' => 'name',
+            'first_name_claim' => 'given_name',
+            'last_name_claim' => 'family_name',
+            'department_claim' => 'department',
+            'title_claim' => 'title',
+            'picture_claim' => 'picture',
+            'groups_claim' => 'groups',
+            'admin_group' => '',
+            'editor_group' => '',
         ],
     ];
 
@@ -403,6 +477,15 @@ function app_normalize_core_settings(string $namespace, array $settings): array
         $settings['visual_mode'] = in_array($settings['visual_mode'] ?? '', ['default', 'high_contrast', 'system'], true) ? $settings['visual_mode'] : 'default';
         $settings['focus_style'] = in_array($settings['focus_style'] ?? '', ['standard', 'strong'], true) ? $settings['focus_style'] : 'standard';
         $settings['motion'] = in_array($settings['motion'] ?? '', ['system', 'reduced'], true) ? $settings['motion'] : 'system';
+    }
+
+    if ($namespace === 'openid') {
+        $settings['enabled'] = filter_var($settings['enabled'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        foreach (array_keys(app_core_settings_defaults('openid')) as $key) {
+            if ($key !== 'enabled') {
+                $settings[$key] = trim((string)($settings[$key] ?? ''));
+            }
+        }
     }
 
     if ($namespace === 'system') {
@@ -491,6 +574,40 @@ function app_system_settings(): array
     return app_core_settings('system');
 }
 
+function app_openid_claim_path_is_valid(string $path): bool
+{
+    return $path !== '' && preg_match('/^[A-Za-z0-9_.:-]+$/D', $path) === 1;
+}
+
+function app_secret_encryption_configured(): bool
+{
+    return strlen((string)app_config('app.encryption_key', '')) >= 32 && extension_loaded('openssl');
+}
+
+
+function app_secret_cipher(): App\Core\SecretCipher
+{
+    return new App\Core\SecretCipher((string)app_config('app.encryption_key', ''));
+}
+
+function app_openid_settings(): array
+{
+    $settings = app_core_settings('openid');
+    $storedSecret = (string)($settings['client_secret'] ?? '');
+    $settings['client_secret'] = '';
+    if ($storedSecret === '') {
+        return $settings;
+    }
+    try {
+        $settings['client_secret'] = app_secret_cipher()->decrypt($storedSecret);
+    } catch (Throwable $e) {
+        error_log('Hugin could not decrypt the OpenID Connect client secret: ' . $e->getMessage());
+        $settings['enabled'] = false;
+    }
+    return $settings;
+}
+
+
 function app_core_setting(string $key, mixed $default = null): mixed
 {
     $segments = explode('.', $key, 2);
@@ -540,12 +657,13 @@ function csrf_field(): string
 function admin_icon(string $name): string
 {
     static $icons = [
-        'about', 'add', 'back', 'cancel', 'check', 'dashboard', 'delete',
+        'about', 'add', 'arrow-left-right', 'back', 'calendar-date', 'cancel', 'card-image', 'card-text', 'check', 'chevron-down', 'circle', 'chevron-up',
+        'dashboard', 'delete', 'diamond',
         'dialog-error', 'dialog-exclamation', 'dialog-information',
         'dialog-question', 'dialog-trash', 'dialog-warning', 'displays',
-        'edit', 'locations', 'login', 'logout', 'manage', 'media', 'menu',
-        'move', 'open', 'playlists', 'plugins', 'preview', 'reload',
-        'remove', 'save', 'schedules', 'settings', 'slides', 'templates',
+        'edit', 'hexagon', 'history', 'locations', 'login', 'logout', 'manage', 'media', 'menu',
+        'move', 'open', 'pentagon', 'play', 'playlists', 'plugins', 'primary-display', 'preview', 'qr-code', 'reload',
+        'remove', 'save', 'slash-square', 'schedules', 'settings', 'slides', 'square', 'star', 'stopwatch', 'templates', 'textarea-t', 'toggle-off', 'toggle-on', 'triangle',
         'upload', 'users',
     ];
 
@@ -600,6 +718,13 @@ function current_user_name(): string
     return (string)($user['display_name'] ?: $user['username']);
 }
 
+function current_user_picture_url(): string
+{
+    $url = trim((string)(current_user()['picture_url'] ?? ''));
+    $scheme = strtolower((string)parse_url($url, PHP_URL_SCHEME));
+    return filter_var($url, FILTER_VALIDATE_URL) && in_array($scheme, ['http', 'https'], true) ? $url : '';
+}
+
 function current_user_role(): string
 {
     return (string)(current_user()['role'] ?? '');
@@ -618,6 +743,9 @@ function is_admin(): bool
 
 function current_user_needs_password_change(): bool
 {
+    if ((current_user()['auth_provider'] ?? 'local') !== 'local') {
+        return false;
+    }
     $userId = (int)(current_user()['id'] ?? 0);
     if ($userId <= 0) {
         return false;
@@ -1111,6 +1239,54 @@ function format_bytes(int $bytes): string
         $value /= 1024;
     }
     return $bytes . ' B';
+}
+
+function aspect_ratio_label(mixed $width, mixed $height): string
+{
+    $width = (int)($width ?? 0);
+    $height = (int)($height ?? 0);
+    if ($width <= 0 || $height <= 0) {
+        return '';
+    }
+
+    $ratio = $width / $height;
+    $commonRatios = [
+        '1:1' => 1 / 1,
+        '5:4' => 5 / 4,
+        '4:3' => 4 / 3,
+        '3:2' => 3 / 2,
+        '16:10' => 16 / 10,
+        '16:9' => 16 / 9,
+        '21:9' => 21 / 9,
+        '32:9' => 32 / 9,
+        '4:5' => 4 / 5,
+        '3:4' => 3 / 4,
+        '2:3' => 2 / 3,
+        '10:16' => 10 / 16,
+        '9:16' => 9 / 16,
+        '9:21' => 9 / 21,
+        '9:32' => 9 / 32,
+    ];
+    $closestLabel = '';
+    $closestDifference = INF;
+    foreach ($commonRatios as $label => $commonRatio) {
+        $difference = abs($ratio - $commonRatio) / $commonRatio;
+        if ($difference < $closestDifference) {
+            $closestLabel = $label;
+            $closestDifference = $difference;
+        }
+    }
+    if ($closestDifference <= 0.03) {
+        return $closestLabel;
+    }
+
+    $first = $width;
+    $second = $height;
+    while ($second !== 0) {
+        [$first, $second] = [$second, $first % $second];
+    }
+
+    return (int)($width / $first) . ':' . (int)($height / $first);
 }
 
 function parse_size(string $value): int

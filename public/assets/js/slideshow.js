@@ -3,33 +3,102 @@
     if (!slideshow) return;
 
     const slides = Array.from(document.querySelectorAll('.slide'));
-    if (slides.length === 0) {
-        slideshow.classList.remove('is-startup-sync-pending');
-        return;
-    }
-
     let index = Math.max(0, slides.findIndex(slide => slide.classList.contains('is-active')));
     let timer = null;
-    let heartbeatTimer = null;
     let stateTimer = null;
     let scheduleStateTimer = null;
+    let selectionBoundaryTimer = null;
     let watchdogTimer = null;
     let pendingReloadTimer = null;
     let pendingReload = null;
     let nextSlideDueAt = 0;
     let startupComplete = false;
     let stateRequestInFlight = false;
+    let stateRetryTimer = null;
+    let stateFailureCount = 0;
+    let transitionInFlight = false;
+    let mediaRecoveryTimer = null;
+    let mediaLifecycle = null;
     let currentSignature = slideshow.dataset.stateSignature || '';
+    let nextSelectionAtMs = Number(slideshow.dataset.nextSelectionAtMs || 0);
+    const playbackReport = window.__huginPlaybackReport = {
+        channelId: Number(slideshow.dataset.channelId || 0),
+        channelName: slideshow.dataset.channelName || '',
+        stateSignature: currentSignature,
+        status: slideshow.dataset.playbackStatus === 'ready'
+            ? 'starting'
+            : (slideshow.dataset.playbackStatus || 'starting'),
+        pendingStateSignature: '',
+        pendingActivationAtMs: 0,
+    };
+    const updatePlaybackReport = updates => Object.assign(playbackReport, updates);
     const videoStartTimers = new WeakMap();
     const videoStartHandlers = new WeakMap();
     const MINUTE_MS = 60000;
     const SYNC_RELOAD_MIN_LEAD_MS = 3000;
+    const SYNC_RELOAD_PAGE_LOAD_LEAD_MS = 5000;
+    const CACHE_READINESS_POLL_MS = 2000;
+    const CACHE_READINESS_MAX_WAIT_MS = 45000;
+    const CACHE_READINESS_REQUEST_TIMEOUT_MS = 10000;
+    const STATE_REQUEST_TIMEOUT_MS = 15000;
+    const MEDIA_FAILURE_RETRY_MS = 30000;
+    const MEDIA_READY_TIMEOUT_MS = 8000;
+    const STARTUP_MEDIA_SELECTION_TIMEOUT_MS = 16000;
+    const STARTUP_MAX_WAIT_MS = 45000;
     const SCHEDULED_SYNC_RELOAD_KEY = 'huginScheduledSyncReload';
     const SCHEDULED_SYNC_RELOAD_MAX_AGE_MS = 120000;
     let serverClockOffsetMs = 0;
+    let startupReadinessReported = false;
+    const startupStatus = slideshow.querySelector('.startup-loading__status');
+    const startupProgress = slideshow.querySelector('[data-startup-cache-progress]');
+    const startupProgressBar = slideshow.querySelector('[data-startup-progress-bar]');
+    const startupProgressTrack = startupProgressBar?.closest('[role="progressbar"]') || null;
+    const playbackStatusScreen = slideshow.querySelector('[data-playback-status-screen]');
+    const playbackStatusMessage = playbackStatusScreen?.querySelector('p') || null;
+    const configuredPlaybackStatusMessage = playbackStatusMessage?.textContent || '';
+    const isDisplayPreview = slideshow.dataset.displayPreview === '1';
     const requestFrame = window.requestAnimationFrame
         ? window.requestAnimationFrame.bind(window)
         : (callback => window.setTimeout(callback, 16));
+
+    const loadingStages = {
+        preparing: slideshow.dataset.loadingStagePreparing || 'Preparing offline support...',
+        caching: slideshow.dataset.loadingStageCaching || 'Caching slideshow media...',
+        degraded: slideshow.dataset.loadingStageDegraded || 'Continuing with limited offline cache...',
+        ready: slideshow.dataset.loadingStageReady || 'Slideshow media is ready.',
+        waitingGroup: slideshow.dataset.loadingStageWaitingGroup || 'Waiting for synchronized displays...',
+        waitingMinute: slideshow.dataset.loadingStageWaitingMinute || 'Starting at the next full minute...',
+        starting: slideshow.dataset.loadingStageStarting || 'Starting slideshow...',
+    };
+
+    const progressTemplate = slideshow.dataset.loadingProgressTemplate || ':completed of :total items prepared';
+    const groupProgressTemplate = slideshow.dataset.loadingGroupProgressTemplate || ':completed of :total displays ready';
+    const minuteProgressTemplate = slideshow.dataset.loadingMinuteProgressTemplate || 'Starting in :seconds seconds';
+
+    const setStartupStage = (stage, progress = null) => {
+        if (startupStatus && loadingStages[stage]) {
+            startupStatus.textContent = loadingStages[stage];
+        }
+
+        const total = Math.max(0, Number(progress?.total || 0));
+        const completed = Math.max(0, Math.min(total, Number(progress?.completed || 0)));
+        const percent = total > 0 ? Math.max(0, Math.min(100, (completed / total) * 100)) : 0;
+        if (startupProgressBar) {
+            startupProgressBar.style.width = `${percent}%`;
+        }
+        if (startupProgressTrack) {
+            startupProgressTrack.setAttribute('aria-valuenow', String(Math.round(percent)));
+            startupProgressTrack.setAttribute('aria-label', loadingStages[stage] || stage);
+        }
+        if (!startupProgress) return;
+
+        const template = stage === 'waitingGroup' ? groupProgressTemplate : progressTemplate;
+        startupProgress.textContent = typeof progress?.text === 'string'
+            ? progress.text
+            : (total > 0
+                ? template.replace(':completed', String(completed)).replace(':total', String(total))
+                : '');
+    };
 
     const updateServerClock = value => {
         const serverTimeMs = Number(value);
@@ -37,7 +106,9 @@
             return false;
         }
 
-        serverClockOffsetMs = serverTimeMs - Date.now();
+        serverClockOffsetMs = window.HuginPlaybackScheduler
+            ? window.HuginPlaybackScheduler.serverClockOffset(serverTimeMs)
+            : serverTimeMs - Date.now();
         return true;
     };
 
@@ -45,7 +116,51 @@
 
     const serverNowMs = () => Date.now() + serverClockOffsetMs;
 
-    const delayUntilServerTime = targetMs => Math.max(0, Math.ceil(Number(targetMs || 0) - serverNowMs()));
+    const delayUntilServerTime = targetMs => window.HuginPlaybackScheduler
+        ? window.HuginPlaybackScheduler.delayUntil(targetMs, serverClockOffsetMs)
+        : Math.max(0, Math.ceil(Number(targetMs || 0) - serverNowMs()));
+
+    // Timetable boundaries come from the server because only it has the full
+    // assignment set and display timezone. The periodic checks remain a safety
+    // net for suspended tabs, clock changes, and edited configuration.
+    const queueSelectionBoundaryCheck = value => {
+        window.clearTimeout(selectionBoundaryTimer);
+        selectionBoundaryTimer = null;
+        nextSelectionAtMs = window.HuginPlaybackScheduler
+            ? window.HuginPlaybackScheduler.normalizeTimestamp(value)
+            : Math.max(0, Number(value || 0));
+        if (nextSelectionAtMs <= 0) return;
+
+        selectionBoundaryTimer = window.setTimeout(() => {
+            selectionBoundaryTimer = null;
+            reloadIfChanged('selection-boundary');
+        }, Math.max(25, delayUntilServerTime(nextSelectionAtMs) + 25));
+    };
+
+    const sleep = ms => new Promise(resolve => {
+        window.setTimeout(resolve, Math.max(0, Math.ceil(Number(ms) || 0)));
+    });
+
+    const fetchWithTimeout = (url, options = {}, timeoutMs = CACHE_READINESS_REQUEST_TIMEOUT_MS) => {
+        if (!window.fetch) {
+            return Promise.reject(new Error('Fetch is unavailable.'));
+        }
+
+        const controller = typeof AbortController === 'function' ? new AbortController() : null;
+        const timeout = window.setTimeout(() => controller?.abort(), Math.max(1000, timeoutMs));
+        const request = controller
+            ? Object.assign({}, options, { signal: controller.signal })
+            : options;
+
+        // Promise.race is still required for older embedded browsers without
+        // AbortController. A stalled readiness request must never own startup.
+        return Promise.race([
+            window.fetch(url, request),
+            sleep(timeoutMs).then(() => {
+                throw new Error('Display request timed out.');
+            }),
+        ]).finally(() => window.clearTimeout(timeout));
+    };
 
     const padDateTimePart = value => String(Math.max(0, Number(value) || 0)).padStart(2, '0');
 
@@ -363,13 +478,44 @@
     let offlineCacheWarmPromise = null;
     let lastWarmSignature = '';
 
+    const showMediaUnavailable = () => {
+        updatePlaybackReport({ status: 'media_unavailable' });
+        if (!playbackStatusScreen) return;
+        if (playbackStatusMessage) {
+            playbackStatusMessage.textContent = slideshow.dataset.mediaUnavailableMessage
+                || configuredPlaybackStatusMessage;
+        }
+        playbackStatusScreen.classList.add('is-active');
+    };
 
-    const bindMediaFallback = element => {
-        if (!element || element.dataset.fallbackBound) return;
-        element.dataset.fallbackBound = '1';
-        element.addEventListener('error', () => {
-            element.classList.add('is-media-error');
+    const hideMediaUnavailable = () => {
+        if (!playbackStatusScreen || slideshow.dataset.playbackStatus !== 'ready') return;
+        if (playbackStatusMessage) {
+            playbackStatusMessage.textContent = configuredPlaybackStatusMessage;
+        }
+        playbackStatusScreen.classList.remove('is-active');
+        if (startupComplete && index >= 0 && isSlideReady(slides[index])) {
+            updatePlaybackReport({ status: 'playing' });
+        }
+    };
+
+    const handleMediaElementFailure = (element, detail = {}) => {
+        const failedSlide = element?.closest?.('.slide');
+        const optional = element?.classList?.contains('text-slide-background');
+        logReload('Media attempt failed', {
+            slideId: failedSlide?.dataset.slideId || '',
+            slideType: failedSlide?.dataset.slideType || '',
+            mediaTag: element?.tagName || '',
+            mediaState: detail.state || '',
+            mediaAttempt: detail.attempt || 0,
+            reason: detail.reason || 'media-error',
+            required: !optional,
         });
+        if (optional || !startupComplete || failedSlide !== slides[index]) return;
+
+        showMediaUnavailable();
+        stopVideo(failedSlide);
+        recoverFromMediaFailure();
     };
 
     const restartTextCardAnimation = slide => {
@@ -467,7 +613,7 @@
         return Array.from(new Set(urls));
     };
 
-    const isSlidePlayable = slide => {
+    const isSlideEligible = slide => {
         if (!slide) return false;
         if (!isProbablyOffline()) return true;
 
@@ -482,14 +628,14 @@
         return assetUrlsForSlide(slide).every(url => !isSameOriginAssetUrl(url) || cachedAssetUrls.has(url));
     };
 
-    const firstPlayableIndex = () => slides.findIndex(slide => isSlidePlayable(slide));
+    const firstEligibleIndex = () => slides.findIndex(slide => isSlideEligible(slide));
 
-    const nextPlayableIndex = (fromIndex, offset = 1) => {
+    const nextEligibleIndex = (fromIndex, offset = 1) => {
         if (slides.length === 0) return -1;
         const startOffset = Math.max(0, offset);
         for (let step = startOffset; step < slides.length + startOffset; step += 1) {
             const candidate = nextIndex(fromIndex, step);
-            if (isSlidePlayable(slides[candidate])) {
+            if (isSlideEligible(slides[candidate])) {
                 return candidate;
             }
         }
@@ -502,20 +648,21 @@
             return Promise.resolve(false);
         }
 
-        return navigator.serviceWorker.register(serviceWorkerUrl, { scope: '/display/' })
-            .then(() => navigator.serviceWorker.ready)
-            .then(() => true)
-            .catch(() => false);
+        const registration = navigator.serviceWorker.register(serviceWorkerUrl, { scope: '/display/' })
+            .then(result => result.active ? result : navigator.serviceWorker.ready)
+            .catch(() => null);
+        const timeout = sleep(10000).then(() => null);
+        return Promise.race([registration, timeout]);
     };
 
     const serviceWorkerReady = registerDisplayServiceWorker();
 
-    const postServiceWorkerMessage = (type, payload = {}) => serviceWorkerReady.then(ready => {
-        if (!ready || !navigator.serviceWorker) {
+    const postServiceWorkerMessage = (type, payload = {}, options = {}) => serviceWorkerReady.then(registration => {
+        if (!registration || !navigator.serviceWorker) {
             throw new Error('Display service worker is unavailable.');
         }
 
-        return navigator.serviceWorker.ready.then(registration => new Promise((resolve, reject) => {
+        return new Promise((resolve, reject) => {
             const worker = registration.active || navigator.serviceWorker.controller;
             if (!worker) {
                 reject(new Error('Display service worker is not active.'));
@@ -523,18 +670,39 @@
             }
 
             const channel = new MessageChannel();
-            const timeout = window.setTimeout(() => reject(new Error('Display service worker timed out.')), 45000);
-            channel.port1.onmessage = event => {
+            const idleTimeoutMs = Math.max(15000, Number(options.idleTimeoutMs || 45000));
+            let settled = false;
+            let timeout = null;
+            const finish = callback => value => {
+                if (settled) return;
+                settled = true;
                 window.clearTimeout(timeout);
+                callback(value);
+            };
+            const fail = finish(reject);
+            const succeed = finish(resolve);
+            const resetTimeout = () => {
+                window.clearTimeout(timeout);
+                timeout = window.setTimeout(() => fail(new Error('Display service worker timed out.')), idleTimeoutMs);
+            };
+            resetTimeout();
+            channel.port1.onmessage = event => {
+                resetTimeout();
                 const data = event.data || {};
                 if (data.ok === false) {
-                    reject(new Error(data.error || 'Display service worker request failed.'));
+                    fail(new Error(data.error || 'Display service worker request failed.'));
                     return;
                 }
-                resolve(data);
+                if (data.type === `${type}_PROGRESS` || data.progress) {
+                    if (typeof options.onProgress === 'function') {
+                        options.onProgress(data.progress || data);
+                    }
+                    return;
+                }
+                succeed(data);
             };
             worker.postMessage(Object.assign({ type }, payload), [channel.port2]);
-        }));
+        });
     });
 
     const resolveOfflineCacheBudget = () => {
@@ -557,12 +725,12 @@
         const url = resolveEndpointUrl(slideshow.dataset.offlineManifestUrl || '');
         if (!url || !window.fetch) return Promise.resolve(null);
 
-        return fetch(url, {
+        return fetchWithTimeout(url, {
             method: 'GET',
             headers: { 'Accept': 'application/json' },
             cache: 'no-store',
             credentials: 'same-origin',
-        })
+        }, STATE_REQUEST_TIMEOUT_MS)
             .then(response => response.ok ? response.json() : null)
             .then(data => data?.ok === true ? data : null)
             .catch(() => null);
@@ -587,34 +755,83 @@
         }).length;
     };
 
-    const warmOfflineCache = (reason = 'startup') => {
+    const warmOfflineCache = (reason = 'startup', options = {}) => {
         if (reason === 'state-check' && currentSignature && lastWarmSignature === currentSignature) {
-            return Promise.resolve({ manifest: null, offlinePlayableCount: 0, cachedUrls: Array.from(cachedAssetUrls), reason });
+            return Promise.resolve({
+                manifest: null,
+                offlinePlayableCount: 0,
+                cachedUrls: Array.from(cachedAssetUrls),
+                cacheStatus: 'ready',
+                reason,
+            });
         }
         if (offlineCacheWarmPromise) return offlineCacheWarmPromise;
 
+        setStartupStage(reason === 'startup' ? 'preparing' : 'caching');
         offlineCacheWarmPromise = fetchOfflineManifest()
             .then(manifest => {
-                if (!manifest) return { manifest: null, offlinePlayableCount: 0, cachedUrls: Array.from(cachedAssetUrls) };
+                if (!manifest) {
+                    setStartupStage('degraded', { completed: 1, total: 1 });
+                    return {
+                        manifest: null,
+                        offlinePlayableCount: 0,
+                        cachedUrls: Array.from(cachedAssetUrls),
+                        cacheStatus: 'degraded',
+                        totalAssets: 0,
+                        cachedAssets: cachedAssetUrls.size,
+                        skippedAssets: 0,
+                        bytesReserved: 0,
+                        reason,
+                    };
+                }
                 applyManifestSlidePolicies(manifest);
+                setStartupStage('caching', { completed: 0, total: Array.isArray(manifest.assets) ? manifest.assets.length : 0 });
                 return resolveOfflineCacheBudget()
-                    .then(maxBytes => postServiceWorkerMessage('CACHE_DISPLAY_MANIFEST', { manifest, maxBytes }))
+                    .then(maxBytes => postServiceWorkerMessage('CACHE_DISPLAY_MANIFEST', { manifest, maxBytes }, {
+                        idleTimeoutMs: 120000,
+                        onProgress: progress => {
+                            if (typeof options.onProgress === 'function') {
+                                options.onProgress(progress);
+                            }
+                            setStartupStage('caching', {
+                                completed: progress?.completed || 0,
+                                total: progress?.total || 0,
+                            });
+                        },
+                    }))
                     .then(result => {
                         mergeCachedUrls(result.cachedUrls || []);
                         lastWarmSignature = manifest.signature || lastWarmSignature;
+                        const skippedAssets = Number(result.skippedAssets || 0);
+                        const cacheStatus = skippedAssets > 0 ? 'degraded' : 'ready';
+                        setStartupStage(cacheStatus === 'ready' ? 'ready' : 'degraded', { completed: 1, total: 1 });
                         return {
                             manifest,
                             offlinePlayableCount: offlinePlayableCount(manifest, result.cachedUrls || []),
                             cachedUrls: result.cachedUrls || [],
+                            cacheStatus,
+                            totalAssets: Number(result.totalAssets || manifest.assets?.length || 0),
+                            cachedAssets: Number(result.cachedAssets || (result.cachedUrls || []).length),
+                            skippedAssets,
+                            bytesReserved: Number(result.bytesReserved || 0),
                             reason,
                         };
                     })
-                    .catch(() => ({
-                        manifest,
-                        offlinePlayableCount: offlinePlayableCount(manifest, Array.from(cachedAssetUrls)),
-                        cachedUrls: Array.from(cachedAssetUrls),
-                        reason,
-                    }));
+                    .catch(error => {
+                        setStartupStage('degraded', { completed: 1, total: 1 });
+                        return {
+                            manifest,
+                            offlinePlayableCount: offlinePlayableCount(manifest, Array.from(cachedAssetUrls)),
+                            cachedUrls: Array.from(cachedAssetUrls),
+                            cacheStatus: 'degraded',
+                            totalAssets: Array.isArray(manifest.assets) ? manifest.assets.length : 0,
+                            cachedAssets: cachedAssetUrls.size,
+                            skippedAssets: 0,
+                            bytesReserved: 0,
+                            reason,
+                            error: String(error?.message || error),
+                        };
+                    });
             })
             .then(result => {
                 offlineCacheWarmPromise = null;
@@ -622,14 +839,26 @@
             })
             .catch(error => {
                 offlineCacheWarmPromise = null;
-                throw error;
+                setStartupStage('degraded', { completed: 1, total: 1 });
+                return {
+                    manifest: null,
+                    offlinePlayableCount: 0,
+                    cachedUrls: Array.from(cachedAssetUrls),
+                    cacheStatus: 'degraded',
+                    totalAssets: 0,
+                    cachedAssets: cachedAssetUrls.size,
+                    skippedAssets: 0,
+                    bytesReserved: 0,
+                    reason,
+                    error: String(error?.message || error),
+                };
             });
 
         return offlineCacheWarmPromise;
     };
 
     const prepareOfflineCacheForReload = stateData => warmOfflineCache('config-reload')
-        .then(result => ({ defer: Boolean(result.manifest && result.offlinePlayableCount <= 0), result }))
+        .then(result => ({ defer: false, result }))
         .catch(() => ({ defer: false, result: null, stateData }));
 
     const runWhenOfflineReady = (stateData, applyReload) => {
@@ -645,10 +874,237 @@
         }).catch(applyReload);
     };
 
+    const cacheReadinessUrl = () => resolveEndpointUrl(slideshow.dataset.cacheReadinessUrl || '');
 
-    const heartbeatIntervalMs = () => {
-        const seconds = parseInt(slideshow.dataset.heartbeatInterval || '90', 10);
-        return Math.max(seconds || 90, 30) * 1000;
+    const cacheReadinessPayload = (reason, cacheResult = {}) => {
+        const signature = cacheResult?.manifest?.signature || cacheResult?.stateSignature || currentSignature || '';
+        return {
+            reason,
+            state_signature: signature,
+            manifest_signature: cacheResult?.manifest?.signature || signature,
+            cache_status: cacheResult?.cacheStatus === 'ready' ? 'ready' : 'degraded',
+            total_assets: Math.max(0, Number(cacheResult?.totalAssets || 0)),
+            cached_assets: Math.max(0, Number(cacheResult?.cachedAssets || 0)),
+            skipped_assets: Math.max(0, Number(cacheResult?.skippedAssets || 0)),
+            bytes_reserved: Math.max(0, Number(cacheResult?.bytesReserved || 0)),
+        };
+    };
+
+    const normalizeReadinessStatus = data => {
+        if (data?.server_time_ms) {
+            updateServerClock(data.server_time_ms);
+        }
+        return {
+            ok: data?.ok === true,
+            syncEnabled: data?.sync_enabled === true,
+            released: data?.released === true,
+            startAtMs: Number(data?.start_at_ms || 0),
+            participantCount: Math.max(0, Number(data?.participant_count || 0)),
+            readyCount: Math.max(0, Number(data?.ready_count || 0)),
+            pendingCount: Math.max(0, Number(data?.pending_count || 0)),
+            generationHash: data?.generation_hash || '',
+            raw: data || {},
+        };
+    };
+
+    const postCacheReadiness = (reason, cacheResult = {}) => {
+        const url = cacheReadinessUrl();
+        if (!url || !window.fetch) {
+            return Promise.resolve(normalizeReadinessStatus({ ok: true, released: true }));
+        }
+
+        return fetchWithTimeout(url, {
+            method: 'POST',
+            headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+            body: JSON.stringify(cacheReadinessPayload(reason, cacheResult)),
+            cache: 'no-store',
+            credentials: 'same-origin',
+        })
+            .then(response => response.ok ? response.json() : null)
+            .then(data => {
+                const status = normalizeReadinessStatus(data || { ok: false, released: true });
+                if (status.ok) {
+                    startupReadinessReported = true;
+                }
+                return status;
+            });
+    };
+
+    const fetchCacheReadinessStatus = () => {
+        const url = cacheReadinessUrl();
+        if (!url || !window.fetch) {
+            return Promise.resolve(normalizeReadinessStatus({ ok: true, released: true }));
+        }
+
+        return fetchWithTimeout(url, {
+            method: 'GET',
+            headers: { 'Accept': 'application/json' },
+            cache: 'no-store',
+            credentials: 'same-origin',
+        })
+            .then(response => response.ok ? response.json() : null)
+            .then(data => normalizeReadinessStatus(data || { ok: false, released: true }));
+    };
+
+    const failOpenReadinessStatus = () => normalizeReadinessStatus({ ok: false, released: true });
+
+    const showReadinessGroupStage = status => {
+        const participantCount = Math.max(0, Number(status?.participantCount || 0));
+        const reportedCount = startupReadinessReported && participantCount > 0 ? 1 : 0;
+        setStartupStage('waitingGroup', {
+            completed: Math.max(reportedCount, Number(status?.readyCount || 0)),
+            total: participantCount,
+        });
+    };
+
+    const showStartupMinuteProgress = startAtMs => {
+        const target = Number(startAtMs || 0);
+        const remainingMs = Math.max(0, target - serverNowMs());
+        // Releases are aligned to a minute. Using the preceding minute as the
+        // progress origin makes the final synchronization phase comparable on
+        // every display, even when a client learns about the release late.
+        const totalMs = MINUTE_MS;
+        const completedMs = Math.max(0, totalMs - Math.min(totalMs, remainingMs));
+        setStartupStage('waitingMinute', {
+            completed: completedMs,
+            total: totalMs,
+            text: minuteProgressTemplate.replace(':seconds', String(Math.ceil(remainingMs / 1000))),
+        });
+    };
+
+    const waitForStartupMinute = startAtMs => new Promise(resolve => {
+        const target = Number(startAtMs || 0);
+        const update = () => showStartupMinuteProgress(target);
+        update();
+        const progressTimer = window.setInterval(update, 250);
+        window.setTimeout(() => {
+            window.clearInterval(progressTimer);
+            showStartupMinuteProgress(target);
+            resolve();
+        }, delayUntilServerTime(target));
+    });
+
+    const readinessTimeoutFallback = status => Object.assign({}, status || {}, {
+        ok: false,
+        released: true,
+        startAtMs: computeNextFullMinuteActivation(),
+    });
+
+    const waitForCacheReadinessReleaseStatus = initialStatus => {
+        const waitStartedAt = Date.now();
+        const poll = currentStatus => {
+            if (!shouldUseSyncedGroupReload() || !currentStatus?.syncEnabled || currentStatus.ok === false) {
+                return currentStatus;
+            }
+
+            // Apply every server response before deciding whether the group has
+            // been released. The response that completes the group otherwise
+            // skipped the readiness count and left the bar on the prior value.
+            showReadinessGroupStage(currentStatus);
+
+            if (currentStatus.released && (currentStatus.startAtMs > 0 || currentStatus.participantCount <= 0)) {
+                // Let the completed group count reach the screen before the
+                // following minute-alignment stage replaces it.
+                return new Promise(resolve => requestFrame(() => resolve(currentStatus)));
+            }
+
+            if (Date.now() - waitStartedAt >= CACHE_READINESS_MAX_WAIT_MS) {
+                logSyncDebug('cache readiness wait timed out; using full-minute fallback', {
+                    participantCount: currentStatus?.participantCount || 0,
+                    readyCount: currentStatus?.readyCount || 0,
+                });
+                return readinessTimeoutFallback(currentStatus);
+            }
+
+            return sleep(CACHE_READINESS_POLL_MS)
+                .then(fetchCacheReadinessStatus)
+                .then(nextStatus => nextStatus.ok === false ? nextStatus : poll(nextStatus));
+        };
+
+        return poll(initialStatus);
+    };
+
+    const waitForCacheReadinessRelease = (reason, cacheResult = {}) => postCacheReadiness(reason, cacheResult)
+        .then(waitForCacheReadinessReleaseStatus)
+        .catch(error => {
+            logSyncDebug('cache readiness coordination failed open', {
+                reason,
+                error: String(error?.message || error),
+            });
+            return failOpenReadinessStatus();
+        });
+
+    const readinessStatusWithFallbackStart = (status, fallbackStartAtMs = 0) => {
+        const nextStatus = Object.assign({}, status || {});
+        if (!nextStatus.released || Number(nextStatus.startAtMs || 0) > serverNowMs()) {
+            return nextStatus;
+        }
+
+        const fallback = Number(fallbackStartAtMs || 0);
+        nextStatus.startAtMs = fallback > serverNowMs()
+            ? fallback
+            : computeNextFullMinuteActivation();
+        return nextStatus;
+    };
+
+    const releaseStillCoversStart = (latestStatus, expectedStatus) => {
+        if (!latestStatus?.syncEnabled || latestStatus.ok === false) {
+            return true;
+        }
+        if (!latestStatus.released) {
+            return false;
+        }
+
+        const latestStartAtMs = Number(latestStatus.startAtMs || 0);
+        const expectedStartAtMs = Number(expectedStatus?.startAtMs || 0);
+        return latestStartAtMs > 0 && latestStartAtMs <= expectedStartAtMs;
+    };
+
+    const waitForReadinessStart = (status, options = {}) => {
+        const firstStatus = readinessStatusWithFallbackStart(status, options?.fallbackStartAtMs || 0);
+        const waitStartedAt = Date.now();
+
+        const poll = currentStatus => {
+            if (!shouldUseSyncedGroupReload() || !currentStatus?.syncEnabled || currentStatus.ok === false) {
+                const startAtMs = Number(currentStatus?.startAtMs || 0);
+                if (startAtMs > serverNowMs()) {
+                    return waitForStartupMinute(startAtMs);
+                }
+                return Promise.resolve(currentStatus);
+            }
+
+            if (!currentStatus.released || Number(currentStatus.startAtMs || 0) <= 0) {
+                if (Date.now() - waitStartedAt >= CACHE_READINESS_MAX_WAIT_MS) {
+                    return poll(readinessTimeoutFallback(currentStatus));
+                }
+                showReadinessGroupStage(currentStatus);
+                return sleep(CACHE_READINESS_POLL_MS)
+                    .then(fetchCacheReadinessStatus)
+                    .then(nextStatus => nextStatus.ok === false ? nextStatus : poll(nextStatus))
+                    .catch(failOpenReadinessStatus);
+            }
+
+            const startAtMs = Number(currentStatus.startAtMs || 0);
+            if (startAtMs <= serverNowMs()) {
+                return Promise.resolve(currentStatus);
+            }
+
+            showStartupMinuteProgress(startAtMs);
+            return sleep(Math.min(delayUntilServerTime(startAtMs), CACHE_READINESS_POLL_MS))
+                .then(fetchCacheReadinessStatus)
+                .then(nextStatus => {
+                    if (nextStatus.ok === false) {
+                        return serverNowMs() >= startAtMs ? currentStatus : poll(currentStatus);
+                    }
+                    if (serverNowMs() >= startAtMs && releaseStillCoversStart(nextStatus, currentStatus)) {
+                        return nextStatus;
+                    }
+                    return poll(nextStatus);
+                })
+                .catch(() => serverNowMs() >= startAtMs ? currentStatus : poll(currentStatus));
+        };
+
+        return poll(firstStatus);
     };
 
     const stateCheckIntervalMs = () => {
@@ -719,6 +1175,7 @@
                 reason: pendingReload.reason,
                 signature: pendingReload.signature || '',
                 activateAt: new Date(pendingReload.activateAtMs).toISOString(),
+                startAt: pendingReload.startAtMs ? new Date(pendingReload.startAtMs).toISOString() : '',
                 msUntilActivate: delayUntilServerTime(pendingReload.activateAtMs),
             } : null,
             storedScheduledReload: scheduledSyncReloadForDebug(),
@@ -782,7 +1239,8 @@
     };
 
     const markScheduledSyncReload = reload => {
-        const startAtMs = reload?.activateAtMs ? computeNextFullMinuteActivation(Number(reload.activateAtMs) + 1) : 0;
+        const startAtMs = Number(reload?.startAtMs || 0)
+            || (reload?.activateAtMs ? computeNextFullMinuteActivation(Number(reload.activateAtMs) + 1) : 0);
         try {
             window.sessionStorage.setItem(SCHEDULED_SYNC_RELOAD_KEY, JSON.stringify({
                 at: Date.now(),
@@ -804,6 +1262,10 @@
         }
         pendingReloadTimer = null;
         pendingReload = null;
+        updatePlaybackReport({
+            pendingStateSignature: '',
+            pendingActivationAtMs: 0,
+        });
 
         logSyncDebug('reload immediately requested', {
             reason,
@@ -825,32 +1287,43 @@
         });
     };
 
-    const applyPendingReload = () => {
-        if (!pendingReload) return;
+    const schedulePendingReload = (reload, status = null, replaced = false) => {
+        const statusStartAtMs = Number(status?.startAtMs || 0);
+        const startAtMs = statusStartAtMs > serverNowMs()
+            ? statusStartAtMs
+            : computeNextFullMinuteActivation();
+        const activateAtMs = Math.max(serverNowMs(), startAtMs - SYNC_RELOAD_PAGE_LOAD_LEAD_MS);
 
-        const reload = pendingReload;
-        pendingReload = null;
-        pendingReloadTimer = null;
+        pendingReload = Object.assign({}, reload, {
+            activateAtMs,
+            startAtMs,
+            readinessGenerationHash: status?.generationHash || reload.readinessGenerationHash || '',
+        });
+        updatePlaybackReport({
+            pendingStateSignature: pendingReload.signature || '',
+            pendingActivationAtMs: activateAtMs,
+        });
+        pendingReloadTimer = window.setTimeout(applyPendingReload, delayUntilServerTime(activateAtMs));
 
-        if (isProbablyOffline()) {
-            reload.activateAtMs = computeNextFullMinuteActivation();
-            pendingReload = reload;
-            pendingReloadTimer = window.setTimeout(applyPendingReload, delayUntilServerTime(reload.activateAtMs));
-            logReload('Postponed synchronized reload while offline', {
-                reason: reload.reason,
-                displayGroup: reload.displayGroup,
-                signature: reload.signature,
-                activateAt: new Date(reload.activateAtMs).toISOString(),
-            });
-            logSyncDebug('postponed synchronized reload while offline', {
-                reason: reload.reason,
-                signature: reload.signature,
-                activateAt: new Date(reload.activateAtMs).toISOString(),
-                msUntilActivate: delayUntilServerTime(reload.activateAtMs),
-            });
-            return;
-        }
+        logReload(replaced ? 'Replaced pending synchronized reload' : 'Scheduled synchronized reload', {
+            reason: pendingReload.reason,
+            displayGroup: pendingReload.displayGroup,
+            signature: pendingReload.signature,
+            activateAt: new Date(activateAtMs).toISOString(),
+            startAt: new Date(startAtMs).toISOString(),
+        });
+        logSyncDebug(replaced ? 'replaced pending synchronized reload' : 'scheduled synchronized reload', {
+            reason: pendingReload.reason,
+            signature: pendingReload.signature,
+            displayGroup: pendingReload.displayGroup,
+            activateAt: new Date(activateAtMs).toISOString(),
+            startAt: new Date(startAtMs).toISOString(),
+            generationHash: pendingReload.readinessGenerationHash,
+            msUntilActivate: delayUntilServerTime(activateAtMs),
+        });
+    };
 
+    const applyPendingReloadNow = reload => {
         logReload('Applying synchronized reload', {
             reason: reload.reason,
             displayGroup: reload.displayGroup,
@@ -861,12 +1334,108 @@
             reason: reload.reason,
             signature: reload.signature,
             activateAt: new Date(reload.activateAtMs).toISOString(),
+            startAt: reload.startAtMs ? new Date(reload.startAtMs).toISOString() : '',
+            generationHash: reload.readinessGenerationHash || '',
         });
 
         markScheduledSyncReload(reload);
         window.location.reload();
     };
 
+    const applyPendingReload = () => {
+        if (!pendingReload) return;
+
+        const reload = pendingReload;
+        pendingReload = null;
+        pendingReloadTimer = null;
+
+        if (isProbablyOffline()) {
+            reload.startAtMs = computeNextFullMinuteActivation();
+            reload.activateAtMs = Math.max(serverNowMs(), reload.startAtMs - SYNC_RELOAD_PAGE_LOAD_LEAD_MS);
+            pendingReload = reload;
+            updatePlaybackReport({
+                pendingStateSignature: reload.signature || '',
+                pendingActivationAtMs: reload.activateAtMs,
+            });
+            pendingReloadTimer = window.setTimeout(applyPendingReload, delayUntilServerTime(reload.activateAtMs));
+            logReload('Postponed synchronized reload while offline', {
+                reason: reload.reason,
+                displayGroup: reload.displayGroup,
+                signature: reload.signature,
+                activateAt: new Date(reload.activateAtMs).toISOString(),
+                startAt: new Date(reload.startAtMs).toISOString(),
+            });
+            logSyncDebug('postponed synchronized reload while offline', {
+                reason: reload.reason,
+                signature: reload.signature,
+                activateAt: new Date(reload.activateAtMs).toISOString(),
+                startAt: new Date(reload.startAtMs).toISOString(),
+                msUntilActivate: delayUntilServerTime(reload.activateAtMs),
+            });
+            return;
+        }
+
+        if (!shouldUseSyncedGroupReload(reload.stateData)) {
+            applyPendingReloadNow(reload);
+            return;
+        }
+
+        fetchCacheReadinessStatus()
+            .then(status => {
+                if (status.ok === false || !status.syncEnabled) {
+                    applyPendingReloadNow(reload);
+                    return;
+                }
+
+                if (!status.released || Number(status.startAtMs || 0) <= 0) {
+                    logSyncDebug('synchronized reload release revoked before page load', {
+                        reason: reload.reason,
+                        signature: reload.signature,
+                        participantCount: status.participantCount,
+                        readyCount: status.readyCount,
+                        generationHash: status.generationHash,
+                    });
+                    return waitForCacheReadinessReleaseStatus(status)
+                        .then(nextStatus => {
+                            if (nextStatus.ok === false || !nextStatus.syncEnabled) {
+                                applyPendingReloadNow(reload);
+                                return;
+                            }
+                            schedulePendingReload(reload, nextStatus, true);
+                        })
+                        .catch(error => {
+                            logSyncDebug('synchronized reload readiness revalidation failed open', {
+                                reason: reload.reason,
+                                signature: reload.signature,
+                                error: String(error?.message || error),
+                            });
+                            applyPendingReloadNow(reload);
+                        });
+                }
+
+                const startAtMs = Number(status.startAtMs || 0);
+                if (startAtMs - serverNowMs() > SYNC_RELOAD_PAGE_LOAD_LEAD_MS + Math.floor(CACHE_READINESS_POLL_MS / 2)) {
+                    schedulePendingReload(reload, status, true);
+                    return;
+                }
+
+                reload.startAtMs = startAtMs || reload.startAtMs;
+                reload.readinessGenerationHash = status.generationHash || reload.readinessGenerationHash || '';
+                applyPendingReloadNow(reload);
+            })
+            .catch(error => {
+                logSyncDebug('synchronized reload readiness check failed open', {
+                    reason: reload.reason,
+                    signature: reload.signature,
+                    error: String(error?.message || error),
+                });
+                applyPendingReloadNow(reload);
+            });
+    };
+
+    // A signature change identifies a new server-selected playback generation.
+    // Sync groups cache/report that generation before the coordinator grants a
+    // shared full-minute start; independent displays reload without that gate.
     const scheduleSyncedReload = (reason, stateData) => {
         const signature = stateData?.signature || '';
         const displayGroup = displayGroupFromState(stateData);
@@ -892,34 +1461,27 @@
             clearTimeout(pendingReloadTimer);
         }
 
-        const scheduleReload = () => {
-            const activateAtMs = computeNextFullMinuteActivation();
-            pendingReload = {
+        const scheduleReload = status => {
+            schedulePendingReload({
                 reason,
                 stateData,
                 signature,
                 displayGroup,
-                activateAtMs,
-            };
-            pendingReloadTimer = window.setTimeout(applyPendingReload, delayUntilServerTime(activateAtMs));
-
-            logReload(replaced ? 'Replaced pending synchronized reload' : 'Scheduled synchronized reload', {
-                reason,
-                displayGroup,
-                signature,
-                activateAt: new Date(activateAtMs).toISOString(),
-            });
-            logSyncDebug(replaced ? 'replaced pending synchronized reload' : 'scheduled synchronized reload', {
-                reason,
-                signature,
-                displayGroup,
                 stateServerTimeMs: stateData?.server_time_ms || null,
-                activateAt: new Date(activateAtMs).toISOString(),
-                msUntilActivate: delayUntilServerTime(activateAtMs),
-            });
+            }, status, replaced);
         };
 
-        runWhenOfflineReady(stateData, scheduleReload);
+        warmOfflineCache('config-reload')
+            .then(cacheResult => waitForCacheReadinessRelease('config-reload', Object.assign({ stateSignature: signature }, cacheResult)))
+            .then(scheduleReload)
+            .catch(error => {
+                logSyncDebug('synchronized reload cache readiness failed open', {
+                    reason,
+                    signature,
+                    error: String(error?.message || error),
+                });
+                scheduleReload(null);
+            });
     };
 
     const renderTextSlideQrCodes = () => {
@@ -1003,12 +1565,12 @@
         }
 
         logSyncDebug('startup server clock refresh request', { url });
-        return fetch(url, {
+        return fetchWithTimeout(url, {
             method: 'GET',
             headers: { 'Accept': 'application/json' },
             cache: 'no-store',
             credentials: 'same-origin',
-        })
+        }, STATE_REQUEST_TIMEOUT_MS)
             .then(response => response.ok ? response.json() : null)
             .then(data => {
                 const updated = updateServerClock(data?.server_time_ms);
@@ -1065,9 +1627,9 @@
                     startAt: new Date(targetMs).toISOString(),
                     msUntilStart: delayUntilServerTime(targetMs),
                 });
-                return new Promise(resolve => {
-                    window.setTimeout(resolve, delayUntilServerTime(targetMs));
-                });
+                return shouldUseSyncedGroupReload()
+                    ? waitForStartupMinute(targetMs)
+                    : sleep(delayUntilServerTime(targetMs));
             }
 
             if (!shouldWaitForLegacyStartupSync()) {
@@ -1086,7 +1648,7 @@
     };
 
     const ensureMediaLoaded = slide => {
-        if (!slide || !isSlidePlayable(slide)) return;
+        if (!slide || !isSlideEligible(slide) || !mediaLifecycle) return Promise.resolve(false);
 
         slide.querySelectorAll('.text-slide-background--image[data-bg-src]').forEach(element => {
             const source = element.dataset.bgSrc;
@@ -1100,37 +1662,38 @@
             element.style.backgroundImage = `url(${JSON.stringify(source)})`;
         });
 
+        const tasks = [];
         slide.querySelectorAll('img[data-src], video[data-src], iframe[data-src]').forEach(element => {
             const source = element.dataset.src;
             const normalized = normalizeAssetUrl(source || '');
-            if (!source || element.getAttribute('src')) return;
+            if (!source) return;
             if (element.tagName === 'IFRAME' && isProbablyOffline()) return;
             if (isProbablyOffline() && isSameOriginAssetUrl(normalized) && !cachedAssetUrls.has(normalized)) {
                 element.classList.add('is-media-error');
                 return;
             }
 
-            bindMediaFallback(element);
-            element.classList.remove('is-media-error');
-            element.setAttribute('src', source);
-            if (element.tagName === 'VIDEO') {
-                element.load();
-            }
+            const required = !element.classList.contains('text-slide-background');
+            tasks.push(mediaLifecycle.prepare(element, {
+                required,
+                timeoutMs: MEDIA_READY_TIMEOUT_MS,
+            }));
         });
+        return Promise.all(tasks);
     };
+
+    const isSlideReady = slide => Boolean(slide && mediaLifecycle?.isSlideReady(slide));
 
     const unloadHeavyMedia = slide => {
         if (!slide) return;
-
         slide.querySelectorAll('video[data-src]').forEach(video => {
             clearPendingVideoStart(video);
             video.pause();
-            video.removeAttribute('src');
-            video.load();
+            mediaLifecycle?.dispose(video, { unload: true });
         });
 
         slide.querySelectorAll('iframe[data-src]').forEach(iframe => {
-            iframe.removeAttribute('src');
+            mediaLifecycle?.dispose(iframe, { unload: true });
         });
 
         slide.querySelectorAll('.text-slide-background--image[data-bg-src]').forEach(element => {
@@ -1139,21 +1702,22 @@
     };
 
     const prepareMediaAround = activeIndex => {
+        if (activeIndex < 0 || !slides[activeIndex]) return;
         ensureMediaLoaded(slides[activeIndex]);
         if (slides.length > 1) {
-            const nextPlayable = nextPlayableIndex(activeIndex);
-            if (nextPlayable >= 0 && nextPlayable !== activeIndex) {
-                ensureMediaLoaded(slides[nextPlayable]);
+            const nextEligible = nextEligibleIndex(activeIndex);
+            if (nextEligible >= 0 && nextEligible !== activeIndex) {
+                ensureMediaLoaded(slides[nextEligible]);
             }
         }
     };
 
     const cleanupFarMedia = activeIndex => {
-        const keep = new Set([activeIndex]);
+        const keep = new Set(activeIndex >= 0 ? [activeIndex] : []);
         if (slides.length > 1) {
-            const nextPlayable = nextPlayableIndex(activeIndex);
-            if (nextPlayable >= 0) {
-                keep.add(nextPlayable);
+            const nextEligible = nextEligibleIndex(activeIndex);
+            if (nextEligible >= 0) {
+                keep.add(nextEligible);
             }
         }
 
@@ -1261,7 +1825,7 @@
     };
 
     const startVideo = slide => {
-        if (!slide || !isSlidePlayable(slide)) return;
+        if (!slide || !isSlideEligible(slide) || !isSlideReady(slide)) return;
 
         ensureMediaLoaded(slide);
         slide.querySelectorAll('video').forEach(video => {
@@ -1274,7 +1838,7 @@
             }
 
             requestFrame(() => {
-                if (!slide.classList.contains('is-active') || !isSlidePlayable(slide)) return;
+                if (!slide.classList.contains('is-active') || !isSlideEligible(slide) || !isSlideReady(slide)) return;
 
                 const delay = templateVideoStartDelay(video);
                 if (delay <= 0) {
@@ -1283,7 +1847,7 @@
                 }
 
                 const startTimer = window.setTimeout(() => {
-                    if (slide.classList.contains('is-active') && isSlidePlayable(slide)) {
+                    if (slide.classList.contains('is-active') && isSlideEligible(slide) && isSlideReady(slide)) {
                         playVideoFromStart(video);
                     } else {
                         videoStartTimers.delete(video);
@@ -1292,115 +1856,6 @@
                 videoStartTimers.set(video, startTimer);
             });
         });
-    };
-
-    const ua = navigator.userAgent || '';
-    const parseBrowser = () => {
-        const checks = [
-            { name: 'Edge', regex: /(Edg|Edge)\/([\d.]+)/i },
-            { name: 'Opera', regex: /(OPR)\/([\d.]+)/i },
-            { name: 'Chrome', regex: /(Chrome)\/([\d.]+)/i },
-            { name: 'Firefox', regex: /(Firefox)\/([\d.]+)/i },
-            { name: 'Safari', regex: /Version\/([\d.]+).*Safari/i },
-        ];
-        for (const item of checks) {
-            const match = ua.match(item.regex);
-            if (match) return { browserName: item.name, browserVersion: match[2] || match[1] || '' };
-        }
-        return { browserName: 'Unknown', browserVersion: '' };
-    };
-
-    const parseOs = () => {
-        const platform = navigator.platform || '';
-        const list = [
-            { name: 'Windows', regex: /Windows NT ([\d.]+)/i },
-            { name: 'Android', regex: /Android ([\d.]+)/i },
-            { name: 'iOS', regex: /OS ([\d_]+) like Mac OS X/i, transform: v => v.replace(/_/g, '.') },
-            { name: 'macOS', regex: /Mac OS X ([\d_]+)/i, transform: v => v.replace(/_/g, '.') },
-            { name: 'Linux', regex: /Linux/i },
-            { name: 'CrOS', regex: /CrOS [^ ]+ ([\d.]+)/i },
-        ];
-        for (const item of list) {
-            const match = ua.match(item.regex);
-            if (match) {
-                return {
-                    osName: item.name,
-                    osVersion: match[1] ? (item.transform ? item.transform(match[1]) : match[1]) : '',
-                    platform,
-                };
-            }
-        }
-        return { osName: platform || 'Unknown', osVersion: '', platform };
-    };
-
-    const collectHeartbeatPayload = () => {
-        const browser = parseBrowser();
-        const os = parseOs();
-        const screenOrientation = screen.orientation?.type || (window.innerHeight > window.innerWidth ? 'portrait' : 'landscape');
-        return {
-            seenAt: new Date().toISOString(),
-            browserName: browser.browserName,
-            browserVersion: browser.browserVersion,
-            osName: os.osName,
-            osVersion: os.osVersion,
-            platform: navigator.platform || os.platform || '',
-            language: navigator.language || '',
-            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || '',
-            screenWidth: Number(screen.width || 0),
-            screenHeight: Number(screen.height || 0),
-            availScreenWidth: Number(screen.availWidth || 0),
-            availScreenHeight: Number(screen.availHeight || 0),
-            viewportWidth: Number(window.innerWidth || document.documentElement.clientWidth || 0),
-            viewportHeight: Number(window.innerHeight || document.documentElement.clientHeight || 0),
-            devicePixelRatio: Number(window.devicePixelRatio || 1),
-            colorDepth: Number(screen.colorDepth || 0),
-            maxTouchPoints: Number(navigator.maxTouchPoints || 0),
-            hardwareConcurrency: Number(navigator.hardwareConcurrency || 0),
-            deviceMemory: navigator.deviceMemory ? Number(navigator.deviceMemory) : null,
-            screenOrientation,
-            online: typeof navigator.onLine === 'boolean' ? navigator.onLine : null,
-            cookieEnabled: typeof navigator.cookieEnabled === 'boolean' ? navigator.cookieEnabled : null,
-            userAgent: ua,
-        };
-    };
-
-    const sendHeartbeatBeacon = (url, payload) => {
-        if (!navigator.sendBeacon) return false;
-        const blob = new Blob([payload], { type: 'application/json' });
-        return navigator.sendBeacon(url, blob);
-    };
-
-    const sendHeartbeat = (options = {}) => {
-        const url = resolveEndpointUrl(slideshow.dataset.heartbeatUrl);
-        if (!url) return;
-
-        const payload = JSON.stringify(collectHeartbeatPayload());
-
-        if (options.preferBeacon && sendHeartbeatBeacon(url, payload)) {
-            return;
-        }
-
-        if (!window.fetch) {
-            sendHeartbeatBeacon(url, payload);
-            return;
-        }
-
-        fetch(url, {
-            method: 'POST',
-            headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
-            body: payload,
-            cache: 'no-store',
-            credentials: 'same-origin',
-            keepalive: true,
-        })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(`Heartbeat failed with HTTP ${response.status}`);
-                }
-            })
-            .catch(() => {
-                sendHeartbeatBeacon(url, payload);
-            });
     };
 
     const reloadIfChanged = (source = 'state-check') => {
@@ -1421,12 +1876,12 @@
             url,
         });
 
-        return fetch(url, {
+        return fetchWithTimeout(url, {
             method: 'GET',
             headers: { 'Accept': 'application/json' },
             cache: 'no-store',
             credentials: 'same-origin',
-        })
+        }, STATE_REQUEST_TIMEOUT_MS)
             .then(response => {
                 logSyncDebug('state check response', {
                     source,
@@ -1455,11 +1910,16 @@
             })
             .then(data => {
                 if (!data) {
-                    logSyncDebug('state check had no JSON payload', { source });
-                    return;
+                    throw new Error('State endpoint returned no usable payload.');
+                }
+                stateFailureCount = 0;
+                if (stateRetryTimer) {
+                    window.clearTimeout(stateRetryTimer);
+                    stateRetryTimer = null;
                 }
                 const previousOffsetMs = serverClockOffsetMs;
                 const updatedClock = updateServerClock(data.server_time_ms);
+                queueSelectionBoundaryCheck(data.next_selection_at_ms);
                 logSyncDebug('state check payload', {
                     source,
                     ok: data.ok ?? null,
@@ -1495,6 +1955,7 @@
                     return;
                 }
                 if (data.signature === currentSignature) {
+                    stateFailureCount = 0;
                     logSyncDebug('state check no change', {
                         source,
                         signature: data.signature,
@@ -1527,25 +1988,142 @@
                 }
             })
             .catch(error => {
+                stateFailureCount += 1;
                 logSyncDebug('state check failed', {
                     source,
                     error: String(error?.message || error),
+                    consecutiveFailures: stateFailureCount,
                 });
             })
-            .then(() => {
+            .finally(() => {
                 stateRequestInFlight = false;
                 logSyncDebug('state check complete', { source });
+                if (stateFailureCount > 0 && !stateRetryTimer) {
+                    const retryDelay = Math.min(30000, 2000 * (2 ** Math.min(stateFailureCount - 1, 4)));
+                    stateRetryTimer = window.setTimeout(() => {
+                        stateRetryTimer = null;
+                        reloadIfChanged('state-retry');
+                    }, retryDelay);
+                }
             });
+    };
+
+    const findReadySlideIndex = (startIndex, options = {}) => mediaLifecycle.findReadyCandidate(slides, startIndex, {
+        excludeIndex: options.excludeIndex,
+        retryFailed: options.retryFailed === true,
+        timeoutMs: MEDIA_READY_TIMEOUT_MS,
+        shouldContinue: options.shouldContinue,
+        isEligible: isSlideEligible,
+        onRejected: candidate => logReload('Skipping slide because required media is not renderable', {
+            slideId: candidate.dataset.slideId || '',
+            slideType: candidate.dataset.slideType || '',
+        }),
+    });
+
+    const commitSlide = nextSlideIndex => new Promise(resolve => requestFrame(() => {
+        const previousIndex = index;
+        const current = slides[index];
+        const next = slides[nextSlideIndex];
+        if (!next || !isSlideEligible(next) || !isSlideReady(next)) {
+            resolve(false);
+            return;
+        }
+        const nextWasActive = next.classList.contains('is-active');
+        const currentTextAnimating = current?.classList.contains('is-text-card-animating') || false;
+        const currentTemplateAnimating = current?.classList.contains('is-template-animating') || false;
+
+        try {
+            const handedOff = mediaLifecycle.handoffVisible(current, next, {
+                afterAdd: () => {
+                    index = nextSlideIndex;
+                },
+                beforeRemove: () => {
+                    stopVideo(current);
+                    current.classList.remove('is-text-card-animating');
+                    current.classList.remove('is-template-animating');
+                },
+            });
+            if (!handedOff) throw new Error('Verified slide handoff was rejected.');
+            hideMediaUnavailable();
+            restartTextCardAnimation(next);
+            restartTemplateElementAnimations(next);
+            startVideo(next);
+            prepareMediaAround(index);
+            const committedIndex = index;
+            const cleanupCommittedMedia = () => {
+                if (index !== committedIndex) return;
+                if (transitionInFlight) {
+                    window.setTimeout(cleanupCommittedMedia, 250);
+                    return;
+                }
+                cleanupFarMedia(committedIndex);
+            };
+            window.setTimeout(cleanupCommittedMedia, 1300);
+            resolve(true);
+        } catch (error) {
+            index = previousIndex;
+            if (!nextWasActive && next !== current) {
+                next.classList.remove('is-active');
+                next.classList.remove('is-text-card-animating');
+                next.classList.remove('is-template-animating');
+                stopVideo(next);
+            }
+            if (current) {
+                current.classList.add('is-active');
+                if (currentTextAnimating) current.classList.add('is-text-card-animating');
+                if (currentTemplateAnimating) current.classList.add('is-template-animating');
+                if (isSlideReady(current)) {
+                    hideMediaUnavailable();
+                    try {
+                        startVideo(current);
+                    } catch (restartError) {}
+                } else {
+                    showMediaUnavailable();
+                }
+            }
+            window.console?.error?.('[Hugin display] Slide transition failed', error);
+            resolve(false);
+        }
+    }));
+
+    const scheduleMediaRecovery = (delayMs = MEDIA_FAILURE_RETRY_MS) => {
+        if (mediaRecoveryTimer || !startupComplete || slides.length === 0) return;
+        mediaRecoveryTimer = window.setTimeout(() => {
+            mediaRecoveryTimer = null;
+            if (transitionInFlight) {
+                scheduleMediaRecovery(250);
+                return;
+            }
+            const target = index >= 0 ? nextEligibleIndex(index) : firstEligibleIndex();
+            activate(target, { retryFailed: true });
+        }, Math.max(250, delayMs));
+    };
+
+    const recoverFromMediaFailure = () => {
+        if (!startupComplete || transitionInFlight) {
+            scheduleMediaRecovery(250);
+            return;
+        }
+        const target = index >= 0 ? nextEligibleIndex(index) : firstEligibleIndex();
+        if (target >= 0 && target !== index) {
+            activate(target, { retryFailed: false });
+            return;
+        }
+        scheduleMediaRecovery();
     };
 
     const queueNext = () => {
         clearTimeout(timer);
+        timer = null;
 
-        if (!startupComplete || slides.length <= 1) {
+        if (!startupComplete || index < 0 || !isSlideReady(slides[index])) {
+            nextSlideDueAt = 0;
+            scheduleMediaRecovery();
             return;
         }
+        if (slides.length <= 1) return;
 
-        const targetIndex = nextPlayableIndex(index);
+        const targetIndex = nextEligibleIndex(index);
         if (targetIndex < 0 || targetIndex === index) {
             nextSlideDueAt = 0;
             return;
@@ -1553,53 +2131,54 @@
 
         const delay = durationForSlide(slides[index]);
         nextSlideDueAt = Date.now() + delay;
-        timer = window.setTimeout(() => {
-            activate(targetIndex);
-        }, delay);
+        timer = window.setTimeout(() => activate(targetIndex, { retryFailed: true }), delay);
     };
 
-    const activate = nextSlideIndex => {
-        if (!startupComplete) return;
-
-        if (!isSlidePlayable(slides[nextSlideIndex])) {
-            nextSlideIndex = nextPlayableIndex(index);
+    const activate = (nextSlideIndex, options = {}) => {
+        if (!startupComplete || transitionInFlight) return Promise.resolve(false);
+        if (!isSlideEligible(slides[nextSlideIndex])) {
+            nextSlideIndex = index >= 0 ? nextEligibleIndex(index) : firstEligibleIndex();
+        }
+        if (nextSlideIndex < 0) {
+            showMediaUnavailable();
+            scheduleMediaRecovery();
+            return Promise.resolve(false);
         }
 
         const current = slides[index];
-        const next = slides[nextSlideIndex];
-        if (!next || next === current) {
+        if (slides[nextSlideIndex] === current && isSlideReady(current)) {
+            hideMediaUnavailable();
             queueNext();
-            return;
+            return Promise.resolve(true);
         }
 
-        requestFrame(() => {
-            try {
-                ensureMediaLoaded(next);
-                stopVideo(current);
-                current.classList.remove('is-active');
-                current.classList.remove('is-text-card-animating');
-                current.classList.remove('is-template-animating');
-                next.classList.add('is-active');
-                index = nextSlideIndex;
-                restartTextCardAnimation(next);
-                restartTemplateElementAnimations(next);
-                startVideo(next);
-                prepareMediaAround(index);
-                window.setTimeout(() => cleanupFarMedia(index), 1300);
-            } catch (error) {
-                if (window.console?.error) {
-                    window.console.error('[Hugin display] Slide transition failed', error);
-                }
-            } finally {
+        transitionInFlight = true;
+        const excludeIndex = current && isSlideReady(current) ? index : -1;
+        return findReadySlideIndex(nextSlideIndex, {
+            excludeIndex,
+            retryFailed: options.retryFailed === true,
+        }).then(readyIndex => {
+            if (readyIndex < 0) {
+                if (!current || !isSlideReady(current)) showMediaUnavailable();
+                return false;
+            }
+            if (mediaRecoveryTimer) {
+                window.clearTimeout(mediaRecoveryTimer);
+                mediaRecoveryTimer = null;
+            }
+            return commitSlide(readyIndex);
+        }).catch(error => {
+            window.console?.error?.('[Hugin display] Media readiness check failed', error);
+            if (!current || !isSlideReady(current)) showMediaUnavailable();
+            return false;
+        }).finally(() => {
+            transitionInFlight = false;
+            if (index >= 0 && isSlideReady(slides[index])) {
                 queueNext();
+            } else {
+                scheduleMediaRecovery();
             }
         });
-    };
-
-    const queueHeartbeat = () => {
-        clearInterval(heartbeatTimer);
-        sendHeartbeat();
-        heartbeatTimer = setInterval(sendHeartbeat, heartbeatIntervalMs());
     };
 
     const queueStateCheck = () => {
@@ -1638,7 +2217,7 @@
 
             const lateBy = Date.now() - nextSlideDueAt;
             if (lateBy > Math.max(5000, durationForSlide(slides[index]))) {
-                const targetIndex = nextPlayableIndex(index);
+                const targetIndex = nextEligibleIndex(index);
                 if (targetIndex >= 0 && targetIndex !== index) {
                     activate(targetIndex);
                 }
@@ -1646,25 +2225,55 @@
         }, 5000);
     };
 
-    const startSlideshow = () => {
+    const startSlideshow = (readyIndex = -1) => {
         startupComplete = true;
         markStartupSeen();
-        slideshow.classList.remove('is-startup-sync-pending');
-        if (!isSlidePlayable(slides[index])) {
-            const playable = firstPlayableIndex();
-            if (playable >= 0 && playable !== index) {
-                slides[index].classList.remove('is-active');
-                slides[index].classList.remove('is-template-animating');
-                slides[playable].classList.add('is-active');
-                index = playable;
-            }
+        queueSelectionBoundaryCheck(nextSelectionAtMs);
+        if (slides.length === 0) {
+            updatePlaybackReport({
+                status: slideshow.dataset.playbackStatus || 'no_playlist',
+            });
+            setStartupStage('starting');
+            reloadIfChanged('startup');
+            slideshow.classList.remove('is-startup-sync-pending', 'is-media-startup-pending');
+            queueStateCheck();
+            queueMinuteAlignedStateCheck();
+            return;
         }
-        prepareMediaAround(index);
-        restartTextCardAnimation(slides[index]);
-        restartTemplateElementAnimations(slides[index]);
-        startVideo(slides[index]);
-        cleanupFarMedia(index);
-        warmOfflineCache('startup');
+
+        const readySlide = slides[readyIndex];
+        if (readySlide && isSlideEligible(readySlide) && isSlideReady(readySlide)) {
+            readySlide.classList.add('is-active');
+            slides.forEach(slide => {
+                if (slide !== readySlide) {
+                    stopVideo(slide);
+                    slide.classList.remove('is-active');
+                    slide.classList.remove('is-text-card-animating');
+                    slide.classList.remove('is-template-animating');
+                }
+            });
+            index = readyIndex;
+            hideMediaUnavailable();
+            updatePlaybackReport({ status: 'playing' });
+            prepareMediaAround(index);
+            restartTextCardAnimation(readySlide);
+            restartTemplateElementAnimations(readySlide);
+            startVideo(readySlide);
+            cleanupFarMedia(index);
+        } else {
+            slides.forEach(slide => {
+                stopVideo(slide);
+                slide.classList.remove('is-active');
+                slide.classList.remove('is-text-card-animating');
+                slide.classList.remove('is-template-animating');
+            });
+            index = -1;
+            showMediaUnavailable();
+            scheduleMediaRecovery();
+        }
+
+        slideshow.classList.remove('is-startup-sync-pending', 'is-media-startup-pending');
+        setStartupStage('starting');
         logSyncDebug('slideshow started', {
             activeIndex: index,
             activeSlideId: slides[index]?.dataset.slideId || '',
@@ -1676,8 +2285,49 @@
         queueNext();
     };
 
+    const prepareStartup = () => {
+        if (isDisplayPreview) {
+            setStartupStage('starting');
+            return Promise.resolve();
+        }
+
+        const scheduledReload = shouldUseSyncedGroupReload() ? readScheduledSyncReload() : null;
+        const fallbackStartAtMs = Number(scheduledReload?.startAtMs || 0);
+
+        return warmOfflineCache('startup')
+            .then(cacheResult => {
+                if (!shouldUseSyncedGroupReload()) {
+                    return postCacheReadiness('startup', cacheResult)
+                        .catch(() => null)
+                        .then(waitForStartupSync);
+                }
+
+                return waitForCacheReadinessRelease('startup', cacheResult)
+                    .then(status => waitForReadinessStart(status, { fallbackStartAtMs }));
+            });
+    };
+
+    const prepareStartupWithDeadline = () => {
+        const preparation = prepareStartup();
+        const deadline = sleep(STARTUP_MAX_WAIT_MS).then(() => {
+            logSyncDebug('startup deadline reached; playback is being released fail-open', {
+                maxWaitMs: STARTUP_MAX_WAIT_MS,
+            });
+
+            if (!shouldUseSyncedGroupReload()) {
+                return null;
+            }
+
+            // If coordination itself is unavailable, use the same predictable
+            // minute edge on every group member instead of leaving the loader up.
+            const fallbackStartAtMs = computeNextFullMinuteActivation();
+            return waitForStartupMinute(fallbackStartAtMs);
+        });
+
+        return Promise.race([preparation, deadline]);
+    };
+
     window.addEventListener('online', () => {
-        sendHeartbeat();
         warmOfflineCache('online');
         if (shouldUseSyncedGroupReload()) {
             logSyncDebug('online event: synced group keeps minute-aligned state check');
@@ -1688,17 +2338,33 @@
         reloadIfChanged('online');
     });
     window.addEventListener('offline', () => {
-        if (!isSlidePlayable(slides[index])) {
-            const playable = firstPlayableIndex();
-            if (playable >= 0 && playable !== index) {
-                activate(playable);
+        if (index < 0 || !isSlideEligible(slides[index]) || !isSlideReady(slides[index])) {
+            const eligible = firstEligibleIndex();
+            if (eligible >= 0) {
+                showMediaUnavailable();
+                activate(eligible, { retryFailed: true });
+                return;
             }
+
+            // An online-only active slide must not remain as the sole visible
+            // surface after connectivity makes every candidate ineligible.
+            const current = slides[index];
+            showMediaUnavailable();
+            if (current) {
+                stopVideo(current);
+                unloadHeavyMedia(current);
+                current.classList.remove('is-active');
+                current.classList.remove('is-text-card-animating');
+                current.classList.remove('is-template-animating');
+            }
+            index = -1;
+            nextSlideDueAt = 0;
+            window.clearTimeout(timer);
+            timer = null;
+            scheduleMediaRecovery();
         }
     });
-    window.addEventListener('pagehide', () => sendHeartbeat({ preferBeacon: true }));
     window.addEventListener('resize', () => {
-        clearTimeout(window.__huginResizeHeartbeat);
-        window.__huginResizeHeartbeat = setTimeout(sendHeartbeat, 600);
         clearTimeout(window.__huginQrResize);
         window.__huginQrResize = setTimeout(renderTextSlideQrCodes, 250);
     });
@@ -1723,16 +2389,53 @@
             activate(nextIndex(index));
         }
     });
-    if (screen.orientation?.addEventListener) {
-        screen.orientation.addEventListener('change', sendHeartbeat);
-    }
-
     renderTextSlideQrCodes();
     initializeTemplateDynamicTextElements();
     if (updateTemplateTimedElements()) {
         window.setInterval(updateTemplateTimedElements, 1000);
     }
+    if (!window.HuginDisplayMedia?.create) {
+        window.console?.error?.('[Hugin display] Media lifecycle helper is unavailable.');
+        startSlideshow(-1);
+        return;
+    }
+    mediaLifecycle = window.HuginDisplayMedia.create({
+        host: window,
+        timeoutMs: MEDIA_READY_TIMEOUT_MS,
+        retryDelayMs: MEDIA_FAILURE_RETRY_MS,
+        onFailure: handleMediaElementFailure,
+    });
+    window.__huginDisplayMedia = mediaLifecycle;
+
+    // Prime media while cache/start-time coordination is still in progress.
     prepareMediaAround(index);
-    queueHeartbeat();
-    waitForStartupSync().then(startSlideshow);
+    prepareStartupWithDeadline()
+        .then(() => {
+            let selectionActive = true;
+            const selection = findReadySlideIndex(index, {
+                retryFailed: true,
+                shouldContinue: () => selectionActive,
+            });
+            let deadlineTimer = null;
+            const deadline = new Promise(resolve => {
+                deadlineTimer = window.setTimeout(() => {
+                    deadlineTimer = null;
+                    logReload('Startup media selection deadline reached', {
+                        maxWaitMs: STARTUP_MEDIA_SELECTION_TIMEOUT_MS,
+                    });
+                    resolve(-1);
+                }, STARTUP_MEDIA_SELECTION_TIMEOUT_MS);
+            });
+            return Promise.race([selection, deadline]).finally(() => {
+                selectionActive = false;
+                if (deadlineTimer !== null) {
+                    window.clearTimeout(deadlineTimer);
+                }
+            });
+        })
+        .then(startSlideshow)
+        .catch(error => {
+            window.console?.error?.('[Hugin display] Startup media selection failed', error);
+            startSlideshow(-1);
+        });
 })();

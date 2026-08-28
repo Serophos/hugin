@@ -20,7 +20,14 @@ class AdminController
     private const MONITORING_SETTINGS_NAMESPACE = 'monitoring';
     private const ACCESSIBILITY_SETTINGS_NAMESPACE = 'accessibility';
     private const SYSTEM_SETTINGS_NAMESPACE = 'system';
+    private const OPENID_SETTINGS_NAMESPACE = 'openid';
     private const DEFAULT_DISPLAY_ICON = 'display_16_9.png';
+    private const DEFAULT_DISPLAY_TIMEZONE = 'Europe/Berlin';
+    private const DISPLAY_LANGUAGE_OPTIONS = ['system', 'en', 'de'];
+    private const DISPLAY_LAYOUT_CANVAS_WIDTH = 780;
+    private const DISPLAY_LAYOUT_CANVAS_HEIGHT = 560;
+    private const DISPLAY_LAYOUT_GRID_SIZE = 24;
+    private const DISPLAY_LAYOUT_PLACEMENT_GAP = 24;
     private const DISPLAY_ICON_PUBLIC_DIRS = [
         '/assets/img/displays',
     ];
@@ -57,7 +64,7 @@ class AdminController
             redirect('/admin');
         }
 
-        $this->redirectWithForm('/admin/login', __('errors.invalid_username_password'), [
+        $this->redirectWithForm('/admin/login/local', __('errors.invalid_username_password'), [
             'username' => $username,
         ], [
             'username' => __('errors.invalid_username_password'),
@@ -113,6 +120,7 @@ class AdminController
     public function passwordForm(): void
     {
         $this->auth->requireLogin();
+        if (($this->auth->user()['auth_provider'] ?? 'local') !== 'local') { flash('error', __('openid.password_unavailable')); redirect('/admin'); }
 
         $this->view->render('admin/password_form', [
             'error' => flash('error'),
@@ -123,6 +131,7 @@ class AdminController
     public function savePassword(): void
     {
         $this->auth->requireLogin();
+        if (($this->auth->user()['auth_provider'] ?? 'local') !== 'local') { flash('error', __('openid.password_unavailable')); redirect('/admin'); }
 
         $currentPassword = (string)$this->request->input('current_password');
         $password = (string)$this->request->input('password');
@@ -145,7 +154,6 @@ class AdminController
         if (!$user || ($currentPassword !== '' && !password_verify($currentPassword, (string)$user['password_hash']))) {
             $errors['current_password'] = __('auth.current_password_invalid');
         }
-
         if ($errors !== []) {
             $this->redirectWithForm(
                 '/admin/account/password',
@@ -337,6 +345,11 @@ class AdminController
         foreach ($accessibilitySettings as $key => $value) {
             $settings['accessibility_' . $key] = $value;
         }
+        $openidSettings = app_openid_settings();
+        foreach ($openidSettings as $key => $value) {
+            $settings['openid_' . $key] = $key === 'client_secret' ? '' : $value;
+        }
+        $settings['openid_has_client_secret'] = $openidSettings['client_secret'] !== '' ? '1' : '0';
         if (form_has_old('settings')) {
             $settings = array_replace($settings, old_input('settings'));
         }
@@ -346,6 +359,7 @@ class AdminController
             'availableLocales' => app_available_locales(),
             'fonts' => list_uploaded_fonts(),
             'error' => flash('error'),
+            'flash' => flash('success'),
         ]);
     }
 
@@ -374,6 +388,24 @@ class AdminController
         $visualMode = (string)($input['accessibility_visual_mode'] ?? 'default');
         $focusStyle = (string)($input['accessibility_focus_style'] ?? 'standard');
         $motion = (string)($input['accessibility_motion'] ?? 'system');
+        $existingOpenid = app_openid_settings();
+        $openidEnabled = !empty($input['openid_enabled']);
+        $openidIssuerUrl = rtrim(trim((string)($input['openid_issuer_url'] ?? '')), '/');
+        $openidClientId = trim((string)($input['openid_client_id'] ?? ''));
+        $openidClientSecretInput = trim((string)($input['openid_client_secret'] ?? ''));
+        $openidClientSecret = !empty($input['openid_clear_client_secret']) ? '' : ($openidClientSecretInput !== '' ? $openidClientSecretInput : (string)$existingOpenid['client_secret']);
+        $openidScopes = trim((string)($input['openid_scopes'] ?? 'openid profile'));
+        $openidUsernameClaim = trim((string)($input['openid_username_claim'] ?? 'preferred_username'));
+        $openidNameClaim = trim((string)($input['openid_name_claim'] ?? 'name'));
+        $openidFirstNameClaim = trim((string)($input['openid_first_name_claim'] ?? 'given_name'));
+        $openidLastNameClaim = trim((string)($input['openid_last_name_claim'] ?? 'family_name'));
+        $openidDepartmentClaim = trim((string)($input['openid_department_claim'] ?? 'department'));
+        $openidTitleClaim = trim((string)($input['openid_title_claim'] ?? 'title'));
+        $openidPictureClaim = trim((string)($input['openid_picture_claim'] ?? 'picture'));
+        $openidGroupsClaim = trim((string)($input['openid_groups_claim'] ?? 'groups'));
+        $openidAdminGroup = trim((string)($input['openid_admin_group'] ?? ''));
+        $openidEditorGroup = trim((string)($input['openid_editor_group'] ?? ''));
+        $input['openid_enabled'] = $openidEnabled ? '1' : '0';
 
         $input['monitoring_enabled'] = $monitoringEnabled ? '1' : '0';
 
@@ -414,6 +446,20 @@ class AdminController
             $errors['accessibility_motion'] = __('settings.invalid_accessibility_option', [], 'Please choose a supported accessibility option.');
         }
 
+        if ($openidIssuerUrl !== '' && (!filter_var($openidIssuerUrl, FILTER_VALIDATE_URL) || strtolower((string)parse_url($openidIssuerUrl, PHP_URL_SCHEME)) !== 'https')) {
+            $errors['openid_issuer_url'] = __('openid.invalid_issuer');
+        }
+        if ($openidEnabled && ($openidIssuerUrl === '' || $openidClientId === '' || $openidClientSecret === '' || $openidAdminGroup === '' || $openidEditorGroup === '')) {
+            $errors['openid_enabled'] = __('openid.incomplete');
+        }
+        foreach (['openid_username_claim' => $openidUsernameClaim, 'openid_name_claim' => $openidNameClaim, 'openid_first_name_claim' => $openidFirstNameClaim, 'openid_last_name_claim' => $openidLastNameClaim, 'openid_department_claim' => $openidDepartmentClaim, 'openid_title_claim' => $openidTitleClaim, 'openid_picture_claim' => $openidPictureClaim, 'openid_groups_claim' => $openidGroupsClaim] as $key => $value) {
+            if (!app_openid_claim_path_is_valid($value)) {
+                $errors[$key] = __('openid.invalid_claim');
+            }
+        }
+        if ($openidClientSecret !== '' && !app_secret_encryption_configured()) {
+            $errors['openid_client_secret'] = __('openid.encryption_key_missing');
+        }
         if ($errors !== []) {
             $this->redirectWithForm(
                 '/admin/settings',
@@ -450,6 +496,11 @@ class AdminController
                 'visual_mode' => $visualMode,
                 'focus_style' => $focusStyle,
                 'motion' => $motion,
+            ],
+            self::OPENID_SETTINGS_NAMESPACE => [
+                'enabled' => $openidEnabled ? '1' : '0', 'issuer_url' => $openidIssuerUrl, 'client_id' => $openidClientId, 'client_secret' => $openidClientSecret === '' ? '' : app_secret_cipher()->encrypt($openidClientSecret),
+                'scopes' => $openidScopes, 'username_claim' => $openidUsernameClaim, 'name_claim' => $openidNameClaim, 'first_name_claim' => $openidFirstNameClaim,
+                'last_name_claim' => $openidLastNameClaim, 'department_claim' => $openidDepartmentClaim, 'title_claim' => $openidTitleClaim, 'picture_claim' => $openidPictureClaim, 'groups_claim' => $openidGroupsClaim, 'admin_group' => $openidAdminGroup, 'editor_group' => $openidEditorGroup,
             ],
         ]);
         $this->requestReloadForDisplays($this->allDisplayIds());
@@ -535,9 +586,13 @@ class AdminController
              ORDER BY d.name ASC'
         );
 
+        $displayIcons = $this->displayIcons();
         $this->view->render('admin/displays', [
             'displays' => $displays,
+            'displayIcons' => $displayIcons,
+            'defaultDisplayIcon' => $this->defaultDisplayIcon($displayIcons),
             'flash' => flash('success'),
+            'error' => flash('error'),
         ]);
     }
 
@@ -572,10 +627,18 @@ class AdminController
         }
 
         $displayIcons = $this->displayIcons();
+        $defaultDisplayIcon = $this->defaultDisplayIcon($displayIcons);
+        if (!$id) {
+            $defaultDisplayIcon = $this->normalizeDisplayIcon((string)$this->request->input('icon_file', ''), $displayIcons);
+        }
+
         $this->view->render('admin/display_form', [
             'display' => $display,
             'displayIcons' => $displayIcons,
-            'defaultDisplayIcon' => $this->defaultDisplayIcon($displayIcons),
+            'defaultDisplayIcon' => $defaultDisplayIcon,
+            'displayTimezoneOptions' => \DateTimeZone::listIdentifiers(),
+            'defaultDisplayTimezone' => self::DEFAULT_DISPLAY_TIMEZONE,
+            'displayLanguageOptions' => $this->displayLanguageOptions(),
             'heartbeat' => $heartbeat,
             'error' => flash('error'),
         ]);
@@ -585,7 +648,8 @@ class AdminController
     {
         $this->auth->requireRole('admin');
 
-        if ($id && !$this->db->one('SELECT id FROM displays WHERE id = ?', [$id])) {
+        $existingDisplay = $id ? $this->db->one('SELECT id FROM displays WHERE id = ?', [$id]) : null;
+        if ($id && !$existingDisplay) {
             flash('error', __('display.not_found'));
             redirect('/admin/displays');
         }
@@ -600,7 +664,9 @@ class AdminController
         $description = trim((string)$this->request->input('description'));
         $effect = $this->sanitizeEffect((string)$this->request->input('transition_effect', 'fade'), false);
         $duration = max(1, (int)$durationRaw);
-        $timezone = trim((string)$this->request->input('timezone', 'UTC')) ?: 'UTC';
+        $timezone = trim((string)$this->request->input('timezone', self::DEFAULT_DISPLAY_TIMEZONE))
+            ?: self::DEFAULT_DISPLAY_TIMEZONE;
+        $displayLanguage = trim((string)$this->request->input('display_language', 'system')) ?: 'system';
         $sortOrder = max(0, (int)$sortOrderRaw);
         $orientation = $this->sanitizeOrientation((string)$this->request->input('orientation', 'landscape'));
         $iconFile = $this->normalizeDisplayIcon((string)$this->request->input('icon_file', ''), $displayIcons);
@@ -611,7 +677,8 @@ class AdminController
             'description' => (string)$this->request->input('description'),
             'transition_effect' => $effect,
             'slide_duration_seconds' => $durationRaw,
-            'timezone' => (string)$this->request->input('timezone', 'UTC'),
+            'timezone' => (string)$this->request->input('timezone', self::DEFAULT_DISPLAY_TIMEZONE),
+            'display_language' => $displayLanguage,
             'sort_order' => $sortOrderRaw,
             'orientation' => $orientation,
             'icon_file' => $iconFile,
@@ -636,6 +703,9 @@ class AdminController
         if (!$this->isValidTimezone($timezone)) {
             $errors['timezone'] = __('display.invalid_timezone');
         }
+        if (!$this->isValidDisplayLanguage($displayLanguage)) {
+            $errors['display_language'] = __('display.invalid_language');
+        }
         if ($errors !== []) {
             $this->redirectWithForm(
                 $id ? '/admin/displays/' . $id . '/edit' : '/admin/displays/create',
@@ -659,16 +729,16 @@ class AdminController
 
         if ($id) {
             $this->db->execute(
-                'UPDATE displays SET name = ?, slug = ?, description = ?, transition_effect = ?, slide_duration_seconds = ?, timezone = ?, sort_order = ?, orientation = ?, icon_file = ?, is_active = ? WHERE id = ?',
-                [$name, $slug, $description, $effect, $duration, $timezone, $sortOrder, $orientation, $iconFile, $isActive, $id]
+                'UPDATE displays SET name = ?, slug = ?, description = ?, transition_effect = ?, slide_duration_seconds = ?, timezone = ?, display_language = ?, sort_order = ?, orientation = ?, icon_file = ?, is_active = ? WHERE id = ?',
+                [$name, $slug, $description, $effect, $duration, $timezone, $displayLanguage, $sortOrder, $orientation, $iconFile, $isActive, $id]
             );
             $displayId = $id;
             flash('success', __('display.updated'));
         } else {
             $nextSort = $sortOrder ?: ((int)($this->db->one('SELECT COALESCE(MAX(sort_order), 0) + 1 AS next_sort FROM displays')['next_sort'] ?? 1));
             $this->db->execute(
-                'INSERT INTO displays (name, slug, description, transition_effect, slide_duration_seconds, timezone, sort_order, orientation, icon_file, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                [$name, $slug, $description, $effect, $duration, $timezone, $nextSort, $orientation, $iconFile, $isActive]
+                'INSERT INTO displays (name, slug, description, transition_effect, slide_duration_seconds, timezone, display_language, sort_order, orientation, icon_file, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                [$name, $slug, $description, $effect, $duration, $timezone, $displayLanguage, $nextSort, $orientation, $iconFile, $isActive]
             );
             $displayId = (int)$this->db->lastInsertId();
             flash('success', __('display.created'));
@@ -688,7 +758,7 @@ class AdminController
 
     public function reloadDisplay(int $id): void
     {
-        $this->auth->requireRole('admin');
+        $this->auth->requireLogin();
 
         $display = $this->db->one(
             'SELECT d.id, d.name, g.id AS group_id, g.sync_enabled
@@ -700,7 +770,7 @@ class AdminController
         );
         if (!$display) {
             flash('error', __('display.not_found'));
-            redirect('/admin/displays');
+            redirect($this->adminReturnPath('/admin/displays'));
         }
 
         $this->requestReloadForDisplays([$id]);
@@ -734,6 +804,19 @@ class AdminController
         $this->view->render('admin/locations', [
             'locations' => $locations,
             'unassignedDisplays' => $unassignedDisplays,
+            'flash' => flash('success'),
+            'error' => flash('error'),
+        ]);
+    }
+
+    public function locationCreateForm(): void
+    {
+        $this->auth->requireRole('admin');
+
+        $returnTo = $this->adminReturnPath('/admin/locations');
+
+        $this->view->render('admin/location_create', [
+            'returnTo' => $returnTo,
             'flash' => flash('success'),
             'error' => flash('error'),
         ]);
@@ -792,7 +875,8 @@ class AdminController
         $description = trim((string)$this->request->input('description'));
         $sortOrder = max(0, (int)$sortOrderRaw);
         $form = $id ? 'location_edit' : 'location_create';
-        $returnPath = $id ? '/admin/locations/' . $id . '/edit' : '/admin/locations';
+        $returnTo = $this->adminReturnPath('/admin/locations');
+        $returnPath = $id ? '/admin/locations/' . $id . '/edit' : '/admin/locations/create?return_to=' . rawurlencode($returnTo);
         $old = [
             'name' => $nameRaw,
             'address' => (string)$this->request->input('address'),
@@ -836,7 +920,7 @@ class AdminController
                 [$name, $address, $description, $nextSort]
             );
             flash('success', __('locations.created'));
-            redirect('/admin/locations/' . $this->db->lastInsertId() . '/edit');
+            redirect($returnTo);
         }
     }
 
@@ -880,8 +964,13 @@ class AdminController
         $sortOrder = max(0, (int)$sortOrderRaw);
         $syncEnabled = $this->request->input('sync_enabled') ? 1 : 0;
         $syncMode = $syncEnabled ? 'full_minute_reload' : 'independent';
+        $primaryDisplayInputPresent = $id !== null && $this->hasRequestInput('primary_display_id');
+        $primaryDisplayId = $primaryDisplayInputPresent ? $this->requestPrimaryDisplayId() : null;
         $defaultReturn = $locationId > 0 ? '/admin/locations/' . $locationId . '/edit' : '/admin/locations';
         $returnTo = $this->adminReturnPath($defaultReturn);
+        $returnPath = $id
+            ? $returnTo
+            : '/admin/display-groups/create?location_id=' . rawurlencode((string)$locationId) . '&return_to=' . rawurlencode($returnTo);
         $form = $id ? 'display_group_edit' : 'display_group_create';
         $old = [
             'location_id' => $locationId,
@@ -889,6 +978,7 @@ class AdminController
             'description' => (string)$this->request->input('description'),
             'sort_order' => $sortOrderRaw,
             'sync_enabled' => $syncEnabled,
+            'primary_display_id' => $primaryDisplayId ?? '',
         ];
         $errors = [];
 
@@ -899,7 +989,7 @@ class AdminController
             $errors['sort_order'] = __('validation.non_negative_number');
         }
         if ($errors !== []) {
-            $this->redirectWithForm($returnTo, __('validation.fix_marked_fields'), $old, $errors, $form);
+            $this->redirectWithForm($returnPath, __('validation.fix_marked_fields'), $old, $errors, $form);
         }
 
         $location = $this->db->one('SELECT id FROM display_locations WHERE id = ?', [$locationId]);
@@ -912,7 +1002,7 @@ class AdminController
             [$locationId, $name]
         );
         if ($existing && (int)$existing['id'] !== (int)$id) {
-            $this->redirectWithForm($returnTo, __('display_groups.name_exists'), $old, ['name' => __('display_groups.name_exists')], $form);
+            $this->redirectWithForm($returnPath, __('display_groups.name_exists'), $old, ['name' => __('display_groups.name_exists')], $form);
         }
 
         if ($id) {
@@ -926,7 +1016,11 @@ class AdminController
                 'UPDATE display_groups SET location_id = ?, name = ?, description = ?, sort_order = ?, sync_enabled = ?, sync_mode = ? WHERE id = ?',
                 [$locationId, $name, $description, $sortOrder, $syncEnabled, $syncMode, $id]
             );
-            $this->requestReloadForDisplays($this->displayIdsForGroup($id));
+            $removedDisplayIds = $this->removeDisplaysFromGroup($id, $this->requestDisplayGroupRemovalIds());
+            if ($primaryDisplayInputPresent) {
+                $this->setGroupPrimaryDisplay($id, $this->normalizeGroupPrimaryDisplayId($id, $primaryDisplayId));
+            }
+            $this->requestReloadForDisplays(array_merge($this->displayIdsForGroup($id), $removedDisplayIds));
             flash('success', __('display_groups.updated'));
         } else {
             $nextSort = $sortOrder ?: ((int)($this->db->one(
@@ -941,6 +1035,32 @@ class AdminController
         }
 
         redirect($returnTo);
+    }
+
+    public function displayGroupCreateForm(): void
+    {
+        $this->auth->requireRole('admin');
+
+        $locationId = (int)$this->request->input('location_id');
+        if ($locationId <= 0) {
+            flash('error', __('locations.not_found'));
+            redirect('/admin/locations');
+        }
+
+        $location = $this->db->one('SELECT id, name FROM display_locations WHERE id = ?', [$locationId]);
+        if (!$location) {
+            flash('error', __('locations.not_found'));
+            redirect('/admin/locations');
+        }
+
+        $returnTo = $this->adminReturnPath('/admin/locations/' . $locationId . '/edit');
+
+        $this->view->render('admin/display_group_create', [
+            'location' => $location,
+            'returnTo' => $returnTo,
+            'flash' => flash('success'),
+            'error' => flash('error'),
+        ]);
     }
 
     public function deleteDisplayGroup(int $id): void
@@ -985,11 +1105,16 @@ class AdminController
             }
         }
 
-        $validDisplays = array_fill_keys(array_map(
-            static fn(array $row): int => (int)$row['id'],
-            $this->db->all('SELECT id FROM displays')
-        ), true);
-        $displayIds = array_values(array_filter($displayIds, static fn(int $id): bool => isset($validDisplays[$id])));
+        $displayPlaceholders = implode(', ', array_fill(0, count($displayIds), '?'));
+        $displayRows = $this->getDisplayOrganizationRows('d.id IN (' . $displayPlaceholders . ')', $displayIds);
+        $displayRowsById = [];
+        foreach ($displayRows as $displayRow) {
+            $displayRowsById[(int)$displayRow['id']] = $displayRow;
+        }
+        $displayIds = array_values(array_filter(
+            $displayIds,
+            static fn(int $id): bool => isset($displayRowsById[$id])
+        ));
 
         if ($displayIds === []) {
             flash('error', __('display_groups.bulk_none_selected'));
@@ -1005,11 +1130,33 @@ class AdminController
                 $displayIds
             );
         } else {
+            $occupiedLayoutRects = $this->displayGroupLayoutRects($targetGroupId);
+
             foreach ($displayIds as $index => $displayId) {
+                $displayRow = $displayRowsById[$displayId] ?? [];
+                $currentGroupId = isset($displayRow['group_id']) ? (int)$displayRow['group_id'] : null;
+                $layoutX = 0;
+                $layoutY = 0;
+
+                if ($currentGroupId !== $targetGroupId) {
+                    $defaults = $this->defaultLayoutSize($displayRow);
+                    $layoutWidth = max(72, (int)$defaults['width']);
+                    $layoutHeight = max(72, (int)$defaults['height']);
+                    $position = $this->findEmptyDisplayLayoutPosition($occupiedLayoutRects, $layoutWidth, $layoutHeight);
+                    $layoutX = $position['x'];
+                    $layoutY = $position['y'];
+                    $occupiedLayoutRects[] = [
+                        'x' => $layoutX,
+                        'y' => $layoutY,
+                        'width' => $layoutWidth,
+                        'height' => $layoutHeight,
+                    ];
+                }
+
                 $this->db->execute(
                     'INSERT INTO display_group_memberships
                         (display_id, group_id, layout_x, layout_y, layout_width, layout_height, layout_rotation_degrees, sort_order)
-                     VALUES (?, ?, 0, 0, NULL, NULL, 0, ?)
+                     VALUES (?, ?, ?, ?, NULL, NULL, 0, ?)
                      ON DUPLICATE KEY UPDATE
                         layout_x = IF(group_id <=> VALUES(group_id), layout_x, VALUES(layout_x)),
                         layout_y = IF(group_id <=> VALUES(group_id), layout_y, VALUES(layout_y)),
@@ -1019,11 +1166,12 @@ class AdminController
                         group_id = VALUES(group_id),
                         sort_order = VALUES(sort_order),
                         updated_at = CURRENT_TIMESTAMP',
-                    [$displayId, $targetGroupId, $index + 1]
+                    [$displayId, $targetGroupId, $layoutX, $layoutY, $index + 1]
                 );
             }
         }
 
+        $this->clearPrimaryDisplayAssignments($displayIds, $targetGroupId);
         $this->requestReloadForDisplays(array_merge($affectedDisplayIds, $displayIds));
         flash('success', __('display_groups.bulk_moved', ['count' => count($displayIds)]));
         redirect($returnTo);
@@ -1081,6 +1229,8 @@ class AdminController
         if (!is_array($items)) {
             json_response(['ok' => false, 'message' => __('display_groups.layout_invalid')], 422);
         }
+        $removedDisplayIds = $this->requestDisplayGroupRemovalIds();
+        $primaryDisplayId = $this->requestPrimaryDisplayId();
 
         $allowedDisplays = array_fill_keys(array_map(
             static fn(array $row): int => (int)$row['display_id'],
@@ -1114,12 +1264,15 @@ class AdminController
                 );
             }
 
+            $removedDisplayIds = $this->removeDisplaysFromGroup($id, $removedDisplayIds);
+            $this->setGroupPrimaryDisplay($id, $this->normalizeGroupPrimaryDisplayId($id, $primaryDisplayId));
             $this->db->pdo()->commit();
         } catch (\Throwable $e) {
             $this->db->pdo()->rollBack();
             json_response(['ok' => false, 'message' => __('display_groups.layout_save_failed')], 500);
         }
 
+        $this->requestReloadForDisplays(array_merge($this->displayIdsForGroup($id), $removedDisplayIds));
         json_response(['ok' => true, 'message' => __('display_groups.layout_saved')]);
     }
 
@@ -1134,10 +1287,11 @@ class AdminController
                     g.name AS group_name, g.sync_enabled AS group_sync_enabled, l.name AS location_name,
                     c.id AS channel_id, c.name AS channel_name, c.transition_effect, c.is_active,
                     cdsa.id AS assignment_id, cdsa.priority, cdsa.is_active AS assignment_is_active,
-                    s.name AS schedule_name, s.type AS schedule_type,
+                    s.name AS schedule_name, s.type AS schedule_type, h.current_channel_id,
                     (SELECT COUNT(*) FROM channel_slide_assignments csa WHERE csa.channel_id = c.id) AS slide_count
              FROM channel_display_schedule_assignments cdsa
              INNER JOIN displays d ON d.id = cdsa.display_id
+             LEFT JOIN display_heartbeats h ON h.display_id = d.id
              LEFT JOIN display_group_memberships dgm ON dgm.display_id = d.id
              LEFT JOIN display_groups g ON g.id = dgm.group_id
              LEFT JOIN display_locations l ON l.id = g.location_id
@@ -1152,6 +1306,11 @@ class AdminController
                       c.name ASC,
                       s.name ASC'
         );
+        $displayStatuses = (new DisplayStatusService($this->db))->getAllDisplayStatuses();
+        $statusByDisplayId = [];
+        foreach ($displayStatuses as $displayStatus) {
+            $statusByDisplayId[(int)$displayStatus['id']] = $displayStatus;
+        }
 
         $groups = [];
         $assignedChannelIds = [];
@@ -1162,6 +1321,7 @@ class AdminController
             $key = 'display-' . $displayId;
             if (!isset($groups[$key])) {
                 $iconFile = $this->normalizeDisplayIcon((string)($row['display_icon_file'] ?? ''), $displayIcons);
+                $displayStatus = $statusByDisplayId[$displayId] ?? [];
                 $groups[$key]['display'] = [
                     'id' => $displayId,
                     'name' => $row['display_name'],
@@ -1170,6 +1330,14 @@ class AdminController
                     'location_name' => $row['location_name'] ?: __('locations.unassigned'),
                     'group_name' => $row['group_name'] ?: __('locations.unassigned'),
                     'group_sync_enabled' => (int)($row['group_sync_enabled'] ?? 0),
+                    'monitoring_status' => (string)($displayStatus['monitoring_status'] ?? 'never_seen'),
+                    'monitoring_status_label' => $this->displayMonitoringLabel((string)($displayStatus['monitoring_status'] ?? 'never_seen')),
+                    'last_seen_at' => $displayStatus['last_seen_at'] ?? null,
+                    'reported_channel_id' => $displayStatus['reported_channel_id'] ?? null,
+                    'reported_channel_name' => $displayStatus['reported_channel_name'] ?? null,
+                    'expected_channel_id' => $displayStatus['expected_channel_id'] ?? null,
+                    'expected_channel_name' => $displayStatus['expected_channel_name'] ?? null,
+                    'playback_in_sync' => $displayStatus['playback_in_sync'] ?? null,
                     'is_unused' => false,
                 ];
             }
@@ -1628,12 +1796,14 @@ class AdminController
             $template = array_replace($template, $old);
         }
         $editorOrientation = $this->sanitizeTemplateEditorOrientation((string)($old['template_editor_orientation'] ?? $this->request->input('orientation', 'landscape')));
+        $editorInspectorTab = $this->sanitizeTemplateEditorInspectorTab((string)($old['template_editor_inspector_tab'] ?? $this->request->input('inspector_tab', 'element')));
 
         $this->view->render('admin/slide_template_form', [
             'templateModel' => $template,
             'landscapeSpec' => $this->templateSlides->decodeSpec((string)($template['landscape_spec_json'] ?? ''), 'landscape'),
             'portraitSpec' => trim((string)($template['portrait_spec_json'] ?? '')) !== '' ? $this->templateSlides->decodeSpec((string)$template['portrait_spec_json'], 'portrait') : null,
             'editorOrientation' => $editorOrientation,
+            'editorInspectorTab' => $editorInspectorTab,
             'mediaAssets' => $this->db->all("SELECT id, name, original_name, media_kind, file_path, preview_file_path FROM media_assets WHERE media_kind IN ('image', 'video') ORDER BY created_at DESC, id DESC"),
             'uploadedFonts' => list_uploaded_fonts(),
             'error' => flash('error'),
@@ -1656,6 +1826,7 @@ class AdminController
         $landscapeRaw = (string)$this->request->input('landscape_spec_json', '');
         $portraitRaw = (string)$this->request->input('portrait_spec_json', '');
         $editorOrientation = $this->sanitizeTemplateEditorOrientation((string)$this->request->input('template_editor_orientation', 'landscape'));
+        $editorInspectorTab = $this->sanitizeTemplateEditorInspectorTab((string)$this->request->input('template_editor_inspector_tab', 'element'));
         $saveAction = (string)$this->request->input('save_action', 'save');
         $old = [
             'name' => $nameRaw,
@@ -1664,6 +1835,7 @@ class AdminController
             'landscape_spec_json' => $landscapeRaw,
             'portrait_spec_json' => $portraitRaw,
             'template_editor_orientation' => $editorOrientation,
+            'template_editor_inspector_tab' => $editorInspectorTab,
         ];
         $errors = [];
 
@@ -1693,10 +1865,9 @@ class AdminController
             $landscapeJson = $landscapeRaw;
             $portraitJson = trim($portraitRaw) !== '' ? $portraitRaw : null;
         }
-
         if ($errors !== []) {
             $this->redirectWithForm(
-                ($id ? '/admin/slide-templates/' . $id . '/edit' : '/admin/slide-templates/create') . '?orientation=' . rawurlencode($editorOrientation),
+                ($id ? '/admin/slide-templates/' . $id . '/edit' : '/admin/slide-templates/create') . '?orientation=' . rawurlencode($editorOrientation) . '&inspector_tab=' . rawurlencode($editorInspectorTab),
                 __('validation.fix_marked_fields'),
                 $old,
                 $errors,
@@ -1722,7 +1893,7 @@ class AdminController
 
         $affectedSlides = $id ? $this->db->all('SELECT slide_id FROM slide_template_data WHERE template_id = ?', [$id]) : [];
         $this->requestReloadForDisplays($this->displayIdsForSlides(array_map(static fn(array $row): int => (int)$row['slide_id'], $affectedSlides)));
-        redirect($saveAction === 'save_and_close' ? '/admin/slide-templates' : '/admin/slide-templates/' . $templateId . '/edit?orientation=' . rawurlencode($editorOrientation));
+        redirect($saveAction === 'save_and_close' ? '/admin/slide-templates' : '/admin/slide-templates/' . $templateId . '/edit?orientation=' . rawurlencode($editorOrientation) . '&inspector_tab=' . rawurlencode($editorInspectorTab));
     }
 
     public function deleteSlideTemplate(int $id): void
@@ -2506,14 +2677,14 @@ class AdminController
     public function users(): void
     {
         $this->auth->requireRole('admin');
-        $users = $this->db->all('SELECT id, username, display_name, role, is_active, created_at FROM users ORDER BY username ASC');
+        $users = $this->db->all('SELECT id, username, display_name, first_name, last_name, department, title, picture_url, role, auth_provider, is_active, created_at FROM users ORDER BY username ASC');
         $this->view->render('admin/users', ['users' => $users, 'flash' => flash('success')]);
     }
 
     public function userForm(?int $id = null): void
     {
         $this->auth->requireRole('admin');
-        $user = $id ? $this->db->one('SELECT id, username, display_name, role, is_active FROM users WHERE id = ?', [$id]) : null;
+        $user = $id ? $this->db->one('SELECT id, username, display_name, first_name, last_name, department, title, picture_url, role, auth_provider, oidc_issuer, oidc_subject, is_active FROM users WHERE id = ?', [$id]) : null;
         if ($id && !$user) {
             flash('error', __('users.not_found'));
             redirect('/admin/users');
@@ -2528,6 +2699,14 @@ class AdminController
         if ($id && !$this->db->one('SELECT id FROM users WHERE id = ?', [$id])) {
             flash('error', __('users.not_found'));
             redirect('/admin/users');
+        }
+        if ($id) {
+            $managedUser = $this->db->one('SELECT auth_provider FROM users WHERE id = ?', [$id]);
+            if (($managedUser['auth_provider'] ?? 'local') === 'openid') {
+                $this->db->execute('UPDATE users SET is_active = ? WHERE id = ?', [$this->request->input('is_active') ? 1 : 0, $id]);
+                flash('success', __('users.updated'));
+                redirect('/admin/users');
+            }
         }
 
         $usernameRaw = (string)$this->request->input('username');
@@ -2867,6 +3046,117 @@ class AdminController
         );
     }
 
+    private function requestDisplayGroupRemovalIds(): array
+    {
+        $value = $this->request->input('removed_display_ids', []);
+        if (is_string($value)) {
+            $value = trim($value);
+            if ($value === '') {
+                return [];
+            }
+
+            $decoded = json_decode($value, true);
+            $value = is_array($decoded) ? $decoded : [$value];
+        }
+
+        return $this->normalizeIds($value);
+    }
+
+    private function hasRequestInput(string $key): bool
+    {
+        return array_key_exists($key, $_POST) || array_key_exists($key, $_GET);
+    }
+
+    private function requestPrimaryDisplayId(): ?int
+    {
+        $value = trim((string)$this->request->input('primary_display_id', ''));
+        if ($value === '') {
+            return null;
+        }
+
+        $displayId = (int)$value;
+        return $displayId > 0 ? $displayId : null;
+    }
+
+    private function normalizeGroupPrimaryDisplayId(int $groupId, ?int $displayId): ?int
+    {
+        if ($groupId <= 0 || $displayId === null || $displayId <= 0) {
+            return null;
+        }
+
+        $row = $this->db->one(
+            'SELECT display_id FROM display_group_memberships WHERE group_id = ? AND display_id = ? LIMIT 1',
+            [$groupId, $displayId]
+        );
+
+        return $row ? $displayId : null;
+    }
+
+    private function setGroupPrimaryDisplay(int $groupId, ?int $displayId): void
+    {
+        if ($groupId <= 0) {
+            return;
+        }
+
+        $this->db->execute(
+            'UPDATE display_groups SET primary_display_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+            [$displayId, $groupId]
+        );
+    }
+
+    private function clearPrimaryDisplayAssignments(array $displayIds, ?int $exceptGroupId = null): void
+    {
+        $displayIds = $this->uniquePositiveIds($displayIds);
+        if ($displayIds === []) {
+            return;
+        }
+
+        $placeholders = implode(', ', array_fill(0, count($displayIds), '?'));
+        $params = $displayIds;
+        $sql = 'UPDATE display_groups SET primary_display_id = NULL, updated_at = CURRENT_TIMESTAMP WHERE primary_display_id IN (' . $placeholders . ')';
+
+        if ($exceptGroupId !== null && $exceptGroupId > 0) {
+            $sql .= ' AND id <> ?';
+            $params[] = $exceptGroupId;
+        }
+
+        $this->db->execute($sql, $params);
+    }
+
+    private function removeDisplaysFromGroup(int $groupId, array $displayIds): array
+    {
+        $displayIds = $this->uniquePositiveIds($displayIds);
+        if ($groupId <= 0 || $displayIds === []) {
+            return [];
+        }
+
+        $placeholders = implode(', ', array_fill(0, count($displayIds), '?'));
+        $currentDisplayIds = $this->idsFromRows(
+            $this->db->all(
+                'SELECT display_id
+                 FROM display_group_memberships
+                 WHERE group_id = ? AND display_id IN (' . $placeholders . ')',
+                array_merge([$groupId], $displayIds)
+            ),
+            'display_id'
+        );
+
+        if ($currentDisplayIds === []) {
+            return [];
+        }
+
+        $placeholders = implode(', ', array_fill(0, count($currentDisplayIds), '?'));
+        $this->db->execute(
+            'UPDATE display_group_memberships
+             SET group_id = NULL, updated_at = CURRENT_TIMESTAMP
+             WHERE group_id = ? AND display_id IN (' . $placeholders . ')',
+            array_merge([$groupId], $currentDisplayIds)
+        );
+        $this->clearPrimaryDisplayAssignments($currentDisplayIds);
+
+        return $currentDisplayIds;
+    }
+
     private function displayIdsForChannels(array $channelIds): array
     {
         $channelIds = $this->uniquePositiveIds($channelIds);
@@ -3027,17 +3317,7 @@ class AdminController
 
     private function isValidTimezone(string $timezone): bool
     {
-        $timezone = trim($timezone);
-        if ($timezone === '') {
-            return false;
-        }
-
-        try {
-            new \DateTimeZone($timezone);
-            return true;
-        } catch (\Exception) {
-            return false;
-        }
+        return in_array(trim($timezone), \DateTimeZone::listIdentifiers(), true);
     }
 
     private function uploadedMediaKind(array $file): ?string
@@ -3306,12 +3586,9 @@ class AdminController
                     continue;
                 }
 
-                $label = pathinfo($file, PATHINFO_FILENAME);
-                $label = preg_replace('/[_:-]+/', ' ', $label) ?? $label;
-                $label = trim(preg_replace('/\s+/', ' ', $label) ?? $label);
                 $icons[$file] = [
                     'file' => $file,
-                    'label' => ucwords($label),
+                    'label' => $this->displayIconLabel($file),
                     'url' => url($publicDir . '/' . $file),
                 ];
             }
@@ -3319,6 +3596,62 @@ class AdminController
 
         uasort($icons, static fn(array $a, array $b): int => strnatcasecmp($a['label'], $b['label']));
         return $icons;
+    }
+
+    private function displayLanguageOptions(): array
+    {
+        return [
+            'system' => __('display.language_options.system'),
+            'en' => __('display.language_options.en'),
+            'de' => __('display.language_options.de'),
+        ];
+    }
+
+    private function isValidDisplayLanguage(string $language): bool
+    {
+        return in_array($language, self::DISPLAY_LANGUAGE_OPTIONS, true);
+    }
+
+    private function displayIconLabel(string $file): string
+    {
+        $name = strtolower(pathinfo($file, PATHINFO_FILENAME));
+        $tokens = array_values(array_filter(
+            preg_split('/[_:-]+/', $name) ?: [],
+            static fn(string $token): bool => $token !== ''
+        ));
+        $parts = [];
+        $terms = [
+            'display' => __('display.model_terms.display', [], 'Display'),
+            'screen' => __('display.model_terms.display', [], 'Display'),
+            'stele' => __('display.model_terms.stele', [], 'Stele'),
+            'custom' => __('display.model_terms.custom', [], 'Custom'),
+            'custome' => __('display.model_terms.custom', [], 'Custom'),
+            'customer' => __('display.model_terms.customer', [], 'Customer'),
+            'stop' => __('display.model_terms.stop', [], 'Stop'),
+            'wide' => __('display.model_terms.wide', [], 'Wide'),
+            'ceiling' => __('display.model_terms.ceiling', [], 'Ceiling'),
+        ];
+
+        for ($index = 0; $index < count($tokens); $index++) {
+            $token = $tokens[$index];
+            $next = $tokens[$index + 1] ?? '';
+
+            if (ctype_digit($token) && $next !== '' && ctype_digit($next)) {
+                $parts[] = $token . ':' . $next;
+                $index++;
+                continue;
+            }
+
+            if ($token === 'customer' && $next === 'stop') {
+                $parts[] = __('display.model_terms.customer_stop', [], $terms['customer'] . ' ' . $terms['stop']);
+                $index++;
+                continue;
+            }
+
+            $parts[] = $terms[$token] ?? ucwords(str_replace('-', ' ', $token));
+        }
+
+        return trim(implode(' ', $parts));
     }
 
     private function defaultDisplayIcon(array $displayIcons): string
@@ -3371,6 +3704,153 @@ class AdminController
             : ['width' => 220, 'height' => 124];
     }
 
+    private function displayGroupLayoutRects(int $groupId): array
+    {
+        $rects = [];
+        foreach ($this->getDisplayOrganizationRows('dgm.group_id = ?', [$groupId]) as $display) {
+            $defaults = $this->defaultLayoutSize($display);
+            $rects[] = [
+                'x' => (int)($display['layout_x'] ?? 0),
+                'y' => (int)($display['layout_y'] ?? 0),
+                'width' => max(72, (int)($display['layout_width'] ?: $defaults['width'])),
+                'height' => max(72, (int)($display['layout_height'] ?: $defaults['height'])),
+            ];
+        }
+
+        return $rects;
+    }
+
+    private function findEmptyDisplayLayoutPosition(array $occupiedRects, int $width, int $height): array
+    {
+        $width = max(72, $width);
+        $height = max(72, $height);
+        $maxX = max(0, self::DISPLAY_LAYOUT_CANVAS_WIDTH - $width);
+        $maxY = max(0, self::DISPLAY_LAYOUT_CANVAS_HEIGHT - $height);
+        $xCandidates = [0, $maxX, (int)round($maxX / 2)];
+        $yCandidates = [0, $maxY, (int)round($maxY / 2)];
+
+        foreach ($occupiedRects as $rect) {
+            $x = (int)($rect['x'] ?? 0);
+            $y = (int)($rect['y'] ?? 0);
+            $rectWidth = max(1, (int)($rect['width'] ?? 0));
+            $rectHeight = max(1, (int)($rect['height'] ?? 0));
+
+            $xCandidates[] = $x;
+            $xCandidates[] = $x + $rectWidth - $width;
+            $xCandidates[] = $x - $width - self::DISPLAY_LAYOUT_PLACEMENT_GAP;
+            $xCandidates[] = $x + $rectWidth + self::DISPLAY_LAYOUT_PLACEMENT_GAP;
+
+            $yCandidates[] = $y;
+            $yCandidates[] = $y + $rectHeight - $height;
+            $yCandidates[] = $y - $height - self::DISPLAY_LAYOUT_PLACEMENT_GAP;
+            $yCandidates[] = $y + $rectHeight + self::DISPLAY_LAYOUT_PLACEMENT_GAP;
+        }
+
+        for ($x = 0; $x <= $maxX; $x += self::DISPLAY_LAYOUT_GRID_SIZE) {
+            $xCandidates[] = $x;
+        }
+        for ($y = 0; $y <= $maxY; $y += self::DISPLAY_LAYOUT_GRID_SIZE) {
+            $yCandidates[] = $y;
+        }
+
+        $xCandidates = $this->normalizeLayoutCandidates($xCandidates, $maxX);
+        $yCandidates = $this->normalizeLayoutCandidates($yCandidates, $maxY);
+
+        foreach ([self::DISPLAY_LAYOUT_PLACEMENT_GAP, 0] as $gap) {
+            foreach ($yCandidates as $y) {
+                foreach ($xCandidates as $x) {
+                    $rect = ['x' => $x, 'y' => $y, 'width' => $width, 'height' => $height];
+                    if (!$this->layoutRectOverlaps($rect, $occupiedRects, $gap)) {
+                        return ['x' => $x, 'y' => $y];
+                    }
+                }
+            }
+        }
+
+        $bestRect = null;
+        $bestOverlap = PHP_INT_MAX;
+        foreach ($yCandidates as $y) {
+            foreach ($xCandidates as $x) {
+                $rect = ['x' => $x, 'y' => $y, 'width' => $width, 'height' => $height];
+                $overlap = $this->layoutOverlapScore($rect, $occupiedRects);
+                if (
+                    $bestRect === null
+                    || $overlap < $bestOverlap
+                    || ($overlap === $bestOverlap && ($y < $bestRect['y'] || ($y === $bestRect['y'] && $x < $bestRect['x'])))
+                ) {
+                    $bestOverlap = $overlap;
+                    $bestRect = $rect;
+                }
+            }
+        }
+
+        return [
+            'x' => (int)($bestRect['x'] ?? 0),
+            'y' => (int)($bestRect['y'] ?? 0),
+        ];
+    }
+
+    private function normalizeLayoutCandidates(array $values, int $max): array
+    {
+        $normalized = [];
+        foreach ($values as $value) {
+            $candidate = $this->clampInt((int)round((float)$value), 0, $max);
+            $normalized[$candidate] = $candidate;
+        }
+        sort($normalized, SORT_NUMERIC);
+
+        return array_values($normalized);
+    }
+
+    private function layoutRectOverlaps(array $rect, array $occupiedRects, int $gap = 0): bool
+    {
+        $left = (int)$rect['x'];
+        $top = (int)$rect['y'];
+        $right = $left + (int)$rect['width'];
+        $bottom = $top + (int)$rect['height'];
+
+        foreach ($occupiedRects as $occupied) {
+            $occupiedLeft = (int)($occupied['x'] ?? 0);
+            $occupiedTop = (int)($occupied['y'] ?? 0);
+            $occupiedRight = $occupiedLeft + (int)($occupied['width'] ?? 0);
+            $occupiedBottom = $occupiedTop + (int)($occupied['height'] ?? 0);
+
+            if (
+                $right + $gap <= $occupiedLeft
+                || $left >= $occupiedRight + $gap
+                || $bottom + $gap <= $occupiedTop
+                || $top >= $occupiedBottom + $gap
+            ) {
+                continue;
+            }
+
+            return true;
+        }
+
+        return false;
+    }
+
+    private function layoutOverlapScore(array $rect, array $occupiedRects): int
+    {
+        $left = (int)$rect['x'];
+        $top = (int)$rect['y'];
+        $right = $left + (int)$rect['width'];
+        $bottom = $top + (int)$rect['height'];
+        $score = 0;
+
+        foreach ($occupiedRects as $occupied) {
+            $occupiedLeft = (int)($occupied['x'] ?? 0);
+            $occupiedTop = (int)($occupied['y'] ?? 0);
+            $occupiedRight = $occupiedLeft + (int)($occupied['width'] ?? 0);
+            $occupiedBottom = $occupiedTop + (int)($occupied['height'] ?? 0);
+            $overlapWidth = max(0, min($right, $occupiedRight) - max($left, $occupiedLeft));
+            $overlapHeight = max(0, min($bottom, $occupiedBottom) - max($top, $occupiedTop));
+            $score += $overlapWidth * $overlapHeight;
+        }
+
+        return $score;
+    }
+
     private function dashboardDisplayRow(array $display): array
     {
         $status = (string)($display['monitoring_status'] ?? 'offline');
@@ -3385,13 +3865,13 @@ class AdminController
             'slug' => (string)$display['slug'],
             'status' => $status,
             'status_label' => $this->displayMonitoringLabel($status),
-            'channel_label' => $display['resolved_channel_name'] ?: __('dashboard.no_channel'),
+            'channel_label' => $display['reported_channel_name'] ?: __('dashboard.no_channel'),
             'last_seen_label' => $this->dashboardLastSeenLabel($display),
             'ip_label' => $display['last_seen_ip'] ?: __('common.unknown'),
             'client_label' => trim($browserLabel . ($browserLabel !== '' && $osLabel !== '' ? ' / ' : '') . $osLabel) ?: __('common.unknown'),
             'screen_label' => $screenLabel !== '' ? $screenLabel : __('common.unknown'),
             'detail_label' => $this->dashboardHeartbeatDetailLabel($display, $viewportLabel),
-            'preview_url' => '/display/' . (string)$display['slug'],
+            'preview_url' => '/display/' . (string)$display['slug'] . '?preview=1',
             'edit_url' => '/admin/displays/' . (int)$display['id'] . '/edit',
         ];
     }
@@ -3672,6 +4152,12 @@ class AdminController
         return in_array($value, ['portrait', 'vertical'], true) ? 'portrait' : 'landscape';
     }
 
+    private function sanitizeTemplateEditorInspectorTab(string $value): string
+    {
+        $value = strtolower(trim($value));
+        return in_array($value, ['element', 'fields', 'layers', 'animations'], true) ? $value : 'element';
+    }
+
     private function sanitizeTitlePosition(string $value): string
     {
         $allowed = ['hide', 'top-left', 'top-right', 'bottom-left', 'bottom-right', 'center'];
@@ -3850,7 +4336,7 @@ class AdminController
 
             $priority = null;
             if ($priorityRaw !== '') {
-                if (!ctype_digit($priorityRaw) || (int)$priorityRaw < 1) {
+                if (!ctype_digit($priorityRaw)) {
                     $fieldErrors['assignment_priority.' . $i] = __('channel.assignment_invalid_priority');
                     $rowHasError = true;
                 } else {

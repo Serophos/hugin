@@ -2,13 +2,13 @@
 namespace App\Services;
 
 use App\Core\Database;
-use DateTime;
-use DateTimeZone;
-
 class DisplayStatusService
 {
+    private PlaylistSelectionService $playlistSelection;
+
     public function __construct(private Database $db)
     {
+        $this->playlistSelection = new PlaylistSelectionService($db);
     }
 
     public function getAllDisplayStatuses(bool $activeOnly = false): array
@@ -16,6 +16,8 @@ class DisplayStatusService
         $sql = 'SELECT d.id, d.name, d.slug, d.description, d.timezone, d.orientation, d.is_active,
                        d.transition_effect, d.slide_duration_seconds, d.updated_at,
                        h.last_seen_at, h.last_seen_ip, h.current_channel_id, h.current_channel_name,
+                       h.reported_state_signature, h.reported_playback_status, h.playback_reported_at,
+                       h.pending_state_signature, h.pending_activation_at_ms,
                        h.browser_name, h.browser_version, h.os_name, h.os_version, h.platform,
                        h.language, h.client_timezone, h.screen_width, h.screen_height,
                        h.avail_screen_width, h.avail_screen_height, h.viewport_width, h.viewport_height,
@@ -48,6 +50,8 @@ class DisplayStatusService
             'SELECT d.id, d.name, d.slug, d.description, d.timezone, d.orientation, d.is_active,
                     d.transition_effect, d.slide_duration_seconds, d.updated_at,
                     h.last_seen_at, h.last_seen_ip, h.current_channel_id, h.current_channel_name,
+                    h.reported_state_signature, h.reported_playback_status, h.playback_reported_at,
+                    h.pending_state_signature, h.pending_activation_at_ms,
                     h.browser_name, h.browser_version, h.os_name, h.os_version, h.platform,
                     h.language, h.client_timezone, h.screen_width, h.screen_height,
                     h.avail_screen_width, h.avail_screen_height, h.viewport_width, h.viewport_height,
@@ -168,43 +172,27 @@ class DisplayStatusService
 
     public function resolveActiveAssignment(array $display): ?array
     {
-        $timezone = new DateTimeZone(($display['timezone'] ?? '') ?: 'UTC');
-        $now = new DateTime('now', $timezone);
-        $weekday = (int)$now->format('N');
-        $currentTime = $now->format('H:i:s');
-
-        return $this->db->one(
-            'SELECT cdsa.id, cdsa.channel_id, cdsa.schedule_id, cdsa.priority AS sort_order,
-                    s.name AS schedule_name, s.type AS schedule_type,
-                    c.name AS channel_name, c.description AS channel_description,
-                    c.transition_effect, c.slide_duration_seconds, c.updated_at AS channel_updated_at, c.is_active AS channel_is_active
-             FROM channel_display_schedule_assignments cdsa
-             INNER JOIN channels c ON c.id = cdsa.channel_id
-             INNER JOIN schedules s ON s.id = cdsa.schedule_id
-             LEFT JOIN schedule_rules sr ON sr.schedule_id = s.id
-                AND s.type = \'weekly_time_slot\'
-                AND sr.weekday = ?
-                AND ? >= sr.start_time
-                AND ? < sr.end_time
-             WHERE cdsa.display_id = ?
-               AND cdsa.is_active = 1
-               AND c.is_active = 1
-               AND s.is_active = 1
-               AND (
-                    s.type = \'fulltime\'
-                    OR (s.type = \'weekly_time_slot\' AND sr.id IS NOT NULL)
-               )
-             ORDER BY CASE WHEN s.type = \'fulltime\' THEN 1 ELSE 0 END ASC, cdsa.priority ASC, cdsa.id ASC, sr.id ASC
-             LIMIT 1',
-            [$weekday, $currentTime, $currentTime, $display['id']]
-        );
+        return $this->playlistSelection->resolve($display)['assignment'];
     }
 
     private function hydrateDisplayStatus(array $display): array
     {
         $activeAssignment = $this->resolveActiveAssignment($display);
-        $display['resolved_channel_id'] = $activeAssignment['channel_id'] ?? ($display['current_channel_id'] ?: null);
-        $display['resolved_channel_name'] = $activeAssignment['channel_name'] ?? ($display['current_channel_name'] ?: null);
+        $display['expected_channel_id'] = isset($activeAssignment['channel_id'])
+            ? (int)$activeAssignment['channel_id']
+            : null;
+        $display['expected_channel_name'] = $activeAssignment['channel_name'] ?? null;
+        $display['reported_channel_id'] = $display['current_channel_id'] !== null
+            ? (int)$display['current_channel_id']
+            : null;
+        $display['reported_channel_name'] = $display['current_channel_name'] ?: null;
+        // Retain the old resolved fields as the expected schedule for callers
+        // that have not migrated to the explicit expected/reported contract.
+        $display['resolved_channel_id'] = $display['expected_channel_id'];
+        $display['resolved_channel_name'] = $display['expected_channel_name'];
+        $display['playback_in_sync'] = $display['playback_reported_at'] === null
+            ? null
+            : $display['expected_channel_id'] === $display['reported_channel_id'];
         $heartbeatAgeSeconds = $this->heartbeatAgeSeconds($display['heartbeat_age_seconds'] ?? null);
         $display['seconds_since_seen'] = $this->secondsSinceSeen($display['last_seen_at'] ?? null, $heartbeatAgeSeconds);
         $display['minutes_since_seen'] = $this->minutesSinceSeen($display['last_seen_at'] ?? null, $heartbeatAgeSeconds);

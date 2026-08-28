@@ -5,7 +5,9 @@
     "require": {
         "php": ">=8.1",
         "erusev/parsedown": "^1.8",
-        "dompdf/php-font-lib": "^1.0"
+        "dompdf/php-font-lib": "^1.0",
+        "league/oauth2-client": "^2.9",
+        "firebase/php-jwt": "^7.1"
     },
     "autoload": {
         "psr-4": {
@@ -16,5 +18,12 @@
             "Plugins\\Tl1Menu\\": "plugins/tl1-menu/",
             "Plugins\\Weather\\": "plugins/weather/"
         }
+    },
+    "scripts": {
+        "test:playback": "php tests/playlist_selection_test.php",
+        "test:openid": "php tests/secret_cipher_test.php && php tests/openid_settings_validation_test.php && php tests/openid_connect_test.php && php tests/openid_claim_validation_test.php",
+        "test:session-policy": "php tests/session_policy_test.php",
+        "test:scheduled-tasks": "php tests/plugin_scheduled_tasks_test.php && php tests/weather_scheduled_tasks_test.php",
+        "test:frontend-runtime": "php tests/frontend_runtime_revision_test.php"
     }
 }

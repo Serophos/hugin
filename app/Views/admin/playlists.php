@@ -1,5 +1,6 @@
 <?php
 $title = __('channel.plural');
+$breadcrumbs = [['label' => $title]];
 $defaultScheduleId = (int)($defaultScheduleId ?? 0);
 $playlistAddTargets = [];
 foreach ($groups as $group) {
@@ -43,15 +44,15 @@ foreach ($groups as $group) {
 require __DIR__ . '/../layouts/admin_header.php';
 ?>
 <div class="page-actions">
-    <a class="button button--default" href="<?= e(url('/admin/playlists/create')) ?>"><?= admin_icon('add') ?><span><?= e(__('channel.new')) ?></span></a>
+    <a class="btn btn-primary" href="<?= e(url('/admin/playlists/create')) ?>"><?= admin_icon('playlists') ?><span><?= e(__('channel.new')) ?></span></a>
 </div>
-<?php if ($flash): ?><div class="alert success"><?= e($flash) ?></div><?php endif; ?>
+<?php if ($flash): ?><div class="alert alert-success success"><?= e($flash) ?></div><?php endif; ?>
 <?php foreach ($groups as $group): ?>
 <?php
 $display = $group['display'];
 $isUnused = !empty($display['is_unused']);
 $displaySyncEnabled = !$isUnused && !empty($display['group_sync_enabled']);
-$previewPath = $isUnused ? '' : '/display/' . $display['slug'];
+$previewPath = $isUnused ? '' : '/display/' . $display['slug'] . '?preview=1';
 $createPlaylistPath = '';
 if (!$isUnused) {
     $createPlaylistPath = '/admin/playlists/create?' . http_build_query([
@@ -60,15 +61,14 @@ if (!$isUnused) {
     ]);
 }
 ?>
-<details class="card playlist-display-group">
-    <summary>
-        <span class="playlist-display-group__summary">
-            <span class="playlist-display-group__chevron" aria-hidden="true"></span>
+<section class="card card-outline card-secondary collapsed-card playlist-display-group">
+    <div class="card-header">
+        <button type="button" class="card-title playlist-display-group__summary" data-playlist-card-title aria-expanded="false">
             <span class="playlist-display-group__icon" aria-hidden="true">
                 <?php if (!$isUnused && !empty($display['icon_url'])): ?>
                     <img src="<?= e($display['icon_url']) ?>" alt="" loading="lazy">
                     <?php if ($displaySyncEnabled): ?>
-                        <span class="display-sync-indicator display-sync-indicator--playlist"><?= admin_icon('reload') ?></span>
+                        <span class="display-sync-indicator display-sync-indicator--playlist" data-sync-tooltip="<?= e(__('display_groups.sync_enabled_indicator')) ?>" title="<?= e(__('display_groups.sync_enabled_indicator')) ?>" aria-hidden="true"><?= admin_icon('history') ?></span>
                     <?php endif; ?>
                 <?php else: ?>
                     <span class="playlist-display-group__icon-placeholder">-</span>
@@ -82,20 +82,46 @@ if (!$isUnused) {
                 <span class="playlist-display-group__meta">
                     <span><strong><?= e(__('locations.singular')) ?>:</strong> <?= e($display['location_name']) ?></span>
                     <span><strong><?= e(__('display_groups.singular')) ?>:</strong> <?= e($display['group_name']) ?></span>
+                    <span>
+                        <strong><?= e(__('common.status')) ?>:</strong>
+                        <?= e((string)($display['monitoring_status_label'] ?? __('common.unknown'))) ?>
+                        <?php if (!empty($display['last_seen_at'])): ?>
+                            · <?= e(__('display.last_seen')) ?> <?= e((string)$display['last_seen_at']) ?>
+                        <?php endif; ?>
+                        <?php if (!empty($display['reported_channel_name'])): ?>
+                            · <?= e(__('channel.last_reported_playing', ['playlist' => (string)$display['reported_channel_name']])) ?>
+                        <?php endif; ?>
+                        <?php if (($display['monitoring_status'] ?? '') === 'online' && ($display['playback_in_sync'] ?? null) === false): ?>
+                            · <span class="badge text-bg-warning"><?= e(__('channel.playback_mismatch', [
+                                'playlist' => (string)($display['expected_channel_name'] ?? __('common.none')),
+                            ])) ?></span>
+                        <?php endif; ?>
+                    </span>
                 </span>
             </span>
-        </span>
+        </button>
         <?php if (!$isUnused): ?>
             <span class="playlist-display-group__actions">
-                <a class="button button--normal button--small" href="<?= e(url($previewPath)) ?>" target="_blank" rel="noopener noreferrer"><?= admin_icon('preview') ?><span><?= e(__('common.preview')) ?></span></a>
-                <button type="button" class="button button--normal button--small" data-playlist-add-open data-display-id="<?= e((string)$display['id']) ?>" aria-label="<?= e(__('channel.add_existing_playlist')) ?>"><?= admin_icon('add') ?><span><?= e(__('channel.add_existing_playlist_short')) ?></span></button>
-                <a class="button button--default button--small" href="<?= e(url($createPlaylistPath)) ?>" aria-label="<?= e(__('channel.add_new_playlist')) ?>"><?= admin_icon('add') ?><span><?= e(__('channel.add_new_playlist_short')) ?></span></a>
+                <form method="post" action="<?= e(url('/admin/displays/' . $display['id'] . '/reload')) ?>" class="inline-form">
+                    <?= csrf_field() ?>
+                    <input type="hidden" name="return_to" value="/admin/playlists">
+                    <button type="submit" class="btn btn-success btn-sm" aria-label="<?= e(__('display.reload_slideshow') . ' ' . $display['name']) ?>"><?= admin_icon('reload') ?><span><?= e(__('common.reload')) ?></span></button>
+                </form>
+                <a class="btn btn-primary btn-sm" href="<?= e(url($previewPath)) ?>" target="_blank" rel="noopener noreferrer"><?= admin_icon('preview') ?><span><?= e(__('common.preview')) ?></span></a>
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-playlist-add-open data-display-id="<?= e((string)$display['id']) ?>" aria-label="<?= e(__('channel.add_existing_playlist')) ?>"><?= admin_icon('add') ?><span><?= e(__('channel.add_existing_playlist_short')) ?></span></button>
+                <a class="btn btn-primary btn-sm" href="<?= e(url($createPlaylistPath)) ?>" aria-label="<?= e(__('channel.add_new_playlist')) ?>"><?= admin_icon('playlists') ?><span><?= e(__('channel.add_new_playlist_short')) ?></span></a>
             </span>
         <?php endif; ?>
-    </summary>
-    <div class="playlist-display-group__body">
+        <span class="card-tools">
+            <button type="button" class="btn btn-tool" data-lte-toggle="card-collapse" data-label-expand="<?= e(__('common.expand')) ?>" data-label-collapse="<?= e(__('common.collapse')) ?>" aria-label="<?= e(__('common.expand')) ?>">
+                <span data-lte-icon="expand"><?= admin_icon('chevron-down') ?></span>
+                <span data-lte-icon="collapse"><?= admin_icon('chevron-up') ?></span>
+            </button>
+        </span>
+    </div>
+    <div class="card-body playlist-display-group__body">
         <div class="table-scroll">
-            <table class="admin-table admin-table--playlists" data-admin-table>
+            <table class="table table-hover align-middle admin-table admin-table--playlists" data-admin-table>
                 <thead>
                 <tr>
                     <th aria-sort="none"><button type="button" class="slide-library-sort" data-admin-sort="name" data-sort-type="text" aria-label="<?= e(__('slide.sort_by_column', ['column' => __('common.name')])) ?>"><?= e(__('common.name')) ?></button></th>
@@ -107,13 +133,13 @@ if (!$isUnused) {
                     <th><?= e(__('common.actions')) ?></th>
                 </tr>
                 <tr class="slide-library-filter-row">
-                    <th><input type="search" data-admin-filter="name" aria-label="<?= e(__('slide.filter_column', ['column' => __('common.name')])) ?>" placeholder="<?= e(__('common.name')) ?>"></th>
-                    <th><input type="search" data-admin-filter="schedule" aria-label="<?= e(__('slide.filter_column', ['column' => __('schedule.singular')])) ?>" placeholder="<?= e(__('schedule.singular')) ?>"></th>
-                    <th><input type="search" data-admin-filter="priority" aria-label="<?= e(__('slide.filter_column', ['column' => __('channel.priority')])) ?>" placeholder="<?= e(__('channel.priority')) ?>"></th>
-                    <th><input type="search" data-admin-filter="effect" aria-label="<?= e(__('slide.filter_column', ['column' => __('common.effect')])) ?>" placeholder="<?= e(__('common.effect')) ?>"></th>
-                    <th><input type="search" data-admin-filter="slides" aria-label="<?= e(__('slide.filter_column', ['column' => __('channel.slides_count')])) ?>" placeholder="<?= e(__('channel.slides_count')) ?>"></th>
+                    <th><input class="form-control" type="search" data-admin-filter="name" aria-label="<?= e(__('slide.filter_column', ['column' => __('common.name')])) ?>" placeholder="<?= e(__('common.name')) ?>"></th>
+                    <th><input class="form-control" type="search" data-admin-filter="schedule" aria-label="<?= e(__('slide.filter_column', ['column' => __('schedule.singular')])) ?>" placeholder="<?= e(__('schedule.singular')) ?>"></th>
+                    <th><input class="form-control" type="search" data-admin-filter="priority" aria-label="<?= e(__('slide.filter_column', ['column' => __('channel.priority')])) ?>" placeholder="<?= e(__('channel.priority')) ?>"></th>
+                    <th><input class="form-control" type="search" data-admin-filter="effect" aria-label="<?= e(__('slide.filter_column', ['column' => __('common.effect')])) ?>" placeholder="<?= e(__('common.effect')) ?>"></th>
+                    <th><input class="form-control" type="search" data-admin-filter="slides" aria-label="<?= e(__('slide.filter_column', ['column' => __('channel.slides_count')])) ?>" placeholder="<?= e(__('channel.slides_count')) ?>"></th>
                     <th>
-                        <select data-admin-filter="status" aria-label="<?= e(__('slide.filter_column', ['column' => __('common.status')])) ?>">
+                        <select class="form-select" data-admin-filter="status" aria-label="<?= e(__('slide.filter_column', ['column' => __('common.status')])) ?>">
                             <option value=""><?= e(__('slide.filter_all_statuses')) ?></option>
                             <option value="active"><?= e(__('common.active')) ?></option>
                             <option value="inactive"><?= e(__('common.inactive')) ?></option>
@@ -131,20 +157,44 @@ if (!$isUnused) {
             $effectLabel = enum_label('effects', $channel['transition_effect'], $channel['transition_effect']);
             $statusValue = $channel['is_active'] ? 'active' : 'inactive';
             $statusLabel = $channel['is_active'] ? __('common.active') : __('common.inactive');
+            $isCurrentlyPlaying = !$isUnused
+                && $display['reported_channel_id'] !== null
+                && (int)$display['reported_channel_id'] === (int)$channel['channel_id'];
+            $currentlyPlayingLabel = $isCurrentlyPlaying
+                ? (($display['monitoring_status'] ?? '') === 'online'
+                    ? __('channel.currently_playing', ['display' => $display['name']])
+                    : __('channel.last_reported_playing_on_display', [
+                        'display' => $display['name'],
+                        'last_seen' => (string)($display['last_seen_at'] ?? __('common.never')),
+                    ]))
+                : '';
             ?>
             <tr data-admin-row>
-                <td data-admin-cell="name" data-sort-value="<?= e((string)$channel['channel_name']) ?>" data-filter-value="<?= e((string)$channel['channel_name']) ?>"><?= e($channel['channel_name']) ?></td>
+                <td data-admin-cell="name" data-sort-value="<?= e((string)$channel['channel_name']) ?>" data-filter-value="<?= e((string)$channel['channel_name']) ?>">
+                    <?php if ($isCurrentlyPlaying): ?>
+                        <span class="d-inline-flex align-items-center <?= ($display['monitoring_status'] ?? '') === 'online' ? 'text-success' : 'text-secondary' ?> me-1" title="<?= e($currentlyPlayingLabel) ?>">
+                            <?= admin_icon('play') ?><span class="sr-only"><?= e($currentlyPlayingLabel) ?></span>
+                        </span>
+                    <?php endif; ?>
+                    <?= e($channel['channel_name']) ?>
+                </td>
                 <td data-admin-cell="schedule" data-sort-value="<?= e($scheduleLabel) ?>" data-filter-value="<?= e($scheduleLabel) ?>"><?= e($scheduleLabel) ?></td>
                 <td data-admin-cell="priority" data-sort-value="<?= e($prioritySort) ?>" data-filter-value="<?= e($priorityLabel) ?>"><?= e($priorityLabel) ?></td>
                 <td data-admin-cell="effect" data-sort-value="<?= e($effectLabel) ?>" data-filter-value="<?= e($effectLabel) ?>"><?= e($effectLabel) ?></td>
                 <td data-admin-cell="slides" data-sort-value="<?= e((string)$channel['slide_count']) ?>" data-filter-value="<?= e((string)$channel['slide_count']) ?>"><?= e((string)$channel['slide_count']) ?></td>
                 <td data-admin-cell="status" data-sort-value="<?= e($statusLabel) ?>" data-filter-value="<?= e($statusValue) ?>"><?= e($statusLabel) ?></td>
                 <td class="actions">
-                    <a class="button button--normal button--small" href="<?= e(url('/admin/playlists/' . $channel['channel_id'] . '/edit')) ?>"><?= admin_icon('edit') ?><span><?= e(__('common.edit')) ?></span></a>
-                    <form method="post" action="<?= e(url('/admin/playlists/' . $channel['channel_id'] . '/delete')) ?>" class="inline-form" data-dialog-submit data-dialog-title="<?= e(__('common.delete')) ?>" data-dialog-message="<?= e(__('channel.delete_confirm')) ?>" data-dialog-icon="trash" data-dialog-buttons="cancel,delete" data-dialog-accept="<?= e(__('common.delete')) ?>">
+                    <div class="admin-action-groups">
+                        <div class="btn-group btn-group-sm admin-action-group" role="group" aria-label="<?= e(__('common.actions') . ' ' . $channel['channel_name']) ?>">
+                    <a class="btn btn-primary" href="<?= e(url('/admin/playlists/' . $channel['channel_id'] . '/edit')) ?>" aria-label="<?= e(__('common.edit') . ' ' . $channel['channel_name']) ?>" title="<?= e(__('common.edit')) ?>"><?= admin_icon('edit') ?></a>
+                    </div>
+                    <div class="btn-group btn-group-sm admin-action-group" role="group" aria-label="<?= e(__('common.delete')) ?>">
+                        <form method="post" action="<?= e(url('/admin/playlists/' . $channel['channel_id'] . '/delete')) ?>" class="inline-form" data-dialog-submit data-dialog-title="<?= e(__('common.delete')) ?>" data-dialog-message="<?= e(__('channel.delete_confirm')) ?>" data-dialog-icon="trash" data-dialog-buttons="cancel,delete" data-dialog-accept="<?= e(__('common.delete')) ?>">
                         <?= csrf_field() ?>
-                        <button type="submit" class="button button--danger button--small"><?= admin_icon('delete') ?><span><?= e(__('common.delete')) ?></span></button>
+                        <button type="submit" class="btn btn-danger" aria-label="<?= e(__('common.delete') . ' ' . $channel['channel_name']) ?>" title="<?= e(__('common.delete')) ?>"><?= admin_icon('delete') ?></button>
                     </form>
+                    </div>
+                    </div>
                 </td>
             </tr>
         <?php endforeach; ?>
@@ -152,8 +202,41 @@ if (!$isUnused) {
             </table>
         </div>
     </div>
-</details>
+</section>
 <?php endforeach; ?>
+
+<script>
+(() => {
+    const setPlaylistCardVariant = (card, isExpanded) => {
+        card.classList.toggle("card-primary", isExpanded);
+        card.classList.toggle("card-secondary", !isExpanded);
+        card.querySelector("[data-playlist-card-title]")?.setAttribute("aria-expanded", isExpanded ? "true" : "false");
+    };
+
+    document.querySelectorAll(".playlist-display-group").forEach((card) => {
+        setPlaylistCardVariant(card, !card.classList.contains("collapsed-card"));
+    });
+
+    document.querySelectorAll("[data-playlist-card-title]").forEach((title) => {
+        title.addEventListener("click", () => {
+            const card = title.closest(".playlist-display-group");
+            card?.querySelector(':scope > .card-header [data-lte-toggle="card-collapse"]')?.click();
+        });
+    });
+
+    document.addEventListener("expand.lte.card-widget", (event) => {
+        if (event.target instanceof Element && event.target.matches(".playlist-display-group")) {
+            setPlaylistCardVariant(event.target, true);
+        }
+    });
+
+    document.addEventListener("collapse.lte.card-widget", (event) => {
+        if (event.target instanceof Element && event.target.matches(".playlist-display-group")) {
+            setPlaylistCardVariant(event.target, false);
+        }
+    });
+})();
+</script>
 
 <?php if ($playlistAddTargets !== []): ?>
 <dialog class="admin-dialog playlist-add-dialog" data-playlist-add-dialog aria-labelledby="playlist-add-title" aria-describedby="playlist-add-description">
@@ -161,18 +244,18 @@ if (!$isUnused) {
         <div class="section-head">
             <div>
                 <h2 id="playlist-add-title" data-playlist-add-title><?= e(__('channel.add_existing_playlist_title')) ?></h2>
-                <p id="playlist-add-description" class="muted" data-playlist-add-display></p>
+                <p id="playlist-add-description" class="text-body-secondary muted" data-playlist-add-display></p>
             </div>
-            <button type="button" class="button button--normal button--small" data-playlist-add-close><?= admin_icon('cancel') ?><span><?= e(__('common.cancel')) ?></span></button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" data-playlist-add-close><?= admin_icon('cancel') ?><span><?= e(__('common.cancel')) ?></span></button>
         </div>
         <label class="full-width"><?= e(__('channel.add_existing_playlist_filter')) ?>
-            <input type="search" data-playlist-add-search placeholder="<?= e(__('channel.add_existing_playlist_filter_placeholder')) ?>">
+            <input class="form-control" type="search" data-playlist-add-search placeholder="<?= e(__('channel.add_existing_playlist_filter_placeholder')) ?>">
         </label>
         <div class="playlist-add-list" data-playlist-add-list></div>
         <p class="muted playlist-add-empty" data-playlist-add-empty hidden></p>
         <div class="form-actions">
-            <button type="button" class="button button--normal" data-playlist-add-close><?= admin_icon('cancel') ?><span><?= e(__('common.cancel')) ?></span></button>
-            <a class="button button--default" href="<?= e(url('/admin/playlists/create')) ?>" data-playlist-add-new><?= admin_icon('add') ?><span><?= e(__('channel.add_new_playlist')) ?></span></a>
+            <button type="button" class="btn btn-outline-secondary" data-playlist-add-close><?= admin_icon('cancel') ?><span><?= e(__('common.cancel')) ?></span></button>
+            <a class="btn btn-primary" href="<?= e(url('/admin/playlists/create')) ?>" data-playlist-add-new><?= admin_icon('playlists') ?><span><?= e(__('channel.add_new_playlist')) ?></span></a>
         </div>
     </form>
 </dialog>

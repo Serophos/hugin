@@ -5,16 +5,27 @@
   "description": "Frontend asset build tools for Hugin.",
   "type": "module",
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   },
   "scripts": {
-    "build": "npm run build:icons",
+    "build": "npm run build:icons && npm run build:adminlte",
+    "build:adminlte": "node scripts/build-adminlte-assets.mjs",
     "build:icons": "node scripts/build-admin-icons.mjs",
-    "check": "npm run check:icons",
-    "check:icons": "node scripts/build-admin-icons.mjs --check"
+    "check": "npm run check:icons && npm run check:adminlte",
+    "test:playback": "node tests/playback_scheduler_test.mjs",
+    "test:heartbeat": "node tests/display_heartbeat_test.mjs",
+    "test:heartbeat-failures": "node tests/display_heartbeat_failure_test.mjs",
+    "test:admin-assets": "node tests/admin_asset_boundary_test.mjs",
+    "test:admin-theme": "node tests/admin_theme_test.mjs",
+    "check:icons": "node scripts/build-admin-icons.mjs --check",
+    "check:adminlte": "node scripts/build-adminlte-assets.mjs --check",
+    "test:renderer": "node tests/display_media_lifecycle_test.mjs && node tests/display_renderer_integration_test.mjs"
   },
   "devDependencies": {
     "@rsuite/icon-font": "4.1.0",
+    "admin-lte": "4.1.0",
+    "bootstrap": "5.3.8",
+    "bootstrap-icons": "1.13.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   }

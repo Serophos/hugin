@@ -1,0 +1,117 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+use App\Core\Database;
+use App\Core\MigrationService;
+
+if (PHP_SAPI !== 'cli') {
+    fwrite(STDERR, "This command is CLI-only.\n");
+    exit(1);
+}
+
+$root = dirname(__DIR__);
+$configFile = $root . '/config/config.php';
+if (!is_file($configFile)) {
+    fwrite(STDERR, "Missing config/config.php.\n");
+    exit(1);
+}
+
+require_once $root . '/app/Core/Database.php';
+require_once $root . '/app/Core/MigrationService.php';
+
+$command = $argv[1] ?? 'help';
+$arguments = array_slice($argv, 2);
+$has = static fn(string $option): bool => in_array($option, $arguments, true);
+
+if ($command === 'help' || $command === '--help' || $command === '-h') {
+    echo "Hugin database upgrade utility\n\n";
+    echo "Usage:\n";
+    echo "  php bin/hugin-db status\n";
+    echo "  php bin/hugin-db migrate --backup-confirmed [--retry NNN]\n";
+    echo "  php bin/hugin-db adopt --yes\n";
+    exit(0);
+}
+if (!in_array($command, ['status', 'migrate', 'adopt'], true)) {
+    fwrite(STDERR, "Unknown command. Run php bin/hugin-db help.\n");
+    exit(1);
+}
+
+$retry = null;
+for ($index = 0; $index < count($arguments); $index++) {
+    $argument = $arguments[$index];
+    if (preg_match('/^--retry=(\d{1,3})$/D', $argument, $match)) {
+        $retry = (int)$match[1];
+    } elseif ($argument === '--retry' && isset($arguments[$index + 1]) && ctype_digit($arguments[$index + 1])) {
+        $retry = (int)$arguments[$index + 1];
+        $index++;
+    } elseif (!in_array($argument, ['--backup-confirmed', '--yes'], true)) {
+        fwrite(STDERR, 'Unknown or incomplete option: ' . $argument . PHP_EOL);
+        exit(1);
+    }
+}
+if (($command === 'status' && $arguments !== [])
+    || ($command === 'adopt' && array_values($arguments) !== ['--yes'])
+    || ($command === 'migrate' && $has('--yes'))
+) {
+    fwrite(STDERR, "Options are not valid for this command. Run php bin/hugin-db help.\n");
+    exit(1);
+}
+
+try {
+    $config = require $configFile;
+    $database = new Database($config['db']);
+    $service = new MigrationService($database->pdo(), $root . '/db-migrations');
+
+    if ($command === 'status') {
+        $status = $service->status();
+        echo 'Database migration state: ' . $status['kind'] . PHP_EOL;
+        foreach ($status['migrations'] as $migration) {
+            printf("  %03d  %-8s  %s\n", $migration['sequence'], $migration['state'] ?? 'unknown', $migration['filename']);
+            $row = $status['rows'][$migration['sequence']] ?? null;
+            if ($row !== null && !empty($row['error_summary'])) {
+                echo '       Error: ' . $row['error_summary'] . PHP_EOL;
+            }
+        }
+        foreach ($status['problems'] as $problem) {
+            echo '  ! ' . $problem . PHP_EOL;
+        }
+        exit($status['healthy'] ? 0 : 2);
+    }
+
+    if ($command === 'adopt') {
+        if (!$has('--yes')) {
+            throw new RuntimeException('Adoption requires --yes after reviewing the schema and taking a backup.');
+        }
+        $service->adopt();
+        $adoptedStatus = $service->status();
+        $pendingCount = count(array_filter($adoptedStatus['migrations'], static fn(array $migration): bool => ($migration['state'] ?? '') === 'pending'));
+        echo "Legacy migration effects inspected and migration ledger created.\n";
+        if ($pendingCount > 0) {
+            echo $pendingCount . " migration(s) remain pending. Run status, take a backup, then run migrate --backup-confirmed.\n";
+        }
+        exit(0);
+    }
+
+    if ($command === 'migrate') {
+        if ($retry !== null && ($retry < 1 || $retry > 999)) {
+            throw new RuntimeException('--retry must be a migration sequence from 001 to 999.');
+        }
+        $status = $service->status();
+        $pending = array_filter($status['migrations'], static fn(array $migration): bool => ($migration['state'] ?? '') === 'pending');
+        if ($pending !== []) {
+            echo "Pending migrations:\n";
+            foreach ($pending as $migration) {
+                printf("  %03d %s\n", $migration['sequence'], $migration['filename']);
+            }
+        }
+        $service->migrate($has('--backup-confirmed'), $retry, static fn(string $line) => print($line . PHP_EOL));
+        echo "Database migrations are current.\n";
+        exit(0);
+    }
+
+} catch (Throwable $error) {
+    fwrite(STDERR, 'Database upgrade failed: ' . $error->getMessage() . PHP_EOL);
+    exit(1);
+}

@@ -22,5 +22,5 @@
 ?>
 <div class="plugin-global-settings-form">
     <h3><?= e(__('plugins.screen-meta.global_config.title')) ?></h3>
-    <p class="muted"><?= e(__('plugins.screen-meta.global_config.hello')) ?></p>
+    <p class="text-body-secondary muted"><?= e(__('plugins.screen-meta.global_config.hello')) ?></p>
 </div>

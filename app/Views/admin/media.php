@@ -1,10 +1,11 @@
 <?php
 $uploadForm = 'media_upload';
 $title = __('media.title');
+$breadcrumbs = [['label' => $title]];
 require __DIR__ . '/../layouts/admin_header.php';
 ?>
-<?php if ($flash): ?><div class="alert success"><?= e($flash) ?></div><?php endif; ?>
-<?php if ($error): ?><div class="alert error"><?= e($error) ?></div><?php endif; ?>
+<?php if ($flash): ?><div class="alert alert-success success"><?= e($flash) ?></div><?php endif; ?>
+<?php if ($error): ?><div class="alert alert-danger error"><?= e($error) ?></div><?php endif; ?>
 
 <?php
 $baseMediaUrl = url('/admin/media');
@@ -20,12 +21,12 @@ $fontPreviewText = __('media.font_preview_default', [], 'The quick brown fox jum
 
 
 <div class="grid-2">
-    <div class="card">
+    <div class="card shadow-sm">
         <h2><?= e(__('media.upload_title')) ?></h2>
         <form method="post" action="<?= e(url('/admin/media/upload')) ?>" enctype="multipart/form-data" class="form-grid">
             <?= csrf_field() ?>
             <label><?= e(__('common.name')) ?>
-                <input type="text" name="name" value="<?= e((string)old('name', '', $uploadForm)) ?>" placeholder="<?= e(__('media.name_placeholder')) ?>"<?= field_attrs('name', $uploadForm) ?>>
+                <input class="form-control" type="text" name="name" value="<?= e((string)old('name', '', $uploadForm)) ?>" placeholder="<?= e(__('media.name_placeholder')) ?>"<?= field_attrs('name', $uploadForm) ?>>
                 <?= field_error_html('name', $uploadForm) ?>
             </label>
             <label><?= e(__('media.file')) ?>
@@ -34,15 +35,15 @@ $fontPreviewText = __('media.font_preview_default', [], 'The quick brown fox jum
                 <small id="<?= e(field_note_id('media_file', $uploadForm)) ?>" class="field-note"><?= e(__('forms.file_reselect_hint')) ?></small>
             </label>
             <label class="full-width"><?= e(__('media.license_note')) ?>
-                <textarea name="license_note" rows="3"<?= field_attrs('license_note', $uploadForm) ?>><?= e((string)old('license_note', '', $uploadForm)) ?></textarea>
+                <textarea class="form-control" name="license_note" rows="3"<?= field_attrs('license_note', $uploadForm) ?>><?= e((string)old('license_note', '', $uploadForm)) ?></textarea>
                 <?= field_error_html('license_note', $uploadForm) ?>
                 <small class="field-note"><?= e(__('media.font_license_warning')) ?></small>
             </label>
-            <button type="submit" class="button button--default"><?= admin_icon('upload') ?><span><?= e(__('media.upload_title')) ?></span></button>
+            <button type="submit" class="btn btn-primary"><?= admin_icon('upload') ?><span><?= e(__('media.upload_title')) ?></span></button>
         </form>
     </div>
 
-    <div class="card">
+    <div class="card shadow-sm">
         <h2><?= e(__('media.notes_title')) ?></h2>
         <ul class="list">
             <li><?= e(__('media.allowed_formats')) ?></li>
@@ -69,9 +70,9 @@ $fontPreviewText = __('media.font_preview_default', [], 'The quick brown fox jum
     </style>
 <?php endif; ?>
 
-<div class="card">
+<div class="card shadow-sm">
     <div class="table-scroll">
-        <table class="admin-table media-table" data-admin-table>
+        <table class="table table-hover align-middle admin-table media-table" data-admin-table>
             <thead>
             <tr>
                 <th><?= e(__('common.preview')) ?></th>
@@ -84,11 +85,11 @@ $fontPreviewText = __('media.font_preview_default', [], 'The quick brown fox jum
             </tr>
             <tr class="slide-library-filter-row">
                 <th></th>
-                <th><input type="search" data-admin-filter="name" aria-label="<?= e(__('slide.filter_column', ['column' => __('common.name')])) ?>" placeholder="<?= e(__('common.name')) ?>"></th>
-                <th><input type="search" data-admin-filter="type" aria-label="<?= e(__('slide.filter_column', ['column' => __('common.type')])) ?>" placeholder="<?= e(__('common.type')) ?>"></th>
-                <th><input type="search" data-admin-filter="size" aria-label="<?= e(__('slide.filter_column', ['column' => __('common.size', [], 'Size')])) ?>" placeholder="<?= e(__('common.size', [], 'Size')) ?>"></th>
-                <th><input type="search" data-admin-filter="usage" aria-label="<?= e(__('slide.filter_column', ['column' => __('media.used_by_slides')])) ?>" placeholder="<?= e(__('media.used_by_slides')) ?>"></th>
-                <th><input type="search" data-admin-filter="uploaded_by" aria-label="<?= e(__('slide.filter_column', ['column' => __('media.uploaded_by')])) ?>" placeholder="<?= e(__('media.uploaded_by')) ?>"></th>
+                <th><input class="form-control" type="search" data-admin-filter="name" aria-label="<?= e(__('slide.filter_column', ['column' => __('common.name')])) ?>" placeholder="<?= e(__('common.name')) ?>"></th>
+                <th><input class="form-control" type="search" data-admin-filter="type" aria-label="<?= e(__('slide.filter_column', ['column' => __('common.type')])) ?>" placeholder="<?= e(__('common.type')) ?>"></th>
+                <th><input class="form-control" type="search" data-admin-filter="size" aria-label="<?= e(__('slide.filter_column', ['column' => __('common.size', [], 'Size')])) ?>" placeholder="<?= e(__('common.size', [], 'Size')) ?>"></th>
+                <th><input class="form-control" type="search" data-admin-filter="usage" aria-label="<?= e(__('slide.filter_column', ['column' => __('media.used_by_slides')])) ?>" placeholder="<?= e(__('media.used_by_slides')) ?>"></th>
+                <th><input class="form-control" type="search" data-admin-filter="uploaded_by" aria-label="<?= e(__('slide.filter_column', ['column' => __('media.uploaded_by')])) ?>" placeholder="<?= e(__('media.uploaded_by')) ?>"></th>
                 <th></th>
             </tr>
             </thead>
@@ -161,13 +162,19 @@ $fontPreviewText = __('media.font_preview_default', [], 'The quick brown fox jum
                     <td data-admin-cell="usage" data-sort-value="<?= e((string)$asset['usage_count']) ?>" data-filter-value="<?= e((string)$asset['usage_count']) ?>"><?= e((string)$asset['usage_count']) ?></td>
                     <td class="break-word" data-admin-cell="uploaded_by" data-sort-value="<?= e($assetUploadedBy) ?>" data-filter-value="<?= e($assetUploadedBy) ?>"><?= e($assetUploadedBy) ?></td>
                     <td class="actions">
-                        <button type="button" class="button button--normal button--small" data-media-preview-open><?= admin_icon('open') ?><span><?= e(__('common.open')) ?></span></button>
+                        <div class="admin-action-groups">
+                            <div class="btn-group btn-group-sm admin-action-group" role="group" aria-label="<?= e(__('common.actions') . ' ' . $asset['name']) ?>">
+                        <button type="button" class="btn btn-primary" data-media-preview-open aria-label="<?= e(__('common.open') . ' ' . $asset['name']) ?>" title="<?= e(__('common.open')) ?>"><?= admin_icon('open') ?></button>
+                        </div>
                         <?php if (in_array(current_user_role(), ['admin', 'editor'], true)): ?>
+                        <div class="btn-group btn-group-sm admin-action-group" role="group" aria-label="<?= e(__('common.delete')) ?>">
                             <form method="post" action="<?= e(url('/admin/media/' . $asset['id'] . '/delete')) ?>" class="inline-form" data-dialog-submit data-dialog-title="<?= e(__('common.delete')) ?>" data-dialog-message="<?= e(__('media.delete_confirm')) ?>" data-dialog-icon="trash" data-dialog-buttons="cancel,delete" data-dialog-accept="<?= e(__('common.delete')) ?>">
                                 <?= csrf_field() ?>
-                                <button type="submit" class="button button--danger button--small"><?= admin_icon('delete') ?><span><?= e(__('common.delete')) ?></span></button>
+                                <button type="submit" class="btn btn-danger" aria-label="<?= e(__('common.delete') . ' ' . $asset['name']) ?>" title="<?= e(__('common.delete')) ?>"><?= admin_icon('delete') ?></button>
                             </form>
+                        </div>
                         <?php endif; ?>
+                        </div>
                     </td>
                 </tr>
             <?php endforeach; ?>
@@ -180,13 +187,13 @@ $fontPreviewText = __('media.font_preview_default', [], 'The quick brown fox jum
     <div class="pagination">
         <div>
             <?php if ($page > 1): ?>
-                <a class="button button--normal button--small" href="<?= e($prevPageUrl) ?>"><?= e(__('media.previous_page')) ?></a>
+                <a class="btn btn-outline-secondary btn-sm" href="<?= e($prevPageUrl) ?>"><?= e(__('media.previous_page')) ?></a>
             <?php endif; ?>
         </div>
         <div class="pagination-info"><?= e(__('media.page_of', ['page' => $page, 'count' => $pageCount])) ?></div>
         <div>
             <?php if ($page < $pageCount): ?>
-                <a class="button button--normal button--small" href="<?= e($nextPageUrl) ?>"><?= e(__('media.next_page')) ?></a>
+                <a class="btn btn-outline-secondary btn-sm" href="<?= e($nextPageUrl) ?>"><?= e(__('media.next_page')) ?></a>
             <?php endif; ?>
         </div>
     </div>
@@ -210,7 +217,7 @@ $fontPreviewText = __('media.font_preview_default', [], 'The quick brown fox jum
                     <p id="media-preview-description" class="media-preview-kind" data-media-preview-kind></p>
                     <h2 id="media-preview-title" data-media-preview-title></h2>
                 </div>
-                <button type="button" class="button button--normal button--small button--icon-only" data-media-preview-close aria-label="<?= e(__('common.close')) ?>">
+                <button type="button" class="btn btn-secondary" data-media-preview-close aria-label="<?= e(__('common.close')) ?>" title="<?= e(__('common.close')) ?>">
                     <?= admin_icon('cancel') ?>
                 </button>
             </div>
@@ -277,7 +284,7 @@ $fontPreviewText = __('media.font_preview_default', [], 'The quick brown fox jum
                 </div>
             </dl>
             <label class="media-font-preview-control" data-media-preview-font-control hidden><?= e(__('media.font_preview_text')) ?>
-                <textarea rows="3" data-media-preview-font-input><?= e($fontPreviewText) ?></textarea>
+                <textarea class="form-control" rows="3" data-media-preview-font-input><?= e($fontPreviewText) ?></textarea>
             </label>
         </aside>
     </div>

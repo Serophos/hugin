@@ -41,6 +41,12 @@ class PluginApi
         return $this->plugins->loadSlideSettings($slideId, $pluginName);
     }
 
+    /** @return list<array{slide_id:int,settings:array}> */
+    public function listActiveSlideSettings(string $pluginName, string $slideType): array
+    {
+        return $this->plugins->listActiveSlideSettings($pluginName, $slideType);
+    }
+
     public function saveSlideSettings(int $slideId, string $pluginName, array $settings): void
     {
         $this->plugins->saveSlideSettings($slideId, $pluginName, $settings);

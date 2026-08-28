@@ -317,15 +317,12 @@ class TemplateSlideService
         [$landscape, $portrait] = $this->decodeTemplateSpecs($template);
         $spec = $orientation === 'vertical' && $portrait !== null ? $portrait : $landscape;
 
-        $canvas = $spec['canvas'];
-        $ratio = max(0.1, ((int)$canvas['width']) / max(1, (int)$canvas['height']));
         $fields = $this->fieldsForSpecs($landscape, $portrait);
         $fieldMap = [];
         foreach ($fields as $field) {
             $fieldMap[(string)$field['key']] = $field;
         }
         $templateStyle = [
-            '--template-stage-ratio: ' . (string)$ratio,
             '--template-background-color: ' . $this->templateBackgroundColor($spec),
         ];
 
@@ -335,7 +332,7 @@ class TemplateSlideService
         $elements = $spec['elements'];
         usort($elements, static fn(array $a, array $b): int => ((int)($a['z'] ?? 0)) <=> ((int)($b['z'] ?? 0)));
         foreach ($elements as $element) {
-            $html .= $this->renderElement($element, $values, $fieldMap, $ratio);
+            $html .= $this->renderElement($element, $values, $fieldMap);
         }
 
         $html .= '</div></div>';
@@ -726,14 +723,14 @@ class TemplateSlideService
         ];
     }
 
-    private function renderElement(array $element, array $values, array $fieldMap, float $ratio): string
+    private function renderElement(array $element, array $values, array $fieldMap): string
     {
         $type = (string)$element['type'];
         $style = is_array($element['style'] ?? null) ? $element['style'] : [];
         $field = (string)($element['field'] ?? '');
         $value = $field !== '' ? ($values[$field] ?? ($fieldMap[$field]['default'] ?? '')) : (string)($element['staticText'] ?? '');
         $classes = 'template-slide__element template-slide__element--' . $type . $this->animationClasses($element);
-        $styleAttr = $this->elementStyle($element, $style, $ratio);
+        $styleAttr = $this->elementStyle($element, $style);
         $animationAttr = $this->animationAttributes($element);
 
         if ($type === 'background') {
@@ -856,13 +853,12 @@ class TemplateSlideService
         return $classes === [] ? '' : ' ' . implode(' ', $classes);
     }
 
-    private function elementStyle(array $element, array $style, float $ratio): string
+    private function elementStyle(array $element, array $style): string
     {
         $x = (float)$element['x'];
         $y = (float)$element['y'];
         $w = (float)$element['w'];
         $h = (float)$element['h'];
-        $stageHeightCqw = 100 / max(0.1, $ratio);
         $css = [
             'left:' . ($x * 100) . '%',
             'top:' . ($y * 100) . '%',
@@ -871,8 +867,8 @@ class TemplateSlideService
             'z-index:' . (int)$element['z'],
             '--template-slide-from-left:' . (-($x + $w) * 100) . 'cqw',
             '--template-slide-from-right:' . ((1 - $x) * 100) . 'cqw',
-            '--template-slide-from-top:' . (-($y + $h) * $stageHeightCqw) . 'cqw',
-            '--template-slide-from-bottom:' . ((1 - $y) * $stageHeightCqw) . 'cqw',
+            '--template-slide-from-top:' . (-($y + $h) * 100) . 'cqh',
+            '--template-slide-from-bottom:' . ((1 - $y) * 100) . 'cqh',
         ];
         if (!empty($style['color'])) {
             $css[] = 'color:' . (string)$style['color'];

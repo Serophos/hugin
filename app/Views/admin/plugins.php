@@ -1,5 +1,6 @@
 <?php
 $title = __('plugins.title');
+$breadcrumbs = [['label' => $title]];
 $pluginDialogStrings = [
     'title' => __('plugins.disable_impact_title'),
     'message' => __('plugins.disable_impact_message'),
@@ -12,14 +13,14 @@ $pluginDialogStrings = [
 ];
 require __DIR__ . '/../layouts/admin_header.php';
 ?>
-<?php if ($flash): ?><div class="alert success"><?= e($flash) ?></div><?php endif; ?>
-<?php if ($error): ?><div class="alert error"><?= e($error) ?></div><?php endif; ?>
-<div class="card">
+<?php if ($flash): ?><div class="alert alert-success success"><?= e($flash) ?></div><?php endif; ?>
+<?php if ($error): ?><div class="alert alert-danger error"><?= e($error) ?></div><?php endif; ?>
+<div class="card shadow-sm">
     <?php if (!$plugins): ?>
-        <p class="muted"><?= e(__('plugins.none_discovered')) ?></p>
+        <p class="text-body-secondary muted"><?= e(__('plugins.none_discovered')) ?></p>
     <?php else: ?>
         <div class="table-scroll">
-        <table class="admin-table admin-table--plugins" data-admin-table>
+        <table class="table table-hover align-middle admin-table admin-table--plugins" data-admin-table>
             <thead>
             <tr>
                 <th aria-sort="none"><button type="button" class="slide-library-sort" data-admin-sort="name" data-sort-type="text" aria-label="<?= e(__('slide.sort_by_column', ['column' => __('common.name')])) ?>"><?= e(__('common.name')) ?></button></th>
@@ -30,12 +31,12 @@ require __DIR__ . '/../layouts/admin_header.php';
                 <th><?= e(__('common.actions')) ?></th>
             </tr>
             <tr class="slide-library-filter-row">
-                <th><input type="search" data-admin-filter="name" aria-label="<?= e(__('slide.filter_column', ['column' => __('common.name')])) ?>" placeholder="<?= e(__('common.name')) ?>"></th>
-                <th><input type="search" data-admin-filter="type" aria-label="<?= e(__('slide.filter_column', ['column' => __('slide.slide_type')])) ?>" placeholder="<?= e(__('slide.slide_type')) ?>"></th>
-                <th><input type="search" data-admin-filter="version" aria-label="<?= e(__('slide.filter_column', ['column' => __('common.version', [], 'Version')])) ?>" placeholder="<?= e(__('common.version', [], 'Version')) ?>"></th>
-                <th><input type="search" data-admin-filter="description" aria-label="<?= e(__('slide.filter_column', ['column' => __('plugins.description')])) ?>" placeholder="<?= e(__('plugins.description')) ?>"></th>
+                <th><input class="form-control" type="search" data-admin-filter="name" aria-label="<?= e(__('slide.filter_column', ['column' => __('common.name')])) ?>" placeholder="<?= e(__('common.name')) ?>"></th>
+                <th><input class="form-control" type="search" data-admin-filter="type" aria-label="<?= e(__('slide.filter_column', ['column' => __('slide.slide_type')])) ?>" placeholder="<?= e(__('slide.slide_type')) ?>"></th>
+                <th><input class="form-control" type="search" data-admin-filter="version" aria-label="<?= e(__('slide.filter_column', ['column' => __('common.version', [], 'Version')])) ?>" placeholder="<?= e(__('common.version', [], 'Version')) ?>"></th>
+                <th><input class="form-control" type="search" data-admin-filter="description" aria-label="<?= e(__('slide.filter_column', ['column' => __('plugins.description')])) ?>" placeholder="<?= e(__('plugins.description')) ?>"></th>
                 <th>
-                    <select data-admin-filter="status" aria-label="<?= e(__('slide.filter_column', ['column' => __('plugins.status')])) ?>">
+                    <select class="form-select" data-admin-filter="status" aria-label="<?= e(__('slide.filter_column', ['column' => __('plugins.status')])) ?>">
                         <option value=""><?= e(__('slide.filter_all_statuses')) ?></option>
                         <option value="enabled"><?= e(__('common.enabled')) ?></option>
                         <option value="disabled"><?= e(__('common.disabled')) ?></option>
@@ -59,7 +60,8 @@ require __DIR__ . '/../layouts/admin_header.php';
                     <td data-admin-cell="description" data-sort-value="<?= e((string)$plugin['description']) ?>" data-filter-value="<?= e((string)$plugin['description']) ?>"><?= e($plugin['description']) ?></td>
                     <td data-admin-cell="status" data-sort-value="<?= e($statusLabel) ?>" data-filter-value="<?= e($statusValue) ?>"><?= e($statusLabel) ?></td>
                     <td class="actions">
-                        <a class="button button--normal button--small" href="<?= e(url('/admin/plugins/' . $plugin['plugin_name'] . '/settings')) ?>"><?= admin_icon('settings') ?><span><?= e(__('plugins.configure')) ?></span></a>
+                        <div class="btn-group btn-group-sm admin-action-group" role="group" aria-label="<?= e(__('common.actions') . ' ' . $plugin['display_name']) ?>">
+                        <a class="btn btn-primary" href="<?= e(url('/admin/plugins/' . $plugin['plugin_name'] . '/settings')) ?>" aria-label="<?= e(__('plugins.configure') . ' ' . $plugin['display_name']) ?>" title="<?= e(__('plugins.configure')) ?>"><?= admin_icon('settings') ?></a>
                         <form
                             method="post"
                             action="<?= e(url('/admin/plugins/' . $plugin['plugin_name'] . '/toggle')) ?>"
@@ -73,8 +75,9 @@ require __DIR__ . '/../layouts/admin_header.php';
                             <?= csrf_field() ?>
                             <input type="hidden" name="enable" value="<?= $plugin['is_enabled'] ? '0' : '1' ?>">
                             <input type="hidden" name="confirm_slide_deactivation" value="0" data-plugin-disable-confirm-input>
-                            <button type="submit" class="button button--normal button--small"><?= admin_icon($plugin['is_enabled'] ? 'cancel' : 'add') ?><span><?= e($plugin['is_enabled'] ? __('plugins.disable') : __('plugins.enable')) ?></span></button>
+                            <button type="submit" class="btn <?= $plugin['is_enabled'] ? 'btn-danger' : 'btn-success' ?>" aria-label="<?= e(($plugin['is_enabled'] ? __('plugins.disable') : __('plugins.enable')) . ' ' . $plugin['display_name']) ?>" title="<?= e($plugin['is_enabled'] ? __('plugins.disable') : __('plugins.enable')) ?>"><?= admin_icon($plugin['is_enabled'] ? 'toggle-off' : 'toggle-on') ?></button>
                         </form>
+                        </div>
                     </td>
                 </tr>
             <?php endforeach; ?>

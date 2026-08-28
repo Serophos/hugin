@@ -10,6 +10,7 @@ const { renderToStaticMarkup } = require('react-dom/server');
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, '..');
 const iconDir = path.join(rootDir, 'public/assets/icons/admin');
+const bootstrapIconDir = path.join(rootDir, 'node_modules/bootstrap-icons/icons');
 const checkOnly = process.argv.includes('--check');
 
 const icons = [
@@ -17,6 +18,8 @@ const icons = [
   ['back', 'direction/ArowBack'],
   ['cancel', 'application/Close'],
   ['check', 'application/Check'],
+  ['chevron-down', 'legacy/ChevronDown'],
+  ['chevron-up', 'legacy/ChevronUp'],
   ['delete', 'action/Trash'],
   ['dialog-error', 'application/Danger'],
   ['dialog-exclamation', 'legacy/ExclamationCircle'],
@@ -25,21 +28,50 @@ const icons = [
   ['dialog-trash', 'action/Trash'],
   ['dialog-warning', 'status/WarningRound'],
   ['edit', 'action/Edit'],
+  ['history', 'time/History'],
   ['login', 'legacy/SignIn'],
   ['logout', 'legacy/SignOut'],
   ['manage', 'action/Gear'],
   ['menu', 'application/Menu'],
   ['move', 'action/Dragable'],
   ['open', 'legacy/ExternalLink'],
+  ['primary-display', 'status/RemindRound'],
   ['preview', 'status/Visible'],
   ['reload', 'action/Reload'],
   ['remove', 'action/Minus'],
   ['save', 'action/Save'],
   ['settings', 'action/Setting'],
+  ['arrow-left-right', 'bootstrap/arrow-left-right'],
+  ['calendar-date', 'bootstrap/calendar-date'],
+  ['card-image', 'bootstrap/card-image'],
+  ['card-text', 'bootstrap/card-text'],
+  ['circle', 'bootstrap/circle'],
+  ['diamond', 'bootstrap/diamond'],
+  ['hexagon', 'bootstrap/hexagon'],
+  ['pentagon', 'bootstrap/pentagon'],
+  ['play', 'bootstrap/play-fill'],
+  ['qr-code', 'bootstrap/qr-code'],
+  ['slash-square', 'bootstrap/slash-square'],
+  ['square', 'bootstrap/square'],
+  ['star', 'bootstrap/star'],
+  ['stopwatch', 'bootstrap/stopwatch'],
+  ['textarea-t', 'bootstrap/textarea-t'],
+  ['toggle-off', 'bootstrap/toggle-off'],
+  ['toggle-on', 'bootstrap/toggle-on'],
+  ['triangle', 'bootstrap/triangle'],
   ['upload', 'action/FileUpload']
 ];
 
-function renderIcon(source) {
+async function renderIcon(source) {
+  if (source.startsWith('bootstrap/')) {
+    const iconName = source.slice('bootstrap/'.length);
+    const markup = (await fs.readFile(path.join(bootstrapIconDir, iconName + '.svg'), 'utf8')).trim();
+    return [
+      '<!-- Generated from bootstrap-icons by scripts/build-admin-icons.mjs. Do not edit directly. -->',
+      markup,
+      ''
+    ].join('\n');
+  }
   const module = require(`@rsuite/icon-font/lib/${source}`);
   const Icon = module.default || module;
   const markup = renderToStaticMarkup(
@@ -77,7 +109,7 @@ async function main() {
 
   for (const [name, source] of icons) {
     const target = path.join(iconDir, `${name}.svg`);
-    const next = renderIcon(source);
+    const next = await renderIcon(source);
 
     if (checkOnly) {
       const current = await readText(target);

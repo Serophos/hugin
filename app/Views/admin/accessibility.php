@@ -1,5 +1,9 @@
-<?php $title = __('accessibility.title', [], 'Accessibility statement'); require __DIR__ . '/../layouts/admin_header.php'; ?>
-<p class="muted"><?= e(__('accessibility.intro', [], 'This statement documents the accessibility target and feedback channels for the Hugin admin backend.')) ?></p>
+<?php
+$title = __('accessibility.title', [], 'Accessibility statement');
+$breadcrumbs = [['label' => $title]];
+require __DIR__ . '/../layouts/admin_header.php';
+?>
+<p class="text-body-secondary muted"><?= e(__('accessibility.intro', [], 'This statement documents the accessibility target and feedback channels for the Hugin admin backend.')) ?></p>
 
 <section class="card accessibility-statement" aria-labelledby="accessibility-target">
     <h2 id="accessibility-target"><?= e(__('accessibility.target_heading', [], 'Compliance target')) ?></h2>
@@ -24,15 +28,15 @@
     <?php if ($settings['contact_email'] !== ''): ?>
         <p><?= e(__('accessibility.contact_email_text', [], 'Report accessibility barriers by email:')) ?> <a href="mailto:<?= e($settings['contact_email']) ?>"><?= e($settings['contact_email']) ?></a></p>
     <?php else: ?>
-        <p class="alert warning"><?= e(__('accessibility.contact_missing', [], 'No accessibility contact email has been configured yet. Add one in Global settings before publishing this statement.')) ?></p>
+        <p class="alert alert-warning warning"><?= e(__('accessibility.contact_missing', [], 'No accessibility contact email has been configured yet. Add one in Global settings before publishing this statement.')) ?></p>
     <?php endif; ?>
     <?php if ($settings['feedback_url'] !== ''): ?>
-        <p><a class="button button--normal" href="<?= e($settings['feedback_url']) ?>" target="_blank" rel="noopener noreferrer"><?= admin_icon('open') ?><span><?= e(__('accessibility.feedback_link', [], 'Open feedback form')) ?></span></a></p>
+        <p><a class="btn btn-outline-secondary" href="<?= e($settings['feedback_url']) ?>" target="_blank" rel="noopener noreferrer"><?= admin_icon('open') ?><span><?= e(__('accessibility.feedback_link', [], 'Open feedback form')) ?></span></a></p>
     <?php endif; ?>
     <?php if ($settings['enforcement_url'] !== ''): ?>
         <p><?= e(__('accessibility.enforcement_text', [], 'If feedback is not handled satisfactorily, contact the responsible enforcement body:')) ?> <a href="<?= e($settings['enforcement_url']) ?>" target="_blank" rel="noopener noreferrer"><?= e($settings['enforcement_url']) ?></a></p>
     <?php else: ?>
-        <p class="muted"><?= e(__('accessibility.enforcement_missing', [], 'No enforcement body URL has been configured yet.')) ?></p>
+        <p class="text-body-secondary muted"><?= e(__('accessibility.enforcement_missing', [], 'No enforcement body URL has been configured yet.')) ?></p>
     <?php endif; ?>
 </section>
 

@@ -6,6 +6,7 @@ namespace Plugins\Tl1Menu;
 
 use App\Core\AbstractSlidePlugin;
 use App\Core\PluginApi;
+use App\Core\ScheduledTaskProviderInterface;
 use Plugins\Tl1Menu\Menu\MenuRepository;
 use Plugins\Tl1Menu\Menu\MenuService;
 use Plugins\Tl1Menu\Menu\MensaXmlParser;
@@ -18,7 +19,7 @@ require_once __DIR__ . '/Menu/MenuRepository.php';
 require_once __DIR__ . '/Menu/MenuService.php';
 require_once __DIR__ . '/Setup/Tl1SetupAnalyzer.php';
 
-class Plugin extends AbstractSlidePlugin
+class Plugin extends AbstractSlidePlugin implements ScheduledTaskProviderInterface
 {
     private ?MenuService $service = null;
     private const CATEGORY_ICON_STEM_RENAMES = [
@@ -386,8 +387,37 @@ class Plugin extends AbstractSlidePlugin
             'background_image_mode' => $settings['background_image_mode'],
             'background_media_asset_id' => $settings['background_media_asset_id'],
             'show_header' => (bool)$settings['show_header'],
+            'menu_content_revision' => $this->menuRepository($globalSettings, $api)->contentRevision(),
             'global' => $globalSettings,
         ];
+    }
+
+
+    public function getScheduledTasks(PluginApi $api): array
+    {
+        $globalSettings = array_replace($this->getDefaultGlobalSettings(), $api->loadGlobalSettings($this->getName()));
+        if (trim((string)($globalSettings['menu_url'] ?? '')) === '') {
+            return [];
+        }
+
+        $interval = max(60, (int)($globalSettings['cache_ttl'] ?? 1800));
+        return [[
+            'name' => 'refresh-menu',
+            'interval_seconds' => $interval,
+            'retry_seconds' => min($interval, 300),
+        ]];
+    }
+
+    public function runScheduledTask(string $taskName, PluginApi $api): void
+    {
+        if ($taskName !== 'refresh-menu') {
+            throw new RuntimeException('Unknown TL1 scheduled task: ' . $taskName);
+        }
+        $globalSettings = array_replace($this->getDefaultGlobalSettings(), $api->loadGlobalSettings($this->getName()));
+        if (trim((string)($globalSettings['menu_url'] ?? '')) === '') {
+            throw new RuntimeException('TL1 menu URL is not configured.');
+        }
+        $this->menuRepository($globalSettings, $api)->refreshCache(false);
     }
 
     public function handleAdminAction(string $action, array $input, PluginApi $api): array
@@ -540,6 +570,18 @@ class Plugin extends AbstractSlidePlugin
             $this->service = new MenuService($repository, $config);
         }
         return $this->service;
+    }
+
+
+    /** @param array<string, mixed> $globalSettings */
+    private function menuRepository(array $globalSettings, PluginApi $api): MenuRepository
+    {
+        $config = $this->runtimeConfig($globalSettings);
+        return new MenuRepository(
+            new MensaXmlParser($config),
+            $config,
+            $api->pluginCachePath($this->getName(), 'speiseplan.xml')
+        );
     }
 
     /** @param array<string, mixed> $globalSettings */

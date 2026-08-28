@@ -1,6 +1,10 @@
 <?php
 $formId = 'channel';
 $title = $channel ? __('channel.edit_title') : __('channel.create_title');
+$breadcrumbs = [
+    ['label' => __('channel.plural'), 'url' => '/admin/playlists'],
+    ['label' => $channel ? $channel['name'] : __('channel.create_title')],
+];
 $prefillAssignment = is_array($prefillAssignment ?? null) ? $prefillAssignment : null;
 if (form_has_old($formId)) {
     $displayValues = old_array('assignment_display_id', [], $formId);
@@ -26,16 +30,16 @@ if (form_has_old($formId)) {
 }
 require __DIR__ . '/../layouts/admin_header.php';
 ?>
-<?php if ($error): ?><div class="alert error"><?= e($error) ?></div><?php endif; ?>
-<div class="card">
+<?php if ($error): ?><div class="alert alert-danger error"><?= e($error) ?></div><?php endif; ?>
+<div class="card shadow-sm">
     <form method="post" action="<?= e($channel ? url('/admin/playlists/' . $channel['id'] . '/edit') : url('/admin/playlists/create')) ?>" class="form-grid">
         <?= csrf_field() ?>
         <label><?= e(__('common.name')) ?>
-            <input type="text" name="name" value="<?= e((string)old('name', $channel['name'] ?? '', $formId)) ?>" placeholder="<?= e(__('channel.name_placeholder')) ?>" required<?= field_attrs('name', $formId) ?>>
+            <input class="form-control" type="text" name="name" value="<?= e((string)old('name', $channel['name'] ?? '', $formId)) ?>" placeholder="<?= e(__('channel.name_placeholder')) ?>" required<?= field_attrs('name', $formId) ?>>
             <?= field_error_html('name', $formId) ?>
         </label>
         <label><?= e(__('channel.transition_effect')) ?>
-            <select name="transition_effect"<?= field_attrs('transition_effect', $formId) ?>>
+            <select class="form-select" name="transition_effect"<?= field_attrs('transition_effect', $formId) ?>>
                 <?php foreach (['inherit','fade','slide-left','slide-right','slide-up','slide-down','zoom','flip','blur','none'] as $fx): ?>
                     <option value="<?= e($fx) ?>" <?= old_selected('transition_effect', $fx, $channel['transition_effect'] ?? 'inherit', $formId) ?>><?= e(enum_label('effects', $fx, $fx)) ?></option>
                 <?php endforeach; ?>
@@ -43,18 +47,18 @@ require __DIR__ . '/../layouts/admin_header.php';
             <?= field_error_html('transition_effect', $formId) ?>
         </label>
         <label><?= e(__('channel.custom_slide_duration')) ?>
-            <input type="number" min="1" name="slide_duration_seconds" value="<?= e((string)old('slide_duration_seconds', $channel['slide_duration_seconds'] ?? '', $formId)) ?>" placeholder="<?= e(__('channel.duration_placeholder')) ?>"<?= field_attrs('slide_duration_seconds', $formId) ?>>
+            <input class="form-control" type="number" min="1" name="slide_duration_seconds" value="<?= e((string)old('slide_duration_seconds', $channel['slide_duration_seconds'] ?? '', $formId)) ?>" placeholder="<?= e(__('channel.duration_placeholder')) ?>"<?= field_attrs('slide_duration_seconds', $formId) ?>>
             <?= field_error_html('slide_duration_seconds', $formId) ?>
         </label>
         <label class="full-width"><?= e(__('common.description')) ?>
-            <textarea name="description" rows="4" placeholder="<?= e(__('channel.description_placeholder')) ?>"<?= field_attrs('description', $formId) ?>><?= e((string)old('description', $channel['description'] ?? '', $formId)) ?></textarea>
+            <textarea class="form-control" name="description" rows="4" placeholder="<?= e(__('channel.description_placeholder')) ?>"<?= field_attrs('description', $formId) ?>><?= e((string)old('description', $channel['description'] ?? '', $formId)) ?></textarea>
             <?= field_error_html('description', $formId) ?>
         </label>
         <label class="checkbox-row"><input type="checkbox" name="is_active" value="1" <?= old_checked('is_active', $channel['is_active'] ?? 1, $formId) ?>> <?= e(__('common.active')) ?></label>
 
         <div class="full-width plugin-settings-card">
             <h3><?= e(__('channel.display_schedule_assignments')) ?></h3>
-            <p class="muted"><?= e(__('channel.assignment_optional_hint')) ?></p>
+            <p class="text-body-secondary muted"><?= e(__('channel.assignment_optional_hint')) ?></p>
             <div id="assignment-list" class="assignment-list">
                 <?php foreach ($assignmentRows as $index => $assignment): ?>
                     <?php
@@ -65,7 +69,7 @@ require __DIR__ . '/../layouts/admin_header.php';
                     ?>
                     <div class="<?= e(implode(' ', $assignmentRowClasses)) ?>">
                         <label><?= e(__('channel.display_monitor')) ?>
-                            <select name="assignment_display_id[]"<?= field_attrs('assignment_display_id.' . $index, $formId) ?>>
+                            <select class="form-select" name="assignment_display_id[]"<?= field_attrs('assignment_display_id.' . $index, $formId) ?>>
                                 <option value=""><?= e(__('channel.display_placeholder')) ?></option>
                                 <?php foreach ($displays as $display): ?>
                                     <option value="<?= e((string)$display['id']) ?>" <?= selected($assignment['display_id'] ?? '', $display['id']) ?>><?= e($display['name']) ?></option>
@@ -74,7 +78,7 @@ require __DIR__ . '/../layouts/admin_header.php';
                             <?= field_error_html('assignment_display_id.' . $index, $formId) ?>
                         </label>
                         <label><?= e(__('schedule.singular')) ?>
-                            <select name="assignment_schedule_id[]"<?= field_attrs('assignment_schedule_id.' . $index, $formId) ?>>
+                            <select class="form-select" name="assignment_schedule_id[]"<?= field_attrs('assignment_schedule_id.' . $index, $formId) ?>>
                                 <option value=""><?= e(__('channel.schedule_placeholder')) ?></option>
                                 <?php foreach ($schedules as $schedule): ?>
                                     <option value="<?= e((string)$schedule['id']) ?>" <?= selected($assignment['schedule_id'] ?? '', $schedule['id']) ?>><?= e($schedule['name']) ?></option>
@@ -90,17 +94,17 @@ require __DIR__ . '/../layouts/admin_header.php';
                                     <span id="assignment-priority-help-<?= e((string)$index) ?>" class="field-help-popover" hidden data-help-popover><?= e(__('channel.priority_help')) ?></span>
                                 </span>
                             </span>
-                            <input type="number" min="1" name="assignment_priority[]" value="<?= e((string)($assignment['priority'] ?? '')) ?>" placeholder="<?= e(__('channel.priority_placeholder')) ?>" title="<?= e(__('channel.priority_help')) ?>"<?= field_attrs('assignment_priority.' . $index, $formId, 'assignment-priority-help-' . $index) ?>>
+                            <input class="form-control" type="number" min="0" name="assignment_priority[]" value="<?= e((string)($assignment['priority'] ?? '')) ?>" placeholder="<?= e(__('channel.priority_placeholder')) ?>" title="<?= e(__('channel.priority_help')) ?>"<?= field_attrs('assignment_priority.' . $index, $formId, 'assignment-priority-help-' . $index) ?>>
                             <?= field_error_html('assignment_priority.' . $index, $formId) ?>
                         </label>
-                        <button type="button" class="button button--normal assignment-remove"><?= admin_icon('remove') ?><span><?= e(__('common.remove')) ?></span></button>
+                        <button type="button" class="btn btn-danger assignment-remove"><?= admin_icon('remove') ?><span><?= e(__('common.remove')) ?></span></button>
                     </div>
                 <?php endforeach; ?>
             </div>
-            <button type="button" class="button button--normal" id="add-assignment"><?= admin_icon('add') ?><span><?= e(__('channel.add_assignment')) ?></span></button>
+            <button type="button" class="btn btn-outline-secondary" id="add-assignment"><?= admin_icon('add') ?><span><?= e(__('channel.add_assignment')) ?></span></button>
         </div>
 
-        <div class="form-actions"><button type="submit" class="button button--default"><?= admin_icon('save') ?><span><?= e(__('common.save')) ?></span></button><a class="button button--normal" href="<?= e(url('/admin/playlists')) ?>"><?= admin_icon('cancel') ?><span><?= e(__('common.cancel')) ?></span></a></div>
+        <div class="form-actions"><button type="submit" class="btn btn-primary"><?= admin_icon('save') ?><span><?= e(__('common.save')) ?></span></button><a class="btn btn-outline-secondary" href="<?= e(url('/admin/playlists')) ?>"><?= admin_icon('cancel') ?><span><?= e(__('common.cancel')) ?></span></a></div>
     </form>
 </div>
 
@@ -109,13 +113,13 @@ require __DIR__ . '/../layouts/admin_header.php';
 $slideTypeCreateUrl = url('/admin/slides/create?channel_id=' . rawurlencode((string)$channel['id']));
 $slideTypeReturnTo = '/admin/playlists/' . $channel['id'] . '/edit';
 ?>
-<div class="card">
+<div class="card shadow-sm">
     <h2><?= e(__('slide.playlist_slides', ['playlist' => $channel['name']])) ?></h2>
     <div class="form-actions playlist-slides-toolbar">
-        <button type="button" class="button button--normal" id="add-existing-slide">
+        <button type="button" class="btn btn-outline-secondary" id="add-existing-slide">
             <?= admin_icon('add') ?><span><?= e(__('slide.add_existing_to_playlist')) ?></span>
         </button>
-        <a class="button button--default" href="<?= e($slideTypeCreateUrl . '&return_to=' . rawurlencode($slideTypeReturnTo)) ?>" data-open-slide-type-dialog data-create-url="<?= e($slideTypeCreateUrl) ?>" data-return-to="<?= e($slideTypeReturnTo) ?>" aria-haspopup="dialog">
+        <a class="btn btn-primary" href="<?= e($slideTypeCreateUrl . '&return_to=' . rawurlencode($slideTypeReturnTo)) ?>" data-open-slide-type-dialog data-create-url="<?= e($slideTypeCreateUrl) ?>" data-return-to="<?= e($slideTypeReturnTo) ?>" aria-haspopup="dialog">
             <?= admin_icon('add') ?><span><?= e(__('slide.create_in_playlist')) ?></span>
         </a>
     </div>
@@ -124,7 +128,7 @@ $slideTypeReturnTo = '/admin/playlists/' . $channel['id'] . '/edit';
         <p class="muted playlist-empty-state"><?= e(__('slide.playlist_empty')) ?></p>
     <?php else: ?>
         <div class="table-scroll">
-            <table class="admin-table playlist-slides-table" data-admin-table>
+            <table class="table table-hover align-middle admin-table playlist-slides-table" data-admin-table>
                 <thead>
                     <tr>
                         <th class="handle-col"></th>
@@ -137,12 +141,12 @@ $slideTypeReturnTo = '/admin/playlists/' . $channel['id'] . '/edit';
                     </tr>
                     <tr class="slide-library-filter-row">
                         <th></th>
-                        <th><input type="search" data-admin-filter="name" aria-label="<?= e(__('slide.filter_column', ['column' => __('common.name')])) ?>" placeholder="<?= e(__('common.name')) ?>"></th>
-                        <th><input type="search" data-admin-filter="type" aria-label="<?= e(__('slide.filter_column', ['column' => __('common.type')])) ?>" placeholder="<?= e(__('common.type')) ?>"></th>
-                        <th><input type="search" data-admin-filter="source" aria-label="<?= e(__('slide.filter_column', ['column' => __('common.source')])) ?>" placeholder="<?= e(__('common.source')) ?>"></th>
-                        <th><input type="search" data-admin-filter="duration" aria-label="<?= e(__('slide.filter_column', ['column' => __('common.duration')])) ?>" placeholder="<?= e(__('common.duration')) ?>"></th>
+                        <th><input class="form-control" type="search" data-admin-filter="name" aria-label="<?= e(__('slide.filter_column', ['column' => __('common.name')])) ?>" placeholder="<?= e(__('common.name')) ?>"></th>
+                        <th><input class="form-control" type="search" data-admin-filter="type" aria-label="<?= e(__('slide.filter_column', ['column' => __('common.type')])) ?>" placeholder="<?= e(__('common.type')) ?>"></th>
+                        <th><input class="form-control" type="search" data-admin-filter="source" aria-label="<?= e(__('slide.filter_column', ['column' => __('common.source')])) ?>" placeholder="<?= e(__('common.source')) ?>"></th>
+                        <th><input class="form-control" type="search" data-admin-filter="duration" aria-label="<?= e(__('slide.filter_column', ['column' => __('common.duration')])) ?>" placeholder="<?= e(__('common.duration')) ?>"></th>
                         <th>
-                            <select data-admin-filter="status" aria-label="<?= e(__('slide.filter_column', ['column' => __('common.status')])) ?>">
+                            <select class="form-select" data-admin-filter="status" aria-label="<?= e(__('slide.filter_column', ['column' => __('common.status')])) ?>">
                                 <option value=""><?= e(__('slide.filter_all_statuses')) ?></option>
                                 <option value="active"><?= e(__('common.active')) ?></option>
                                 <option value="inactive"><?= e(__('common.inactive')) ?></option>
@@ -177,16 +181,22 @@ $slideTypeReturnTo = '/admin/playlists/' . $channel['id'] . '/edit';
                         <td data-admin-cell="duration" data-sort-value="<?= e((string)$durationValue) ?>" data-filter-value="<?= e($durationLabel) ?>"><?= e($durationLabel) ?></td>
                         <td data-admin-cell="status" data-sort-value="<?= e($statusLabel) ?>" data-filter-value="<?= e($statusValue) ?>"><?= e($statusLabel) ?></td>
                         <td class="actions">
-                            <a class="button button--normal button--small" href="<?= e(url('/admin/slides/' . $slide['id'] . '/edit?return_to=' . rawurlencode('/admin/playlists/' . $channel['id'] . '/edit'))) ?>">
-                                <?= admin_icon('edit') ?><span><?= e(__('common.edit')) ?></span>
+                            <div class="admin-action-groups">
+                                <div class="btn-group btn-group-sm admin-action-group" role="group" aria-label="<?= e(__('common.actions') . ' ' . $slide['name']) ?>">
+                            <a class="btn btn-primary" href="<?= e(url('/admin/slides/' . $slide['id'] . '/edit?return_to=' . rawurlencode('/admin/playlists/' . $channel['id'] . '/edit'))) ?>" aria-label="<?= e(__('common.edit') . ' ' . $slide['name']) ?>" title="<?= e(__('common.edit')) ?>">
+                                <?= admin_icon('edit') ?>
                             </a>
-                            <form method="post" action="<?= e(url('/admin/playlists/' . $channel['id'] . '/slides/' . $slide['id'] . '/remove')) ?>" class="inline-form" data-dialog-submit data-dialog-title="<?= e(__('common.remove')) ?>" data-dialog-message="<?= e(__('slide.remove_from_playlist_confirm', ['slide' => $slide['name'], 'playlist' => $channel['name']])) ?>" data-dialog-icon="warning" data-dialog-buttons="cancel,delete" data-dialog-accept="<?= e(__('common.remove')) ?>">
+                            </div>
+                            <div class="btn-group btn-group-sm admin-action-group" role="group" aria-label="<?= e(__('common.delete')) ?>">
+                                <form method="post" action="<?= e(url('/admin/playlists/' . $channel['id'] . '/slides/' . $slide['id'] . '/remove')) ?>" class="inline-form" data-dialog-submit data-dialog-title="<?= e(__('common.remove')) ?>" data-dialog-message="<?= e(__('slide.remove_from_playlist_confirm', ['slide' => $slide['name'], 'playlist' => $channel['name']])) ?>" data-dialog-icon="warning" data-dialog-buttons="cancel,delete" data-dialog-accept="<?= e(__('common.remove')) ?>">
                                 <?= csrf_field() ?>
                                 <input type="hidden" name="return_to" value="<?= e('/admin/playlists/' . $channel['id'] . '/edit') ?>">
-                                <button type="submit" class="button button--danger button--small">
-                                    <?= admin_icon('remove') ?><span><?= e(__('common.remove')) ?></span>
+                                <button type="submit" class="btn btn-danger" aria-label="<?= e(__('common.remove') . ' ' . $slide['name']) ?>" title="<?= e(__('common.remove')) ?>">
+                                    <?= admin_icon('remove') ?>
                                 </button>
                             </form>
+                            </div>
+                            </div>
                         </td>
                     </tr>
                 <?php endforeach; ?>
@@ -204,23 +214,23 @@ $slideTypeReturnTo = '/admin/playlists/' . $channel['id'] . '/edit';
         <div class="section-head">
             <div>
                 <h2 id="slide-picker-title" data-slide-picker-title><?= e(__('slide.add_existing_title', ['playlist' => $channel['name']])) ?></h2>
-                <p id="slide-picker-description" class="muted"><?= e(__('slide.add_existing_hint')) ?></p>
+                <p id="slide-picker-description" class="text-body-secondary muted"><?= e(__('slide.add_existing_hint')) ?></p>
             </div>
-            <button type="button" class="button button--normal button--small" data-slide-picker-close>
+            <button type="button" class="btn btn-outline-secondary btn-sm" data-slide-picker-close>
                 <?= admin_icon('cancel') ?><span><?= e(__('common.cancel')) ?></span>
             </button>
         </div>
         <label class="full-width">
             <?= e(__('common.name')) ?>
-            <input type="search" data-slide-picker-search placeholder="<?= e(__('slide.search_library_placeholder')) ?>">
+            <input class="form-control" type="search" data-slide-picker-search placeholder="<?= e(__('slide.search_library_placeholder')) ?>">
         </label>
         <div class="slide-picker-list" data-slide-picker-list></div>
-        <p class="muted" data-slide-picker-empty hidden><?= e(__('slide.add_existing_empty')) ?></p>
+        <p class="text-body-secondary muted" data-slide-picker-empty hidden><?= e(__('slide.add_existing_empty')) ?></p>
         <div class="form-actions">
-            <button type="button" class="button button--normal" data-slide-picker-close>
+            <button type="button" class="btn btn-outline-secondary" data-slide-picker-close>
                 <?= admin_icon('cancel') ?><span><?= e(__('common.cancel')) ?></span>
             </button>
-            <button type="submit" class="button button--default" data-slide-picker-submit disabled>
+            <button type="submit" class="btn btn-primary" data-slide-picker-submit disabled>
                 <?= admin_icon('add') ?><span><?= e(__('slide.add_selected_to_playlist')) ?></span>
             </button>
         </div>
@@ -379,7 +389,7 @@ $slideTypeReturnTo = '/admin/playlists/' . $channel['id'] . '/edit';
 
         const priorityInput = document.createElement('input');
         priorityInput.type = 'number';
-        priorityInput.min = '1';
+        priorityInput.min = '0';
         priorityInput.name = 'assignment_priority[]';
         priorityInput.value = values.priority || '';
         priorityInput.placeholder = labels.priorityPlaceholder;
@@ -395,7 +405,7 @@ $slideTypeReturnTo = '/admin/playlists/' . $channel['id'] . '/edit';
 
         const removeButton = document.createElement('button');
         removeButton.type = 'button';
-        removeButton.className = 'button button--normal assignment-remove';
+        removeButton.className = 'btn btn-outline-secondary assignment-remove';
         removeButton.textContent = labels.remove;
         row.appendChild(removeButton);
         list.appendChild(row);

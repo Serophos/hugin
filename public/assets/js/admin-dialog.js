@@ -136,7 +136,8 @@
     function renderButton(button) {
         const element = document.createElement('button');
         element.type = 'button';
-        element.className = `button button--${button.variant === 'danger' ? 'danger' : button.variant === 'normal' ? 'normal' : 'default'}`;
+        const variant = button.variant === 'danger' ? 'danger' : button.variant === 'normal' ? 'secondary' : 'primary';
+        element.className = `btn btn-${variant} button button--${button.variant === 'danger' ? 'danger' : button.variant === 'normal' ? 'normal' : 'default'}`;
         element.dataset.dialogButton = button.key;
 
         const iconUrl = buttonIcons[button.icon] || buttonIcons[button.key] || '';
